@@ -1,0 +1,39 @@
+type,question,answer
+hilt,What is the purpose of the root build.gradle.kts in Hilt setup?,Declares the Hilt plugin with version and apply false, making it available to submodules without applying it to the root project.
+hilt,Why use 'apply false' in root build.gradle.kts for Hilt?,Because Hilt plugin is Android-specific - applying to root (non-Android module) causes errors. It registers the plugin for modules to use.
+hilt,What is the Hilt Application class?,A class extending Application annotated with @HiltAndroidApp, registered in AndroidManifest.xml. It initializes the Hilt dependency injection container for the entire app.
+hilt,What happens when Hilt plugin is applied?,Registers tasks for annotation processing, code generation, and integrates with Android build.
+hilt,Why use kapt for Hilt?,Annotation processing - it generates dependency injection code from Hilt annotations during compilation.
+hilt,How to inject dependencies in Hilt,Use @Inject on fields (lateinit var) or constructors (for ViewModels, etc.).
+hilt,What annotation for ViewModels in Hilt?,@HiltViewModel on the class, with @Inject constructor
+hilt,What are Hilt Modules used for in dependency injection?,Hilt Modules are Kotlin objects or classes annotated with Module and InstallIn that tell Hilt how to create dependencies it cannot construct automatically like interfaces database instances or third-party services. They contain Provide functions that return fully constructed instances ready for injection.
+hilt,Which annotation enables dependency injection in Android Activities and Fragments?,AndroidEntryPoint annotation goes on Activities and Fragments to make Hilt generate the necessary component for that screen.
+hilt,What does SingletonComponent mean in Hilt and how does it work?,SingletonComponent provides app-wide singletons meaning objects created by providers in modules installed to SingletonComponent live for the entire app lifetime and get reused everywhere they are injected. Use InstallIn SingletonComponent class for app-level services like repositories or network clients.
+hilt,How does AndroidEntryPoint work for nested screens?,AndroidEntryPoint creates a new Hilt component scoped to that Activity or Fragment inheriting from parent components. Fragments require their parent Activity to also be annotated because Fragment components depend on the Activity component for access to app-wide singletons and shared state.
+build,What is the root build.gradle.kts purpose?,Defines plugins versions and makes them available to all modules
+build,What does apply false mean in root Gradle build file?,Plugin available to all modules but not applied to root project
+build,Why declare plugins in root not app?,Centralized versioning avoids duplication across modules
+build,What does kapt plugin do in module build.gradle.kts?,Enables annotation processing for that module's code generation
+build,Why do two or more Gradle files exist?,Root manages project-wide config, module-level files handle specific modules separately and define dependencies for them
+build,Root Gradle vs app Gradle difference?,Root level Gradle build files declares plugin versions, app applies plugins to the main app module
+build,What syncs after Gradle changes in multi-module?,Android Studio syncs all modules in a multi-module project when you trigger a Gradle sync, but uses incremental caching and module dependency analysis to minimize unnecessary work.
+build,Difference between implementation and kapt in modules?,implementation declares dependencies for module runtime, kapt is running at compile time for this module annotation processing
+build,What is a build variant?,A build variant is the complete configuration Gradle uses to compile a specific APK or AAB from your Android project. It represents one specific combination of build type and product flavors across all flavor dimensions.
+build,What are build types in Android and their purpose?,Build types represent compilation modes like debug and release. Debug enables debugging during development while release is optimized and obfuscated for production.
+build,What is the difference between debug and release build types?,Debug includes debugging tools uses a generic keystore and skips optimization. Release is optimized removes debugging information is obfuscated and must be signed with a production key before Play Store distribution.
+build,What are product flavors and when to use them?,Product flavors create alternative app versions from the same codebase for different markets or configurations like free versus paid or development versus production environments.
+build,How do build variants differ from build types?,Build variants combine one build type with all flavor dimensions. If you have two build types and two flavors you get four variants total.
+build,What is a flavor dimension?,A flavor dimension is a named group of related product flavors. All flavors must be assigned to a dimension and multiple dimensions create variant combinations. For example, flavor dimension 'tier' will contain product flavors 'free' and 'paid', 'environment' dimension will contain 'dev' and 'prod' flavors for separate backend services
+build,What happens with multiple flavor dimensions?,Gradle creates a matrix of all combinations. Two dimensions with two flavors each plus two build types equals eight variants total.
+build,How do you set up a custom build type like staging?,Create a staging entry in buildTypes block inheriting from debug with initWith debug then override properties like manifestPlaceholders or applicationIdSuffix.
+build,What is applicationIdSuffix?,ApplicationIdSuffix appends a string to the package name like com.example.myapp.debug allowing multiple variants on one device without conflicts.
+build,How do you configure flavor specific code?,Create a source directory at src slash flavorname and place Kotlin files there to override or extend the main source set for that flavor.
+build,What is the precedence for Gradle merging configuration?,Build type has highest precedence overriding product flavor which overrides main configuration.
+build,How do you set different API endpoints per build type?,Best way is to use a separate product flavor named environment with values like dev staging and prod. Another option is to use manifestPlaceholders or BuildConfig fields defined in buildTypes to set different endpoints like internal.example.com for debug and api.example.com for release, but this is less desirable.
+build,What does initWith do?,InitWith copies all configuration from another build type as a starting point before you override specific properties.
+build,Why install multiple variants on one device?,Testing lets you compare behavior across environments simultaneously by running debug staging and release builds side by side.
+build,What are typical product flavor use cases?,Free versus paid apps, development versus staging versus production environments, white label applications or regional variants of an app.
+build,How do you specify build type specific dependencies?,Use debugImplementation releaseImplementation or custom variant blocks to include libraries only in certain builds like test libraries in debug only.
+build,What is missingDimensionStrategy?,MissingDimensionStrategy tells Gradle which flavor to use when a dependency library lacks a matching flavor dimension providing a fallback to avoid build failures.
+build,How do build types affect APK signing?,Debug builds use a generic keystore for testing only. Release builds must be manually signed with a production keystore before Play Store upload.
+build,What is versionNameSuffix?,VersionNameSuffix appends a string to the displayed version name like 1.0 dash debug helping users identify which variant they are running.
