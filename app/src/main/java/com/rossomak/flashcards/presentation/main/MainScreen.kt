@@ -46,7 +46,7 @@ private fun MainScreenLoadingPreview() {
     }
 }
 
-@Preview
+@Preview(showBackground = true)
 @Composable
 private fun MainScreenMessagePreview() {
     FlashcardsTheme {
