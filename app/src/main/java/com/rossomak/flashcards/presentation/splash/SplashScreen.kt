@@ -3,17 +3,19 @@ package com.rossomak.flashcards.presentation.splash
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.animateLottieCompositionAsState
+import com.airbnb.lottie.compose.rememberLottieComposition
 
 @Composable
 fun SplashScreen(
@@ -22,10 +24,18 @@ fun SplashScreen(
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val composition by rememberLottieComposition(LottieCompositionSpec.Asset("flashcards_logo.json"))
+    val lottieState = animateLottieCompositionAsState(composition = composition, iterations = 1)
 
     LaunchedEffect(state.isReady) {
         if (state.isReady) {
             onSplashFinished()
+        }
+    }
+
+    LaunchedEffect(lottieState.isAtEnd) {
+        if (lottieState.isAtEnd) {
+            viewModel.onAnimationCompleted()
         }
     }
 
@@ -35,11 +45,10 @@ fun SplashScreen(
             .background(MaterialTheme.colorScheme.primary),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = "Flashcards",
-            color = Color.White,
-            fontSize = 40.sp,
-            fontWeight = FontWeight.Bold
+        LottieAnimation(
+            composition = composition,
+            progress = { lottieState.progress },
+            modifier = Modifier.size(280.dp)
         )
     }
 }
