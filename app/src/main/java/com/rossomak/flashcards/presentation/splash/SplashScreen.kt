@@ -17,13 +17,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.airbnb.lottie.compose.LottieAnimation
 import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
 import com.rossomak.flashcards.R
-import kotlinx.coroutines.delay
 
 private val splashGradient = Brush.linearGradient(
     colors = listOf(Color(0xFF7B2FBE), Color(0xFF2979FF)),
@@ -32,12 +31,22 @@ private val splashGradient = Brush.linearGradient(
 )
 
 @Composable
+fun SplashRoute(
+    onNavigateToMain: () -> Unit,
+    viewModel: SplashViewModel = hiltViewModel()
+) {
+    LaunchedEffect(Unit) {
+        viewModel.navigationEvents.collect { onNavigateToMain() }
+    }
+
+    SplashScreen(onAnimationCompleted = viewModel::onAnimationCompleted)
+}
+
+@Composable
 fun SplashScreen(
-    viewModel: SplashViewModel,
-    onSplashFinished: () -> Unit,
+    onAnimationCompleted: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.flashcards_lottie_splash))
     val lottieState = animateLottieCompositionAsState(
         composition = composition,
@@ -45,19 +54,10 @@ fun SplashScreen(
         isPlaying = composition != null
     )
 
-    LaunchedEffect(state.isReady) {
-        if (state.isReady) onSplashFinished()
-    }
-
     LaunchedEffect(lottieState.isAtEnd) {
         if (lottieState.isAtEnd && composition != null) {
-            viewModel.onAnimationCompleted()
+            onAnimationCompleted()
         }
-    }
-
-    LaunchedEffect(Unit) {
-        delay(5_000L)
-        viewModel.onAnimationCompleted()
     }
 
     Box(
@@ -69,7 +69,24 @@ fun SplashScreen(
         LottieAnimation(
             composition = composition,
             progress = { lottieState.progress },
-            modifier = Modifier.size(280.dp)
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+@Preview(showBackground = true, widthDp = 400, heightDp = 800)
+@Composable
+private fun SplashScreenPreview() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(splashGradient),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painter = painterResource(R.drawable.flashcards_white),
+            contentDescription = null,
+            modifier = Modifier.width(280.dp)
         )
     }
 }
