@@ -13,3 +13,6 @@ local.properties
 *.apk
 *.ap_
 *.aab
+
+# Firebase config — not committed for public repos. Each dev/CI provides their own.
+app/google-services.json
