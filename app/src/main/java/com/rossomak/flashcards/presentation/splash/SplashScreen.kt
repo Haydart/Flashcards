@@ -24,11 +24,16 @@ import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
 import com.rossomak.flashcards.R
 
+private val SplashGradientStart = Color(0xFF7B2FBE)
+private val SplashGradientEnd = Color(0xFF2979FF)
+
 private val splashGradient = Brush.linearGradient(
-    colors = listOf(Color(0xFF7B2FBE), Color(0xFF2979FF)),
+    colors = listOf(SplashGradientStart, SplashGradientEnd),
     start = Offset.Zero,
     end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
 )
+
+private val LogoWidth = 280.dp
 
 @Composable
 fun SplashRoute(
@@ -86,7 +91,7 @@ private fun SplashScreenPreview() {
         Image(
             painter = painterResource(R.drawable.flashcards_white),
             contentDescription = null,
-            modifier = Modifier.width(280.dp)
+            modifier = Modifier.width(LogoWidth)
         )
     }
 }

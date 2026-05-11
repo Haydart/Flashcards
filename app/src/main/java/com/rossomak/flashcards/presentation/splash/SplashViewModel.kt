@@ -16,6 +16,11 @@ import javax.inject.Inject
 @HiltViewModel
 class SplashViewModel @Inject constructor() : ViewModel() {
 
+    companion object {
+        private const val NAVIGATION_TIMEOUT_MS = 5_000L
+        private const val POST_ANIMATION_DELAY_MS = 2_000L
+    }
+
     private val animationCompleted = MutableStateFlow(false)
 
     private val _navigationEvents = MutableSharedFlow<Unit>()
@@ -23,9 +28,9 @@ class SplashViewModel @Inject constructor() : ViewModel() {
 
     init {
         viewModelScope.launch {
-            withTimeoutOrNull(5_000L) {
+            withTimeoutOrNull(NAVIGATION_TIMEOUT_MS) {
                 animationCompleted.first { it }
-                delay(2_000L)
+                delay(POST_ANIMATION_DELAY_MS)
             }
             _navigationEvents.emit(Unit)
         }
