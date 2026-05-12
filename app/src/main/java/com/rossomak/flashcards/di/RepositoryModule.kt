@@ -1,7 +1,7 @@
 package com.rossomak.flashcards.di
 
-import com.rossomak.flashcards.data.repository.UserRepositoryImpl
-import com.rossomak.flashcards.domain.repository.UserRepository
+import com.rossomak.flashcards.data.repository.AuthRepositoryImpl
+import com.rossomak.flashcards.domain.repository.AuthRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -14,5 +14,5 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindUserRepository(userRepositoryImpl: UserRepositoryImpl): UserRepository
+    abstract fun bindAuthRepository(authRepositoryImpl: AuthRepositoryImpl): AuthRepository
 }
