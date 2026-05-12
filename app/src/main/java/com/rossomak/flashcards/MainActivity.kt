@@ -7,12 +7,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.rossomak.flashcards.presentation.main.MainScreen
-import com.rossomak.flashcards.presentation.main.MainViewModel
+import androidx.navigation.compose.rememberNavController
+import com.rossomak.flashcards.ui.navigation.FlashcardsNavGraph
 import com.rossomak.flashcards.ui.theme.FlashcardsTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -23,12 +20,10 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             FlashcardsTheme {
+                val navController = rememberNavController()
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    val viewModel: MainViewModel = hiltViewModel()
-                    val state by viewModel.state.collectAsStateWithLifecycle()
-
-                    MainScreen(
-                        state = state,
+                    FlashcardsNavGraph(
+                        navController = navController,
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
