@@ -31,10 +31,10 @@ class SplashViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            withTimeoutOrNull(MAX_SPLASH_NAVIGATION_TIMEOUT_MS) {
+            val animationFinished = withTimeoutOrNull(MAX_SPLASH_NAVIGATION_TIMEOUT_MS) {
                 animationCompleted.first { it }
-                delay(POST_ANIMATION_DELAY_MS)
-            }
+            } != null
+            if (animationFinished) delay(POST_ANIMATION_DELAY_MS)
             val destination = if (getCurrentAuthUserUseCase() != null) {
                 SplashDestination.Main
             } else {
