@@ -61,7 +61,7 @@ private val loginGradient = Brush.linearGradient(
 private val LogoWidth = 200.dp
 
 @Composable
-fun LoginRoute(
+fun LoginScreen(
     onNavigateToMain: () -> Unit,
     viewModel: LoginViewModel = hiltViewModel()
 ) {
@@ -73,7 +73,7 @@ fun LoginRoute(
         viewModel.navigationEvents.collect { onNavigateToMain() }
     }
 
-    LoginScreen(
+    LoginContent(
         state = state,
         onGoogleSignInClick = {
             if (BuildConfig.GOOGLE_WEB_CLIENT_ID.isBlank()) {
@@ -116,7 +116,7 @@ fun LoginRoute(
 }
 
 @Composable
-fun LoginScreen(
+fun LoginContent(
     state: LoginScreenState,
     onGoogleSignInClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -178,20 +178,20 @@ fun LoginScreen(
 
 @Preview(showBackground = true, widthDp = 400, heightDp = 800)
 @Composable
-private fun LoginScreenPreview() {
-    LoginScreen(state = LoginScreenState(), onGoogleSignInClick = {})
+private fun LoginContentPreview() {
+    LoginContent(state = LoginScreenState(), onGoogleSignInClick = {})
 }
 
 @Preview(showBackground = true, widthDp = 400, heightDp = 800)
 @Composable
-private fun LoginScreenSigningInPreview() {
-    LoginScreen(state = LoginScreenState(isSigningIn = true), onGoogleSignInClick = {})
+private fun LoginContentSigningInPreview() {
+    LoginContent(state = LoginScreenState(isSigningIn = true), onGoogleSignInClick = {})
 }
 
 @Preview(showBackground = true, widthDp = 400, heightDp = 800)
 @Composable
-private fun LoginScreenErrorPreview() {
-    LoginScreen(
+private fun LoginContentErrorPreview() {
+    LoginContent(
         state = LoginScreenState(errorMessage = "Sign-in cancelled"),
         onGoogleSignInClick = {}
     )

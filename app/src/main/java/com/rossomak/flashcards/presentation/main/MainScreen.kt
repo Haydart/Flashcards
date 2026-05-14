@@ -35,24 +35,27 @@ import com.rossomak.flashcards.ui.theme.FlashcardsTheme
 private val AvatarSize = 120.dp
 
 @Composable
-fun MainRoute(
+fun MainScreen(
     onNavigateToLogin: () -> Unit,
     viewModel: MainViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    LaunchedEffect(Unit) {
-        viewModel.signedOutEvents.collect { onNavigateToLogin() }
+    LaunchedEffect(state.navigationDestination) {
+        when (state.navigationDestination) {
+            MainDestination.Login -> onNavigateToLogin()
+            null -> Unit
+        }
     }
 
-    MainScreen(
+    MainContent(
         state = state,
         onSignOutClick = viewModel::onSignOutClick
     )
 }
 
 @Composable
-fun MainScreen(
+fun MainContent(
     state: MainScreenState,
     onSignOutClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -128,17 +131,17 @@ private fun Avatar(photoUrl: String?) {
 
 @Preview(showBackground = true)
 @Composable
-private fun MainScreenLoadingPreview() {
+private fun MainContentLoadingPreview() {
     FlashcardsTheme {
-        MainScreen(state = MainScreenState(isLoading = true), onSignOutClick = {})
+        MainContent(state = MainScreenState(isLoading = true), onSignOutClick = {})
     }
 }
 
 @Preview(showBackground = true)
 @Composable
-private fun MainScreenSignedInWithPhotoPreview() {
+private fun MainContentSignedInWithPhotoPreview() {
     FlashcardsTheme {
-        MainScreen(
+        MainContent(
             state = MainScreenState(
                 isLoading = false,
                 displayName = "John",
@@ -151,9 +154,9 @@ private fun MainScreenSignedInWithPhotoPreview() {
 
 @Preview(showBackground = true)
 @Composable
-private fun MainScreenSignedInNoPhotoPreview() {
+private fun MainContentSignedInNoPhotoPreview() {
     FlashcardsTheme {
-        MainScreen(
+        MainContent(
             state = MainScreenState(
                 isLoading = false,
                 displayName = "John",
@@ -166,11 +169,8 @@ private fun MainScreenSignedInNoPhotoPreview() {
 
 @Preview(showBackground = true)
 @Composable
-private fun MainScreenErrorPreview() {
+private fun MainContentErrorPreview() {
     FlashcardsTheme {
-        MainScreen(
-            state = MainScreenState(isLoading = false, error = "Something went wrong"),
-            onSignOutClick = {}
-        )
+        MainContent(state = MainScreenState(isLoading = false, error = "Something went wrong"), onSignOutClick = {})
     }
 }

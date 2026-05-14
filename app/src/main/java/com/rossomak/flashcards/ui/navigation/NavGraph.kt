@@ -5,9 +5,9 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.rossomak.flashcards.presentation.login.LoginRoute
-import com.rossomak.flashcards.presentation.main.MainRoute
-import com.rossomak.flashcards.presentation.splash.SplashRoute
+import com.rossomak.flashcards.presentation.login.LoginScreen
+import com.rossomak.flashcards.presentation.main.MainScreen
+import com.rossomak.flashcards.presentation.splash.SplashScreen
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -30,7 +30,7 @@ fun FlashcardsNavGraph(
         modifier = modifier
     ) {
         composable<Splash> {
-            SplashRoute(
+            SplashScreen(
                 onNavigateToMain = {
                     navController.navigate(Main) {
                         popUpTo(Splash) { inclusive = true }
@@ -44,7 +44,7 @@ fun FlashcardsNavGraph(
             )
         }
         composable<Login> {
-            LoginRoute(
+            LoginScreen(
                 onNavigateToMain = {
                     navController.navigate(Main) {
                         popUpTo(Login) { inclusive = true }
@@ -53,7 +53,7 @@ fun FlashcardsNavGraph(
             )
         }
         composable<Main> {
-            MainRoute(
+            MainScreen(
                 onNavigateToLogin = {
                     navController.navigate(Login) {
                         popUpTo(Main) { inclusive = true }
