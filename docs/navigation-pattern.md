@@ -18,7 +18,7 @@ Use `StateFlow`-based navigation, not `SharedFlow`. Navigation destination is a 
 
 ## Why not SharedFlow
 
-SharedFlow events are lost if no collector is active at emission time (e.g., composable not yet attached or briefly paused). StateFlow is always readable — collector picks up latest value whenever it attaches.
+With default config (`replay=0`, no buffer), SharedFlow drops events when no collector is active — e.g., during recomposition or before the composable attaches. Replay/buffering can mitigate this, but navigation destination is state, not an event: it has a current value, survives recomposition, and is naturally idempotent. StateFlow models that directly without extra configuration.
 
 ## File layout per screen
 
