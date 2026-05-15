@@ -4,11 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rossomak.flashcards.domain.usecase.SignInWithGoogleUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -22,9 +19,6 @@ class LoginViewModel @Inject constructor(
     private val _state = MutableStateFlow(LoginScreenState())
     val state: StateFlow<LoginScreenState> = _state.asStateFlow()
 
-    private val _navigationEvents = MutableSharedFlow<Unit>()
-    val navigationEvents: SharedFlow<Unit> = _navigationEvents.asSharedFlow()
-
     fun onSignInStarted() {
         _state.update { it.copy(isSigningIn = true, errorMessage = null) }
     }
@@ -33,8 +27,7 @@ class LoginViewModel @Inject constructor(
         viewModelScope.launch {
             signInWithGoogleUseCase(idToken)
                 .onSuccess {
-                    _state.update { it.copy(isSigningIn = false, errorMessage = null) }
-                    _navigationEvents.emit(Unit)
+                    _state.update { it.copy(isSigningIn = false, errorMessage = null, navigationDestination = LoginDestination.Main) }
                 }
                 .onFailure { error ->
                     _state.update {

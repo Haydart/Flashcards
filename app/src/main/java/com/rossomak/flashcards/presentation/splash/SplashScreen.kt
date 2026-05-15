@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -36,25 +37,26 @@ private val splashGradient = Brush.linearGradient(
 private val LogoWidth = 280.dp
 
 @Composable
-fun SplashRoute(
+fun SplashScreen(
     onNavigateToMain: () -> Unit,
     onNavigateToLogin: () -> Unit,
     viewModel: SplashViewModel = hiltViewModel()
 ) {
-    LaunchedEffect(Unit) {
-        viewModel.navigationEvents.collect { destination ->
-            when (destination) {
-                SplashDestination.Main -> onNavigateToMain()
-                SplashDestination.Login -> onNavigateToLogin()
-            }
+    val state by viewModel.state.collectAsStateWithLifecycle()
+
+    LaunchedEffect(state.navigationDestination) {
+        when (state.navigationDestination) {
+            SplashDestination.Main -> onNavigateToMain()
+            SplashDestination.Login -> onNavigateToLogin()
+            null -> Unit
         }
     }
 
-    SplashScreen(onAnimationCompleted = viewModel::onAnimationCompleted)
+    SplashContent(onAnimationCompleted = viewModel::onAnimationCompleted)
 }
 
 @Composable
-fun SplashScreen(
+fun SplashContent(
     onAnimationCompleted: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -87,7 +89,7 @@ fun SplashScreen(
 
 @Preview(showBackground = true, widthDp = 400, heightDp = 800)
 @Composable
-private fun SplashScreenPreview() {
+private fun SplashContentPreview() {
     Box(
         modifier = Modifier
             .fillMaxSize()

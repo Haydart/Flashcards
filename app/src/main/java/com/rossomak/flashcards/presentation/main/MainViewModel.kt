@@ -5,12 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.rossomak.flashcards.domain.model.AuthUser
 import com.rossomak.flashcards.domain.usecase.GetCurrentAuthUserUseCase
 import com.rossomak.flashcards.domain.usecase.SignOutUseCase
+import android.util.Log
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -25,9 +23,6 @@ class MainViewModel @Inject constructor(
     private val _state = MutableStateFlow(MainScreenState())
     val state: StateFlow<MainScreenState> = _state.asStateFlow()
 
-    private val _signedOutEvents = MutableSharedFlow<Unit>()
-    val signedOutEvents: SharedFlow<Unit> = _signedOutEvents.asSharedFlow()
-
     init {
         loadUser()
     }
@@ -36,7 +31,7 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             val user = getCurrentAuthUserUseCase()
             if (user == null) {
-                _signedOutEvents.emit(Unit)
+                _state.update { it.copy(navigationDestination = MainDestination.Login) }
                 return@launch
             }
             _state.update {
@@ -52,9 +47,19 @@ class MainViewModel @Inject constructor(
 
     fun onSignOutClick() {
         viewModelScope.launch {
-            signOutUseCase()
-            _signedOutEvents.emit(Unit)
+            try {
+                signOutUseCase()
+            } catch (e: Exception) {
+                Log.w(TAG, "Sign-out failed", e)
+                // TODO: push sign-out failure event to analytics
+            } finally {
+                _state.update { it.copy(navigationDestination = MainDestination.Login) }
+            }
         }
+    }
+
+    private companion object {
+        private const val TAG = "MainViewModel"
     }
 
     private fun AuthUser.resolveDisplayName(): String {

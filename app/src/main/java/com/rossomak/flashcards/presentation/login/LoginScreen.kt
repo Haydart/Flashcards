@@ -1,6 +1,5 @@
 package com.rossomak.flashcards.presentation.login
 
-import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -21,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,21 +33,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.credentials.CredentialManager
-import androidx.credentials.GetCredentialRequest
-import androidx.credentials.exceptions.GetCredentialCancellationException
-import androidx.credentials.exceptions.GetCredentialException
-import androidx.credentials.exceptions.NoCredentialException
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
-import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
-import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
-import com.rossomak.flashcards.BuildConfig
 import com.rossomak.flashcards.R
 import kotlinx.coroutines.launch
-
-private const val TAG = "LoginScreen"
 
 private val LoginGradientStart = Color(0xFF7B2FBE)
 private val LoginGradientEnd = Color(0xFF2979FF)
@@ -61,62 +50,37 @@ private val loginGradient = Brush.linearGradient(
 private val LogoWidth = 200.dp
 
 @Composable
-fun LoginRoute(
+fun LoginScreen(
     onNavigateToMain: () -> Unit,
     viewModel: LoginViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val signInLauncher = remember(context) { GoogleSignInLauncher(context) }
 
-    LaunchedEffect(Unit) {
-        viewModel.navigationEvents.collect { onNavigateToMain() }
+    LaunchedEffect(state.navigationDestination) {
+        when (state.navigationDestination) {
+            LoginDestination.Main -> onNavigateToMain()
+            null -> Unit
+        }
     }
 
-    LoginScreen(
+    LoginContent(
         state = state,
         onGoogleSignInClick = {
-            if (BuildConfig.GOOGLE_WEB_CLIENT_ID.isBlank()) {
-                viewModel.onSignInFailed("Missing GOOGLE_WEB_CLIENT_ID. Add it to local.properties.")
-            } else {
-                viewModel.onSignInStarted()
-                coroutineScope.launch {
-                    try {
-                        val googleIdOption = GetGoogleIdOption.Builder()
-                            .setServerClientId(BuildConfig.GOOGLE_WEB_CLIENT_ID)
-                            .setFilterByAuthorizedAccounts(false)
-                            .build()
-                        val request = GetCredentialRequest.Builder()
-                            .addCredentialOption(googleIdOption)
-                            .build()
-                        val response = CredentialManager.create(context).getCredential(
-                            context = context,
-                            request = request
-                        )
-                        val googleCredential = GoogleIdTokenCredential.createFrom(response.credential.data)
-                        viewModel.onGoogleIdTokenReceived(googleCredential.idToken)
-                    } catch (exception: GetCredentialException) {
-                        Log.e(TAG, "Credential Manager failed", exception)
-                        val message = when (exception) {
-                            is NoCredentialException ->
-                                "No Google account on this device. Add one in Settings → Accounts."
-                            is GetCredentialCancellationException ->
-                                "Sign-in cancelled."
-                            else -> exception.localizedMessage
-                        }
-                        viewModel.onSignInFailed(message)
-                    } catch (exception: GoogleIdTokenParsingException) {
-                        Log.e(TAG, "Failed to parse Google ID token", exception)
-                        viewModel.onSignInFailed(exception.localizedMessage)
-                    }
-                }
+            viewModel.onSignInStarted()
+            coroutineScope.launch {
+                signInLauncher.launch()
+                    .onSuccess { idToken -> viewModel.onGoogleIdTokenReceived(idToken) }
+                    .onFailure { error -> viewModel.onSignInFailed(error.message) }
             }
         }
     )
 }
 
 @Composable
-fun LoginScreen(
+fun LoginContent(
     state: LoginScreenState,
     onGoogleSignInClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -178,20 +142,20 @@ fun LoginScreen(
 
 @Preview(showBackground = true, widthDp = 400, heightDp = 800)
 @Composable
-private fun LoginScreenPreview() {
-    LoginScreen(state = LoginScreenState(), onGoogleSignInClick = {})
+private fun LoginContentPreview() {
+    LoginContent(state = LoginScreenState(), onGoogleSignInClick = {})
 }
 
 @Preview(showBackground = true, widthDp = 400, heightDp = 800)
 @Composable
-private fun LoginScreenSigningInPreview() {
-    LoginScreen(state = LoginScreenState(isSigningIn = true), onGoogleSignInClick = {})
+private fun LoginContentSigningInPreview() {
+    LoginContent(state = LoginScreenState(isSigningIn = true), onGoogleSignInClick = {})
 }
 
 @Preview(showBackground = true, widthDp = 400, heightDp = 800)
 @Composable
-private fun LoginScreenErrorPreview() {
-    LoginScreen(
+private fun LoginContentErrorPreview() {
+    LoginContent(
         state = LoginScreenState(errorMessage = "Sign-in cancelled"),
         onGoogleSignInClick = {}
     )
