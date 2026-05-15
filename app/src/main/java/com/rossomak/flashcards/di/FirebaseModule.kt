@@ -1,6 +1,8 @@
 package com.rossomak.flashcards.di
 
-import com.rossomak.flashcards.data.datasource.MockUserDataSource
+import com.google.firebase.Firebase
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.auth
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -9,11 +11,9 @@ import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-object DataSourceModule {
+object FirebaseModule {
 
     @Provides
     @Singleton
-    fun provideMockUserDataSource(): MockUserDataSource {
-        return MockUserDataSource()
-    }
+    fun provideFirebaseAuth(): FirebaseAuth = Firebase.auth
 }

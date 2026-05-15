@@ -38,10 +38,16 @@ private val LogoWidth = 280.dp
 @Composable
 fun SplashRoute(
     onNavigateToMain: () -> Unit,
+    onNavigateToLogin: () -> Unit,
     viewModel: SplashViewModel = hiltViewModel()
 ) {
     LaunchedEffect(Unit) {
-        viewModel.navigationEvents.collect { onNavigateToMain() }
+        viewModel.navigationEvents.collect { destination ->
+            when (destination) {
+                SplashDestination.Main -> onNavigateToMain()
+                SplashDestination.Login -> onNavigateToLogin()
+            }
+        }
     }
 
     SplashScreen(onAnimationCompleted = viewModel::onAnimationCompleted)
