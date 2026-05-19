@@ -30,6 +30,15 @@ class MainViewModelTest {
         MainViewModel(getCurrentAuthUserUseCase, signOutUseCase)
 
     @Test
+    fun `initial state has isLoading true before user loads`() = runTest(mainDispatcherRule.testDispatcher) {
+        coEvery { getCurrentAuthUserUseCase() } returns testUser
+
+        val viewModel = createViewModel()
+
+        viewModel.state.value.isLoading shouldBe true
+    }
+
+    @Test
     fun `init with authenticated user emits loaded state with display name and photo`() = runTest(mainDispatcherRule.testDispatcher) {
         val user = testUser.copy(photoUrl = "http://p")
         coEvery { getCurrentAuthUserUseCase() } returns user
@@ -54,6 +63,19 @@ class MainViewModelTest {
         advanceUntilIdle()
 
         viewModel.state.value.navigationDestination shouldBe MainDestination.Login
+    }
+
+    @Test
+    fun `isLoading remains true when navigating to Login due to null user`() = runTest(mainDispatcherRule.testDispatcher) {
+        coEvery { getCurrentAuthUserUseCase() } returns null
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.state.assertValue {
+            isLoading shouldBe true
+            navigationDestination shouldBe MainDestination.Login
+        }
     }
 
     @Test
