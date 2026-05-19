@@ -83,4 +83,29 @@ class SplashViewModelTest {
         // Animation completed branch must include the 2s post-animation delay.
         (testScheduler.currentTime >= 2_000L) shouldBe true
     }
+
+    @Test
+    fun `onAnimationCompleted called multiple times still navigates to expected destination`() = runTest(mainDispatcherRule.testDispatcher) {
+        coEvery { getCurrentAuthUserUseCase() } returns testUser
+
+        val viewModel = createViewModel()
+        viewModel.onAnimationCompleted()
+        viewModel.onAnimationCompleted()
+        advanceUntilIdle()
+
+        viewModel.state.value.navigationDestination shouldBe SplashDestination.Main
+    }
+
+    @Test
+    fun `onAnimationCompleted called after timeout does not change navigation destination`() = runTest(mainDispatcherRule.testDispatcher) {
+        coEvery { getCurrentAuthUserUseCase() } returns null
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onAnimationCompleted()
+        advanceUntilIdle()
+
+        viewModel.state.value.navigationDestination shouldBe SplashDestination.Login
+    }
 }
