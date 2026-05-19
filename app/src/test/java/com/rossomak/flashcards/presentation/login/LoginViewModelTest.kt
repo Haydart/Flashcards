@@ -125,4 +125,22 @@ class LoginViewModelTest {
             navigationDestination shouldBe LoginDestination.Main
         }
     }
+
+    @Test
+    fun `onSignInFailed does not clear existing navigation destination`() = runTest(mainDispatcherRule.testDispatcher) {
+        val token = "token"
+        val user = AuthUser(uid = "u1", email = "a@b.com", displayName = "Alex", photoUrl = null)
+        val error = "late failure"
+        coEvery { authRepository.signInWithGoogleIdToken(token) } returns Result.success(user)
+        viewModel.onGoogleIdTokenReceived(token)
+        advanceUntilIdle()
+
+        viewModel.onSignInFailed(error)
+
+        viewModel.state.assertValue {
+            navigationDestination shouldBe LoginDestination.Main
+            errorMessage shouldBe error
+            isSigningIn shouldBe false
+        }
+    }
 }
