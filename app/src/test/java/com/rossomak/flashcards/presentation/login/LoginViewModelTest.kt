@@ -32,6 +32,8 @@ class LoginViewModelTest {
 
     @Test
     fun `onSignInStarted sets isSigningIn true and clears error`() {
+        viewModel.onSignInFailed("prior error")
+
         viewModel.onSignInStarted()
 
         viewModel.state.assertValue {
@@ -44,6 +46,7 @@ class LoginViewModelTest {
     fun `onGoogleIdTokenReceived success navigates to Main and clears error`() = runTest(mainDispatcherRule.testDispatcher) {
         val token = "token"
         val user = AuthUser(uid = "u1", email = "a@b.com", displayName = "Alex", photoUrl = null)
+        viewModel.onSignInFailed("previous error")
         coEvery { authRepository.signInWithGoogleIdToken(token) } returns Result.success(user)
 
         viewModel.onGoogleIdTokenReceived(token)
@@ -97,8 +100,29 @@ class LoginViewModelTest {
 
     @Test
     fun `onSignInFailed with null falls back to default message`() {
+        viewModel.onSignInStarted()
+
         viewModel.onSignInFailed(null)
 
-        viewModel.state.value.errorMessage shouldBe "Sign-in failed"
+        viewModel.state.assertValue {
+            isSigningIn shouldBe false
+            errorMessage shouldBe "Sign-in failed"
+        }
+    }
+
+    @Test
+    fun `onSignInStarted does not clear navigation destination`() = runTest(mainDispatcherRule.testDispatcher) {
+        val token = "token"
+        val user = AuthUser(uid = "u1", email = "a@b.com", displayName = "Alex", photoUrl = null)
+        coEvery { authRepository.signInWithGoogleIdToken(token) } returns Result.success(user)
+        viewModel.onGoogleIdTokenReceived(token)
+        advanceUntilIdle()
+
+        viewModel.onSignInStarted()
+
+        viewModel.state.assertValue {
+            isSigningIn shouldBe true
+            navigationDestination shouldBe LoginDestination.Main
+        }
     }
 }
