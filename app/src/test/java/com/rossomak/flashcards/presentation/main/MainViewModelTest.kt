@@ -136,4 +136,43 @@ class MainViewModelTest {
 
         viewModel.state.value.navigationDestination shouldBe MainDestination.Login
     }
+
+    @Test
+    fun `loadUser exception leaves state as loading with no navigation destination`() = runTest(mainDispatcherRule.testDispatcher) {
+        coEvery { getCurrentAuthUserUseCase() } throws RuntimeException("crash")
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.state.assertValue {
+            isLoading shouldBe true
+            navigationDestination shouldBe null
+        }
+    }
+
+    @Test
+    fun `onSignOutClick before loadUser completes still navigates to Login`() = runTest(mainDispatcherRule.testDispatcher) {
+        coEvery { getCurrentAuthUserUseCase() } returns testUser
+
+        val viewModel = createViewModel()
+        viewModel.onSignOutClick()
+        advanceUntilIdle()
+
+        viewModel.state.value.navigationDestination shouldBe MainDestination.Login
+    }
+
+    @Test
+    fun `onSignOutClick called twice invokes signOutUseCase twice`() = runTest(mainDispatcherRule.testDispatcher) {
+        coEvery { getCurrentAuthUserUseCase() } returns testUser
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onSignOutClick()
+        viewModel.onSignOutClick()
+        advanceUntilIdle()
+
+        coVerify(exactly = 2) { signOutUseCase() }
+        viewModel.state.value.navigationDestination shouldBe MainDestination.Login
+    }
 }
