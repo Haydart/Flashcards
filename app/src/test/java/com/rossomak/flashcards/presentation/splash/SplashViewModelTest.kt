@@ -27,6 +27,15 @@ class SplashViewModelTest {
         SplashViewModel(getCurrentAuthUserUseCase)
 
     @Test
+    fun `navigationDestination is null before coroutine runs`() = runTest(mainDispatcherRule.testDispatcher) {
+        coEvery { getCurrentAuthUserUseCase() } returns testUser
+
+        val viewModel = createViewModel()
+
+        viewModel.state.value.navigationDestination shouldBe null
+    }
+
+    @Test
     fun `animation completed before timeout with user navigates to Main`() = runTest(mainDispatcherRule.testDispatcher) {
         coEvery { getCurrentAuthUserUseCase() } returns testUser
 
