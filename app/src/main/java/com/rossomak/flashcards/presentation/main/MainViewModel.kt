@@ -28,22 +28,18 @@ class MainViewModel @Inject constructor(
 
     private fun loadUser() {
         viewModelScope.launch {
-            try {
-                val user = getCurrentAuthUserUseCase()
-                if (user == null) {
-                    _state.update { it.copy(navigationDestination = MainDestination.Login) }
-                    return@launch
-                }
-                _state.update {
-                    it.copy(
-                        isLoading = false,
-                        displayName = user.resolveDisplayName(),
-                        photoUrl = user.photoUrl,
-                        error = null
-                    )
-                }
-            } catch (e: Exception) {
-                // TODO: push load failure event to analytics
+            val user = getCurrentAuthUserUseCase()
+            if (user == null) {
+                _state.update { it.copy(navigationDestination = MainDestination.Login) }
+                return@launch
+            }
+            _state.update {
+                it.copy(
+                    isLoading = false,
+                    displayName = user.resolveDisplayName(),
+                    photoUrl = user.photoUrl,
+                    error = null
+                )
             }
         }
     }

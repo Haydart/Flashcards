@@ -80,12 +80,13 @@ class MainViewModelTest {
 
     @Test
     fun `display name falls back to email when displayName is blank`() = runTest(mainDispatcherRule.testDispatcher) {
-        coEvery { getCurrentAuthUserUseCase() } returns AuthUser("u1", "a@b.com", "  ", null)
+        val email = "a@b.com"
+        coEvery { getCurrentAuthUserUseCase() } returns AuthUser("u1", email, "  ", null)
 
         val viewModel = createViewModel()
         advanceUntilIdle()
 
-        viewModel.state.value.displayName shouldBe "a@b.com"
+        viewModel.state.value.displayName shouldBe email
     }
 
     @Test
@@ -135,19 +136,6 @@ class MainViewModelTest {
         advanceUntilIdle()
 
         viewModel.state.value.navigationDestination shouldBe MainDestination.Login
-    }
-
-    @Test
-    fun `loadUser exception leaves state as loading with no navigation destination`() = runTest(mainDispatcherRule.testDispatcher) {
-        coEvery { getCurrentAuthUserUseCase() } throws RuntimeException("crash")
-
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-
-        viewModel.state.assertValue {
-            isLoading shouldBe true
-            navigationDestination shouldBe null
-        }
     }
 
     @Test
