@@ -116,6 +116,39 @@ coEvery { authRepository.signInWithGoogleIdToken("token") } returns Result.succe
 coVerify(exactly = 1) { authRepository.signInWithGoogleIdToken("token") }
 ```
 
+### Verify completeness — every test, every branch
+Every test that triggers a collaborator call **must** include a `verify`/`coVerify` for that call, regardless of whether the test asserts a success, failure, or null result.
+
+**Why:** omitting `verify` on failure/null branches means the test passes even if the use case never calls the repository — it proves outcome but not interaction.
+
+❌ Incomplete — missing verify on the null branch:
+```kotlin
+@Test
+fun `returns null when repository has no user`() = runTest {
+    every { authRepository.getCurrentUser() } returns null
+
+    val result = useCase()
+
+    result shouldBe null
+    // no verify — test passes even if useCase() ignores the repository entirely
+}
+```
+
+✅ Complete:
+```kotlin
+@Test
+fun `returns null when repository has no user`() = runTest {
+    every { authRepository.getCurrentUser() } returns null
+
+    val result = useCase()
+
+    result shouldBe null
+    verify(exactly = 1) { authRepository.getCurrentUser() }
+}
+```
+
+**Rule:** if you wrote `every { ... }` or `coEvery { ... }` in Arrange, write `verify(exactly = N) { ... }` or `coVerify(exactly = N) { ... }` in Assert. No exceptions for failure, null, or edge-case branches.
+
 ---
 
 ## 6. Assertions — Kotest
