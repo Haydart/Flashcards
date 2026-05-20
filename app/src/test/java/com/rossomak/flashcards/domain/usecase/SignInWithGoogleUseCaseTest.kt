@@ -36,5 +36,6 @@ class SignInWithGoogleUseCaseTest {
 
         result.isFailure shouldBe true
         result.exceptionOrNull() shouldBe error
+        coVerify(exactly = 1) { authRepository.signInWithGoogleIdToken("anything") }
     }
 }

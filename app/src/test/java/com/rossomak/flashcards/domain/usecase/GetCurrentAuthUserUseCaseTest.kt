@@ -32,5 +32,6 @@ class GetCurrentAuthUserUseCaseTest {
         val result = useCase()
 
         result shouldBe null
+        verify(exactly = 1) { authRepository.getCurrentUser() }
     }
 }
