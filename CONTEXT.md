@@ -1,6 +1,6 @@
 # Flashcards
 
-A mobile app for studying curated flashcards organized by topic, with AI-assisted session planning and spaced-repetition-influenced flashcard selection.
+A mobile app for studying curated flashcards organized by topic, with spaced-repetition-influenced flashcard selection.
 
 ## Language
 
@@ -11,8 +11,8 @@ A top-level knowledge domain a user can study (e.g. Android, Python).
 _Avoid_: Topic, Subject, Domain
 
 **Subcategory**:
-A granular area within a Category. A Flashcard belongs to exactly one Subcategory (e.g. Compose, Coroutines, Navigation under Android).
-_Avoid_: Subtopic, Topic
+A granular area within a Category. A Flashcard belongs to exactly one Subcategory (e.g. Compose, Coroutines, Navigation under Android). Displayed to users as **Topic** in the UI; Subcategory is the canonical term in code and internal docs.
+_Avoid_: Subtopic (the UI label "Topic" is intentional and not a synonym to avoid — it is the presentation-layer name)
 
 **Tag**:
 A broader umbrella concept that groups multiple Subcategories (e.g. "UI" spans Compose, XML, Navigation, Notifications). Tags are internal and AI-facing only — they never appear in any user-facing UI.
@@ -26,25 +26,21 @@ _Avoid_: Card, Question
 A Flashcard created by a user. Follows a submission lifecycle: `private → submitted → approved` (approved flashcards may be promoted to the global pool).
 _Avoid_: User card, Custom card
 
-**Curriculum**:
-The set of Categories a user has actively added to their Learn tab. Drives which Flashcards surface in the Curriculum Algorithm.
-_Avoid_: Topics, Interests, Enrolled categories
+**Favorite**:
+A Subcategory explicitly bookmarked by a User. Displayed on the Home screen as a carousel of cards showing Subcategory and parent Category names.
+_Avoid_: Starred, Saved, Liked
 
-**Curriculum Algorithm**:
-The client-side logic that selects and orders Flashcards for a Study Session based on per-flashcard performance scores and recency weights.
-_Avoid_: Recommendation engine, Spaced repetition algorithm (broader term; this is a specific client-side implementation)
+**Recent**:
+A past Study Session surfaced on the Home screen as a carousel card. Renders as one of two variants: a **single-topic Recent** (session had one Subcategory — shows Subcategory + Category name, taps into Subcategory Details) or a **composite Recent** (session spanned multiple Subcategories — shows Category name only, taps into Category Details).
+_Avoid_: History, Last session
 
 **User**:
 An authenticated person using the app. Represented in code as `AuthUser` with `uid`, `email`, `displayName`, `photoUrl`.
 _Avoid_: Account, Player, Learner
 
 **Study Session**:
-A focused learning instance scoped to one Category and a set of selected Subcategories. Flashcards are drawn via the Curriculum Algorithm. Only Flashcards that reached a Terminal State are written to Firestore — queued Flashcards at session end are treated as unseen.
+A focused learning instance scoped to one or more Subcategories within a single Category. Flashcards are selected and ordered by per-flashcard performance scores and recency weights. Only Flashcards that reached a Terminal State are written to Firestore — queued Flashcards at session end are treated as unseen. A session with exactly one Subcategory is a **single-topic session**; a session spanning multiple Subcategories is a **composite session**.
 _Avoid_: Quiz, Session alone (ambiguous with auth session)
-
-**In-Progress Session**:
-A Study Session that was interrupted before reaching a Terminal State for all Flashcards (app kill, navigation away). Persisted locally to enable resumption.
-_Avoid_: Paused session, Saved session
 
 **Attempt**:
 A single presentation of a Flashcard to the user within a Study Session. Each Flashcard has a maximum of 3 Attempts per session.
@@ -65,19 +61,21 @@ _Avoid_: Completed, Passed, Correct (Correct is the Rating that causes Mastered,
 ### Activities
 
 **Study Creation**:
-The multi-step configuration flow a user goes through before a Study Session begins: intent input (optional, AI-assisted) → subcategory selection → session parameters (MVP: skipped).
+The flow a user goes through to start a Study Session. Three entry points, all originating from the Study screen:
+- **Single-topic**: tap a Subcategory on Category Details (or "Start" in the app bar of Subcategory Details) → single-topic session begins.
+- **Quick Session**: tap "Quick Session" on Category Details → system auto-selects Subcategories and Flashcards based on performance scores (MVP: randomized) → composite session begins immediately.
+- **Composite**: tap "Start Composite Session" on Category Details → screen enters multi-select mode on the Subcategory list → user selects topics → taps start → composite session begins.
 _Avoid_: Session setup, Session wizard
 
-**Onboarding**:
-The first-login flow that prompts the User to select their initial Curriculum Categories before reaching the Learn tab.
-_Avoid_: Setup, Welcome flow, Registration
 
 ## Relationships
 
 - A **Category** contains one or more **Subcategories**
 - A **Flashcard** belongs to exactly one **Subcategory**
 - A **Flashcard** carries one or more **Tags** (internal/AI-facing only)
-- A **Study Session** draws **Flashcards** from the selected **Subcategories** within one **Category**
+- A **Study Session** draws **Flashcards** from one or more **Subcategories** within a single **Category**
+- A **Recent** is a past **Study Session** — single-topic if one Subcategory, composite if multiple
+- A **Favorite** is a bookmarked **Subcategory**
 - An **Attempt** produces exactly one **Rating**
 - A **Flashcard** in a **Study Session** has at most 3 **Attempts**
 - A **Terminal State** of Mastered means the Flashcard received a Correct **Rating**; Failed means 3 Attempts passed without Correct
