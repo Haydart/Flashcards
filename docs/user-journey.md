@@ -1,73 +1,88 @@
 # User Journey
 
-Complete user journey flowchart covering the auth flow, onboarding, all three main tabs,
-study session mechanics, and browse/curriculum interactions.
-
-Implemented screens are marked in the diagram comments. Everything else is planned per SYSTEMDESIGN.md.
+Complete user journey flowchart covering auth, all three main tabs, session mechanics, and
+Subcategory Details. Everything except the auth flow is planned per SYSTEMDESIGN.md.
 
 ```mermaid
 flowchart TD
     %% ── Auth (implemented) ────────────────────────────────
-    Launch([App Launch]) --> Splash[Splash Screen\nAnimated gradient]
+    Launch([App Launch]) --> Splash[Splash Screen]
     Splash --> AuthCheck{Authenticated?}
-    AuthCheck -->|yes| IsFirst{First login?}
     AuthCheck -->|no| Login[Login Screen\nGoogle Sign-In]
-    Login -->|success| IsFirst
-    Login -->|error| Login
-
-    %% ── Onboarding ────────────────────────────────────────
-    IsFirst -->|yes| Onboarding[Onboarding\nSelect starting categories]
-    IsFirst -->|no| NavRoot
-    Onboarding -->|continue / skip| NavRoot
+    Login -->|success| NavRoot
+    AuthCheck -->|yes| NavRoot
 
     %% ── Main navigation ───────────────────────────────────
-    NavRoot[Bottom Nav\nLearn / Browse / Settings]
-    NavRoot --> Learn
-    NavRoot --> Browse
+    NavRoot[Bottom Nav\nHome · Study · Settings]
+    NavRoot --> Home
+    NavRoot --> Study
     NavRoot --> Settings
 
-    %% ── Learn tab ─────────────────────────────────────────
-    Learn[Learn Tab] --> HasCats{Has categories?}
-    HasCats -->|no| LearnEmpty[Empty state]
-    HasCats -->|yes| CatGrid[Category grid\nmastery % per card]
-    LearnEmpty -->|FAB| BrowseFlow[Browse to add category]
-    CatGrid --> TapCat[Tap category]
-    TapCat --> SC1[Study Creation\nStep 1: Intent input\nAI-assisted, optional]
-    SC1 --> SC2[Study Creation\nStep 2: Subcategory selection]
-    SC2 --> Session
+    %% ── Home screen ───────────────────────────────────────
+    Home[Home Screen\nGreeting + carousels]
+    Home --> BothEmpty{Both carousels\nempty?}
+    BothEmpty -->|yes| EmptyHome[Empty state\nStart your first session CTA]
+    EmptyHome -->|tap CTA| Study
+    BothEmpty -->|no| Carousels[Recents · Favorites carousels]
+    Carousels --> TapRecent[Tap Recent card]
+    Carousels --> TapFavorite[Tap Favorite card]
+    TapRecent --> RecentType{Single-topic\nRecent?}
+    RecentType -->|yes| SubcatDetails
+    RecentType -->|no| CatDetails
+    TapFavorite --> SubcatDetails
 
-    %% ── Study session ─────────────────────────────────────
-    Session[Study Session] --> ShowQ[Show flashcard\nquestion]
-    ShowQ --> Reveal[Tap to reveal answer]
+    %% ── Study screen ──────────────────────────────────────
+    Study[Study Screen\nSearch bar + Category list]
+    Study --> TapCategory[Tap Category card]
+    TapCategory --> CatDetails
+
+    %% ── Category Details ──────────────────────────────────
+    CatDetails[Category Details\nTopic list]
+    CatDetails --> QuickSession[Quick Session\nauto-selects Topics + Flashcards]
+    CatDetails --> CompositeFlow[Start Composite Session\nlist enters multi-select]
+    CompositeFlow --> SelectTopics[Select ≥1 Topics]
+    SelectTopics --> StartBtn[Tap Start]
+    StartBtn --> Session
+    QuickSession --> Session
+    CatDetails --> FastStart[Fast-start on Topic row\nsingle-topic immediately]
+    FastStart --> Session
+    CatDetails --> TapTopic[Tap Topic row]
+    TapTopic --> SubcatDetails
+
+    %% ── Subcategory Details ───────────────────────────────
+    SubcatDetails[Subcategory Details\nFlashcard list]
+    SubcatDetails --> StartSession[Start Session\napp bar button]
+    StartSession --> Session
+    SubcatDetails --> CreatePrivate[FAB: Create Private Flashcard\nQuestion · Answer · Tags]
+
+    %% ── Study Session ─────────────────────────────────────
+    Session[Study Session\nX/N mastered progress]
+    Session --> ShowQ[Show Flashcard question]
+    ShowQ --> Reveal[Swipe or tap Show Answer]
     Reveal --> Rate{Rate}
-    Rate -->|Correct| Mastered[Mastered terminal]
-    Rate -->|Partial| Reinsert[Re-insert in queue]
-    Rate -->|Failed| Attempts{3rd attempt?}
-    Attempts -->|no| Reinsert
-    Attempts -->|yes| Failed[Failed terminal]
-    Mastered --> QueueDone{Queue empty?}
-    Failed --> QueueDone
+    Rate -->|Correct| Mastered[Mastered\nterminal]
+    Rate -->|Partial or Failed| AttemptCheck{3rd Attempt?}
+    AttemptCheck -->|no| Reinsert[Re-insert in queue\nAttempt count +1]
+    AttemptCheck -->|yes| FailedState[Failed\nterminal]
     Reinsert --> ShowQ
-    QueueDone -->|no| ShowQ
-    QueueDone -->|yes| Summary[Session Summary]
-    %% ── Session summary ───────────────────────────────────
-    Summary --> AgainAll[Study Again All]
-    Summary --> AgainFailed[Study Again Failed]
-    Summary --> BackLearn[Back to Learn]
+    Mastered --> QueueCheck{Queue empty?}
+    FailedState --> QueueCheck
+    QueueCheck -->|no| ShowQ
+    QueueCheck -->|yes| Summary
+    Session -->|Finish Session| Summary
+
+    %% ── Session Summary ───────────────────────────────────
+    Summary[Session Summary]
+    Summary --> AgainAll[Study Again — All]
+    Summary --> AgainFailed[Study Again — Failed\nshown only if ≥1 Failed]
+    Summary --> BackHome[Back to Home]
     AgainAll --> Session
     AgainFailed --> Session
-    BackLearn --> Learn
+    BackHome --> Home
 
-    %% ── Browse tab ────────────────────────────────────────
-    Browse[Browse Tab] --> AllCats[All categories grid]
-    AllCats --> TapBrowse[Tap category]
-    TapBrowse --> CardList[Flashcard list\nsubcategory filters]
-    CardList --> AddCurr[Add to curriculum]
-    CardList --> RemCurr[Remove from curriculum]
-    Browse --> PrivateFAB[FAB: Create private flashcard\nquestion / answer / tags]
-
-    %% ── Settings tab ──────────────────────────────────────
-    Settings[Settings Tab] --> Prefs[Session preferences\ndefault card count: 20]
+    %% ── Settings ──────────────────────────────────────────
+    Settings[Settings Screen]
+    Settings --> Prefs[Session preferences\nFlashcard count default 20]
     Settings --> Perms[App permissions]
-    Settings --> Voice[Voice settings\nfuture]
+    Settings --> Voice[Voice settings\ndeferred]
 ```
