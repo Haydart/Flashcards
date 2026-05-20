@@ -31,11 +31,7 @@ flowchart TD
     HasCats -->|no| LearnEmpty[Empty state]
     HasCats -->|yes| CatGrid[Category grid\nmastery % per card]
     LearnEmpty -->|FAB| BrowseFlow[Browse to add category]
-    CatGrid --> BannerCheck{In-progress session?}
-    BannerCheck -->|yes| Banner[In-progress banner]
-    BannerCheck -->|no| TapCat[Tap category]
-    Banner -->|Continue| Session
-    Banner -->|Delete| CatGrid
+    CatGrid --> TapCat[Tap category]
     TapCat --> SC1[Study Creation\nStep 1: Intent input\nAI-assisted, optional]
     SC1 --> SC2[Study Creation\nStep 2: Subcategory selection]
     SC2 --> Session
@@ -54,8 +50,6 @@ flowchart TD
     Reinsert --> ShowQ
     QueueDone -->|no| ShowQ
     QueueDone -->|yes| Summary[Session Summary]
-    Session -->|interrupted| Saved[(Local storage\nin-progress state)]
-
     %% ── Session summary ───────────────────────────────────
     Summary --> AgainAll[Study Again All]
     Summary --> AgainFailed[Study Again Failed]
