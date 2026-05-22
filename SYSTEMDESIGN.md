@@ -19,15 +19,21 @@
 
 ## Study Screen
 
-- Search bar filters Category cards in real time
-- Scrollable list of all top-level Categories as UI cards
+- Scrollable list of all top-level Categories as UI cards (default state)
 - Each Category card shows:
   - Category name
-  - Preview row of Subcategories (labeled **Topics** in the UI), dynamically matched to the current search term
+  - Preview row of Subcategories (labeled **Topics** in the UI)
   - Total Topic count (e.g. "12 topics")
-  - Example: searching "Compose" → Android card shows "Compose · +11 more topics"
+- Search bar filters in real time, matching against **Category name and Subcategory name only** (no Tags, no Flashcard content)
+- Min query length: 2 characters — shorter queries show the default Category list
+- Search results render in two sections:
+  - **Topics** (shown first) — one compact row per matched Subcategory; row shows `Subcategory · Category` breadcrumb; tapping → Subcategory Details (single-topic intent)
+  - **Categories** (shown second) — Category cards in their normal shape; tapping → Category Details
+- A Category card appears in the Categories section when either its name matches or any of its Subcategories match
+- Category card preview row in search results shows the default first-N Subcategories (matched Topics already surface as Topic rows above — no duplication)
+- Sort order: Topics by match quality (exact > prefix > substring, tiebreak alphabetical); Categories by Firestore `order` field
+- No-match empty state: illustration + copy quoting the query (e.g. "No topics or categories match 'xyz'")
 - No tag-based filtering; search only
-- Tapping a Category card → Category Details screen
 
 ## Category Details Screen
 
