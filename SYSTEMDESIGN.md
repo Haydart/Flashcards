@@ -11,7 +11,7 @@
 
 - Greeting with user's display name
 - **Recents** carousel — past Study Sessions, two card variants:
-  - *Single-topic*: shows Subcategory + Category name; taps into Subcategory Details
+  - *Single-subcategory*: shows Subcategory + Category name; taps into Subcategory Details
   - *Composite*: shows Category name only; taps into Category Details
 - **Favorites** carousel — bookmarked Subcategories; each card shows Subcategory + Category name; taps into Subcategory Details
 - Sections with no content are hidden individually
@@ -27,7 +27,7 @@
 - Search bar filters in real time, matching against **Category name and Subcategory name only** (no Tags, no Flashcard content)
 - Min query length: 2 characters — shorter queries show the default Category list
 - Search results render in two sections:
-  - **Topics** (shown first) — one compact row per matched Subcategory; row shows `Subcategory · Category` breadcrumb; tapping → Subcategory Details (single-topic intent)
+  - **Topics** (shown first) — one compact row per matched Subcategory; row shows `Subcategory · Category` breadcrumb; tapping → Subcategory Details (single-subcategory intent)
   - **Categories** (shown second) — Category cards in their normal shape; tapping → Category Details
 - A Category card appears in the Categories section when either its name matches or any of its Subcategories match
 - Category card preview row in search results shows the default first-N Subcategories (matched Topics already surface as Topic rows above — no duplication)
@@ -41,13 +41,17 @@
 - Three session-start options:
   - **Quick Session** button — system auto-selects Subcategories and Flashcards (MVP: random; target: performance-weighted) → composite Study Session starts immediately
   - **Start Composite Session** button — transforms the list into multi-select mode; user selects Topics; "Start" button becomes active after ≥1 selected → composite Study Session begins
-  - **Fast-start action on each Topic row** — starts a single-topic Study Session for that Subcategory immediately, without navigating away
+  - **Fast-start action on each Topic row** — starts a single-subcategory Study Session for that Subcategory immediately, without navigating away
 - Tapping a Topic row (not its fast-start action) → Subcategory Details screen
 
 ## Subcategory Details Screen
 
 - Lists all Flashcards belonging to the Subcategory
-- App bar includes **"Start Session"** button → single-topic Study Session begins
+- **Filter chip row** below screen header (no row label): one chip per **specific Tag** present in this Subcategory
+  - Chips support multi-select with **OR** semantics (selecting "State Management" + "Side Effects" matches Flashcards carrying either Tag)
+  - Active chips filter both the visible Flashcard list and the single-subcategory Study Session selection pool
+  - Common Tags (cross-Subcategory umbrellas) are not surfaced — they remain internal/AI-facing
+- App bar includes **"Start Session"** button → single-subcategory Study Session begins (respects active Tag chip filter)
 - FAB → create Private Flashcard (Q/A form) — details deferred
 
 ## Study Session Flow
@@ -105,13 +109,13 @@ cards/{cardId}                               → { question, answer, subcategory
 // Per-user
 users/{uid}/favorites/{subcategoryId}        → { createdAt }
 users/{uid}/recentSessions/{sessionId}       → { categoryId, subcategoryIds[], completedAt }
-users/{uid}/progress/{cardId}                → { failCount, correctCount, lastReviewedAt, nextReviewAt }
+users/{uid}/progress/{cardId}                → { failedCount, correctCount, lastReviewedAt, nextReviewAt }
 users/{uid}/progress/{cardId}/reviews/{id}   → { rating, reviewedAt }
 users/{uid}/privateCards/{cardId}            → { question, answer, subcategoryId, tags[], status, createdAt }
 users/{uid}/privateCards/{cardId}/reviews/   → { rating, reviewedAt }
 ```
 
-- Categories use `parentId` for 2-3 level hierarchy; Subcategories are Categories with a non-null `parentId`. Admin-defined globally.
+- **Strict 2-level taxonomy**: a Subcategory is a Category document with a non-null `parentId` pointing to a top-level Category. No deeper nesting; in-Subcategory grouping is done via specific Tags surfaced as filter chips on Subcategory Details. See [ADR-0001](docs/adr/0001-flat-two-level-taxonomy.md). Admin-defined globally.
 - Tags are predefined globally (MVP). No user-created tags in MVP.
 - Private Flashcard `status`: `"private" | "submitted" | "approved"` — promotion pipeline to global pool.
 - Offline: Firestore Android SDK built-in persistence. No Room needed.
@@ -121,7 +125,7 @@ users/{uid}/privateCards/{cardId}/reviews/   → { rating, reviewedAt }
 
 Client-side only. Pure logic on Firestore data:
 
-- Score per Flashcard: `(incorrectCount / totalCount) * recencyWeight`
+- Score per Flashcard: `(failedCount / (failedCount + correctCount)) * recencyWeight`
 - Filter: exclude cards where `nextReviewAt > now`
 - Sort by score descending → pick top N → slight shuffle
 

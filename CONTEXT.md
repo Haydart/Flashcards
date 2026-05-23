@@ -1,6 +1,6 @@
 # Flashcards
 
-A mobile app for studying curated flashcards organized by topic, with spaced-repetition-influenced flashcard selection.
+A mobile app for studying curated flashcards organized by subcategory, with spaced-repetition-influenced flashcard selection.
 
 ## Language
 
@@ -15,8 +15,10 @@ A granular area within a Category. A Flashcard belongs to exactly one Subcategor
 _Avoid_: Subtopic (the UI label "Topic" is intentional and not a synonym to avoid — it is the presentation-layer name)
 
 **Tag**:
-A broader umbrella concept that groups multiple Subcategories (e.g. "UI" spans Compose, XML, Navigation, Notifications). Tags are internal and AI-facing only — they never appear in any user-facing UI.
-_Avoid_: Label, Topic, Filter
+A keyword carried by a Flashcard. Two kinds:
+- **Specific Tag**: scoped within a single Subcategory (e.g. "State Management", "Modifiers" within Compose). Surfaced to users as filter chips on Subcategory Details. Tapping chips constrains both the browsed Flashcard list and the single-subcategory Study Session selection pool. Multi-select with OR semantics.
+- **Common Tag**: a broader umbrella spanning multiple Subcategories (e.g. "UI" spans Compose, XML, Navigation, Notifications). Internal and AI-facing only — never appears in user-facing UI.
+_Avoid_: Label, Topic, Filter (even though specific Tags filter, do not call the entity "Filter")
 
 **Flashcard**:
 A question-answer pair belonging to exactly one Subcategory. Part of the global admin-curated pool or a user's private collection.
@@ -31,7 +33,7 @@ A Subcategory explicitly bookmarked by a User. Displayed on the Home screen as a
 _Avoid_: Starred, Saved, Liked
 
 **Recent**:
-A past Study Session surfaced on the Home screen as a carousel card. Renders as one of two variants: a **single-topic Recent** (session had one Subcategory — shows Subcategory + Category name, taps into Subcategory Details) or a **composite Recent** (session spanned multiple Subcategories — shows Category name only, taps into Category Details).
+A past Study Session surfaced on the Home screen as a carousel card. Renders as one of two variants: a **single-subcategory Recent** (session had one Subcategory — shows Subcategory + Category name, taps into Subcategory Details) or a **composite Recent** (session spanned multiple Subcategories — shows Category name only, taps into Category Details).
 _Avoid_: History, Last session
 
 **User**:
@@ -39,7 +41,7 @@ An authenticated person using the app. Represented in code as `AuthUser` with `u
 _Avoid_: Account, Player, Learner
 
 **Study Session**:
-A focused learning instance scoped to one or more Subcategories within a single Category. Flashcards are selected and ordered by per-flashcard performance scores and recency weights. Only Flashcards that reached a Terminal State are written to Firestore — queued Flashcards at session end are treated as unseen. A session with exactly one Subcategory is a **single-topic session**; a session spanning multiple Subcategories is a **composite session**.
+A focused learning instance scoped to one or more Subcategories within a single Category. Flashcards are selected and ordered by per-flashcard performance scores and recency weights. Only Flashcards that reached a Terminal State are written to Firestore — queued Flashcards at session end are treated as unseen. A session with exactly one Subcategory is a **single-subcategory session**; a session spanning multiple Subcategories is a **composite session**.
 _Avoid_: Quiz, Session alone (ambiguous with auth session)
 
 **Attempt**:
@@ -62,9 +64,9 @@ _Avoid_: Completed, Passed, Correct (Correct is the Rating that causes Mastered,
 
 **Study Creation**:
 The flow a user goes through to start a Study Session. Three entry points, all originating from the Study screen:
-- **Single-topic**: tap a Subcategory on Category Details (or "Start" in the app bar of Subcategory Details) → single-topic session begins.
+- **Single-subcategory**: tap a Subcategory on Category Details (or "Start" in the app bar of Subcategory Details) → single-subcategory session begins.
 - **Quick Session**: tap "Quick Session" on Category Details → system auto-selects Subcategories and Flashcards based on performance scores (MVP: randomized) → composite session begins immediately.
-- **Composite**: tap "Start Composite Session" on Category Details → screen enters multi-select mode on the Subcategory list → user selects topics → taps start → composite session begins.
+- **Composite**: tap "Start Composite Session" on Category Details → screen enters multi-select mode on the Subcategory list → user selects subcategories → taps start → composite session begins.
 _Avoid_: Session setup, Session wizard
 
 
@@ -74,7 +76,7 @@ _Avoid_: Session setup, Session wizard
 - A **Flashcard** belongs to exactly one **Subcategory**
 - A **Flashcard** carries one or more **Tags** (internal/AI-facing only)
 - A **Study Session** draws **Flashcards** from one or more **Subcategories** within a single **Category**
-- A **Recent** is a past **Study Session** — single-topic if one Subcategory, composite if multiple
+- A **Recent** is a past **Study Session** — single-subcategory if one Subcategory, composite if multiple
 - A **Favorite** is a bookmarked **Subcategory**
 - An **Attempt** produces exactly one **Rating**
 - A **Flashcard** in a **Study Session** has at most 3 **Attempts**
