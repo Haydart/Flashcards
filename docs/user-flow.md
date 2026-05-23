@@ -40,9 +40,9 @@ flowchart TD
     Study(STUDY SCREEN\nSearch bar + Category list)
     Study --> Search[/Search term in search bar\nmin 2 chars/]
     Study --> TapCategory[/Tap Category card/]
-    Search --> TapTopicRow[/Tap Topic direct-hit row/]
+    Search --> TapSubcatRow[/Tap Topic direct-hit row/]
     Search --> TapCategory
-    TapTopicRow --> SubcatDetails
+    TapSubcatRow --> SubcatDetails
     TapCategory --> CatDetails
 
     %% ── Category Details ─────────────────────────────────────
@@ -50,10 +50,10 @@ flowchart TD
     CatDetails --> QuickSession[/Tap Quick Session\nauto-selects Subcategories + Flashcards/]
     CatDetails --> CompositeFlow[/Tap Start Composite Session\nlist enters multi-select/]
     CatDetails --> FastStart[/Tap fast-start on Subcategory row\nsingle-subcategory immediately/]
-    CatDetails --> TapTopic[/Tap Subcategory row/]
-    CompositeFlow --> SelectTopics[/Select ≥1 Subcategories/]
-    SelectTopics --> StartBtn[/Tap Start/]
-    TapTopic --> SubcatDetails
+    CatDetails --> TapSubcat[/Tap Subcategory row/]
+    CompositeFlow --> SelectSubcats[/Select ≥1 Subcategories/]
+    SelectSubcats --> StartBtn[/Tap Start/]
+    TapSubcat --> SubcatDetails
 
     %% ── Subcategory Details ─────────────────────────────────
     SubcatDetails(SUBCATEGORY DETAILS SCREEN\nFlashcard list)
