@@ -8,15 +8,6 @@
 - **Minimum SDK**: 24 (Android 7.0)
 - **Target SDK**: 36
 
-### Technology Stack
-- **Language**: Kotlin 2.3.0
-- **UI**: Jetpack Compose + Material 3
-- **DI**: Hilt (Dagger)
-- **Database**: Firestore (offline persistence via SDK)
-- **Networking**: Retrofit + OkHttp + Kotlinx Serialization
-- **Async**: Coroutines + Flow/StateFlow
-- **Testing**: JUnit, MockK, Turbine, Compose UI Test
-
 ## Architecture Guidelines
 
 ### Clean Architecture Layers
@@ -84,18 +75,9 @@ class FlashcardViewModel @Inject constructor(
 - Composable functions: PascalCase (`FlashcardScreen()`)
 
 ### Sealed Classes for States
-Use sealed classes for finite states. Error handling pattern:
-```kotlin
-sealed class Result<out T> {
-    data class Success<T>(val data: T) : Result<T>()
-    data class Error(val exception: Throwable, val message: String? = null) : Result<Nothing>()
-}
+Use sealed classes for finite UI states (e.g. loading / content / error variants of a screen state).
 
-inline fun <T, R> Result<T>.map(transform: (T) -> R): Result<R> = when (this) {
-    is Result.Success -> Result.Success(transform(data))
-    is Result.Error -> this
-}
-```
+For fallible operations, return `kotlin.Result<T>` and consume with `.onSuccess { ... }` / `.onFailure { ... }`. Do not define a project-local `Result` type — it would shadow the stdlib one.
 
 ## Jetpack Compose Guidelines
 
@@ -131,10 +113,11 @@ Dispatchers:
 - `Dispatchers.Default` — CPU-intensive work
 - `Dispatchers.Main` — UI updates (default in Compose)
 
-StateFlow/SharedFlow rules:
-- `StateFlow` for UI state in ViewModels
-- `SharedFlow` for one-time events
-- Handle errors with `.catch()` operator
+StateFlow / SharedFlow rules:
+- `StateFlow` for UI state in ViewModels (single source of truth per screen)
+- `SharedFlow` for transient one-time events such as snackbars and toasts
+- **Navigation is the exception**: model navigation as a nullable destination field on the screen state, not as a `SharedFlow` event. Observe with `LaunchedEffect(state.navigationDestination)` and trigger the nav callback. See [docs/navigation-pattern.md](./docs/navigation-pattern.md) for the rationale (recomposition-safe, idempotent, no replay/buffer tuning).
+- Handle errors with `.catch()` operator on upstream flows
 
 ## Data Layer Standards
 
@@ -158,11 +141,11 @@ Error handling pattern for repository methods:
 ```kotlin
 override suspend fun submitResponse(cardId: String, audioFile: File): Result<EvaluationResult> {
     return try {
-        Result.Success(mapper.toDomain(api.submitResponse(cardId, audioPart)))
+        Result.success(mapper.toDomain(api.submitResponse(cardId, audioPart)))
     } catch (e: IOException) {
-        Result.Error(e, "Network error: ${e.message}")
+        Result.failure(IOException("Network error: ${e.message}", e))
     } catch (e: HttpException) {
-        Result.Error(e, "Server error: ${e.code()}")
+        Result.failure(e)
     }
 }
 ```
