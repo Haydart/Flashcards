@@ -15,9 +15,10 @@ A granular area within a Category. A Flashcard belongs to exactly one Subcategor
 _Avoid_: Subtopic (the UI label "Topic" is intentional and not a synonym to avoid — it is the presentation-layer name)
 
 **Tag**:
-A keyword carried by a Flashcard. Two kinds:
-- **Specific Tag**: scoped within a single Subcategory (e.g. "State Management", "Modifiers" within Compose). Surfaced to users as filter chips on Subcategory Details. Tapping chips constrains both the browsed Flashcard list and the single-subcategory Study Session selection pool. Multi-select with OR semantics.
+A keyword carried by a Flashcard. Three kinds:
+- **Specific Tag**: scoped within a single Subcategory (e.g. "State Management", "Modifiers" within Compose). Surfaced to users as filter chips on Subcategory Details. Tapping chips constrains both the browsed Flashcard list and the single-subcategory Study Session selection pool. Multi-select with OR semantics. Every Subcategory has a **General** Specific Tag for Flashcards that don't fit a narrower theme.
 - **Common Tag**: a broader umbrella spanning multiple Subcategories (e.g. "UI" spans Compose, XML, Navigation, Notifications). Internal and AI-facing only — never appears in user-facing UI.
+- **System Tag**: auto-applied by the system; not user-assignable. Currently one: **"private"**, applied to every Private Flashcard. Visible as a filter chip on Subcategory Details (so users can study their private cards only) but hidden from the New Flashcard tag selector.
 _Avoid_: Label, Topic, Filter (even though specific Tags filter, do not call the entity "Filter")
 
 **Flashcard**:
@@ -74,7 +75,7 @@ _Avoid_: Session setup, Session wizard
 
 - A **Category** contains one or more **Subcategories**
 - A **Flashcard** belongs to exactly one **Subcategory**
-- A **Flashcard** carries one or more **Tags** (internal/AI-facing only)
+- A **Flashcard** carries one or more **Tags**; Specific and System Tags are user-facing, Common Tags are internal/AI-facing only
 - A **Study Session** draws **Flashcards** from one or more **Subcategories** within a single **Category**
 - A **Recent** is a past **Study Session** — single-subcategory if one Subcategory, composite if multiple
 - A **Favorite** is a bookmarked **Subcategory**

@@ -47,12 +47,15 @@
 ## Subcategory Details Screen
 
 - Lists all Flashcards belonging to the Subcategory
-- **Filter chip row** below screen header (no row label): one chip per **specific Tag** present in this Subcategory
-  - Chips support multi-select with **OR** semantics (selecting "State Management" + "Side Effects" matches Flashcards carrying either Tag)
-  - Active chips filter both the visible Flashcard list and the single-subcategory Study Session selection pool
-  - Common Tags (cross-Subcategory umbrellas) are not surfaced — they remain internal/AI-facing
-- App bar includes **"Start Session"** button → single-subcategory Study Session begins (respects active Tag chip filter)
-- FAB → create Private Flashcard (Q/A form) — details deferred
+- App bar includes:
+  - **"Start Session"** button → single-subcategory Study Session begins (respects active Tag filter)
+  - **Filter icon button** (top-right) — opens the Tag filter dialog; shows a dot badge when ≥1 Tag is active
+- **Tag filter dialog** (modal overlay, no Apply button — selections apply on close):
+  - Header row: **"Select All"** and **"Unselect All"** actions, separated from the tag list by a divider
+  - Staggered grid of tag chips below the divider: all Specific Tags + the "private" System Tag for this Subcategory
+  - Multi-select with **OR** semantics — active Tags filter both the visible Flashcard list and the Study Session pool
+  - Common Tags never appear
+- FAB → create Private Flashcard
 
 ## Study Session Flow
 
@@ -140,7 +143,10 @@ Progress storage — hybrid:
 Created from Subcategory Details screen via FAB. Fields:
 - Question (multiline text)
 - Answer (multiline text)
-- Tags (multi-select from predefined global tags for that Subcategory's parent Category)
+- Tags (multi-select from predefined Specific Tags for this Subcategory):
+  - Opens with all tags unchecked — no filter state propagated from the Subcategory Details screen
+  - "General" tag is not shown; if user submits with no tags checked, "General" is auto-assigned (intentional friction against unclassified cards)
+  - "private" System Tag is not shown; always auto-applied to every Private Flashcard regardless of user selection
 
 Saved to `users/{uid}/privateCards/`. Future: admin promotes to global pool if quality sufficient.
 
