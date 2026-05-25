@@ -73,12 +73,26 @@ fun SplashContent(
         }
     }
 
+    val gradientSlide = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        gradientSlide.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(durationMillis = GRADIENT_SLIDE_MS, easing = FastOutSlowInEasing)
+        )
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(splashGradient),
+            .background(SplashBlue),
         contentAlignment = Alignment.Center
     ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer { translationY = (1f - gradientSlide.value) * size.height }
+                .background(splashGradient)
+        )
         LottieAnimation(
             composition = composition,
             progress = { lottieState.progress },
