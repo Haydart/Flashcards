@@ -1,5 +1,8 @@
 package com.rossomak.flashcards.presentation.splash
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -9,12 +12,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -25,16 +30,17 @@ import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
 import com.rossomak.flashcards.R
 
-private val SplashGradientStart = Color(0xFF7B2FBE)
-private val SplashGradientEnd = Color(0xFF2979FF)
+private val SplashBlue = Color(0xFF2A2E8F)
+private val SplashPurple = Color(0xFF7B2FBE)
 
 private val splashGradient = Brush.linearGradient(
-    colors = listOf(SplashGradientStart, SplashGradientEnd),
+    colors = listOf(SplashBlue, SplashPurple),
     start = Offset.Zero,
     end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
 )
 
 private val LogoWidth = 280.dp
+private const val GRADIENT_SLIDE_MS = 600
 
 @Composable
 fun SplashScreen(
