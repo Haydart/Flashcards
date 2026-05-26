@@ -2,4 +2,11 @@
 <resources>
 
     <style name="Theme.Flashcards" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <style name="Theme.Flashcards.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_icon_anim</item>
+        <item name="windowSplashScreenAnimationDuration">950</item>
+        <item name="postSplashScreenTheme">@style/Theme.Flashcards</item>
+    </style>
 </resources>
