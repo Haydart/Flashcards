@@ -4,47 +4,46 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rossomak.flashcards.domain.usecase.GetCurrentAuthUserUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.delay
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import javax.inject.Inject
 
 @HiltViewModel
 class SplashViewModel @Inject constructor(
-    private val getCurrentAuthUserUseCase: GetCurrentAuthUserUseCase
+    private val getCurrentAuthUser: GetCurrentAuthUserUseCase
 ) : ViewModel() {
 
-    companion object {
-        private const val MAX_SPLASH_NAVIGATION_TIMEOUT_MS = 5_000L
-        private const val POST_ANIMATION_DELAY_MS = 2_000L
-    }
+    private val _animationCompleted = MutableStateFlow(false)
+    private val _authenticated = MutableStateFlow<Boolean?>(null)
 
-    private val animationCompleted = MutableStateFlow(false)
-
-    private val _state = MutableStateFlow(SplashScreenState())
-    val state: StateFlow<SplashScreenState> = _state.asStateFlow()
+    val navigationDestination: StateFlow<SplashDestination?> = combine(
+        _animationCompleted,
+        _authenticated
+    ) { animDone, authenticated ->
+        if (animDone && authenticated != null) {
+            if (authenticated) SplashDestination.Main else SplashDestination.Login
+        } else null
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     init {
         viewModelScope.launch {
-            val animationFinished = withTimeoutOrNull(MAX_SPLASH_NAVIGATION_TIMEOUT_MS) {
-                animationCompleted.first { it }
-            } != null
-            if (animationFinished) delay(POST_ANIMATION_DELAY_MS)
-            val destination = if (getCurrentAuthUserUseCase() != null) {
-                SplashDestination.Main
-            } else {
-                SplashDestination.Login
-            }
-            _state.update { it.copy(navigationDestination = destination) }
+            val authenticated = withTimeoutOrNull(AUTH_TIMEOUT_MS) {
+                getCurrentAuthUser() != null
+            } ?: false
+            _authenticated.value = authenticated
         }
     }
 
     fun onAnimationCompleted() {
-        animationCompleted.value = true
+        _animationCompleted.value = true
+    }
+
+    private companion object {
+        const val AUTH_TIMEOUT_MS = 1000L
     }
 }

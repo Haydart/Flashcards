@@ -3,17 +3,24 @@ package com.rossomak.flashcards.presentation.splash
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.graphics.ExperimentalAnimationGraphicsApi
+import androidx.compose.animation.graphics.res.animatedVectorResource
+import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
+import androidx.compose.animation.graphics.vector.AnimatedImageVector
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -21,26 +28,35 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.airbnb.lottie.compose.LottieAnimation
-import com.airbnb.lottie.compose.LottieCompositionSpec
-import com.airbnb.lottie.compose.animateLottieCompositionAsState
-import com.airbnb.lottie.compose.rememberLottieComposition
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.R
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private val SplashBlue = Color(0xFF2A2E8F)
-private val SplashPurple = Color(0xFF7B2FBE)
+private val SplashPurple = Color(0xFF6B2FA0)
 
 private val splashGradient = Brush.linearGradient(
-    colors = listOf(SplashBlue, SplashPurple),
+    colorStops = arrayOf(
+        0.25f to SplashBlue,
+        0.99f to SplashPurple,
+    ),
     start = Offset.Zero,
     end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
 )
 
-private val LogoWidth = 280.dp
-private const val GRADIENT_SLIDE_MS = 600
+private val LogoWidth = 240.dp
+private val LogoHeight = LogoWidth * (1002f / 1800f)
+private const val GRADIENT_SLIDE_START_DELAY_MS = 500
+private const val GRADIENT_SLIDE_MS = 750
+private const val TEXT_REVEAL_DELAY_MS = 750
+private const val TEXT_REVEAL_DURATION_MS = 500
+private const val ANIMATION_COMPLETE_MS = 2000L
 
 @Composable
 fun SplashScreen(
@@ -48,44 +64,57 @@ fun SplashScreen(
     onNavigateToLogin: () -> Unit,
     viewModel: SplashViewModel = hiltViewModel()
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val navDestination by viewModel.navigationDestination.collectAsStateWithLifecycle()
 
-    LaunchedEffect(state.navigationDestination) {
-        when (state.navigationDestination) {
-            SplashDestination.Main -> onNavigateToMain()
-            SplashDestination.Login -> onNavigateToLogin()
-            null -> Unit
-        }
+    when (navDestination) {
+        SplashDestination.Main -> onNavigateToMain()
+        SplashDestination.Login -> onNavigateToLogin()
+        null -> {}
     }
 
     SplashContent(onAnimationCompleted = viewModel::onAnimationCompleted)
 }
 
+@OptIn(ExperimentalAnimationGraphicsApi::class)
 @Composable
 fun SplashContent(
     onAnimationCompleted: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.flashcards_lottie_splash))
-    val lottieState = animateLottieCompositionAsState(
-        composition = composition,
-        iterations = 1,
-        isPlaying = composition != null
-    )
-
-    LaunchedEffect(lottieState.isAtEnd) {
-        if (lottieState.isAtEnd && composition != null) {
-            onAnimationCompleted()
-        }
-    }
-
     val gradientSlide = remember { Animatable(0f) }
+    val textReveal = remember { Animatable(0f) }
+    var logoAtEnd by remember { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
-        gradientSlide.animateTo(
-            targetValue = 1f,
-            animationSpec = tween(durationMillis = GRADIENT_SLIDE_MS, easing = FastOutSlowInEasing)
-        )
+        launch {
+            gradientSlide.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(
+                    durationMillis = GRADIENT_SLIDE_MS,
+                    easing = FastOutSlowInEasing,
+                    delayMillis = GRADIENT_SLIDE_START_DELAY_MS
+                )
+            )
+        }
+        launch {
+            textReveal.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(
+                    durationMillis = TEXT_REVEAL_DURATION_MS,
+                    easing = FastOutSlowInEasing,
+                    delayMillis = TEXT_REVEAL_DELAY_MS
+                )
+            )
+        }
+        logoAtEnd = true
+        delay(ANIMATION_COMPLETE_MS)
+        onAnimationCompleted()
     }
+
+    val logoPainter = rememberAnimatedVectorPainter(
+        animatedImageVector = AnimatedImageVector.animatedVectorResource(R.drawable.ic_flashcards_logo_anim),
+        atEnd = logoAtEnd
+    )
 
     Box(
         modifier = modifier
@@ -96,13 +125,23 @@ fun SplashContent(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .graphicsLayer { translationY = (1f - gradientSlide.value) * size.height }
                 .background(splashGradient)
         )
-        LottieAnimation(
-            composition = composition,
-            progress = { lottieState.progress },
-            modifier = Modifier.fillMaxWidth()
+        Image(
+            painter = logoPainter,
+            contentDescription = null,
+            modifier = Modifier.size(width = LogoWidth, height = LogoHeight)
+        )
+        Text(
+            text = stringResource(R.string.splash_tagline).uppercase(),
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+            color = Color.White.copy(alpha = 0.5f),
+            modifier = Modifier
+                .offset(y = LogoHeight / 2)
+                .graphicsLayer {
+                    alpha = textReveal.value
+                    translationY = (1f - textReveal.value) * 12.dp.toPx()
+                }
         )
     }
 }
@@ -119,7 +158,13 @@ private fun SplashContentPreview() {
         Image(
             painter = painterResource(R.drawable.flashcards_white),
             contentDescription = null,
-            modifier = Modifier.width(LogoWidth)
+            modifier = Modifier.size(width = LogoWidth, height = LogoHeight)
+        )
+        Text(
+            text = stringResource(R.string.splash_tagline).uppercase(),
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+            color = Color.White.copy(alpha = 0.5f),
+            modifier = Modifier.offset(y = LogoHeight / 2)
         )
     }
 }
