@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animated-vector
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/ic_flashcards_logo">
+    <target
+        android:name="group_f"
+        android:animation="@animator/anim_f_group" />
+    <target
+        android:name="logo_wipe_clip"
+        android:animation="@animator/reveal_logo" />
+    <target
+        android:name="group_lashcards"
+        android:animation="@animator/anim_lashcards_group" />
+</animated-vector>
