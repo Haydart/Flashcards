@@ -51,7 +51,7 @@ private val splashGradient = Brush.linearGradient(
 )
 
 private val LogoWidth = 240.dp
-private val LogoHeight = LogoWidth * (1002f / 1800f)
+private val LogoHeight = LogoWidth * (1000f / 1800f)
 private const val GRADIENT_SLIDE_START_DELAY_MS = 500
 private const val GRADIENT_SLIDE_MS = 750
 private const val TEXT_REVEAL_DELAY_MS = 750
@@ -66,10 +66,12 @@ fun SplashScreen(
 ) {
     val navDestination by viewModel.navigationDestination.collectAsStateWithLifecycle()
 
-    when (navDestination) {
-        SplashDestination.Main -> onNavigateToMain()
-        SplashDestination.Login -> onNavigateToLogin()
-        null -> {}
+    LaunchedEffect(navDestination) {
+        when (navDestination) {
+            SplashDestination.Main -> onNavigateToMain()
+            SplashDestination.Login -> onNavigateToLogin()
+            null -> {}
+        }
     }
 
     SplashContent(onAnimationCompleted = viewModel::onAnimationCompleted)
@@ -125,6 +127,10 @@ fun SplashContent(
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .graphicsLayer {
+                    alpha = gradientSlide.value
+                    translationY = (1f - gradientSlide.value) * size.height
+                }
                 .background(splashGradient)
         )
         Image(
