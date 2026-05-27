@@ -8,9 +8,9 @@
         android:name="group_f"
         android:pivotX="478.5"
         android:pivotY="462"
-        android:scaleX="2.1"
-        android:scaleY="2.1"
-        android:translateX="421.5"
+        android:scaleX="2.09"
+        android:scaleY="2.09"
+        android:translateX="428"
         android:translateY="-40">
         <path
             android:name="path_f_body"
