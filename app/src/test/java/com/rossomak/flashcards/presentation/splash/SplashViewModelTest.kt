@@ -32,7 +32,7 @@ class SplashViewModelTest {
 
         val viewModel = createViewModel()
 
-        viewModel.state.value.navigationDestination shouldBe null
+        viewModel.navigationDestination.value shouldBe null
     }
 
     @Test
@@ -43,7 +43,7 @@ class SplashViewModelTest {
         viewModel.onAnimationCompleted()
         advanceUntilIdle()
 
-        viewModel.state.value.navigationDestination shouldBe SplashDestination.Main
+        viewModel.navigationDestination.value shouldBe SplashDestination.Main
     }
 
     @Test
@@ -54,34 +54,34 @@ class SplashViewModelTest {
         viewModel.onAnimationCompleted()
         advanceUntilIdle()
 
-        viewModel.state.value.navigationDestination shouldBe SplashDestination.Login
+        viewModel.navigationDestination.value shouldBe SplashDestination.Login
     }
 
     @Test
-    fun `animation timeout navigates without applying post-animation delay`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `auth timeout alone without animation completing keeps destination null`() = runTest(mainDispatcherRule.testDispatcher) {
         coEvery { getCurrentAuthUserUseCase() } returns null
 
         val viewModel = createViewModel()
         // Do NOT call onAnimationCompleted - simulate animation hang.
         advanceUntilIdle()
 
-        viewModel.state.value.navigationDestination shouldBe SplashDestination.Login
-        // Total virtual time must be ~5000ms (timeout only), NOT 7000ms (timeout + 2000 post-delay).
-        // Regression guard for commit 1e181aa.
+        // Auth resolves to false after 1000ms timeout, but animation hasn't completed,
+        // so combine never emits a destination.
+        viewModel.navigationDestination.value shouldBe null
         testScheduler.currentTime shouldBeLessThan 7_000L
     }
 
     @Test
-    fun `animation completed triggers post-animation delay before navigating`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `navigation destination resolves without extra delay when animation and auth both complete`() = runTest(mainDispatcherRule.testDispatcher) {
         coEvery { getCurrentAuthUserUseCase() } returns testUser
 
         val viewModel = createViewModel()
         viewModel.onAnimationCompleted()
         advanceUntilIdle()
 
-        viewModel.state.value.navigationDestination shouldBe SplashDestination.Main
-        // Animation completed branch must include the 2s post-animation delay.
-        (testScheduler.currentTime >= 2_000L) shouldBe true
+        viewModel.navigationDestination.value shouldBe SplashDestination.Main
+        // No post-animation delay in current implementation - destination set immediately.
+        testScheduler.currentTime shouldBeLessThan 2_000L
     }
 
     @Test
@@ -93,7 +93,7 @@ class SplashViewModelTest {
         viewModel.onAnimationCompleted()
         advanceUntilIdle()
 
-        viewModel.state.value.navigationDestination shouldBe SplashDestination.Main
+        viewModel.navigationDestination.value shouldBe SplashDestination.Main
     }
 
     @Test
@@ -106,6 +106,6 @@ class SplashViewModelTest {
         viewModel.onAnimationCompleted()
         advanceUntilIdle()
 
-        viewModel.state.value.navigationDestination shouldBe SplashDestination.Login
+        viewModel.navigationDestination.value shouldBe SplashDestination.Login
     }
 }

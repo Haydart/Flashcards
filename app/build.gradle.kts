@@ -61,6 +61,7 @@ kotlin {
 
 dependencies {
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
@@ -83,7 +84,7 @@ dependencies {
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.kotlinx.serialization.json)
-    implementation(libs.lottie.compose)
+    implementation(libs.androidx.compose.animation.graphics)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
     testImplementation(libs.junit)

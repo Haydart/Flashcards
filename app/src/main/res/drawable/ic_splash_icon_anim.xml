@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animated-vector
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/ic_splash_icon">
+    <target
+        android:name="path_f_fill"
+        android:animation="@animator/reveal_f_fill" />
+    <target
+        android:name="path_f_outer_stroke"
+        android:animation="@animator/reveal_path_f" />
+    <target
+        android:name="path_f_inner_stroke"
+        android:animation="@animator/reveal_path_f" />
+    <target
+        android:name="path_accent"
+        android:animation="@animator/reveal_path_accent" />
+</animated-vector>
