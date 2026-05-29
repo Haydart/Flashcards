@@ -8,16 +8,6 @@ import androidx.navigation.compose.composable
 import com.rossomak.flashcards.presentation.login.LoginScreen
 import com.rossomak.flashcards.presentation.main.MainScreen
 import com.rossomak.flashcards.presentation.splash.SplashScreen
-import kotlinx.serialization.Serializable
-
-@Serializable
-object Splash
-
-@Serializable
-object Login
-
-@Serializable
-object Main
 
 @Composable
 fun FlashcardsNavGraph(
