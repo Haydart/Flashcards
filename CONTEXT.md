@@ -42,8 +42,14 @@ An authenticated person using the app. Represented in code as `AuthUser` with `u
 _Avoid_: Account, Player, Learner
 
 **Study Session**:
-A focused learning instance scoped to one or more Subcategories within a single Category. Flashcards are selected and ordered by per-flashcard performance scores and recency weights. Only Flashcards that reached a Terminal State are written to Firestore — queued Flashcards at session end are treated as unseen. A session with exactly one Subcategory is a **single-subcategory session**; a session spanning multiple Subcategories is a **composite session**.
+A focused learning instance scoped to one or more Subcategories within a single Category. Has exactly one **Study Mode**. Fast Study Sessions write only session metadata to Firestore (no card progress). Rated Study Sessions write Terminal State cards to Firestore. A session with exactly one Subcategory is a **single-subcategory session**; a session spanning multiple Subcategories is a **composite session**.
 _Avoid_: Quiz, Session alone (ambiguous with auth session)
+
+**Study Mode**:
+The interaction mechanic of a Study Session. Two values:
+- **Rated**: user reveals each answer manually, then self-rates (Failed / Partial / Correct). Flashcards reaching a Terminal State are written to Firestore.
+- **Fast**: cards advance automatically on a timer — question shown for a fixed window, then answer auto-revealed for a fixed window, then next card. No Ratings, no Attempts, no Terminal States.
+_Avoid_: Automatic mode, Passive mode, Browse mode
 
 **Attempt**:
 A single presentation of a Flashcard to the user within a Study Session. Each Flashcard has a maximum of 3 Attempts per session.
@@ -64,11 +70,15 @@ _Avoid_: Completed, Passed, Correct (Correct is the Rating that causes Mastered,
 ### Activities
 
 **Study Creation**:
-The flow a user goes through to start a Study Session. Three entry points, all originating from the Study screen:
-- **Single-subcategory**: tap a Subcategory on Category Details (or "Start" in the app bar of Subcategory Details) → single-subcategory session begins.
-- **Quick Session**: tap "Quick Session" on Category Details → system auto-selects Subcategories and Flashcards based on performance scores (MVP: randomized) → composite session begins immediately.
-- **Composite**: tap "Start Composite Session" on Category Details → screen enters multi-select mode on the Subcategory list → user selects subcategories → taps start → composite session begins.
+The flow a user goes through to start a Study Session. All entry points route through the **Pre-start Screen** before the session begins.
+- **Single-subcategory**: tap a Subcategory on Category Details (or "Start" in the app bar of Subcategory Details) → Pre-start Screen → session begins.
+- **Quick Session**: tap "Quick Session" on Category Details → system auto-selects Subcategories and Flashcards (MVP: randomized) → Pre-start Screen → session begins.
+- **Composite**: tap "Start Composite Session" on Category Details → list enters multi-select → user selects Subcategories → taps Start → Pre-start Screen → session begins.
 _Avoid_: Session setup, Session wizard
+
+**Pre-start Screen**:
+A full-screen summary shown before every Study Session begins. Displays session scope (card count, topic count, estimated duration). Below the stats row: a pill-button radio group for **Study Mode** selection (Rated | Fast); tapping a pill shows a short description of that mode beneath the group. Default selection: Rated. Contains a "Start session" button that launches the session with the selected mode. Only place in the app where Study Mode is chosen.
+_Avoid_: Pre-session screen, Session config, Mode picker
 
 
 ## Relationships
