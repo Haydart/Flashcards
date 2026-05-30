@@ -1,0 +1,5 @@
+# AuthedGraph: dedicated nested graph for auth-required screens
+
+All screens that require an authenticated (or future guest) session live inside a single `AuthedGraph` nested graph in the root `NavHost`. Unauthenticated screens (`Splash`, `Login`) remain at root level.
+
+We considered a flat root `NavHost` with all destinations side-by-side. Rejected because: (1) sign-out requires a single `popUpTo<AuthedGraph>(inclusive = true)` to clear the entire session stack regardless of how deep the user navigated — with a flat graph, callers must know the exact deepest destination to pop to, which becomes fragile as full-screen auth-required routes accumulate (`PreStartScreen`, `StudySession`, `SessionSummary`, `CreatePrivateFlashcard`); (2) the graph boundary makes the auth requirement explicit and readable in code; (3) if guest mode is added, both guest and authenticated users share `AuthedGraph` — the boundary becomes "has any active session" rather than strictly "is authenticated", and the sign-out/sign-in routing stays unchanged.
