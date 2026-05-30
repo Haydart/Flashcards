@@ -13,4 +13,3 @@ class StudyViewModel @Inject constructor() : ViewModel() {
     private val _state = MutableStateFlow(StudyScreenState())
     val state: StateFlow<StudyScreenState> = _state.asStateFlow()
 }
-
