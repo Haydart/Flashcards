@@ -12,5 +12,13 @@ class HomeViewModel @Inject constructor() : ViewModel() {
 
     private val _state = MutableStateFlow(HomeScreenState())
     val state: StateFlow<HomeScreenState> = _state.asStateFlow()
+
+    fun onNavigationHandled() {
+        _state.value = _state.value.copy(navigationDestination = null)
+    }
+
+    internal fun navigateTo(destination: HomeDestination) {
+        _state.value = _state.value.copy(navigationDestination = destination)
+    }
 }
 
