@@ -1,176 +1,139 @@
 package com.rossomak.flashcards.presentation.main
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil3.compose.AsyncImage
-import com.rossomak.flashcards.ui.theme.FlashcardsTheme
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.navigation
+import androidx.navigation.compose.rememberNavController
+import com.rossomak.flashcards.presentation.home.HomeScreen
+import com.rossomak.flashcards.presentation.settings.SettingsScreen
+import com.rossomak.flashcards.presentation.study.StudyScreen
+import com.rossomak.flashcards.ui.navigation.HomeCategoryDetails
+import com.rossomak.flashcards.ui.navigation.HomeGraph
+import com.rossomak.flashcards.ui.navigation.HomeRoot
+import com.rossomak.flashcards.ui.navigation.HomeSubcategoryDetails
+import com.rossomak.flashcards.ui.navigation.SettingsGraph
+import com.rossomak.flashcards.ui.navigation.SettingsRoot
+import com.rossomak.flashcards.ui.navigation.StudyGraph
+import com.rossomak.flashcards.ui.navigation.StudyRoot
 
-private val AvatarSize = 120.dp
+private val BottomBarBackground = Color.White
+private val SelectedIndicatorColor = Color(0xFFEDE7FF)
+private val SelectedItemColor = Color(0xFF6B2FA0)
+private val UnselectedItemColor = Color(0xFF7E7E9A)
+
+private data class TabItem(
+    val label: String,
+    val icon: ImageVector,
+    val route: Any
+)
+
+private val tabs = listOf(
+    TabItem("Home", Icons.Filled.Home, HomeGraph),
+    TabItem("Study", Icons.AutoMirrored.Filled.MenuBook, StudyGraph),
+    TabItem("Settings", Icons.Filled.Settings, SettingsGraph)
+)
 
 @Composable
 fun MainScreen(
-    onNavigateToLogin: () -> Unit,
-    viewModel: MainViewModel = hiltViewModel()
+    onNavigateToLogin: () -> Unit
 ) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val tabNavController = rememberNavController()
+    val navBackStackEntry by tabNavController.currentBackStackEntryAsState()
+    val currentDestination = navBackStackEntry?.destination
 
-    LaunchedEffect(state.navigationDestination) {
-        when (state.navigationDestination) {
-            MainDestination.Login -> onNavigateToLogin()
-            null -> Unit
-        }
-    }
-
-    MainContent(
-        state = state,
-        onSignOutClick = viewModel::onSignOutClick
-    )
-}
-
-@Composable
-fun MainContent(
-    state: MainScreenState,
-    onSignOutClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        when {
-            state.isLoading -> CircularProgressIndicator()
-
-            state.error != null -> Text(
-                text = "Error: ${state.error}",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.error
-            )
-
-            else -> Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+    Scaffold(
+        bottomBar = {
+            NavigationBar(
+                containerColor = BottomBarBackground
             ) {
-                Avatar(photoUrl = state.photoUrl)
-                Spacer(modifier = Modifier.height(24.dp))
-                Text(
-                    text = "Hello, ${state.displayName ?: "User"}!",
-                    style = MaterialTheme.typography.headlineMedium
-                )
-                Spacer(modifier = Modifier.height(32.dp))
-                OutlinedButton(onClick = onSignOutClick) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Logout,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
+                tabs.forEach { tab ->
+                    NavigationBarItem(
+                        selected = currentDestination?.hierarchy?.any { it.hasRoute(tab.route::class) } == true,
+                        onClick = {
+                            tabNavController.navigate(tab.route) {
+                                popUpTo(tabNavController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = SelectedItemColor,
+                            selectedTextColor = SelectedItemColor,
+                            unselectedIconColor = UnselectedItemColor,
+                            unselectedTextColor = UnselectedItemColor,
+                            indicatorColor = SelectedIndicatorColor
+                        ),
+                        icon = { Icon(imageVector = tab.icon, contentDescription = tab.label) },
+                        label = { Text(text = tab.label) }
                     )
-                    Spacer(modifier = Modifier.size(8.dp))
-                    Text(text = "Sign out")
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun Avatar(photoUrl: String?) {
-    if (photoUrl.isNullOrBlank()) {
-        Surface(
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            modifier = Modifier.size(AvatarSize)
+    ) { innerPadding ->
+        NavHost(
+            navController = tabNavController,
+            startDestination = HomeGraph,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Filled.Person,
-                    contentDescription = null,
-                    modifier = Modifier.size(64.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            navigation<HomeGraph>(startDestination = HomeRoot) {
+                composable<HomeRoot> {
+                    HomeScreen(
+                        onNavigateToCategoryDetails = { id ->
+                            tabNavController.navigate(HomeCategoryDetails(id))
+                        },
+                        onNavigateToSubcategoryDetails = { categoryId, subcategoryId ->
+                            tabNavController.navigate(HomeSubcategoryDetails(categoryId, subcategoryId))
+                        }
+                    )
+                }
+                composable<HomeCategoryDetails> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(text = "Category Details - NYI")
+                    }
+                }
+                composable<HomeSubcategoryDetails> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(text = "Subcategory Details - NYI")
+                    }
+                }
+            }
+            navigation<StudyGraph>(startDestination = StudyRoot) {
+                composable<StudyRoot> {
+                    StudyScreen()
+                }
+            }
+            navigation<SettingsGraph>(startDestination = SettingsRoot) {
+                composable<SettingsRoot> {
+                    SettingsScreen(onNavigateToLogin = onNavigateToLogin)
+                }
             }
         }
-    } else {
-        AsyncImage(
-            model = photoUrl,
-            contentDescription = "Profile photo",
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .size(AvatarSize)
-                .clip(CircleShape)
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun MainContentLoadingPreview() {
-    FlashcardsTheme {
-        MainContent(state = MainScreenState(isLoading = true), onSignOutClick = {})
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun MainContentSignedInWithPhotoPreview() {
-    FlashcardsTheme {
-        MainContent(
-            state = MainScreenState(
-                isLoading = false,
-                displayName = "John",
-                photoUrl = "https://example.com/photo.jpg"
-            ),
-            onSignOutClick = {}
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun MainContentSignedInNoPhotoPreview() {
-    FlashcardsTheme {
-        MainContent(
-            state = MainScreenState(
-                isLoading = false,
-                displayName = "John",
-                photoUrl = null
-            ),
-            onSignOutClick = {}
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun MainContentErrorPreview() {
-    FlashcardsTheme {
-        MainContent(state = MainScreenState(isLoading = false, error = "Something went wrong"), onSignOutClick = {})
     }
 }
