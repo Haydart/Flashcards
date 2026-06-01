@@ -39,7 +39,7 @@ Accessible from both Home and Study tabs. Use **tab-prefixed route types** (`Hom
 
 ### Session entry routing
 
-All session entry points navigate to `PreStartScreen`, which owns card selection from the given scope. See [ADR-0004](docs/adr/0004-pre-start-screen-card-selection.md).
+All session entry points navigate to `PreStartScreen`, which owns card selection from the given scope. See [ADR-0004](docs/adr/0004-pre-start-screen-owns-card-selection.md).
 
 - **Study Again (All)**: → `PreStartScreen` with same params, `popUpTo<Main>()`.
 - **Study Again (Failed)**: → `StudySession` directly with `cardIds = [failedCardIds]`, `popUpTo<Main>()`.
