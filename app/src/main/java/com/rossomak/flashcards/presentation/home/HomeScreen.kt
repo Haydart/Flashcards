@@ -36,8 +36,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import com.rossomak.flashcards.ui.theme.brandColors
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -78,13 +78,7 @@ fun HomeScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HomeTopBar() {
-    val gradient = Brush.horizontalGradient(
-        colors = listOf(
-            MaterialTheme.colorScheme.primaryContainer,
-            MaterialTheme.colorScheme.secondary,
-        ),
-    )
-    Box(modifier = Modifier.fillMaxWidth().background(gradient)) {
+    Box(modifier = Modifier.fillMaxWidth().background(MaterialTheme.brandColors.topBarGradient)) {
         CenterAlignedTopAppBar(
             title = {
                 Icon(
