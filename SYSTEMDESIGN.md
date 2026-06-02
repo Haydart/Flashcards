@@ -242,6 +242,16 @@ Fixture JSON format:
 }
 ```
 
+## Design System
+
+Branded Material 3 — full M3 `ColorScheme` kept intact, with an additive `BrandColors` layer for app-specific colors. See [ADR-0005](docs/adr/0005-branded-m3-design-system.md).
+
+**Color access in composables:**
+- `MaterialTheme.colorScheme.*` — M3 roles (surfaces, primary, secondary, error, etc.)
+- `MaterialTheme.brandColors.*` — branded extras (gradients as `Brush`, difficulty tints, etc.)
+
+`BrandColors` slots are added incrementally as screens need them. Do not read `Color.kt` tokens directly in composables.
+
 ## Not in MVP
 
 - Push notifications / study reminders (needs FCM + WorkManager)
