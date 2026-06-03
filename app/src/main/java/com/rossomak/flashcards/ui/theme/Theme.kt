@@ -104,7 +104,10 @@ fun FlashcardsTheme(
 
     val brandColors = if (darkTheme) darkBrandColors else lightBrandColors
 
-    CompositionLocalProvider(LocalBrandColors provides brandColors) {
+    CompositionLocalProvider(
+        LocalBrandColors provides brandColors,
+        LocalSpacing provides AppSpacing(),
+    ) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = AppTypography,
