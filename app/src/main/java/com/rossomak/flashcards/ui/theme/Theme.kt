@@ -107,6 +107,7 @@ fun FlashcardsTheme(
     CompositionLocalProvider(
         LocalBrandColors provides brandColors,
         LocalSpacing provides AppSpacing,
+        LocalCornerRadius provides AppCornerRadius,
     ) {
         MaterialTheme(
             colorScheme = colorScheme,
