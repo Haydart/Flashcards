@@ -94,9 +94,8 @@ Home empty state CTA ("Start your first session") triggers a tab switch to Study
   - **Filter icon button** (top-right) — opens the Tag filter dialog; shows a dot badge when ≥1 Tag is active
 - **Tag filter dialog** (modal overlay, no Apply button — selections apply on close):
   - Header row: **"Select All"** and **"Unselect All"** actions, separated from the tag list by a divider
-  - Staggered grid of tag chips below the divider: all Specific Tags + the "private" System Tag for this Subcategory
+  - Staggered grid of chips below the divider: every Tag present on this Subcategory's Flashcards (derived `distinct(card.tags)`) plus a **"Private"** chip (the derived Private flag)
   - Multi-select with **OR** semantics — active Tags filter both the visible Flashcard list and the Study Session pool
-  - Common Tags never appear
 - FAB → create Private Flashcard
 
 ## Pre-start Screen
@@ -181,8 +180,11 @@ A session is scoped to one Category and one or more Subcategories. Card selectio
 ```
 // Global taxonomy (admin-defined)
 categories/{catId}                           → { name, parentId, order }
-tags/{tagId}                                 → { name, subcategoryIds[], type: "specific"|"common" }
-cards/{cardId}                               → { question, answer, subcategoryId, tags[], createdAt }
+cards/{cardId}                               → { question, answer,
+                                                 questionCode?, answerCode?,
+                                                 extendedContext?,
+                                                 questionSpoken?, answerSpoken?,
+                                                 subcategoryId, tags[], createdAt }
 
 // Per-user
 users/{uid}/favorites/{subcategoryId}        → { createdAt }
@@ -193,8 +195,11 @@ users/{uid}/privateCards/{cardId}            → { question, answer, subcategory
 users/{uid}/privateCards/{cardId}/reviews/   → { rating, reviewedAt }
 ```
 
-- **Strict 2-level taxonomy**: a Subcategory is a Category document with a non-null `parentId` pointing to a top-level Category. No deeper nesting; in-Subcategory grouping is done via specific Tags surfaced as filter chips on Subcategory Details. See [ADR-0001](docs/adr/0001-flat-two-level-taxonomy.md). Admin-defined globally.
-- Tags are predefined globally (MVP). No user-created tags in MVP.
+- **Strict 2-level taxonomy**: a Subcategory is a Category document with a non-null `parentId` pointing to a top-level Category. No deeper nesting; in-Subcategory grouping is done via Tags surfaced as filter chips on Subcategory Details. See [ADR-0001](docs/adr/0001-flat-two-level-taxonomy.md). Admin-defined globally.
+- **No `tags/` collection.** A Tag is a global, flat, user-facing keyword stored only as a denormalized string in each card's `tags[]` array (the slug is the tag — no separate doc, no `type`, no `subcategoryIds[]`). The filter-chip set on Subcategory Details is derived client-side as `distinct(card.tags)` over the subcategory's already-loaded cards. Display label = titlecased slug. See [ADR-0007](docs/adr/0007-flat-denormalized-tags.md).
+- **`questionCode`/`answerCode`**: optional ordered arrays of `{ language, code }` fenced snippets, rendered alongside the prose. **`extendedContext`**: optional long-form "explain deeper" payload. **`questionSpoken`/`answerSpoken`**: optional code-free voice phrasings stored now, rendered when Voice ships (deferred).
+- **Private flag is derived, not stored**: a card is Private iff it lives under `users/{uid}/privateCards/`. Global `cards/` are never Private. The "Private" filter chip on Subcategory Details filters on this derived flag.
+- Tags are not predefined; there is no global registry. Cards (admin-seeded and private) simply carry tag strings. No user tag-management UI in MVP.
 - Private Flashcard `status`: `"private" | "submitted" | "approved"` — promotion pipeline to global pool.
 - Offline: Firestore Android SDK built-in persistence. No Room needed.
 - Partial Rating is an in-session mechanic only; never written to Firestore as a standalone status.
@@ -218,10 +223,10 @@ Progress storage — hybrid:
 Created from Subcategory Details screen via FAB. Fields:
 - Question (multiline text)
 - Answer (multiline text)
-- Tags (multi-select from predefined Specific Tags for this Subcategory):
+- Tags (multi-select from the Tags already present on this Subcategory's Flashcards, derived `distinct(card.tags)`):
   - Opens with all tags unchecked — no filter state propagated from the Subcategory Details screen
   - "General" tag is not shown; if user submits with no tags checked, "General" is auto-assigned (intentional friction against unclassified cards)
-  - "private" System Tag is not shown; always auto-applied to every Private Flashcard regardless of user selection
+  - No "private" tag exists; the Private flag is implicit — the card lands in `users/{uid}/privateCards/`, which is what surfaces it under the "Private" filter chip
 
 Saved to `users/{uid}/privateCards/`. Future: admin promotes to global pool if quality sufficient.
 
@@ -232,15 +237,28 @@ Python script using Firebase Admin SDK:
 - Idempotent upsert: write if not exists, skip if already present (match on stable ID)
 - Supports extending existing structure without wiping — enables third-party tools to produce new questions
 
-Fixture JSON format:
+Fixture JSON format (no `tags` section — tags are inline strings on each card):
 ```json
 {
   "categories": [{ "id": "android", "name": "Android", "parentId": null }],
   "subcategories": [{ "id": "compose", "name": "Compose", "parentId": "android" }],
-  "tags": [{ "id": "ui", "name": "UI", "subcategoryIds": ["compose"], "type": "specific" }],
-  "cards": [{ "id": "...", "question": "...", "answer": "...", "subcategoryId": "compose", "tags": ["ui"] }]
+  "cards": [{
+    "id": "...", "question": "...", "answer": "...",
+    "questionCode": null, "answerCode": null,
+    "extendedContext": "...", "questionSpoken": null, "answerSpoken": null,
+    "subcategoryId": "compose", "tags": ["rendering", "state"]
+  }]
 }
 ```
+
+### Import mapping from `~/.claude/flashcards` capture inboxes
+
+The capture inboxes are the import source. Per-card projection into the fixture/`cards` shape:
+- `category` (slug) → the card's top-level Category id; `subcategory` (slug) → `subcategoryId`. **Ignore `category_path`** for structure (it is inconsistent AI breadcrumb noise).
+- `tags[]` = captured `tags` **∪** the normalized last `category_path` element (kebab-lowercased), **minus** any value equal to the category or subcategory slug → those collapse to `"general"`. Soup is kept as-is; dedupe/cleanup is a later curation pass.
+- `question`/`answer`/`extended_context`→`extendedContext`/`question_code`→`questionCode`/`answer_code`→`answerCode`/`question_spoken`→`questionSpoken`/`answer_spoken`→`answerSpoken` carried verbatim.
+- **Dropped at import**: `source` (provenance/PII), `status` (capture lifecycle), `category_path`.
+- `id` (capture id, stable + unique) → `cards/{cardId}` doc id, enabling idempotent upsert.
 
 ## Design System
 
