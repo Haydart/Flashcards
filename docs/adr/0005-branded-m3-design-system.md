@@ -1,19 +1,24 @@
-# Branded M3 design system: full palette + additive BrandColors layer
+# Branded M3 design system: additive BrandColors layer over intact ColorScheme
 
-Material 3 is used as the foundation with its complete `ColorScheme` intact. App-specific branded colors (gradients, difficulty tints, etc.) live in a separate `BrandColors` layer exposed as `MaterialTheme.brandColors`. `BrandColors` is additive — it does not rename or replace any M3 role.
+## Decision
 
-We considered trimming `ColorScheme` to only the roles our composables reference directly. Rejected because M3 components (`ModalBottomSheet`, `NavigationBar`, `Snackbar`, etc.) read roles like `surfaceDim`, `inverseSurface`, and `scrim` internally — removing them silently breaks component behavior. `Color.kt` is treated as a raw palette file; composable code never reads it directly, only through `MaterialTheme.colorScheme` or `MaterialTheme.brandColors`.
+Keep the full Material 3 `ColorScheme` intact and unmodified. App-specific colors that have no M3 semantic equivalent are exposed through an additive `BrandColors` class, accessible via `MaterialTheme.brandColors`. Composables read M3 roles from `MaterialTheme.colorScheme.*` and branded extras from `MaterialTheme.brandColors.*`. Raw `Color.kt` tokens are never read directly in composables.
 
-We considered renaming M3 roles into app-specific vocabulary (e.g. `actionColor` instead of `primary`). Rejected because M3 components already consume `colorScheme` internally, so a parallel vocabulary creates a maintenance burden without eliminating `colorScheme` usage. M3 naming is kept for M3 slots; `brandColors` covers only what M3 has no role for.
+## Context
 
-**`BrandColors` structure:**
-- Exposed as `MaterialTheme.brandColors` via `LocalBrandColors` (`staticCompositionLocalOf`)
-- Provided in `FlashcardsTheme` alongside `MaterialTheme`, switching between `lightBrandColors` / `darkBrandColors` on `darkTheme`
-- Gradients stored as `Brush` objects (direction and color stops are design-system decisions, not call-site decisions)
-- Slots added incrementally as screens concretely need them — no speculative pre-population
+The app has a strong visual identity (purple gradients, branded category tints) that M3's semantic color roles don't cover. Options for exposing these were: extend `ColorScheme` with extra slots, replace M3 theming entirely, or add a parallel layer alongside M3.
 
-**Call-site convention:**
-```kotlin
-MaterialTheme.colorScheme.primary         // M3 roles
-MaterialTheme.brandColors.topBarGradient  // branded extras
-```
+## Alternatives considered
+
+**Extend `ColorScheme` directly** — rejected. `ColorScheme` is a data class with a fixed set of named semantic roles. Adding custom slots requires wrapping or forking it, which breaks M3 component defaults and creates a maintenance burden on every M3 library update.
+
+**Custom theme, no M3** — rejected. M3 components (TopAppBar, NavigationBar, BottomSheet, etc.) rely on `MaterialTheme.colorScheme` for their default colors, elevation overlays, and state layers. Removing M3 means reimplementing all of that.
+
+**Read `Color.kt` tokens directly in composables** — rejected. Hardcodes light/dark variants at the call site, bypasses the theme entirely, and makes dark mode support ad-hoc.
+
+## Consequences
+
+- All M3 components continue to work unmodified — no overrides, no forked defaults.
+- `BrandColors` slots are added incrementally as new screens need them; no upfront registry required.
+- Dark mode support for branded colors is handled in `BrandColors` in one place, not scattered across composables.
+- A composable that needs a branded color must use `MaterialTheme.brandColors.*` — the pattern is consistent and greppable.
