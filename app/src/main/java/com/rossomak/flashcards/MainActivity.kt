@@ -34,7 +34,7 @@ class MainActivity : ComponentActivity() {
 
         enableEdgeToEdge()
         setContent {
-            FlashcardsTheme {
+            FlashcardsTheme(dynamicColor = false) {
                 val navController = rememberNavController()
                 FlashcardsNavGraph(
                     navController = navController,
