@@ -16,3 +16,9 @@ local.properties
 
 # Firebase config — not committed for public repos. Each dev/CI provides their own.
 app/google-services.json
+
+# Firestore seeding — local temp fixtures and service-account creds, never committed
+scripts/seed/.tmp/
+scripts/seed/.venv/
+**/*service-account*.json
+**/*.cred.json
