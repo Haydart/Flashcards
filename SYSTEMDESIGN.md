@@ -179,27 +179,30 @@ A session is scoped to one Category and one or more Subcategories. Card selectio
 
 ```
 // Global taxonomy (admin-defined)
-categories/{catId}                           → { name, parentId, order }
-cards/{cardId}                               → { question, answer,
-                                                 questionCode?, answerCode?,
-                                                 extendedContext?,
-                                                 questionSpoken?, answerSpoken?,
-                                                 subcategoryId, tags[], createdAt }
+categories/{categoryId}                               → { name, order, subcategoryCount, iconUrl }
+subcategories/{categoryId-subSlug}                    → { name, categoryId, order, cardCount }
+subcategories/{categoryId-subSlug}/flashcards/{cardId} → { question, answer, tags[], createdAt,
+                                                           questionCode?, answerCode?,
+                                                           extendedContext?,
+                                                           questionSpoken?, answerSpoken? }
 
 // Per-user
-users/{uid}/favorites/{subcategoryId}        → { createdAt }
-users/{uid}/recentSessions/{sessionId}       → { categoryId, subcategoryIds[], completedAt }
-users/{uid}/progress/{cardId}                → { failedCount, correctCount, lastReviewedAt, nextReviewAt }
-users/{uid}/progress/{cardId}/reviews/{id}   → { rating, reviewedAt }
-users/{uid}/privateCards/{cardId}            → { question, answer, subcategoryId, tags[], status, createdAt }
-users/{uid}/privateCards/{cardId}/reviews/   → { rating, reviewedAt }
+users/{uid}/favorites/{subcategoryId}                 → { createdAt }
+users/{uid}/recentSessions/{sessionId}                → { categoryId, categoryName,
+                                                          subcategoryIds[], subcategoryNames[],
+                                                          completedAt, cardCount, masteredCount?,
+                                                          studyMode: "rated"|"fast" }
+users/{uid}/progress/{cardId}                         → { failedCount, correctCount, lastReviewedAt, nextReviewAt }
+users/{uid}/progress/{cardId}/reviews/{id}            → { rating, reviewedAt }
+users/{uid}/privateCards/{subcategoryId}/flashcards/{cardId} → { question, answer, tags[], status, createdAt }
 ```
 
-- **Strict 2-level taxonomy**: a Subcategory is a Category document with a non-null `parentId` pointing to a top-level Category. No deeper nesting; in-Subcategory grouping is done via Tags surfaced as filter chips on Subcategory Details. See [ADR-0001](docs/adr/0001-flat-two-level-taxonomy.md). Admin-defined globally.
-- **No `tags/` collection.** A Tag is a global, flat, user-facing keyword stored only as a denormalized string in each card's `tags[]` array (the slug is the tag — no separate doc, no `type`, no `subcategoryIds[]`). The filter-chip set on Subcategory Details is derived client-side as `distinct(card.tags)` over the subcategory's already-loaded cards. Display label = titlecased slug. See [ADR-0007](docs/adr/0007-flat-denormalized-tags.md).
-- **`questionCode`/`answerCode`**: optional ordered arrays of `{ language, code }` fenced snippets, rendered alongside the prose. **`extendedContext`**: optional long-form "explain deeper" payload. **`questionSpoken`/`answerSpoken`**: optional code-free voice phrasings stored now, rendered when Voice ships (deferred).
-- **Private flag is derived, not stored**: a card is Private iff it lives under `users/{uid}/privateCards/`. Global `cards/` are never Private. The "Private" filter chip on Subcategory Details filters on this derived flag.
-- Tags are not predefined; there is no global registry. Cards (admin-seeded and private) simply carry tag strings. No user tag-management UI in MVP.
+- **Strict 2-level taxonomy**: Categories and Subcategories are separate top-level collections. Subcategory IDs are namespaced `{categoryId}-{subSlug}` (e.g. `android-testing`) to guarantee uniqueness across parent categories. See [ADR-0001](docs/adr/0001-flat-two-level-taxonomy.md) and [ADR-0008](docs/adr/0008-firestore-collection-structure.md).
+- **Cards live as a subcollection of their Subcategory** (`subcategories/{subcategoryId}/flashcards/`). Fetching all Flashcards for a Subcategory is a single `getDocuments()` — no WHERE clause, no index. No separate `cards/` collection. See [ADR-0008](docs/adr/0008-firestore-collection-structure.md).
+- **`subcategoryId` is not stored on Flashcard documents** — it is encoded in the collection path.
+- **Tags are flat untyped strings** in `tags[]` on each Flashcard. No `tags/` collection. See [ADR-0007](docs/adr/0007-flat-denormalized-tags.md).
+- **Category `iconUrl`**: absolute HTTPS URL. No Firebase Storage SDK dependency in UI layer.
+- **`recentSessions` denormalizes names and stats** at write time — `categoryName`, `subcategoryNames[]`, `cardCount`, `masteredCount` — so the Home screen renders Recent cards from a single read per session. `masteredCount` omitted for Fast Study Sessions.
 - Private Flashcard `status`: `"private" | "submitted" | "approved"` — promotion pipeline to global pool.
 - Offline: Firestore Android SDK built-in persistence. No Room needed.
 - Partial Rating is an in-session mechanic only; never written to Firestore as a standalone status.
@@ -232,33 +235,32 @@ Saved to `users/{uid}/privateCards/`. Future: admin promotes to global pool if q
 
 ## Content Seeding
 
-Python script using Firebase Admin SDK:
-- Reads JSON fixture files
-- Idempotent upsert: write if not exists, skip if already present (match on stable ID)
-- Supports extending existing structure without wiping — enables third-party tools to produce new questions
+Two-stage Python tooling under `scripts/seed/` (Firebase Admin SDK). The intermediate
+fixture is a **local, gitignored temp file — never committed**:
+
+1. **`build_fixture.py`** — reads the curated capture inboxes (`~/.claude/flashcards/<cat>/<sub>/inbox.jsonl`),
+   applies the inbox→`cards` projection (see Import mapping above), derives `categories`/`subcategories`
+   from the slugs, and writes `scripts/seed/.tmp/fixture.json`. Deterministic; fails loudly on
+   duplicate card ids or a subcategory slug colliding across two parent categories.
+2. **`seed_firestore.py`** — globs `scripts/seed/.tmp/*.json` and upserts via Admin SDK.
+   Idempotent upsert keyed on card `id`: `--skip-existing` default (write if absent, skip if present),
+   `--overwrite` to force, `--dry-run` to report only. Categories + subcategories both land in
+   `categories/{id}`. Credentials via `GOOGLE_APPLICATION_CREDENTIALS` (service-account JSON, gitignored).
+
+- Supports extending existing structure without wiping — enables third-party tools to produce new questions.
+- **Card `id` is the Firestore document key** and must be globally unique; the capture skill now mandates a
+  cryptographically random hex suffix to prevent collisions (100 historical collisions were repaired pre-import).
 
 Fixture JSON format (no `tags` section — tags are inline strings on each card):
 ```json
 {
-  "categories": [{ "id": "android", "name": "Android", "parentId": null }],
-  "subcategories": [{ "id": "compose", "name": "Compose", "parentId": "android" }],
-  "cards": [{
-    "id": "...", "question": "...", "answer": "...",
-    "questionCode": null, "answerCode": null,
-    "extendedContext": "...", "questionSpoken": null, "answerSpoken": null,
-    "subcategoryId": "compose", "tags": ["rendering", "state"]
-  }]
+  "categories": [{ "id": "android", "name": "Android", "order": 0, "subcategoryCount": 1, "iconUrl": "" }],
+  "subcategories": [{ "id": "android-compose", "name": "Compose", "categoryId": "android", "order": 0, "cardCount": 1 }],
+  "cards": [{ "subcategoryId": "android-compose", "id": "...", "question": "...", "answer": "...", "tags": ["state"] }]
 }
 ```
 
-### Import mapping from `~/.claude/flashcards` capture inboxes
-
-The capture inboxes are the import source. Per-card projection into the fixture/`cards` shape:
-- `category` (slug) → the card's top-level Category id; `subcategory` (slug) → `subcategoryId`. **Ignore `category_path`** for structure (it is inconsistent AI breadcrumb noise).
-- `tags[]` = captured `tags` **∪** the normalized last `category_path` element (kebab-lowercased), **minus** any value equal to the category or subcategory slug → those collapse to `"general"`. Soup is kept as-is; dedupe/cleanup is a later curation pass.
-- `question`/`answer`/`extended_context`→`extendedContext`/`question_code`→`questionCode`/`answer_code`→`answerCode`/`question_spoken`→`questionSpoken`/`answer_spoken`→`answerSpoken` carried verbatim.
-- **Dropped at import**: `source` (provenance/PII), `status` (capture lifecycle), `category_path`.
-- `id` (capture id, stable + unique) → `cards/{cardId}` doc id, enabling idempotent upsert.
+Cards are written to `subcategories/{subcategoryId}/flashcards/{cardId}`. The `subcategoryId` field in the fixture drives the collection path and is not written as a document field.
 
 ## Design System
 
