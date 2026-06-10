@@ -22,8 +22,14 @@ fun HomeScreen(
 
     LaunchedEffect(state.navigationDestination) {
         when (val destination = state.navigationDestination) {
-            is HomeDestination.CategoryDetails -> onNavigateToCategoryDetails(destination.categoryId)
-            is HomeDestination.SubcategoryDetails -> onNavigateToSubcategoryDetails(destination.categoryId, destination.subcategoryId)
+            is HomeDestination.CategoryDetails -> {
+                onNavigateToCategoryDetails(destination.categoryId)
+                viewModel.onNavigationHandled()
+            }
+            is HomeDestination.SubcategoryDetails -> {
+                onNavigateToSubcategoryDetails(destination.categoryId, destination.subcategoryId)
+                viewModel.onNavigationHandled()
+            }
             null -> Unit
         }
     }

@@ -52,19 +52,19 @@ The interaction mechanic of a Study Session. Two values:
 _Avoid_: Automatic mode, Passive mode, Browse mode
 
 **Attempt**:
-A single presentation of a Flashcard to the user within a Study Session. Each Flashcard has a maximum of 3 Attempts per session.
+A single presentation of a Flashcard to the user within a **Rated** Study Session. Each Flashcard has a maximum of 3 Attempts per session. Does not apply to Fast Study Sessions.
 _Avoid_: Turn, Round, Try
 
 **Rating**:
-The user's self-assessment after viewing an answer. Values: **Failed**, **Partial**, **Correct**. A Partial or Failed Rating triggers re-insertion of the Flashcard into the session queue; Correct ends the Flashcard's Attempts.
+The user's self-assessment after viewing an answer in a **Rated** Study Session. Values: **Failed**, **Partial**, **Correct**. A Partial or Failed Rating triggers re-insertion of the Flashcard into the session queue; Correct ends the Flashcard's Attempts. Does not apply to Fast Study Sessions.
 _Avoid_: Score, Grade, Answer, Response
 
 **Terminal State**:
-A Flashcard's final outcome in a Study Session. A Flashcard reaches a Terminal State when it receives a Correct Rating (any Attempt) or exhausts all 3 Attempts without a Correct Rating. Terminal states written to Firestore: **Mastered** (Correct) or **Failed** (not Correct in 3 Attempts). Partial on the 3rd Attempt resolves to Failed.
+A Flashcard's final outcome in a **Rated** Study Session. A Flashcard reaches a Terminal State when it receives a Correct Rating (any Attempt) or exhausts all 3 Attempts without a Correct Rating. Terminal states written to Firestore: **Mastered** (Correct) or **Failed** (not Correct in 3 Attempts). Partial on the 3rd Attempt resolves to Failed. Does not apply to Fast Study Sessions.
 _Avoid_: Final state, End state, Result
 
 **Mastered**:
-The Terminal State of a Flashcard that received a Correct Rating within a Study Session.
+The Terminal State of a Flashcard that received a Correct Rating within a **Rated** Study Session.
 _Avoid_: Completed, Passed, Correct (Correct is the Rating that causes Mastered, not a synonym)
 
 ### Activities
@@ -89,7 +89,7 @@ _Avoid_: Pre-session screen, Session config, Mode picker
 - A **Study Session** draws **Flashcards** from one or more **Subcategories** within a single **Category**
 - A **Recent** is a past **Study Session** — single-subcategory if one Subcategory, composite if multiple
 - A **Favorite** is a bookmarked **Subcategory**
-- An **Attempt** produces exactly one **Rating**
-- A **Flashcard** in a **Study Session** has at most 3 **Attempts**
-- A **Terminal State** of Mastered means the Flashcard received a Correct **Rating**; Failed means 3 Attempts passed without Correct
+- An **Attempt** produces exactly one **Rating** *(Rated sessions only)*
+- A **Flashcard** in a **Rated** Study Session has at most 3 **Attempts**
+- A **Terminal State** of Mastered means the Flashcard received a Correct **Rating**; Failed means 3 Attempts passed without Correct *(Rated sessions only)*
 

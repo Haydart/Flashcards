@@ -47,9 +47,9 @@ flowchart TD
 
     %% ── Category Details ─────────────────────────────────────
     CatDetails(CATEGORY DETAILS SCREEN\nSubcategory list)
-    CatDetails --> QuickSession[/Tap Quick Session\nauto-selects Subcategories + Flashcards/]
+    CatDetails --> QuickSession[/Tap Quick Session\nauto-selects Subcategories/]
     CatDetails --> CompositeFlow[/Tap Start Composite Session\nlist enters multi-select/]
-    CatDetails --> FastStart[/Tap fast-start on Subcategory row\nsingle-subcategory immediately/]
+    CatDetails --> FastStart[/Tap fast-start on Subcategory row\nsingle-subcategory, no detour/]
     CatDetails --> TapSubcat[/Tap Subcategory row/]
     CompositeFlow --> SelectSubcats[/Select ≥1 Subcategories/]
     SelectSubcats --> StartBtn[/Tap Start/]
@@ -61,11 +61,13 @@ flowchart TD
     SubcatDetails --> CreatePrivate[/Tap FAB\nCreate Private Flashcard/]
     CreatePrivate --> CreateFlashcard(CREATE FLASHCARD SCREEN\nQuestion · Answer · Tags)
 
-    %% ── Session entry ───────────────────────────────────────
-    QuickSession --> Session
-    FastStart --> Session
-    StartBtn --> Session
-    StartSession --> Session
+    %% ── Pre-start Screen ────────────────────────────────────
+    QuickSession --> PreStart
+    FastStart --> PreStart
+    StartBtn --> PreStart
+    StartSession --> PreStart
+    PreStart(PRE-START SCREEN\nScope · Study Mode · Start)
+    PreStart --> Session
 
     %% ── Study Session ───────────────────────────────────────
     Session(STUDY SESSION SCREEN\nX/N mastered progress)
@@ -81,8 +83,8 @@ flowchart TD
     Summary(SESSION SUMMARY SCREEN)
     Summary --> AgainAll[/Tap Study Again — All/]
     Summary --> AgainFailed[/Tap Study Again — Failed\nshown only if ≥1 Failed/]
-    Summary --> BackHome[/Tap Back to Home/]
-    AgainAll -.-> Session
+    Summary --> BackHome[/Tap Back to Home\nor system back/]
+    AgainAll -.-> PreStart
     AgainFailed -.-> Session
-    BackHome -.-> Home
+    BackHome -.-> NavRoot
 ```
