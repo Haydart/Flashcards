@@ -11,7 +11,7 @@ The fixture is intentionally NOT committed — it is a throwaway hand-off to
 Schema (see ADR-0008):
   categories/{categoryId}                        → { name, order, subcategoryCount, iconUrl }
   subcategories/{categoryId-subSlug}             → { name, categoryId, order, cardCount }
-  cards/{subcategoryId}/flashcards/{cardId}      → { question, answer, tags[], createdAt, ... }
+  subcategories/{categoryId-subSlug}/flashcards/{cardId} → { question, answer, tags[], createdAt, ... }
 
 Subcategory IDs are namespaced "{categoryId}-{subSlug}" (e.g. "android-compose") to guarantee
 uniqueness across parent categories in the flat subcategories/ collection.

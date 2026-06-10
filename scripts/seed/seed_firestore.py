@@ -107,7 +107,7 @@ def upsert(db, collection: str, docs: list[dict], *, overwrite: bool, dry_run: b
 
 
 def upsert_cards(db, cards: list[dict], *, overwrite: bool, dry_run: bool):
-    """Upsert cards into cards/{subcategoryId}/flashcards/{cardId} subcollections.
+    """Upsert cards into subcategories/{subcategoryId}/flashcards/{cardId} subcollections.
 
     subcategoryId is a fixture routing field — stripped from the Firestore payload.
     Returns (written, skipped).

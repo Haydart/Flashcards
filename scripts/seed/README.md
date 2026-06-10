@@ -24,10 +24,11 @@ python3 build_fixture.py                 # reads ~/.claude/flashcards -> .tmp/fi
 python3 build_fixture.py --src <dir> --out <path>
 ```
 
-Projects each inbox card into the Firestore `cards` shape, derives `categories`
-and `subcategories` from the slugs, and writes `.tmp/fixture.json`. Deterministic;
-re-run freely. Fails loudly on duplicate card ids or a subcategory slug that
-collides across two parent categories.
+Projects each inbox card into the Firestore shape, derives `categories` and
+`subcategories` from the slugs (subcategory IDs are namespaced `{categoryId}-{subSlug}`),
+and writes `.tmp/fixture.json`. Deterministic; re-run freely. Fails loudly on
+duplicate card ids. Supports `--sample N` to keep at most N cards per subcategory
+(useful for test seeds); optional `--seed` for reproducible sampling.
 
 ## Stage 2 — upsert into Firestore
 
@@ -42,9 +43,12 @@ python3 seed_firestore.py --overwrite    # set() every doc (clobbers console edi
 python3 seed_firestore.py --cred /abs/path/service-account.json   # alt to env var
 ```
 
-`cards/{id}` is keyed on the capture id, so re-running is idempotent. Categories
-and subcategories are written into the single `categories/{id}` collection (a
-subcategory is a Category doc with non-null `parentId`).
+Re-running is idempotent — each doc is keyed on its capture id (`--skip-existing`
+default). Three collections are written:
+
+- `categories/{categoryId}` — top-level category docs
+- `subcategories/{categoryId-subSlug}` — subcategory docs (namespaced id, `categoryId` field)
+- `subcategories/{categoryId-subSlug}/flashcards/{cardId}` — flashcard docs as subcollection
 
 ## Notes
 
@@ -52,5 +56,5 @@ subcategory is a Category doc with non-null `parentId`).
 - Display names come from titlecased slugs; acronym/multi-word fixes live in
   `NAME_OVERRIDES` in `build_fixture.py`. Category/subcategory `order` is assigned
   by card volume — adjust in the Firebase console afterward if desired.
-- Schema + projection rules: see repo `SYSTEMDESIGN.md` (Firestore Schema, Import
-  mapping) and `docs/adr/0007-flat-denormalized-tags.md`.
+- Schema + projection rules: see `SYSTEMDESIGN.md` (Firestore Schema section) and
+  `docs/adr/0008-firestore-collection-structure.md`.
