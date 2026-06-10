@@ -1,0 +1,56 @@
+# Firestore seeding
+
+Two-stage import of curated flashcards from the local capture inboxes
+(`~/.claude/flashcards`) into Firestore. The intermediate fixture is a **local,
+gitignored temp file** — never committed.
+
+```
+capture inboxes  ──build_fixture.py──▶  .tmp/fixture.json  ──seed_firestore.py──▶  Firestore
+(~/.claude/...)        (stage 1)          (gitignored)           (stage 2)
+```
+
+## Setup
+
+```bash
+cd scripts/seed
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+## Stage 1 — build the temp fixture
+
+```bash
+python3 build_fixture.py                 # reads ~/.claude/flashcards -> .tmp/fixture.json
+python3 build_fixture.py --src <dir> --out <path>
+```
+
+Projects each inbox card into the Firestore `cards` shape, derives `categories`
+and `subcategories` from the slugs, and writes `.tmp/fixture.json`. Deterministic;
+re-run freely. Fails loudly on duplicate card ids or a subcategory slug that
+collides across two parent categories.
+
+## Stage 2 — upsert into Firestore
+
+Provide a service-account JSON (Firebase console → Project settings → Service
+accounts). **Never commit it.**
+
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS=/abs/path/service-account.json
+python3 seed_firestore.py --dry-run      # report planned writes/skips, no changes
+python3 seed_firestore.py                # skip-existing (default): write only absent docs
+python3 seed_firestore.py --overwrite    # set() every doc (clobbers console edits)
+python3 seed_firestore.py --cred /abs/path/service-account.json   # alt to env var
+```
+
+`cards/{id}` is keyed on the capture id, so re-running is idempotent. Categories
+and subcategories are written into the single `categories/{id}` collection (a
+subcategory is a Category doc with non-null `parentId`).
+
+## Notes
+
+- `.tmp/` and any `*service-account*.json` / `*.cred.json` here are gitignored.
+- Display names come from titlecased slugs; acronym/multi-word fixes live in
+  `NAME_OVERRIDES` in `build_fixture.py`. Category/subcategory `order` is assigned
+  by card volume — adjust in the Firebase console afterward if desired.
+- Schema + projection rules: see repo `SYSTEMDESIGN.md` (Firestore Schema, Import
+  mapping) and `docs/adr/0007-flat-denormalized-tags.md`.
