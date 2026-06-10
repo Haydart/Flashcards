@@ -57,4 +57,4 @@ default). Three collections are written:
   `NAME_OVERRIDES` in `build_fixture.py`. Category/subcategory `order` is assigned
   by card volume — adjust in the Firebase console afterward if desired.
 - Schema + projection rules: see `SYSTEMDESIGN.md` (Firestore Schema section) and
-  `docs/adr/0008-firestore-collection-structure.md`.
+  `docs/adr/0007-firestore-collection-structure.md`.

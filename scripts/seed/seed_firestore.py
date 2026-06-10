@@ -4,7 +4,7 @@
 Globs the gitignored temp dir (default `scripts/seed/.tmp/*.json`) for fixtures
 produced by `build_fixture.py` and upserts them via the Firebase Admin SDK.
 
-Schema written (see ADR-0008):
+Schema written (see ADR-0007):
   categories/{categoryId}                               → { name, order, subcategoryCount, iconUrl }
   subcategories/{categoryId-subSlug}                    → { name, categoryId, order, cardCount }
   subcategories/{categoryId-subSlug}/flashcards/{cardId} → { question, answer, tags[], createdAt, ... }

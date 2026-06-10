@@ -8,7 +8,7 @@ and writes a single fixture file to a gitignored temp dir (default `scripts/seed
 The fixture is intentionally NOT committed — it is a throwaway hand-off to
 `seed_firestore.py`. Re-run any time; output is deterministic.
 
-Schema (see ADR-0008):
+Schema (see ADR-0007):
   categories/{categoryId}                        → { name, order, subcategoryCount, iconUrl }
   subcategories/{categoryId-subSlug}             → { name, categoryId, order, cardCount }
   subcategories/{categoryId-subSlug}/flashcards/{cardId} → { question, answer, tags[], createdAt, ... }
