@@ -22,3 +22,6 @@ scripts/seed/.tmp/
 scripts/seed/.venv/
 **/*service-account*.json
 **/*.cred.json
+
+# Knowledge graph — generated locally, not committed
+graphify-out/
