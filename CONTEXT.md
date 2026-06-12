@@ -15,11 +15,12 @@ A granular area within a Category. A Flashcard belongs to exactly one Subcategor
 _Avoid_: Subtopic (the UI label "Topic" is intentional and not a synonym to avoid — it is the presentation-layer name)
 
 **Tag**:
-A keyword carried by a Flashcard. Three kinds:
-- **Specific Tag**: scoped within a single Subcategory (e.g. "State Management", "Modifiers" within Compose). Surfaced to users as filter chips on Subcategory Details. Tapping chips constrains both the browsed Flashcard list and the single-subcategory Study Session selection pool. Multi-select with OR semantics. Every Subcategory has a **General** Specific Tag for Flashcards that don't fit a narrower theme.
-- **Common Tag**: a broader umbrella spanning multiple Subcategories (e.g. "UI" spans Compose, XML, Navigation, Notifications). Internal and AI-facing only — never appears in user-facing UI.
-- **System Tag**: auto-applied by the system; not user-assignable. Currently one: **"private"**, applied to every Private Flashcard. Visible as a filter chip on Subcategory Details (so users can study their private cards only) but hidden from the New Flashcard tag selector.
-_Avoid_: Label, Topic, Filter (even though specific Tags filter, do not call the entity "Filter")
+A global keyword carried by a Flashcard. One kind only — no type distinction, no internal/user-facing split; every Tag is user-facing and reusable across Subcategories (e.g. "State" may tag Flashcards in both Compose and Coroutines). Surfaced as filter chips on Subcategory Details, where the chip set is the Tags actually present on that Subcategory's Flashcards (derived, not an owned list). Tapping chips constrains both the browsed Flashcard list and the single-subcategory Study Session selection pool. Multi-select with OR semantics. A **General** Tag covers Flashcards with no narrower theme.
+_Avoid_: Label, Topic, Filter (even though Tags filter, do not call the entity "Filter"); Specific Tag / Common Tag / System Tag (the typed-tag model is retired)
+
+**Private flag**:
+A derived boolean property: a Flashcard is Private iff it lives under `users/{uid}/privateCards/{subcategoryId}/flashcards/` (global `subcategories/{subcategoryId}/flashcards/` are never Private). Not a Tag. Surfaced as a "Private" filter chip on Subcategory Details (so users can study their private cards only) but absent from the New Flashcard tag selector.
+_Avoid_: private Tag, System Tag
 
 **Flashcard**:
 A question-answer pair belonging to exactly one Subcategory. Part of the global admin-curated pool or a user's private collection.
@@ -85,7 +86,7 @@ _Avoid_: Pre-session screen, Session config, Mode picker
 
 - A **Category** contains one or more **Subcategories**
 - A **Flashcard** belongs to exactly one **Subcategory**
-- A **Flashcard** carries one or more **Tags**; Specific and System Tags are user-facing, Common Tags are internal/AI-facing only
+- A **Flashcard** carries one or more **Tags** (all global, all user-facing) and a **Private flag**; the same Tag may appear on Flashcards across different Subcategories
 - A **Study Session** draws **Flashcards** from one or more **Subcategories** within a single **Category**
 - A **Recent** is a past **Study Session** — single-subcategory if one Subcategory, composite if multiple
 - A **Favorite** is a bookmarked **Subcategory**

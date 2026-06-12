@@ -67,6 +67,7 @@ class FlashcardViewModel @Inject constructor(
 
 ### Function Signatures
 - Single-line for < 250 characters; multi-line (one param per line) for 250+
+- Prefer expression body (`= ...`) for short, non-complex functions returning a non-Unit value
 
 ### Naming Conventions
 - Classes/Objects: PascalCase (`FlashcardViewModel`)
