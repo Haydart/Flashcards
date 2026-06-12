@@ -25,3 +25,5 @@ scripts/seed/.venv/
 
 # Knowledge graph — generated locally, not committed
 graphify-out/
+
+.claude
