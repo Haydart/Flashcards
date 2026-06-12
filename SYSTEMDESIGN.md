@@ -244,8 +244,7 @@ fixture is a **local, gitignored temp file — never committed**:
    duplicate card ids or a subcategory slug colliding across two parent categories.
 2. **`seed_firestore.py`** — globs `scripts/seed/.tmp/*.json` and upserts via Admin SDK.
    Idempotent upsert keyed on card `id`: `--skip-existing` default (write if absent, skip if present),
-   `--overwrite` to force, `--dry-run` to report only. Categories + subcategories both land in
-   `categories/{id}`. Credentials via `GOOGLE_APPLICATION_CREDENTIALS` (service-account JSON, gitignored).
+   `--overwrite` to force, `--dry-run` to report only. Categories land in `categories/{id}`; Subcategories land in `subcategories/{id}`. Credentials via `GOOGLE_APPLICATION_CREDENTIALS` (service-account JSON, gitignored).
 
 - Supports extending existing structure without wiping — enables third-party tools to produce new questions.
 - **Card `id` is the Firestore document key** and must be globally unique; the capture skill now mandates a
