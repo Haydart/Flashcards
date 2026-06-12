@@ -16,15 +16,13 @@ Root NavHost
 └── AuthedGraph  ← all auth-required screens; popUpTo<AuthedGraph>(inclusive=true) on sign-out. See ADR-0002.
     ├── Main  ← bottom nav shell
     │   ├── HomeGraph (nested graph)
-    │   │   ├── HomeRoot
-    │   │   ├── HomeCategoryDetails(categoryId)
-    │   │   └── HomeSubcategoryDetails(categoryId, subcategoryId)
+    │   │   └── HomeRoot
     │   ├── StudyGraph (nested graph)
-    │   │   ├── StudyRoot
-    │   │   ├── StudyCategoryDetails(categoryId)        ← added when Study tab is built
-    │   │   └── StudySubcategoryDetails(categoryId, subcategoryId)
+    │   │   └── StudyRoot
     │   └── SettingsGraph (nested graph)
     │       └── SettingsRoot
+    ├── CategoryDetails(categoryId)                    ← full-screen, no bottom nav; shared by Home + Study
+    ├── SubcategoryDetails(categoryId, subcategoryId)  ← full-screen, no bottom nav; shared by Home + Study
     ├── PreStartScreen(categoryId, subcategoryIds, filterTagIds)
     ├── StudySession(categoryId, subcategoryIds, cardIds)
     ├── SessionSummary
@@ -35,7 +33,7 @@ Screens in `AuthedGraph` outside `Main` are full-screen (no bottom nav visible).
 
 ### Shared screens (CategoryDetails, SubcategoryDetails)
 
-Accessible from both Home and Study tabs. Use **tab-prefixed route types** (`HomeCategoryDetails` / `StudyCategoryDetails`) so each tab maintains an independent back stack with save/restore. Both route types call the same composable function — no UI duplication. See [ADR-0003](docs/adr/0003-tab-prefixed-shared-routes.md).
+Accessible from both Home and Study tabs. Registered at the root NavHost level (siblings of Main), so they appear full-screen with no bottom navigation bar. A single route type serves both ingresses — navigation uses the root NavController passed down through MainScreen callbacks.
 
 ### Session entry routing
 
