@@ -27,3 +27,6 @@ scripts/seed/.venv/
 graphify-out/
 
 .claude
+
+# Raw docs, sources for generating the flashcards
+/docs/temp/
