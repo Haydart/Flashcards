@@ -1,6 +1,10 @@
 package com.rossomak.flashcards.ui.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -48,8 +52,24 @@ fun FlashcardsNavGraph(
                     navController.navigate(Login) {
                         popUpTo(Main) { inclusive = true }
                     }
+                },
+                onNavigateToCategoryDetails = { categoryId ->
+                    navController.navigate(CategoryDetails(categoryId))
+                },
+                onNavigateToSubcategoryDetails = { categoryId, subcategoryId ->
+                    navController.navigate(SubcategoryDetails(categoryId, subcategoryId))
                 }
             )
+        }
+        composable<CategoryDetails> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(text = "Category Details - NYI")
+            }
+        }
+        composable<SubcategoryDetails> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(text = "Subcategory Details - NYI")
+            }
         }
     }
 }
