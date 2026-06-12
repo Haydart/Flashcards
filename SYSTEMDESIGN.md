@@ -229,9 +229,9 @@ Created from Subcategory Details screen via FAB. Fields:
 - Tags (multi-select from the Tags already present on this Subcategory's Flashcards, derived `distinct(card.tags)`):
   - Opens with all tags unchecked — no filter state propagated from the Subcategory Details screen
   - "General" tag is not shown; if user submits with no tags checked, "General" is auto-assigned (intentional friction against unclassified cards)
-  - No "private" tag exists; the Private flag is implicit — the card lands in `users/{uid}/privateCards/`, which is what surfaces it under the "Private" filter chip
+  - No "private" tag exists; the Private flag is implicit — the card lands in `users/{uid}/privateCards/{subcategoryId}/flashcards/{cardId}`, which is what surfaces it under the "Private" filter chip
 
-Saved to `users/{uid}/privateCards/`. Future: admin promotes to global pool if quality sufficient.
+Saved to `users/{uid}/privateCards/{subcategoryId}/flashcards/{cardId}`. Future: admin promotes to global pool if quality sufficient.
 
 ## Content Seeding
 
