@@ -58,3 +58,4 @@ default). Three collections are written:
   by card volume — adjust in the Firebase console afterward if desired.
 - Schema + projection rules: see `SYSTEMDESIGN.md` (Firestore Schema section) and
   `docs/adr/0007-firestore-collection-structure.md`.
+- Two-stage tooling rationale: see `docs/adr/0008-two-stage-firestore-seed-tooling.md`.
