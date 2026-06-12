@@ -229,9 +229,9 @@ Created from Subcategory Details screen via FAB. Fields:
 - Tags (multi-select from the Tags already present on this Subcategory's Flashcards, derived `distinct(card.tags)`):
   - Opens with all tags unchecked — no filter state propagated from the Subcategory Details screen
   - "General" tag is not shown; if user submits with no tags checked, "General" is auto-assigned (intentional friction against unclassified cards)
-  - No "private" tag exists; the Private flag is implicit — the card lands in `users/{uid}/privateCards/`, which is what surfaces it under the "Private" filter chip
+  - No "private" tag exists; the Private flag is implicit — the card lands in `users/{uid}/privateCards/{subcategoryId}/flashcards/{cardId}`, which is what surfaces it under the "Private" filter chip
 
-Saved to `users/{uid}/privateCards/`. Future: admin promotes to global pool if quality sufficient.
+Saved to `users/{uid}/privateCards/{subcategoryId}/flashcards/{cardId}`. Future: admin promotes to global pool if quality sufficient.
 
 ## Content Seeding
 
@@ -244,8 +244,7 @@ fixture is a **local, gitignored temp file — never committed**:
    duplicate card ids or a subcategory slug colliding across two parent categories.
 2. **`seed_firestore.py`** — globs `scripts/seed/.tmp/*.json` and upserts via Admin SDK.
    Idempotent upsert keyed on card `id`: `--skip-existing` default (write if absent, skip if present),
-   `--overwrite` to force, `--dry-run` to report only. Categories + subcategories both land in
-   `categories/{id}`. Credentials via `GOOGLE_APPLICATION_CREDENTIALS` (service-account JSON, gitignored).
+   `--overwrite` to force, `--dry-run` to report only. Categories land in `categories/{id}`; Subcategories land in `subcategories/{id}`. Credentials via `GOOGLE_APPLICATION_CREDENTIALS` (service-account JSON, gitignored).
 
 - Supports extending existing structure without wiping — enables third-party tools to produce new questions.
 - **Card `id` is the Firestore document key** and must be globally unique; the capture skill now mandates a

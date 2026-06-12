@@ -18,7 +18,8 @@ _Avoid_: Subtopic (the UI label "Topic" is intentional and not a synonym to avoi
 A global keyword carried by a Flashcard. One kind only — no type distinction, no internal/user-facing split; every Tag is user-facing and reusable across Subcategories (e.g. "State" may tag Flashcards in both Compose and Coroutines). Surfaced as filter chips on Subcategory Details, where the chip set is the Tags actually present on that Subcategory's Flashcards (derived, not an owned list). Tapping chips constrains both the browsed Flashcard list and the single-subcategory Study Session selection pool. Multi-select with OR semantics. A **General** Tag covers Flashcards with no narrower theme.
 _Avoid_: Label, Topic, Filter (even though Tags filter, do not call the entity "Filter"); Specific Tag / Common Tag / System Tag (the typed-tag model is retired)
 
-A derived boolean property: a Flashcard is Private iff it lives under `users/{uid}/privateCards/` (global `cards/` are never Private). Not a Tag. Surfaced as a "Private" filter chip on Subcategory Details (so users can study their private cards only) but absent from the New Flashcard tag selector.
+**Private flag**:
+A derived boolean property: a Flashcard is Private iff it lives under `users/{uid}/privateCards/{subcategoryId}/flashcards/` (global `subcategories/{subcategoryId}/flashcards/` are never Private). Not a Tag. Surfaced as a "Private" filter chip on Subcategory Details (so users can study their private cards only) but absent from the New Flashcard tag selector.
 _Avoid_: private Tag, System Tag
 
 **Flashcard**:
