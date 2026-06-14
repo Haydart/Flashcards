@@ -19,6 +19,7 @@ fun SubcategoryDto.toDomain() = Subcategory(
     id = id,
     name = name,
     categoryId = categoryId,
+    categoryName = categoryName,
     order = order,
     cardCount = cardCount
 )
