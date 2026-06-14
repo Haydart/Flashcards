@@ -22,8 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun StudyScreen(
-    onNavigateToCategoryDetails: (String) -> Unit = {},
-    onNavigateToSubcategoryDetails: (String, String) -> Unit = { _, _ -> },
+    onNavigateToCategoryDetails: (String, String) -> Unit = { _, _ -> },
     viewModel: StudyViewModel = hiltViewModel(),
     modifier: Modifier = Modifier,
 ) {
@@ -32,11 +31,7 @@ fun StudyScreen(
     LaunchedEffect(state.navigationDestination) {
         when (val destination = state.navigationDestination) {
             is StudyDestination.CategoryDetails -> {
-                onNavigateToCategoryDetails(destination.categoryId)
-                viewModel.onNavigationHandled()
-            }
-            is StudyDestination.SubcategoryDetails -> {
-                onNavigateToSubcategoryDetails(destination.categoryId, destination.subcategoryId)
+                onNavigateToCategoryDetails(destination.categoryId, destination.categoryName)
                 viewModel.onNavigationHandled()
             }
             null -> Unit
@@ -56,7 +51,7 @@ fun StudyScreen(
 fun StudyContent(
     state: StudyScreenState,
     onRefresh: () -> Unit,
-    onCategoryClick: (String) -> Unit,
+    onCategoryClick: (String, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     PullToRefreshBox(
@@ -78,7 +73,7 @@ fun StudyContent(
 @Composable
 private fun CategoryList(
     state: StudyScreenState,
-    onCategoryClick: (String) -> Unit,
+    onCategoryClick: (String, String) -> Unit,
 ) {
     if (state.categories.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -90,7 +85,7 @@ private fun CategoryList(
         items(state.categories, key = { it.id }) { category ->
             Column(
                 modifier = Modifier
-                    .clickable { onCategoryClick(category.id) }
+                    .clickable { onCategoryClick(category.id, category.name) }
                     .padding(16.dp)
             ) {
                 Text(text = category.name)

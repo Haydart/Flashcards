@@ -27,8 +27,8 @@ class StudyViewModel @Inject constructor(
         loadCategories()
     }
 
-    fun onCategorySelected(categoryId: String) {
-        _state.update { it.copy(navigationDestination = StudyDestination.CategoryDetails(categoryId)) }
+    fun onCategorySelected(categoryId: String, categoryName: String) {
+        _state.update { it.copy(navigationDestination = StudyDestination.CategoryDetails(categoryId, categoryName)) }
     }
 
     fun onNavigationHandled() {
