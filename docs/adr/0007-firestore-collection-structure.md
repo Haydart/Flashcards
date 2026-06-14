@@ -29,3 +29,4 @@ Subcategories were originally stored in the `categories/` collection alongside C
 - Category Details loads Subcategories via `subcategories.where("categoryId", "==", "android")` — single indexed query.
 - Subcategory IDs (`android-testing`) are stable and predictable. Admin seed tooling constructs them deterministically from `{categoryId}-{subSlug}`.
 - `cardCount` is a denormalized field on each Subcategory doc and must be updated when Flashcards are added or removed. `subcategoryCount` on Category docs must be updated when Subcategories are added.
+- `categoryName` is a denormalized field on each Subcategory doc (mirrors the parent Category's display name) to avoid a join when displaying the subcategory in isolation.

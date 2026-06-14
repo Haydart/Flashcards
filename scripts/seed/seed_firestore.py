@@ -6,7 +6,7 @@ produced by `build_fixture.py` and upserts them via the Firebase Admin SDK.
 
 Schema written (see ADR-0007):
   categories/{categoryId}                               → { name, order, subcategoryCount, iconUrl }
-  subcategories/{categoryId-subSlug}                    → { name, categoryId, order, cardCount }
+  subcategories/{categoryId-subSlug}                    → { name, categoryId, categoryName, order, cardCount }
   subcategories/{categoryId-subSlug}/flashcards/{cardId} → { question, answer, tags[], createdAt, ... }
 
 The `subcategoryId` field carried in the fixture is used to route each card into the correct

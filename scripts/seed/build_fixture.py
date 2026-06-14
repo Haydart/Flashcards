@@ -10,7 +10,7 @@ The fixture is intentionally NOT committed — it is a throwaway hand-off to
 
 Schema (see ADR-0007):
   categories/{categoryId}                        → { name, order, subcategoryCount, iconUrl }
-  subcategories/{categoryId-subSlug}             → { name, categoryId, order, cardCount }
+  subcategories/{categoryId-subSlug}             → { name, categoryId, categoryName, order, cardCount }
   subcategories/{categoryId-subSlug}/flashcards/{cardId} → { question, answer, tags[], createdAt, ... }
 
 Subcategory IDs are namespaced "{categoryId}-{subSlug}" (e.g. "android-compose") to guarantee
@@ -157,6 +157,7 @@ def build(src_root: str, sample: int | None = None, seed: int | None = None):
                 "id": sid,
                 "name": display_name(sub_display[sid]),
                 "categoryId": parent,
+                "categoryName": display_name(parent),
                 "order": order,
                 "cardCount": sub_counts[sid],
             })
