@@ -8,6 +8,7 @@ import javax.inject.Inject
 class SignInWithGoogleUseCase @Inject constructor(
     private val authRepository: AuthRepository
 ) : UseCase<String, Result<AuthUser>> {
+
     override suspend operator fun invoke(params: String): Result<AuthUser> =
-        authRepository.signInWithGoogleIdToken(params)
+        authRepository.signInWithGoogleIdToken(idToken = params)
 }

@@ -7,6 +7,7 @@ import javax.inject.Inject
 class SignOutUseCase @Inject constructor(
     private val authRepository: AuthRepository
 ) : NoParamUseCase<Unit> {
+
     override suspend operator fun invoke() {
         authRepository.signOut()
     }

@@ -8,6 +8,7 @@ import javax.inject.Inject
 class GetFlashcardsUseCase @Inject constructor(
     private val repository: FlashcardRepository
 ) : UseCase<String, Result<List<Flashcard>>> {
+
     override suspend operator fun invoke(params: String): Result<List<Flashcard>> =
-        repository.fetchFlashcards(params)
+        repository.fetchFlashcards(subcategoryId = params)
 }

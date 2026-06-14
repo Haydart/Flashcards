@@ -8,5 +8,6 @@ import javax.inject.Inject
 class GetCategoriesUseCase @Inject constructor(
     private val repository: FlashcardRepository
 ) : NoParamUseCase<Result<List<Category>>> {
+
     override suspend operator fun invoke(): Result<List<Category>> = repository.fetchCategories()
 }
