@@ -1,17 +1,15 @@
 package com.rossomak.flashcards.ui.navigation
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.rossomak.flashcards.presentation.categorydetails.CategoryDetailsScreen
 import com.rossomak.flashcards.presentation.login.LoginScreen
 import com.rossomak.flashcards.presentation.main.MainScreen
 import com.rossomak.flashcards.presentation.splash.SplashScreen
+import com.rossomak.flashcards.presentation.subcategorydetails.SubcategoryDetailsScreen
 
 @Composable
 fun FlashcardsNavGraph(
@@ -53,23 +51,25 @@ fun FlashcardsNavGraph(
                         popUpTo(Main) { inclusive = true }
                     }
                 },
-                onNavigateToCategoryDetails = { categoryId ->
-                    navController.navigate(CategoryDetails(categoryId))
-                },
-                onNavigateToSubcategoryDetails = { categoryId, subcategoryId ->
-                    navController.navigate(SubcategoryDetails(categoryId, subcategoryId))
+                onNavigateToCategoryDetails = { categoryId, categoryName ->
+                    navController.navigate(CategoryDetails(categoryId, categoryName))
                 }
             )
         }
         composable<CategoryDetails> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(text = "Category Details - NYI")
-            }
+            CategoryDetailsScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToSubcategoryDetails = { categoryId, categoryName, subcategoryId, subcategoryName ->
+                    navController.navigate(
+                        SubcategoryDetails(categoryId, categoryName, subcategoryId, subcategoryName)
+                    )
+                }
+            )
         }
         composable<SubcategoryDetails> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(text = "Subcategory Details - NYI")
-            }
+            SubcategoryDetailsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
     }
 }
