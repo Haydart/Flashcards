@@ -85,6 +85,7 @@ private fun CategoryList(
         items(state.categories, key = { it.id }) { category ->
             Column(
                 modifier = Modifier
+                    .fillMaxSize()
                     .clickable { onCategoryClick(category.id, category.name) }
                     .padding(16.dp)
             ) {
