@@ -55,8 +55,7 @@ private val tabs = listOf(
 @Composable
 fun MainScreen(
     onNavigateToLogin: () -> Unit,
-    onNavigateToCategoryDetails: (String) -> Unit,
-    onNavigateToSubcategoryDetails: (String, String) -> Unit,
+    onNavigateToCategoryDetails: (String, String) -> Unit,
 ) {
     val tabNavController = rememberNavController()
     val navBackStackEntry by tabNavController.currentBackStackEntryAsState()
@@ -104,7 +103,6 @@ fun MainScreen(
                 composable<HomeRoot> {
                     HomeScreen(
                         onNavigateToCategoryDetails = onNavigateToCategoryDetails,
-                        onNavigateToSubcategoryDetails = onNavigateToSubcategoryDetails,
                     )
                 }
             }
@@ -112,7 +110,6 @@ fun MainScreen(
                 composable<StudyRoot> {
                     StudyScreen(
                         onNavigateToCategoryDetails = onNavigateToCategoryDetails,
-                        onNavigateToSubcategoryDetails = onNavigateToSubcategoryDetails,
                     )
                 }
             }
