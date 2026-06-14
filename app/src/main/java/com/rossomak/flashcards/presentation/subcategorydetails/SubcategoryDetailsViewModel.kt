@@ -40,8 +40,9 @@ class SubcategoryDetailsViewModel @Inject constructor(
                 .onSuccess { flashcards ->
                     _state.value = _state.value.copy(isLoading = false, flashcards = flashcards)
                 }
-                .onFailure { throwable -> }
-            _state.value = _state.value.copy(isLoading = false, error = "Could not load flashcards")
+                .onFailure {
+                    _state.value = _state.value.copy(isLoading = false, error = "Could not load flashcards")
+                }
         }
     }
 }
