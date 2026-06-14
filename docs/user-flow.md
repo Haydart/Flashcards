@@ -24,6 +24,18 @@ flowchart TD
     Settings(SETTINGS SCREEN)
     Settings --> Prefs[/Configure preferences/]
     Settings --> Perms[/Manage app permissions/]
+    Settings --> TapMyFlags[/Tap My Flags/]
+    TapMyFlags --> FlagsScreen
+
+    %% ── Flags Screen ─────────────────────────────────────────
+    FlagsScreen(FLAGS SCREEN\nFlags grouped by Subcategory\nalways-on multiselect)
+    FlagsScreen --> SelectFlags[/Select ≥1 flags/]
+    SelectFlags --> WithdrawFlag[/Tap Withdraw/]
+    SelectFlags --> ChangeToRetire[/Tap Change to Retire/]
+    SelectFlags --> ChangeToRework[/Tap Change to Rework/]
+    WithdrawFlag --> FlagsScreen
+    ChangeToRetire --> FlagsScreen
+    ChangeToRework --> FlagsScreen
 
     %% ── Home ─────────────────────────────────────────────────
     Home(HOME SCREEN\nRecents + Favorites)
@@ -56,10 +68,16 @@ flowchart TD
     TapSubcat --> SubcatDetails
 
     %% ── Subcategory Details ─────────────────────────────────
-    SubcatDetails(SUBCATEGORY DETAILS SCREEN\nFlashcard list)
+    SubcatDetails(SUBCATEGORY DETAILS SCREEN\nFlashcard list · collapsible items)
     SubcatDetails --> StartSession[/Tap Start Session\napp bar button/]
     SubcatDetails --> CreatePrivate[/Tap FAB\nCreate Private Flashcard/]
     CreatePrivate --> CreateFlashcard(CREATE FLASHCARD SCREEN\nQuestion · Answer · Tags)
+    SubcatDetails --> ToggleMultiselect[/Tap multiselect toggle icon\nbottom toolbar/]
+    ToggleMultiselect --> SelectFlashcards[/Select ≥1 Flashcards/]
+    SelectFlashcards --> BulkRetire[/Tap Retire/]
+    SelectFlashcards --> BulkRework[/Tap Rework/]
+    BulkRetire --> SubcatDetails
+    BulkRework --> SubcatDetails
 
     %% ── Pre-start Screen ────────────────────────────────────
     QuickSession --> PreStart
@@ -78,6 +96,12 @@ flowchart TD
     Rate --> MoreCards{More cards?}
     MoreCards -->|yes| Reveal
     MoreCards -->|no| Summary
+    Session --> TapFlagIcon[/Tap flag icon on card/]
+    TapFlagIcon --> FlagDialog{Flag action?}
+    FlagDialog -->|Retire| FlagSaved[Flag upserted\ncard stays in queue]
+    FlagDialog -->|Rework| FlagSaved
+    FlagDialog -->|Cancel| Session
+    FlagSaved --> Session
 
     %% ── Session Summary ──────────────────────────────────────
     Summary(SESSION SUMMARY SCREEN)
