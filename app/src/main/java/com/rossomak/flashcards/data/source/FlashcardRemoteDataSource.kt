@@ -13,6 +13,7 @@ class FlashcardRemoteDataSource @Inject constructor(
 
     suspend fun getCategories(): List<CategoryDto> =
         firestore.collection("categories")
+            .orderBy("order")
             .get()
             .await()
             .documents
@@ -23,6 +24,7 @@ class FlashcardRemoteDataSource @Inject constructor(
     suspend fun getSubcategoriesByCategoryId(categoryId: String): List<SubcategoryDto> =
         firestore.collection("subcategories")
             .whereEqualTo("categoryId", categoryId)
+            .orderBy("order")
             .get()
             .await()
             .documents
