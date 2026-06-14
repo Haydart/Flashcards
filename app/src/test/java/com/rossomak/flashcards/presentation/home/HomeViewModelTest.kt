@@ -28,18 +28,7 @@ class HomeViewModelTest {
 
     @Test
     fun `onNavigationHandled clears CategoryDetails destination`() {
-        viewModel.navigateTo(HomeDestination.CategoryDetails("cat1"))
-
-        viewModel.onNavigationHandled()
-
-        viewModel.state.assertValue {
-            navigationDestination shouldBe null
-        }
-    }
-
-    @Test
-    fun `onNavigationHandled clears SubcategoryDetails destination`() {
-        viewModel.navigateTo(HomeDestination.SubcategoryDetails("cat1", "sub1"))
+        viewModel.navigateTo(HomeDestination.CategoryDetails("cat1", "Category 1"))
 
         viewModel.onNavigationHandled()
 
