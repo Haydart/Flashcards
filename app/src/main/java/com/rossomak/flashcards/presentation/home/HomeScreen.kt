@@ -47,8 +47,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun HomeScreen(
-    onNavigateToCategoryDetails: (String) -> Unit = {},
-    onNavigateToSubcategoryDetails: (String, String) -> Unit = { _, _ -> },
+    onNavigateToCategoryDetails: (String, String) -> Unit = { _, _ -> },
     viewModel: HomeViewModel = hiltViewModel(),
     modifier: Modifier = Modifier,
 ) {
@@ -57,11 +56,7 @@ fun HomeScreen(
     LaunchedEffect(state.navigationDestination) {
         when (val destination = state.navigationDestination) {
             is HomeDestination.CategoryDetails -> {
-                onNavigateToCategoryDetails(destination.categoryId)
-                viewModel.onNavigationHandled()
-            }
-            is HomeDestination.SubcategoryDetails -> {
-                onNavigateToSubcategoryDetails(destination.categoryId, destination.subcategoryId)
+                onNavigateToCategoryDetails(destination.categoryId, destination.categoryName)
                 viewModel.onNavigationHandled()
             }
             null -> Unit
