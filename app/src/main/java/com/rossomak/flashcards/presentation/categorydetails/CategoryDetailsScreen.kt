@@ -1,6 +1,7 @@
 package com.rossomak.flashcards.presentation.categorydetails
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -73,13 +75,31 @@ fun CategoryDetailsContent(
             )
         }
     ) { innerPadding ->
-        SubcategoryList(
-            categoryId = state.categoryId,
-            categoryName = state.categoryName,
-            onNavigateToSubcategoryDetails = onNavigateToSubcategoryDetails,
-            subcategories = state.subcategories,
-            modifier = Modifier.padding(innerPadding),
-        )
+        when {
+            state.isLoading -> Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator()
+            }
+            state.error != null -> Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(text = state.error)
+            }
+            else -> SubcategoryList(
+                categoryId = state.categoryId,
+                categoryName = state.categoryName,
+                onNavigateToSubcategoryDetails = onNavigateToSubcategoryDetails,
+                subcategories = state.subcategories,
+                modifier = Modifier.padding(innerPadding),
+            )
+        }
     }
 }
 
