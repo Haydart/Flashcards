@@ -6,6 +6,7 @@ import com.rossomak.flashcards.domain.model.Category
 import com.rossomak.flashcards.domain.model.Flashcard
 import com.rossomak.flashcards.domain.model.Subcategory
 import com.rossomak.flashcards.domain.repository.FlashcardRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -17,6 +18,8 @@ class FlashcardRepositoryImpl @Inject constructor(
     override suspend fun fetchCategories(): Result<List<Category>> = withContext(Dispatchers.IO) {
         try {
             Result.success(remoteDataSource.getCategories().map { it.toDomain() })
+        } catch (exception: CancellationException) {
+            throw exception
         } catch (exception: Exception) {
             Result.failure(exception)
         }
@@ -28,6 +31,8 @@ class FlashcardRepositoryImpl @Inject constructor(
                 Result.success(
                     remoteDataSource.getSubcategoriesByCategoryId(categoryId).map { it.toDomain() }
                 )
+            } catch (exception: CancellationException) {
+                throw exception
             } catch (exception: Exception) {
                 Result.failure(exception)
             }
@@ -40,6 +45,8 @@ class FlashcardRepositoryImpl @Inject constructor(
                     remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId)
                         .map { it.toDomain(subcategoryId) }
                 )
+            } catch (exception: CancellationException) {
+                throw exception
             } catch (exception: Exception) {
                 Result.failure(exception)
             }
