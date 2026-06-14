@@ -6,8 +6,8 @@ data class FlashcardDto(
     val answer: String = "",
     val tags: List<String> = emptyList(),
     val createdAt: String = "",
-    val questionCode: String? = null,
-    val answerCode: String? = null,
+    val questionCode: List<CodeBlockDto>? = null,
+    val answerCode: List<CodeBlockDto>? = null,
     val questionSpoken: String? = null,
     val answerSpoken: String? = null,
     val extendedContext: String? = null

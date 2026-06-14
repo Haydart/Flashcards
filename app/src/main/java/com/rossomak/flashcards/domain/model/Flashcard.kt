@@ -6,8 +6,8 @@ data class Flashcard(
     val tags: List<String>,
     val question: String,
     val answer: String,
-    val questionCode: String?,
-    val answerCode: String?,
+    val questionCode: List<CodeBlock>?,
+    val answerCode: List<CodeBlock>?,
     val questionSpoken: String?,
     val answerSpoken: String?,
     val extendedContext: String?
