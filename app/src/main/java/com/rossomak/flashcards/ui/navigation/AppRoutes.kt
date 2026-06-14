@@ -22,5 +22,10 @@ import kotlinx.serialization.Serializable
 @Serializable object SettingsRoot
 
 // Shared full-screen destinations (no bottom nav)
-@Serializable data class CategoryDetails(val categoryId: String)
-@Serializable data class SubcategoryDetails(val categoryId: String, val subcategoryId: String)
+@Serializable data class CategoryDetails(val categoryId: String, val categoryName: String)
+
+@Serializable data class SubcategoryDetails(
+    val categoryId: String,
+    val categoryName: String,
+    val subcategoryId: String,
+    val subcategoryName: String)
