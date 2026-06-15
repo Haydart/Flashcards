@@ -22,8 +22,8 @@ Root NavHost
     │   └── SettingsGraph (nested graph)
     │       ├── SettingsRoot
     │       └── FlagsScreen
-    ├── CategoryDetails(categoryId)                    ← full-screen, no bottom nav; shared by Home + Study
-    ├── SubcategoryDetails(categoryId, subcategoryId)  ← full-screen, no bottom nav; shared by Home + Study
+    ├── CategoryDetails(categoryId, categoryName)                    ← full-screen, no bottom nav; shared by Home + Study
+    ├── SubcategoryDetails(categoryId, categoryName, subcategoryId, subcategoryName)  ← full-screen, no bottom nav; shared by Home + Study
     ├── PreStartScreen(categoryId, subcategoryIds, filterTagIds)
     ├── StudySession(categoryId, subcategoryIds, cardIds)
     ├── SessionSummary
