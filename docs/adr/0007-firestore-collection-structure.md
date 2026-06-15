@@ -30,3 +30,4 @@ Subcategories were originally stored in the `categories/` collection alongside C
 - Subcategory IDs (`android-testing`) are stable and predictable. Admin seed tooling constructs them deterministically from `{categoryId}-{subSlug}`.
 - `cardCount` is a denormalized field on each Subcategory doc and must be updated when Flashcards are added or removed. `subcategoryCount` on Category docs must be updated when Subcategories are added.
 - `categoryName` is a denormalized field on each Subcategory doc (mirrors the parent Category's display name) to avoid a join when displaying the subcategory in isolation.
+- `difficulty` is a mandatory integer field (1–10) on global Flashcard documents. Documents missing this field are filtered at the DTO layer and never reach the domain. See ADR-0010 for the full design rationale.

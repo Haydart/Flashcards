@@ -26,6 +26,10 @@ _Avoid_: private Tag, System Tag
 A question-answer pair belonging to exactly one Subcategory. Part of the global admin-curated pool or a user's private collection.
 _Avoid_: Card, Question
 
+**Difficulty**:
+A mandatory integer 1–10 on every global admin-curated Flashcard expressing how hard the question is within its Subcategory's domain. Domain-relative: a 3 in Compose and a 3 in Coroutines both mean "a beginner in that area gets this right." Global Flashcards with no Difficulty value are filtered out at the data layer and never reach the domain. Private Flashcards are exempt — they carry no Difficulty and are excluded from difficulty-aware features. Used by curriculum features to order Flashcards by complexity.
+_Avoid_: Score, Level, Rank
+
 **Private Flashcard**:
 A Flashcard created by a user. Follows a submission lifecycle: `private → submitted → approved` (approved flashcards may be promoted to the global pool).
 _Avoid_: User card, Custom card
