@@ -18,6 +18,7 @@ uniqueness across parent categories in the flat subcategories/ collection.
 
 Projection (inbox field -> Firestore field):
   question/answer                -> question/answer
+  difficulty                     -> difficulty                   (mandatory — hard-fail if absent)
   question_code/answer_code      -> questionCode/answerCode      (omitted if absent)
   question_spoken/answer_spoken  -> questionSpoken/answerSpoken  (omitted if absent)
   extended_context               -> extendedContext              (omitted if absent)
@@ -58,6 +59,8 @@ def make_sub_id(cat_slug: str, sub_slug: str) -> str:
 
 
 def project_card(d: dict, subcategory_id: str) -> dict:
+    if "difficulty" not in d:
+        sys.exit(f"card {d.get('id')} is missing mandatory field 'difficulty'")
     out = {
         "id": d["id"],
         "subcategoryId": subcategory_id,  # fixture routing only — stripped before Firestore write
@@ -65,6 +68,7 @@ def project_card(d: dict, subcategory_id: str) -> dict:
         "answer": d["answer"],
         "tags": d.get("tags") or [],
         "createdAt": d.get("created_at"),
+        "difficulty": d["difficulty"],
     }
     # optional additive fields — omit entirely when absent (never write null)
     for src, dst in (
