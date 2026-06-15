@@ -1,6 +1,5 @@
 package com.rossomak.flashcards.presentation.main
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -15,7 +14,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -30,10 +28,8 @@ import androidx.navigation.compose.rememberNavController
 import com.rossomak.flashcards.presentation.home.HomeScreen
 import com.rossomak.flashcards.presentation.settings.SettingsScreen
 import com.rossomak.flashcards.presentation.study.StudyScreen
-import com.rossomak.flashcards.ui.navigation.HomeCategoryDetails
 import com.rossomak.flashcards.ui.navigation.HomeGraph
 import com.rossomak.flashcards.ui.navigation.HomeRoot
-import com.rossomak.flashcards.ui.navigation.HomeSubcategoryDetails
 import com.rossomak.flashcards.ui.navigation.SettingsGraph
 import com.rossomak.flashcards.ui.navigation.SettingsRoot
 import com.rossomak.flashcards.ui.navigation.StudyGraph
@@ -58,7 +54,8 @@ private val tabs = listOf(
 
 @Composable
 fun MainScreen(
-    onNavigateToLogin: () -> Unit
+    onNavigateToLogin: () -> Unit,
+    onNavigateToCategoryDetails: (String, String) -> Unit,
 ) {
     val tabNavController = rememberNavController()
     val navBackStackEntry by tabNavController.currentBackStackEntryAsState()
@@ -105,28 +102,15 @@ fun MainScreen(
             navigation<HomeGraph>(startDestination = HomeRoot) {
                 composable<HomeRoot> {
                     HomeScreen(
-                        onNavigateToCategoryDetails = { id ->
-                            tabNavController.navigate(HomeCategoryDetails(id))
-                        },
-                        onNavigateToSubcategoryDetails = { categoryId, subcategoryId ->
-                            tabNavController.navigate(HomeSubcategoryDetails(categoryId, subcategoryId))
-                        }
+                        onNavigateToCategoryDetails = onNavigateToCategoryDetails,
                     )
-                }
-                composable<HomeCategoryDetails> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(text = "Category Details - NYI")
-                    }
-                }
-                composable<HomeSubcategoryDetails> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(text = "Subcategory Details - NYI")
-                    }
                 }
             }
             navigation<StudyGraph>(startDestination = StudyRoot) {
                 composable<StudyRoot> {
-                    StudyScreen()
+                    StudyScreen(
+                        onNavigateToCategoryDetails = onNavigateToCategoryDetails,
+                    )
                 }
             }
             navigation<SettingsGraph>(startDestination = SettingsRoot) {

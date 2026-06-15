@@ -14,11 +14,18 @@ import kotlinx.serialization.Serializable
 
 // Home tab destinations
 @Serializable object HomeRoot
-@Serializable data class HomeCategoryDetails(val categoryId: String)
-@Serializable data class HomeSubcategoryDetails(val categoryId: String, val subcategoryId: String)
 
 // Study tab destinations
 @Serializable object StudyRoot
 
 // Settings tab destinations
 @Serializable object SettingsRoot
+
+// Shared full-screen destinations (no bottom nav)
+@Serializable data class CategoryDetails(val categoryId: String, val categoryName: String)
+
+@Serializable data class SubcategoryDetails(
+    val categoryId: String,
+    val categoryName: String,
+    val subcategoryId: String,
+    val subcategoryName: String)

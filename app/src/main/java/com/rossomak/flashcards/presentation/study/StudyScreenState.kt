@@ -1,5 +1,10 @@
 package com.rossomak.flashcards.presentation.study
 
+import com.rossomak.flashcards.domain.model.Category
+
 data class StudyScreenState(
-    val title: String = "Study - NYI"
+    val isLoading: Boolean = false,
+    val categories: List<Category> = emptyList(),
+    val error: String? = null,
+    val navigationDestination: StudyDestination? = null,
 )

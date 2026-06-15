@@ -16,15 +16,14 @@ Root NavHost
 └── AuthedGraph  ← all auth-required screens; popUpTo<AuthedGraph>(inclusive=true) on sign-out. See ADR-0002.
     ├── Main  ← bottom nav shell
     │   ├── HomeGraph (nested graph)
-    │   │   ├── HomeRoot
-    │   │   ├── HomeCategoryDetails(categoryId)
-    │   │   └── HomeSubcategoryDetails(categoryId, subcategoryId)
+    │   │   └── HomeRoot
     │   ├── StudyGraph (nested graph)
-    │   │   ├── StudyRoot
-    │   │   ├── StudyCategoryDetails(categoryId)        ← added when Study tab is built
-    │   │   └── StudySubcategoryDetails(categoryId, subcategoryId)
+    │   │   └── StudyRoot
     │   └── SettingsGraph (nested graph)
-    │       └── SettingsRoot
+    │       ├── SettingsRoot
+    │       └── FlagsScreen
+    ├── CategoryDetails(categoryId, categoryName)                    ← full-screen, no bottom nav; shared by Home + Study
+    ├── SubcategoryDetails(categoryId, categoryName, subcategoryId, subcategoryName)  ← full-screen, no bottom nav; shared by Home + Study
     ├── PreStartScreen(categoryId, subcategoryIds, filterTagIds)
     ├── StudySession(categoryId, subcategoryIds, cardIds)
     ├── SessionSummary
@@ -35,7 +34,7 @@ Screens in `AuthedGraph` outside `Main` are full-screen (no bottom nav visible).
 
 ### Shared screens (CategoryDetails, SubcategoryDetails)
 
-Accessible from both Home and Study tabs. Use **tab-prefixed route types** (`HomeCategoryDetails` / `StudyCategoryDetails`) so each tab maintains an independent back stack with save/restore. Both route types call the same composable function — no UI duplication. See [ADR-0003](docs/adr/0003-tab-prefixed-shared-routes.md).
+Accessible from both Home and Study tabs. Registered at the root NavHost level (siblings of Main), so they appear full-screen with no bottom navigation bar. A single route type serves both ingresses — navigation uses the root NavController passed down through MainScreen callbacks.
 
 ### Session entry routing
 
@@ -88,7 +87,7 @@ Home empty state CTA ("Start your first session") triggers a tab switch to Study
 
 ## Subcategory Details Screen
 
-- Lists all Flashcards belonging to the Subcategory
+- Lists all Flashcards belonging to the Subcategory as collapsible items (collapsed: question + tag chips; expanded: + answer)
 - App bar includes:
   - **"Start Session"** button → Pre-start Screen with `filterTagIds` = currently active Tags → single-subcategory Study Session begins
   - **Filter icon button** (top-right) — opens the Tag filter dialog; shows a dot badge when ≥1 Tag is active
@@ -97,6 +96,9 @@ Home empty state CTA ("Start your first session") triggers a tab switch to Study
   - Staggered grid of chips below the divider: every Tag present on this Subcategory's Flashcards (derived `distinct(card.tags)`) plus a **"Private"** chip (the derived Private flag)
   - Multi-select with **OR** semantics — active Tags filter both the visible Flashcard list and the Study Session pool
 - FAB → create Private Flashcard
+- **Bottom toolbar** (always visible):
+  - Default mode: Start Session button + multiselect toggle icon (bottom-left)
+  - **Multiselect mode** (activated by multiselect toggle): checkboxes appear on each Flashcard item; bottom toolbar shows **Retire** and **Rework** action buttons; tapping either flags all selected Flashcards with that Flag Action (upserts `users/{uid}/flaggedCards/{cardId}` for each)
 
 ## Pre-start Screen
 
@@ -142,6 +144,8 @@ A session is scoped to one Category and one or more Subcategories. Card selectio
 
 **Exit:** X button (top-left) only — no in-session "Finish session" button. X always shows a confirmation dialog warning that session progress will be lost.
 
+**Flag icon:** outline flag icon in the top-right corner of the card (always outline regardless of existing flag state). Tapping opens a dialog with three options: **Retire**, **Rework**, **Cancel**. Confirming either action upserts `users/{uid}/flaggedCards/{cardId}`. The card continues in the session queue — no suppression.
+
 ### Re-insertion Rules
 
 - **Correct** (any Attempt): Flashcard exits queue → Mastered, X increments
@@ -174,6 +178,20 @@ A session is scoped to one Category and one or more Subcategories. Card selectio
 - Permissions
 - Voice settings (deferred, not MVP)
 - Not for Category or Subcategory management
+- **My Flags** entry → navigates to Flags Screen
+
+## Flags Screen
+
+Accessible from Settings → My Flags. Full-screen, no bottom nav.
+
+- Lists all Flags raised by the user, grouped by Subcategory with subtle section headers
+- Each item uses the same collapsible Flashcard composable as Subcategory Details (collapsed: question + tag chips; expanded: + answer)
+- **Always in multiselect mode**: checkboxes visible on all items at all times
+- **Bottom toolbar** (always visible) with three actions:
+  - **Withdraw** — removes the Flag document from `users/{uid}/flaggedCards/{cardId}` for all selected cards
+  - **Change to Retire** — upserts `action = "RETIRE"` for all selected flags
+  - **Change to Rework** — upserts `action = "REWORK"` for all selected flags
+- Data: fetched from `users/{uid}/flaggedCards` (single `getDocuments()`); Flashcard question/answer loaded via `subcategories/{subcategoryId}/flashcards/{cardId}` per flag. See [ADR-0009](docs/adr/0009-flag-system-design.md).
 
 ## Firestore Schema
 
@@ -195,6 +213,7 @@ users/{uid}/recentSessions/{sessionId}                → { categoryId, category
 users/{uid}/progress/{cardId}                         → { failedCount, correctCount, lastReviewedAt, nextReviewAt }
 users/{uid}/progress/{cardId}/reviews/{id}            → { rating, reviewedAt }
 users/{uid}/privateCards/{subcategoryId}/flashcards/{cardId} → { question, answer, tags[], status, createdAt }
+users/{uid}/flaggedCards/{cardId}                           → { action: "RETIRE"|"REWORK", flaggedAt, subcategoryId }
 ```
 
 - **Strict 2-level taxonomy**: Categories and Subcategories are separate top-level collections. Subcategory IDs are namespaced `{categoryId}-{subSlug}` (e.g. `android-testing`) to guarantee uniqueness across parent categories. See [ADR-0001](docs/adr/0001-flat-two-level-taxonomy.md) and [ADR-0007](docs/adr/0007-firestore-collection-structure.md).
@@ -204,6 +223,7 @@ users/{uid}/privateCards/{subcategoryId}/flashcards/{cardId} → { question, ans
 - **Category `iconUrl`**: absolute HTTPS URL. No Firebase Storage SDK dependency in UI layer.
 - **`recentSessions` denormalizes names and stats** at write time — `categoryName`, `subcategoryNames[]`, `cardCount`, `masteredCount` — so the Home screen renders Recent cards from a single read per session. `masteredCount` omitted for Fast Study Sessions.
 - Private Flashcard `status`: `"private" | "submitted" | "approved"` — promotion pipeline to global pool.
+- **`flaggedCards/{cardId}` is a flat collection keyed by globally-unique cardId** — one Flag per card per user, upserted. `subcategoryId` is denormalized here (deviates from ADR-0007's exclusion of subcategoryId from Flashcard docs) to enable single-read fetch and client-side grouping on the Flags Screen. See [ADR-0009](docs/adr/0009-flag-system-design.md).
 - Offline: Firestore Android SDK built-in persistence. No Room needed.
 - Partial Rating is an in-session mechanic only; never written to Firestore as a standalone status.
 

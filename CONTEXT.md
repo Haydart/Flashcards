@@ -68,6 +68,14 @@ _Avoid_: Final state, End state, Result
 The Terminal State of a Flashcard that received a Correct Rating within a **Rated** Study Session.
 _Avoid_: Completed, Passed, Correct (Correct is the Rating that causes Mastered, not a synonym)
 
+**Flag**:
+A user-submitted signal that a Flashcard needs admin attention. One Flag per Flashcard per User; mutable (overwritable). Two action values: **Retire** (card should be deleted — too obscure or irrelevant) and **Rework** (card should be edited — imprecise or poorly worded). Flags are stored at `users/{uid}/flaggedCards/{cardId}`. No personal suppression — flagged Flashcards still appear in Study Sessions. Managed via the **Flags Screen**.
+_Avoid_: Report, Suggest, Propose, Mark-for-deletion
+
+**Flag Action**:
+The intent carried by a Flag. Values: **Retire** (delete the Flashcard from the global pool) or **Rework** (edit the Flashcard for quality). Chosen by the User at flag time; changeable later from the Flags Screen.
+_Avoid_: Flag type, Flag reason, Flag status
+
 ### Activities
 
 **Study Creation**:

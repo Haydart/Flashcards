@@ -74,6 +74,7 @@ class FlashcardViewModel @Inject constructor(
 - Functions/Variables: camelCase (`getFlashcards`)
 - Constants: UPPER_SNAKE_CASE
 - Composable functions: PascalCase (`FlashcardScreen()`)
+- ViewModel event handlers (UI → ViewModel callbacks): `onXxx` prefix, present tense (`onCategoriesRefresh`, `onCardSelect`)
 
 ### Sealed Classes for States
 Use sealed classes for finite UI states (e.g. loading / content / error variants of a screen state).
