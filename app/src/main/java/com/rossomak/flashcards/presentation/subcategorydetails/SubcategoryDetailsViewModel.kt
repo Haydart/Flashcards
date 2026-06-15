@@ -16,7 +16,7 @@ import javax.inject.Inject
 @HiltViewModel
 class SubcategoryDetailsViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val getFlashcardsUseCase: GetFlashcardsUseCase
+    private val getFlashcards: GetFlashcardsUseCase
 ) : ViewModel() {
 
     private val route = savedStateHandle.toRoute<SubcategoryDetails>()
@@ -36,7 +36,7 @@ class SubcategoryDetailsViewModel @Inject constructor(
     private fun loadFlashcards() {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)
-            getFlashcardsUseCase(route.subcategoryId)
+            getFlashcards(route.subcategoryId)
                 .onSuccess { flashcards ->
                     _state.value = _state.value.copy(isLoading = false, flashcards = flashcards)
                 }
