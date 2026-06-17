@@ -30,6 +30,10 @@ _Avoid_: Card, Question
 A mandatory integer 1–10 on every global admin-curated Flashcard expressing how hard the question is within its Subcategory's domain. Domain-relative: a 3 in Compose and a 3 in Coroutines both mean "a beginner in that area gets this right." Global Flashcards with no Difficulty value are filtered out at the data layer and never reach the domain. Private Flashcards are exempt — they carry no Difficulty and are excluded from difficulty-aware features. Used by curriculum features to order Flashcards by complexity.
 _Avoid_: Score, Level, Rank
 
+**Extended Context**:
+An optional supplementary payload on a global Flashcard providing self-contained teaching material — examples, code snippets, analogies, edge cases, and "why this matters" framing. Absent on simple cards (Difficulty 1–3) where the question and answer are already fully self-explanatory. Present and progressively richer as Difficulty rises: mid-range cards (4–6) include a concrete example or short snippet; hard/expert cards (7–10) include fuller context covering edge cases, cross-concept relationships, and pitfalls. Intended for a future "explain deeper" feature where an LLM re-teaches the concept from this payload. Never a duplicate of the answer field.
+_Avoid_: Context, Explanation, Detail
+
 **Private Flashcard**:
 A Flashcard created by a user. Follows a submission lifecycle: `private → submitted → approved` (approved flashcards may be promoted to the global pool).
 _Avoid_: User card, Custom card
