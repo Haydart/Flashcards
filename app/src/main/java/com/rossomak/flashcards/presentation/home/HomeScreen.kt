@@ -59,6 +59,7 @@ fun HomeScreen(
                 onNavigateToCategoryDetails(destination.categoryId, destination.categoryName)
                 viewModel.onNavigationHandled()
             }
+            is HomeDestination.SubcategoryDetails -> viewModel.onNavigationHandled()
             null -> Unit
         }
     }
