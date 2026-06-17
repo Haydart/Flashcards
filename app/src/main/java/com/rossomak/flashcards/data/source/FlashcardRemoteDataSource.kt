@@ -24,7 +24,6 @@ class FlashcardRemoteDataSource @Inject constructor(
     suspend fun getSubcategoriesByCategoryId(categoryId: String): List<SubcategoryDto> =
         firestore.collection("subcategories")
             .whereEqualTo("categoryId", categoryId)
-            .orderBy("order")
             .get()
             .await()
             .documents
