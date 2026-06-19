@@ -199,7 +199,8 @@ Accessible from Settings → My Flags. Full-screen, no bottom nav.
 // Global taxonomy (admin-defined)
 categories/{categoryId}                               → { name, order, subcategoryCount, iconUrl }
 subcategories/{categoryId-subSlug}                    → { name, categoryId, order, cardCount }
-subcategories/{categoryId-subSlug}/flashcards/{cardId} → { question, answer, tags[], createdAt,
+subcategories/{categoryId-subSlug}/flashcards/{cardId} → { question, answer, tags[], difficulty,
+                                                           createdAt,
                                                            questionCode?, answerCode?,
                                                            extendedContext?,
                                                            questionSpoken?, answerSpoken? }
@@ -219,6 +220,8 @@ users/{uid}/flaggedCards/{cardId}                           → { action: "RETIR
 - **Strict 2-level taxonomy**: Categories and Subcategories are separate top-level collections. Subcategory IDs are namespaced `{categoryId}-{subSlug}` (e.g. `android-testing`) to guarantee uniqueness across parent categories. See [ADR-0001](docs/adr/0001-flat-two-level-taxonomy.md) and [ADR-0007](docs/adr/0007-firestore-collection-structure.md).
 - **Cards live as a subcollection of their Subcategory** (`subcategories/{subcategoryId}/flashcards/`). Fetching all Flashcards for a Subcategory is a single `getDocuments()` — no WHERE clause, no index. No separate `cards/` collection. See [ADR-0007](docs/adr/0007-firestore-collection-structure.md).
 - **`subcategoryId` is not stored on Flashcard documents** — it is encoded in the collection path.
+- **`difficulty` is a mandatory integer (1–10)** on global Flashcard documents. Documents missing this field are filtered at the DTO layer and never reach the domain. Private Flashcards carry no `difficulty`. See [ADR-0010](docs/adr/0010-difficulty-field-design.md).
+- **`extendedContext` is nullable** on global Flashcard documents. Omitted on simple cards (difficulty 1–3) where the Q&A is fully self-explanatory. Present and progressively richer as difficulty rises: mid cards (4–6) carry a concrete example or short snippet; hard/expert cards (7–10) carry fuller context — edge cases, cross-concept relationships, pitfalls. Never duplicates the `answer` field.
 - **Tags are flat untyped strings** in `tags[]` on each Flashcard. No `tags/` collection. See [ADR-0006](docs/adr/0006-flat-denormalized-tags.md).
 - **Category `iconUrl`**: absolute HTTPS URL. No Firebase Storage SDK dependency in UI layer.
 - **`recentSessions` denormalizes names and stats** at write time — `categoryName`, `subcategoryNames[]`, `cardCount`, `masteredCount` — so the Home screen renders Recent cards from a single read per session. `masteredCount` omitted for Fast Study Sessions.
@@ -275,7 +278,7 @@ Fixture JSON format (no `tags` section — tags are inline strings on each card)
 {
   "categories": [{ "id": "android", "name": "Android", "order": 0, "subcategoryCount": 1, "iconUrl": "" }],
   "subcategories": [{ "id": "android-compose", "name": "Compose", "categoryId": "android", "order": 0, "cardCount": 1 }],
-  "cards": [{ "subcategoryId": "android-compose", "id": "...", "question": "...", "answer": "...", "tags": ["state"] }]
+  "cards": [{ "subcategoryId": "android-compose", "id": "...", "question": "...", "answer": "...", "tags": ["state"], "difficulty": 4 }]
 }
 ```
 
