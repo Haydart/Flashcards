@@ -59,7 +59,10 @@ fun HomeScreen(
                 onNavigateToCategoryDetails(destination.categoryId, destination.categoryName)
                 viewModel.onNavigationHandled()
             }
-            is HomeDestination.SubcategoryDetails -> viewModel.onNavigationHandled()
+            is HomeDestination.SubcategoryDetails -> {
+                // Handle subcategory navigation if needed
+                viewModel.onNavigationHandled()
+            }
             null -> Unit
         }
     }

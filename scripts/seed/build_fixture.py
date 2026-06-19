@@ -61,6 +61,8 @@ def make_sub_id(cat_slug: str, sub_slug: str) -> str:
 def project_card(d: dict, subcategory_id: str) -> dict:
     if "difficulty" not in d:
         sys.exit(f"card {d.get('id')} is missing mandatory field 'difficulty'")
+    if not isinstance(d["difficulty"], int) or not (1 <= d["difficulty"] <= 10):
+        sys.exit(f"card {d.get('id')} has invalid difficulty {d['difficulty']!r} (must be int 1–10)")
     out = {
         "id": d["id"],
         "subcategoryId": subcategory_id,  # fixture routing only — stripped before Firestore write
