@@ -41,6 +41,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.gallatinapps.syntaxmp.tokenizer.SyntaxTokenizer
+import com.rossomak.flashcards.ui.text.SyntaxCodeBlock
 import com.rossomak.flashcards.ui.text.withInlineCode
 
 @Composable
@@ -125,6 +127,7 @@ fun StudySessionContent(
                 val card = state.flashcards[state.currentCardIndex]
                 val isLastCard = state.currentCardIndex == state.flashcards.lastIndex
                 var isExtendedContextExpanded by remember(card.id) { mutableStateOf(false) }
+                val syntaxEngine = remember { SyntaxTokenizer() }
 
                 Column(
                     modifier = Modifier
@@ -159,6 +162,14 @@ fun StudySessionContent(
                             text = card.question.withInlineCode(),
                             style = MaterialTheme.typography.bodyLarge,
                         )
+                        card.questionCode?.forEach { codeBlock ->
+                            Spacer(modifier = Modifier.height(8.dp))
+                            SyntaxCodeBlock(
+                                code = codeBlock.code,
+                                language = codeBlock.language,
+                                engine = syntaxEngine,
+                            )
+                        }
                         AnimatedVisibility(
                             visible = state.isAnswerRevealed,
                             enter = expandVertically(),
@@ -178,6 +189,14 @@ fun StudySessionContent(
                                     text = card.answer.withInlineCode(),
                                     style = MaterialTheme.typography.bodyMedium,
                                 )
+                                card.answerCode?.forEach { codeBlock ->
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    SyntaxCodeBlock(
+                                        code = codeBlock.code,
+                                        language = codeBlock.language,
+                                        engine = syntaxEngine,
+                                    )
+                                }
                                 if (!card.extendedContext.isNullOrBlank()) {
                                     Spacer(modifier = Modifier.height(16.dp))
                                     HorizontalDivider()
