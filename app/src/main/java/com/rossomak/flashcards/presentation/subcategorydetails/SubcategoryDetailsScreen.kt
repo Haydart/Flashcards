@@ -50,10 +50,14 @@ fun SubcategoryDetailsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    LaunchedEffect(state.studySessionNavigation) {
-        val destination = state.studySessionNavigation ?: return@LaunchedEffect
-        onNavigateToStudySession(destination.subcategoryId, destination.subcategoryName)
-        viewModel.onStudySessionNavigationHandled()
+    LaunchedEffect(state.navigationDestination) {
+        when (val destination = state.navigationDestination) {
+            is SubcategoryDetailsDestination.StudySession -> {
+                onNavigateToStudySession(destination.subcategoryId, destination.subcategoryName)
+                viewModel.onNavigationHandled()
+            }
+            null -> Unit
+        }
     }
 
     SubcategoryDetailsContent(

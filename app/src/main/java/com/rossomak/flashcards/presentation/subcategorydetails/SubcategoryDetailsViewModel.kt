@@ -49,11 +49,16 @@ class SubcategoryDetailsViewModel @Inject constructor(
 
     fun onStartSession() {
         _state.update {
-            it.copy(studySessionNavigation = StudySessionNavigation(route.subcategoryId, route.subcategoryName))
+            it.copy(
+                navigationDestination = SubcategoryDetailsDestination.StudySession(
+                    route.subcategoryId,
+                    route.subcategoryName
+                )
+            )
         }
     }
 
-    fun onStudySessionNavigationHandled() {
-        _state.update { it.copy(studySessionNavigation = null) }
+    fun onNavigationHandled() {
+        _state.update { it.copy(navigationDestination = null) }
     }
 }
