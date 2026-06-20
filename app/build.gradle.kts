@@ -89,6 +89,7 @@ dependencies {
     implementation(libs.androidx.compose.animation.graphics)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
+    implementation(libs.syntaxmp)
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
     testImplementation(libs.turbine)
