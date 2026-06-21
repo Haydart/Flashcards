@@ -1,7 +1,7 @@
 package com.rossomak.flashcards.presentation.studysession
 
 import com.rossomak.flashcards.domain.model.Flashcard
-import com.rossomak.flashcards.service.VoicePlaybackState
+import com.rossomak.flashcards.domain.voice.VoicePlaybackState
 
 data class StudySessionScreenState(
     val subcategoryName: String = "",

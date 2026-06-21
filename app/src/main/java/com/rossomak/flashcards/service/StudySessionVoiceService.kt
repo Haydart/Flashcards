@@ -22,6 +22,8 @@ import androidx.core.app.NotificationCompat
 import androidx.media.session.MediaButtonReceiver
 import com.rossomak.flashcards.MainActivity
 import com.rossomak.flashcards.R
+import com.rossomak.flashcards.domain.voice.VoicePhase
+import com.rossomak.flashcards.domain.voice.VoicePlaybackState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

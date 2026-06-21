@@ -30,8 +30,8 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material3.Button
 import androidx.compose.material3.BottomSheetScaffold
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
@@ -58,16 +58,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import kotlinx.coroutines.launch
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gallatinapps.syntaxmp.tokenizer.SyntaxTokenizer
-import com.rossomak.flashcards.service.VoicePlaybackState
+import com.rossomak.flashcards.domain.voice.VoicePlaybackState
 import com.rossomak.flashcards.ui.text.SyntaxCodeBlock
 import com.rossomak.flashcards.ui.text.withInlineCode
+import kotlinx.coroutines.launch
 
 @Composable
 fun StudySessionScreen(
@@ -83,9 +83,12 @@ fun StudySessionScreen(
 
     val onToggleVoiceMode = {
         val needsNotificationPermission = !state.isVoiceActive &&
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-            android.content.pm.PackageManager.PERMISSION_GRANTED
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) !=
+                android.content.pm.PackageManager.PERMISSION_GRANTED
         if (needsNotificationPermission) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
@@ -280,7 +283,9 @@ fun StudySessionContent(
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clickable { isExtendedContextExpanded = !isExtendedContextExpanded }
+                                        .clickable {
+                                            isExtendedContextExpanded = !isExtendedContextExpanded
+                                        }
                                         .padding(vertical = 12.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
