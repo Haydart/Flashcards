@@ -44,6 +44,11 @@ class StudySessionViewModel @Inject constructor(
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            if (!isBound) {
+                // Rapid toggle: stopVoice() fired before connection landed — kill the orphaned service.
+                (service as? StudySessionVoiceService.LocalBinder)?.stopPlayback()
+                return
+            }
             val binder = service as? StudySessionVoiceService.LocalBinder ?: return
             voiceBinder = binder
             binder.loadSession(
@@ -126,6 +131,10 @@ class StudySessionViewModel @Inject constructor(
         voiceBinder?.setSpeechRate(rate)
     }
 
+    fun onVoiceErrorDismissed() {
+        _state.update { it.copy(voiceError = null) }
+    }
+
     private fun startVoice() {
         val intent = Intent(appContext, StudySessionVoiceService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -146,6 +155,11 @@ class StudySessionViewModel @Inject constructor(
         voiceStateJob?.cancel()
         voiceStateJob = viewModelScope.launch {
             binder.state.collect { voice ->
+                if (voice.error != null) {
+                    unbindVoice()
+                    _state.update { it.copy(isVoiceActive = false, isVoicePlaying = false, voiceError = voice.error) }
+                    return@collect
+                }
                 _state.update {
                     it.copy(
                         isVoiceActive = voice.isActive,

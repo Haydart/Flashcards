@@ -14,4 +14,5 @@ data class StudySessionScreenState(
     val isVoiceActive: Boolean = false,
     val isVoicePlaying: Boolean = false,
     val speechRate: Float = VoicePlaybackState.DEFAULT_SPEECH_RATE,
+    val voiceError: String? = null,
 )
