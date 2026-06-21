@@ -1,6 +1,7 @@
 package com.rossomak.flashcards.presentation.studysession
 
 import android.Manifest
+import android.content.Intent
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -40,6 +41,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberBottomSheetScaffoldState
@@ -53,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -87,12 +93,34 @@ fun StudySessionScreen(
         }
     }
 
+    val snackbarHostState = remember { SnackbarHostState() }
+
     LaunchedEffect(state.isSessionComplete) {
         if (state.isSessionComplete) onNavigateBack()
     }
 
+    LaunchedEffect(state.voiceError) {
+        val error = state.voiceError ?: return@LaunchedEffect
+        launch {
+            val result = snackbarHostState.showSnackbar(
+                message = "Voice playback unavailable on this device",
+                actionLabel = "Open Settings",
+                duration = SnackbarDuration.Long,
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                context.startActivity(
+                    Intent("com.android.settings.TTS_SETTINGS").apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                )
+            }
+            viewModel.onVoiceErrorDismissed()
+        }
+    }
+
     StudySessionContent(
         state = state,
+        snackbarHostState = snackbarHostState,
         onNavigateBack = onNavigateBack,
         onShowAnswer = viewModel::onShowAnswer,
         onNextCard = viewModel::onNextCard,
@@ -108,6 +136,7 @@ fun StudySessionScreen(
 @Composable
 fun StudySessionContent(
     state: StudySessionScreenState,
+    snackbarHostState: SnackbarHostState,
     onNavigateBack: () -> Unit,
     onShowAnswer: () -> Unit,
     onNextCard: () -> Unit,
@@ -125,6 +154,7 @@ fun StudySessionContent(
     BottomSheetScaffold(
         modifier = modifier,
         scaffoldState = scaffoldState,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         sheetSwipeEnabled = false,
         sheetPeekHeight = if (state.isVoiceActive) 220.dp else 112.dp,
         topBar = {
@@ -315,7 +345,10 @@ private fun StudySessionSheetContent(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = onVoicePrevious) {
+                IconButton(
+                    onClick = onVoicePrevious,
+                    enabled = state.currentCardIndex > 0,
+                ) {
                     Icon(
                         imageVector = Icons.Default.SkipPrevious,
                         contentDescription = "Previous card",
@@ -332,7 +365,10 @@ private fun StudySessionSheetContent(
                     )
                 }
                 Spacer(modifier = Modifier.size(16.dp))
-                IconButton(onClick = onVoiceNext) {
+                IconButton(
+                    onClick = onVoiceNext,
+                    enabled = state.currentCardIndex < state.flashcards.lastIndex,
+                ) {
                     Icon(
                         imageVector = Icons.Default.SkipNext,
                         contentDescription = "Next card",
@@ -398,6 +434,7 @@ private fun StudySessionVoiceActivePreview() {
             isVoicePlaying = true,
             speechRate = 1.25f,
         ),
+        snackbarHostState = remember { SnackbarHostState() },
         onNavigateBack = {},
         onShowAnswer = {},
         onNextCard = {},
