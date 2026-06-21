@@ -120,7 +120,9 @@ A session is scoped to one Category and one or more Subcategories. Card selectio
 
 **Study Modes:**
 - **Rated**: user reveals each answer manually, then self-rates (Failed / Partial / Correct). Terminal State cards written to Firestore.
-- **Fast**: cards advance automatically on a timer — question shown for a fixed window, answer auto-revealed, then next card. No Ratings, no Attempts, no Terminal States. Only session metadata written to Firestore.
+- **Fast**: system TTS reads the question (`questionSpoken` if present, else `question`), pauses 1 500 ms, reads the answer (`answerSpoken` if present, else `answer`), pauses 2 500 ms, then auto-advances. User controls: pause/play, skip-next, skip-previous, speech-rate slider (0.5×–2×), Show Answer (interrupts question, reads answer immediately). Playback persists with screen off or app backgrounded via `StudySessionVoiceService` (foreground `mediaPlayback` service). Persistent `MediaStyle` notification + lock-screen controls via `MediaSessionCompat`. No Ratings, no Attempts, no Terminal States. Firestore session metadata write deferred. See [ADR-0012](docs/adr/0012-tts-mediasession-stack-for-fast-mode.md).
+
+**Fast mode entry point (interim):** Fast mode is currently activated by a `RecordVoiceOver` toggle in the `StudySessionScreen` `TopAppBar`, not through the Pre-start Screen. This is a temporary measure pending Pre-start Screen implementation — once built, Study Mode selection moves there exclusively (ADR-0004). Voice is tied to the session screen lifetime; navigating away stops playback. A confirmation dialog on session exit is planned.
 
 ### Flashcard Mechanics
 
@@ -176,7 +178,7 @@ A session is scoped to one Category and one or more Subcategories. Card selectio
 
 - App preferences: session Flashcard count (default 20), etc.
 - Permissions
-- Voice settings (deferred, not MVP)
+- Voice settings (language/voice selection — deferred; TTS playback itself is implemented)
 - Not for Category or Subcategory management
 - **My Flags** entry → navigates to Flags Screen
 

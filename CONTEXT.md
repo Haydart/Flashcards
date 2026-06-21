@@ -57,8 +57,8 @@ _Avoid_: Quiz, Session alone (ambiguous with auth session)
 **Study Mode**:
 The interaction mechanic of a Study Session. Two values:
 - **Rated**: user reveals each answer manually, then self-rates (Failed / Partial / Correct). Flashcards reaching a Terminal State are written to Firestore.
-- **Fast**: cards advance automatically on a timer — question shown for a fixed window, then answer auto-revealed for a fixed window, then next card. No Ratings, no Attempts, no Terminal States.
-_Avoid_: Automatic mode, Passive mode, Browse mode
+- **Fast**: system TTS reads the question aloud, pauses, reads the answer aloud, then auto-advances. User controls playback via transport controls (pause / play / skip / speed slider). Playback continues with the screen off or app backgrounded. No Ratings, no Attempts, no Terminal States.
+_Avoid_: Automatic mode, Passive mode, Browse mode, Voice mode (voice is the delivery mechanism, not the mode name)
 
 **Attempt**:
 A single presentation of a Flashcard to the user within a **Rated** Study Session. Each Flashcard has a maximum of 3 Attempts per session. Does not apply to Fast Study Sessions.
