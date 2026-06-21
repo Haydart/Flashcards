@@ -6,6 +6,8 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.os.Binder
 import android.os.Build
 import android.os.Handler
@@ -63,6 +65,33 @@ class StudySessionVoiceService : Service() {
      */
     private var generation = 0
 
+    // Audio focus
+    private val audioManager by lazy { getSystemService(AudioManager::class.java) }
+    private var audioFocusRequest: AudioFocusRequest? = null
+    private var wasPlayingBeforeFocusLoss = false
+
+    private val audioFocusListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
+        when (focusChange) {
+            AudioManager.AUDIOFOCUS_GAIN -> {
+                if (wasPlayingBeforeFocusLoss) {
+                    wasPlayingBeforeFocusLoss = false
+                    play()
+                }
+            }
+            AudioManager.AUDIOFOCUS_LOSS -> {
+                wasPlayingBeforeFocusLoss = false
+                if (isPlaying) pause()
+            }
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                if (isPlaying) {
+                    wasPlayingBeforeFocusLoss = true
+                    pause()
+                }
+            }
+        }
+    }
+
     inner class LocalBinder : Binder() {
         // getter, not an initializer: the binder field is constructed before _state, so capturing
         // _state eagerly here would bind to null. Defer access until first read.
@@ -93,6 +122,10 @@ class StudySessionVoiceService : Service() {
                     startWhenReady = false
                     speakQuestion()
                 }
+            } else {
+                _state.value = VoicePlaybackState(error = "tts_unavailable")
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
             }
         }
     }
@@ -108,7 +141,9 @@ class StudySessionVoiceService : Service() {
     override fun onUnbind(intent: Intent?): Boolean = true
 
     override fun onDestroy() {
+        generation++ // invalidate any onDone callbacks that post after this point
         handler.removeCallbacksAndMessages(null)
+        abandonAudioFocus()
         if (::tts.isInitialized) {
             tts.stop()
             tts.shutdown()
@@ -151,16 +186,19 @@ class StudySessionVoiceService : Service() {
         isPlaying = false
         generation++ // invalidate the in-flight utterance callback
         if (::tts.isInitialized) tts.stop()
+        abandonAudioFocus()
         pushState()
     }
 
     private fun skipNext() {
-        if (index < cards.lastIndex) index++
+        if (index >= cards.lastIndex) return
+        index++
         moveToQuestion()
     }
 
     private fun skipPrevious() {
-        if (index > 0) index--
+        if (index <= 0) return
+        index--
         moveToQuestion()
     }
 
@@ -178,7 +216,14 @@ class StudySessionVoiceService : Service() {
 
     private fun showAnswer() {
         if (cards.isEmpty()) return
-        speakAnswer() // interrupts the question and reads the answer immediately
+        phase = VoicePhase.ANSWER
+        if (isPlaying) {
+            speakAnswer()
+        } else {
+            generation++
+            if (::tts.isInitialized) tts.stop()
+            pushState()
+        }
     }
 
     private fun setSpeechRate(rate: Float) {
@@ -196,12 +241,45 @@ class StudySessionVoiceService : Service() {
 
     private fun stopPlayback() {
         isPlaying = false
+        startWhenReady = false
         generation++
+        abandonAudioFocus()
         if (::tts.isInitialized) tts.stop()
         cards = emptyList()
         _state.value = VoicePlaybackState(isActive = false)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
+    }
+
+    // endregion
+
+    // region audio focus
+
+    private fun requestAudioFocus() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                .setOnAudioFocusChangeListener(audioFocusListener, handler)
+                .build()
+            audioFocusRequest = request
+            audioManager.requestAudioFocus(request)
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.requestAudioFocus(
+                audioFocusListener,
+                AudioManager.STREAM_MUSIC,
+                AudioManager.AUDIOFOCUS_GAIN,
+            )
+        }
+    }
+
+    private fun abandonAudioFocus() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            audioFocusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
+            audioFocusRequest = null
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.abandonAudioFocus(audioFocusListener)
+        }
     }
 
     // endregion
@@ -213,6 +291,7 @@ class StudySessionVoiceService : Service() {
         phase = VoicePhase.QUESTION
         isPlaying = true
         val generationId = ++generation
+        requestAudioFocus()
         pushState()
         tts.speak(
             card.spokenQuestion.ifBlank { " " },
@@ -227,6 +306,7 @@ class StudySessionVoiceService : Service() {
         phase = VoicePhase.ANSWER
         isPlaying = true
         val generationId = ++generation
+        requestAudioFocus()
         pushState()
         tts.speak(
             card.spokenAnswer.ifBlank { " " },
@@ -269,7 +349,9 @@ class StudySessionVoiceService : Service() {
             index++
             speakQuestion()
         } else {
-            isPlaying = false // reached the end; stay foreground in a paused state
+            phase = VoicePhase.QUESTION // reset so tapping Play re-reads last card from question
+            isPlaying = false
+            abandonAudioFocus()
             pushState()
         }
     }
@@ -345,7 +427,9 @@ class StudySessionVoiceService : Service() {
         val contentIntent = PendingIntent.getActivity(
             this,
             0,
-            Intent(this, MainActivity::class.java),
+            Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
