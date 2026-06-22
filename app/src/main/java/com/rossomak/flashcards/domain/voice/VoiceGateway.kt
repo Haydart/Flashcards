@@ -18,6 +18,7 @@ data class VoicePlaybackState(
         const val DEFAULT_SPEECH_RATE = 1f
         const val MIN_SPEECH_RATE = 0.5f
         const val MAX_SPEECH_RATE = 2f
+        const val REWIND_THRESHOLD_MS = 3_000L
     }
 }
 
@@ -28,6 +29,7 @@ interface VoiceGateway {
     fun togglePlayPause()
     fun skipNext()
     fun skipPrevious()
+    fun restartCurrentCard()
     fun showAnswer()
     fun setSpeechRate(rate: Float)
 }

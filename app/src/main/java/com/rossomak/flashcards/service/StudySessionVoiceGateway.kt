@@ -80,6 +80,7 @@ class StudySessionVoiceGateway @Inject constructor(
     override fun togglePlayPause() { voiceBinder?.togglePlayPause() }
     override fun skipNext() { voiceBinder?.skipNext() }
     override fun skipPrevious() { voiceBinder?.skipPrevious() }
+    override fun restartCurrentCard() { voiceBinder?.restartCurrentCard() }
     override fun showAnswer() { voiceBinder?.showAnswer() }
     override fun setSpeechRate(rate: Float) { voiceBinder?.setSpeechRate(rate) }
 

@@ -13,6 +13,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.support.v4.media.MediaMetadataCompat
@@ -66,6 +67,7 @@ class StudySessionVoiceService : Service() {
      * is ignored — this is how we tell a naturally finished utterance apart from a stopped one.
      */
     private var generation = 0
+    private var cardStartedAtMs: Long = 0L
 
     // Audio focus
     private val audioManager by lazy { getSystemService(AudioManager::class.java) }
@@ -105,6 +107,7 @@ class StudySessionVoiceService : Service() {
         fun togglePlayPause() = this@StudySessionVoiceService.togglePlayPause()
         fun skipNext() = this@StudySessionVoiceService.skipNext()
         fun skipPrevious() = this@StudySessionVoiceService.skipPrevious()
+        fun restartCurrentCard() = this@StudySessionVoiceService.restartCurrentCard()
         fun showAnswer() = this@StudySessionVoiceService.showAnswer()
         fun setSpeechRate(rate: Float) = this@StudySessionVoiceService.setSpeechRate(rate)
         fun stopPlayback() = this@StudySessionVoiceService.stopPlayback()
@@ -169,6 +172,7 @@ class StudySessionVoiceService : Service() {
             pushState()
             return
         }
+        cardStartedAtMs = SystemClock.elapsedRealtime()
         if (ttsReady) speakQuestion() else startWhenReady = true
     }
 
@@ -204,9 +208,25 @@ class StudySessionVoiceService : Service() {
         moveToQuestion()
     }
 
+    private fun restartCurrentCard() {
+        moveToQuestion()
+    }
+
+    // Used only by the MediaSession callback (lock screen / Bluetooth controls).
+    private fun handleMediaSkipPrevious() {
+        val elapsed = SystemClock.elapsedRealtime() - cardStartedAtMs
+        if (elapsed >= VoicePlaybackState.REWIND_THRESHOLD_MS || index == 0) {
+            moveToQuestion()
+        } else {
+            index--
+            moveToQuestion()
+        }
+    }
+
     /** Move to the question of the current [index]; keep playing if we were playing, else just show it. */
     private fun moveToQuestion() {
         phase = VoicePhase.QUESTION
+        cardStartedAtMs = SystemClock.elapsedRealtime()
         if (isPlaying) {
             speakQuestion()
         } else {
@@ -349,6 +369,7 @@ class StudySessionVoiceService : Service() {
     private fun advanceAfterCard() {
         if (index < cards.lastIndex) {
             index++
+            cardStartedAtMs = SystemClock.elapsedRealtime()
             speakQuestion()
         } else {
             phase = VoicePhase.QUESTION // reset so tapping Play re-reads last card from question
@@ -368,7 +389,7 @@ class StudySessionVoiceService : Service() {
                 override fun onPlay() = play()
                 override fun onPause() = pause()
                 override fun onSkipToNext() = skipNext()
-                override fun onSkipToPrevious() = skipPrevious()
+                override fun onSkipToPrevious() = handleMediaSkipPrevious()
                 override fun onStop() = stopPlayback()
             })
             isActive = true
