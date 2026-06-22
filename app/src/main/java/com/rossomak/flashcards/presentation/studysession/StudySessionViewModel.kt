@@ -6,7 +6,10 @@ import androidx.lifecycle.viewModelScope
 import com.rossomak.flashcards.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.domain.voice.VoiceGateway
 import com.rossomak.flashcards.domain.voice.VoicePhase
+import com.rossomak.flashcards.domain.voice.VoicePlaybackState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,6 +32,12 @@ class StudySessionViewModel @Inject constructor(
 
     // Tracks eagerly so rapid toggles don't race against isVoiceActive propagation.
     private var voiceStarted = false
+
+    internal var rewindThresholdMs: Long = VoicePlaybackState.REWIND_THRESHOLD_MS
+
+    private var rewindJob: Job? = null
+    private var isPastRewindThreshold = false
+    private var lastObservedCardIndex = -1
 
     init {
         loadFlashcards()
@@ -70,6 +79,14 @@ class StudySessionViewModel @Inject constructor(
                         currentCardIndex = if (voice.isActive) voice.currentIndex else it.currentCardIndex,
                         isAnswerRevealed = if (voice.isActive) voice.phase == VoicePhase.ANSWER else it.isAnswerRevealed,
                     )
+                }
+                if (voice.isActive && voice.currentIndex != lastObservedCardIndex) {
+                    lastObservedCardIndex = voice.currentIndex
+                    startRewindThresholdTimer()
+                } else if (!voice.isActive) {
+                    lastObservedCardIndex = -1
+                    rewindJob?.cancel()
+                    isPastRewindThreshold = false
                 }
             }
         }
@@ -114,8 +131,24 @@ class StudySessionViewModel @Inject constructor(
 
     fun onVoicePlayPause() { voiceGateway.togglePlayPause() }
     fun onVoiceNext() { voiceGateway.skipNext() }
-    fun onVoicePrevious() { voiceGateway.skipPrevious() }
+    fun onVoicePrevious() {
+        if (isPastRewindThreshold || voiceGateway.state.value.currentIndex == 0) {
+            voiceGateway.restartCurrentCard()
+            startRewindThresholdTimer()
+        } else {
+            voiceGateway.skipPrevious()
+        }
+    }
     fun onVoiceSpeedChange(rate: Float) { voiceGateway.setSpeechRate(rate) }
+
+    private fun startRewindThresholdTimer() {
+        rewindJob?.cancel()
+        isPastRewindThreshold = false
+        rewindJob = viewModelScope.launch {
+            delay(rewindThresholdMs)
+            isPastRewindThreshold = true
+        }
+    }
 
     fun onVoiceErrorDismissed() {
         _state.update { it.copy(voiceError = null) }
