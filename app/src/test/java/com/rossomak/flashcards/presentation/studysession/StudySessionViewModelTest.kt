@@ -48,6 +48,7 @@ class StudySessionViewModelTest {
     private fun buildViewModel(
         subcategoryId: String = "sub-1",
         subcategoryName: String = "Kotlin",
+        rewindThresholdMs: Long = Long.MAX_VALUE,
     ) = StudySessionViewModel(
         savedStateHandle = SavedStateHandle(
             mapOf(
@@ -57,13 +58,13 @@ class StudySessionViewModelTest {
         ),
         getFlashcards = getFlashcards,
         voiceGateway = fakeGateway,
-    )
+    ).also { it.rewindThresholdMs = rewindThresholdMs }
 
-    private fun loadedViewModel() {
+    private fun loadedViewModel(rewindThresholdMs: Long = Long.MAX_VALUE) {
         coEvery { flashcardRepository.fetchFlashcards(any()) } returns Result.success(fakeFlashcards())
         viewModel.onCleared()
         fakeGateway = FakeVoiceGateway()
-        viewModel = buildViewModel()
+        viewModel = buildViewModel(rewindThresholdMs = rewindThresholdMs)
     }
 
     @Test
@@ -167,6 +168,39 @@ class StudySessionViewModelTest {
     }
 
     @Test
+    fun `onVoicePrevious goes to previous card when below threshold`() {
+        loadedViewModel() // rewindThresholdMs = Long.MAX_VALUE — delay never fires
+        fakeGateway.emitState(VoicePlaybackState(isActive = true, currentIndex = 2))
+
+        viewModel.onVoicePrevious()
+
+        fakeGateway.skipPreviousCallCount shouldBe 1
+        fakeGateway.restartCurrentCardCallCount shouldBe 0
+    }
+
+    @Test
+    fun `onVoicePrevious restarts current card after threshold elapses`() {
+        loadedViewModel(rewindThresholdMs = 0L) // delay(0) returns immediately — threshold fires synchronously
+        fakeGateway.emitState(VoicePlaybackState(isActive = true, currentIndex = 2))
+
+        viewModel.onVoicePrevious()
+
+        fakeGateway.restartCurrentCardCallCount shouldBe 1
+        fakeGateway.skipPreviousCallCount shouldBe 0
+    }
+
+    @Test
+    fun `onVoicePrevious restarts current card when on first card`() {
+        loadedViewModel()
+        fakeGateway.emitState(VoicePlaybackState(isActive = true, currentIndex = 0))
+
+        viewModel.onVoicePrevious()
+
+        fakeGateway.restartCurrentCardCallCount shouldBe 1
+        fakeGateway.skipPreviousCallCount shouldBe 0
+    }
+
+    @Test
     fun `onCleared stops gateway`() {
         viewModel.onCleared()
 
@@ -181,6 +215,8 @@ private class FakeVoiceGateway : VoiceGateway {
     var startCallCount = 0
     var stopCallCount = 0
     var showAnswerCallCount = 0
+    var skipPreviousCallCount = 0
+    var restartCurrentCardCallCount = 0
 
     override fun start(
         cards: List<Flashcard>,
@@ -191,7 +227,8 @@ private class FakeVoiceGateway : VoiceGateway {
     override fun stop() { stopCallCount++ }
     override fun togglePlayPause() {}
     override fun skipNext() {}
-    override fun skipPrevious() {}
+    override fun skipPrevious() { skipPreviousCallCount++ }
+    override fun restartCurrentCard() { restartCurrentCardCallCount++ }
     override fun showAnswer() { showAnswerCallCount++ }
     override fun setSpeechRate(rate: Float) {}
 
