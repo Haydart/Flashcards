@@ -12,6 +12,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,25 +21,37 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.DataObject
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RecordVoiceOver
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
@@ -45,7 +59,9 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
@@ -65,6 +81,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.graphics.vector.ImageVector
 import com.gallatinapps.syntaxmp.tokenizer.SyntaxTokenizer
 import com.rossomak.flashcards.domain.voice.VoicePlaybackState
 import com.rossomak.flashcards.ui.text.SyntaxCodeBlock
@@ -140,6 +157,8 @@ fun StudySessionScreen(
         onVoiceNext = viewModel::onVoiceNext,
         onVoicePrevious = viewModel::onVoicePrevious,
         onVoiceSpeedChange = viewModel::onVoiceSpeedChange,
+        onExtendedContextRevealed = viewModel::onExtendedContextRevealed,
+        onExtendedContextCollapsed = viewModel::onExtendedContextCollapsed,
     )
 }
 
@@ -156,6 +175,8 @@ fun StudySessionContent(
     onVoiceNext: () -> Unit,
     onVoicePrevious: () -> Unit,
     onVoiceSpeedChange: (Float) -> Unit,
+    onExtendedContextRevealed: () -> Unit,
+    onExtendedContextCollapsed: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val scaffoldState = rememberBottomSheetScaffoldState(
@@ -213,6 +234,7 @@ fun StudySessionContent(
             )
         },
     ) { innerPadding ->
+        Box(modifier = Modifier.fillMaxSize()) {
         when {
             state.isLoading -> CenteredBox(innerPadding) { CircularProgressIndicator() }
             state.error != null -> CenteredBox(innerPadding) { Text(text = state.error) }
@@ -222,6 +244,7 @@ fun StudySessionContent(
                 var isExtendedContextExpanded by remember(card.id) { mutableStateOf(false) }
                 val syntaxEngine = remember { SyntaxTokenizer() }
 
+                @OptIn(ExperimentalLayoutApi::class)
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -229,6 +252,26 @@ fun StudySessionContent(
                         .padding(16.dp)
                         .verticalScroll(rememberScrollState()),
                 ) {
+                    if (card.tags.isNotEmpty()) {
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            card.tags.forEach { tag ->
+                                SuggestionChip(
+                                    onClick = {},
+                                    label = {
+                                        Text(
+                                            text = tag,
+                                            style = MaterialTheme.typography.labelSmall,
+                                        )
+                                    },
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -292,7 +335,10 @@ fun StudySessionContent(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable {
-                                            isExtendedContextExpanded = !isExtendedContextExpanded
+                                            val willExpand = !isExtendedContextExpanded
+                                            isExtendedContextExpanded = willExpand
+                                            if (willExpand) onExtendedContextRevealed()
+                                            else onExtendedContextCollapsed()
                                         }
                                         .padding(vertical = 12.dp),
                                     verticalAlignment = Alignment.CenterVertically,
@@ -324,6 +370,8 @@ fun StudySessionContent(
                 }
             }
         }
+
+        } // end Box
     }
 }
 
@@ -456,5 +504,7 @@ private fun StudySessionVoiceActivePreview() {
         onVoiceNext = {},
         onVoicePrevious = {},
         onVoiceSpeedChange = {},
+        onExtendedContextRevealed = {},
+        onExtendedContextCollapsed = {},
     )
 }
