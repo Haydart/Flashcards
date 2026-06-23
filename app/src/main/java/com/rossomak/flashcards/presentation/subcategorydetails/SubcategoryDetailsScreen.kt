@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -29,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
@@ -43,13 +45,25 @@ import com.rossomak.flashcards.domain.model.Flashcard
 @Composable
 fun SubcategoryDetailsScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToStudySession: (subcategoryId: String, subcategoryName: String) -> Unit,
     viewModel: SubcategoryDetailsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
+    LaunchedEffect(state.navigationDestination) {
+        when (val destination = state.navigationDestination) {
+            is SubcategoryDetailsDestination.StudySession -> {
+                onNavigateToStudySession(destination.subcategoryId, destination.subcategoryName)
+                viewModel.onNavigationHandled()
+            }
+            null -> Unit
+        }
+    }
+
     SubcategoryDetailsContent(
         state = state,
         onNavigateBack = onNavigateBack,
+        onStartSession = viewModel::onStartSession,
     )
 }
 
@@ -58,6 +72,7 @@ fun SubcategoryDetailsScreen(
 fun SubcategoryDetailsContent(
     state: SubcategoryDetailsScreenState,
     onNavigateBack: () -> Unit,
+    onStartSession: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val scrollBehavior =
@@ -101,10 +116,20 @@ fun SubcategoryDetailsContent(
             ) {
                 Text(text = state.error)
             }
-            else -> FlashcardList(
-                flashcards = state.flashcards,
-                modifier = Modifier.padding(innerPadding),
-            )
+            else -> Column(modifier = Modifier.padding(innerPadding)) {
+                Button(
+                    onClick = onStartSession,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                ) {
+                    Text("Start Session")
+                }
+                FlashcardList(
+                    flashcards = state.flashcards,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
     }
 }

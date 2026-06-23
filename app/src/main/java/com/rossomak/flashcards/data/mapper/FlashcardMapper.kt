@@ -32,7 +32,7 @@ fun FlashcardDto.toDomain(subcategoryId: String) = Flashcard(
     question = question,
     answer = answer,
     tags = tags,
-    difficulty = difficulty,
+    difficulty = requireNotNull(difficulty) { "Missing difficulty for flashcard id=$id" },
     questionCode = questionCode?.map { CodeBlock(it.language, it.code) },
     answerCode = answerCode?.map { CodeBlock(it.language, it.code) },
     questionSpoken = questionSpoken,

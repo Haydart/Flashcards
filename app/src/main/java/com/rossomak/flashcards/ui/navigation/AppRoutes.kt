@@ -29,3 +29,5 @@ import kotlinx.serialization.Serializable
     val categoryName: String,
     val subcategoryId: String,
     val subcategoryName: String)
+
+@Serializable data class StudySession(val subcategoryId: String, val subcategoryName: String)

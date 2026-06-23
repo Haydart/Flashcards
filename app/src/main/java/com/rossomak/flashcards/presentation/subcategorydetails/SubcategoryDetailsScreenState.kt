@@ -8,4 +8,5 @@ data class SubcategoryDetailsScreenState(
     val isLoading: Boolean = false,
     val flashcards: List<Flashcard> = emptyList(),
     val error: String? = null,
+    val navigationDestination: SubcategoryDetailsDestination? = null,
 )

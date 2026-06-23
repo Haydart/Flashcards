@@ -10,6 +10,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -35,14 +36,29 @@ class SubcategoryDetailsViewModel @Inject constructor(
 
     private fun loadFlashcards() {
         viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true, error = null)
+            _state.update { it.copy(isLoading = true, error = null) }
             getFlashcards(route.subcategoryId)
                 .onSuccess { flashcards ->
-                    _state.value = _state.value.copy(isLoading = false, flashcards = flashcards)
+                    _state.update { it.copy(isLoading = false, flashcards = flashcards) }
                 }
                 .onFailure {
-                    _state.value = _state.value.copy(isLoading = false, error = "Could not load flashcards")
+                    _state.update { it.copy(isLoading = false, error = "Could not load flashcards") }
                 }
         }
+    }
+
+    fun onStartSession() {
+        _state.update {
+            it.copy(
+                navigationDestination = SubcategoryDetailsDestination.StudySession(
+                    route.subcategoryId,
+                    route.subcategoryName
+                )
+            )
+        }
+    }
+
+    fun onNavigationHandled() {
+        _state.update { it.copy(navigationDestination = null) }
     }
 }
