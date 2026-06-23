@@ -19,25 +19,37 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.DataObject
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RecordVoiceOver
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
@@ -46,6 +58,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
@@ -65,8 +78,12 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.graphics.vector.ImageVector
 import com.gallatinapps.syntaxmp.tokenizer.SyntaxTokenizer
+import com.rossomak.flashcards.BuildConfig
+import com.rossomak.flashcards.domain.model.CurationAction
 import com.rossomak.flashcards.domain.voice.VoicePlaybackState
+import java.time.Instant
 import com.rossomak.flashcards.ui.text.SyntaxCodeBlock
 import com.rossomak.flashcards.ui.text.withInlineCode
 import kotlinx.coroutines.launch
@@ -129,6 +146,12 @@ fun StudySessionScreen(
         }
     }
 
+    LaunchedEffect(state.curationError) {
+        val error = state.curationError ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(message = error, duration = SnackbarDuration.Short)
+        viewModel.onCurationErrorDismissed()
+    }
+
     StudySessionContent(
         state = state,
         snackbarHostState = snackbarHostState,
@@ -140,6 +163,9 @@ fun StudySessionScreen(
         onVoiceNext = viewModel::onVoiceNext,
         onVoicePrevious = viewModel::onVoicePrevious,
         onVoiceSpeedChange = viewModel::onVoiceSpeedChange,
+        onCurationFabClick = viewModel::onCurationFabClick,
+        onCurationActionToggle = viewModel::onCurationActionToggle,
+        onCurationDialogDismiss = viewModel::onCurationDialogDismiss,
     )
 }
 
@@ -156,6 +182,9 @@ fun StudySessionContent(
     onVoiceNext: () -> Unit,
     onVoicePrevious: () -> Unit,
     onVoiceSpeedChange: (Float) -> Unit,
+    onCurationFabClick: () -> Unit,
+    onCurationActionToggle: (CurationAction) -> Unit,
+    onCurationDialogDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val scaffoldState = rememberBottomSheetScaffoldState(
@@ -213,6 +242,7 @@ fun StudySessionContent(
             )
         },
     ) { innerPadding ->
+        Box(modifier = Modifier.fillMaxSize()) {
         when {
             state.isLoading -> CenteredBox(innerPadding) { CircularProgressIndicator() }
             state.error != null -> CenteredBox(innerPadding) { Text(text = state.error) }
@@ -324,7 +354,99 @@ fun StudySessionContent(
                 }
             }
         }
+
+        if (BuildConfig.DEBUG) {
+            FloatingActionButton(
+                onClick = onCurationFabClick,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(
+                        end = 16.dp,
+                        bottom = innerPadding.calculateBottomPadding() + 16.dp,
+                    ),
+            ) {
+                Icon(imageVector = Icons.Default.Build, contentDescription = "Curate card")
+            }
+        }
+        } // end Box
+
+        if (BuildConfig.DEBUG && state.isCurationDialogVisible) {
+            val currentCard = state.flashcards.getOrNull(state.currentCardIndex)
+            if (currentCard != null) {
+                CurationDialog(
+                    currentActions = state.curationRequests[currentCard.id]?.actions ?: emptyMap(),
+                    onActionToggle = onCurationActionToggle,
+                    onDismiss = onCurationDialogDismiss,
+                )
+            }
+        }
     }
+}
+
+@Composable
+private fun CurationDialog(
+    currentActions: Map<CurationAction, Instant>,
+    onActionToggle: (CurationAction) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Curate Card") },
+        text = {
+            Column {
+                CurationAction.entries.forEach { action ->
+                    val isActive = currentActions.containsKey(action)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onActionToggle(action) }
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = action.dialogIcon(),
+                            contentDescription = null,
+                            tint = if (isActive) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = action.dialogLabel(),
+                            modifier = Modifier.weight(1f),
+                            color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        )
+                        if (isActive) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = "Active",
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Done") }
+        },
+    )
+}
+
+private fun CurationAction.dialogIcon(): ImageVector = when (this) {
+    CurationAction.DIFFICULTY_TOO_EASY -> Icons.Default.ArrowUpward
+    CurationAction.DIFFICULTY_TOO_HARD -> Icons.Default.ArrowDownward
+    CurationAction.DELETE -> Icons.Default.Delete
+    CurationAction.BACKTICK_REDO -> Icons.Default.Code
+    CurationAction.NEEDS_CODE_EXAMPLE -> Icons.Default.DataObject
+    CurationAction.FULL_REDO -> Icons.Default.Refresh
+}
+
+private fun CurationAction.dialogLabel(): String = when (this) {
+    CurationAction.DIFFICULTY_TOO_EASY -> "Too easy — raise difficulty"
+    CurationAction.DIFFICULTY_TOO_HARD -> "Too hard — lower difficulty"
+    CurationAction.DELETE -> "Delete — duplicate or worthless"
+    CurationAction.BACKTICK_REDO -> "Fix backtick formatting"
+    CurationAction.NEEDS_CODE_EXAMPLE -> "Needs code example"
+    CurationAction.FULL_REDO -> "Full rewrite needed"
 }
 
 @Composable
@@ -456,5 +578,8 @@ private fun StudySessionVoiceActivePreview() {
         onVoiceNext = {},
         onVoicePrevious = {},
         onVoiceSpeedChange = {},
+        onCurationFabClick = {},
+        onCurationActionToggle = {},
+        onCurationDialogDismiss = {},
     )
 }
