@@ -11,7 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
-class FlashcardRepositoryImpl @Inject constructor(
+class DefaultFlashcardRepository @Inject constructor(
     private val remoteDataSource: FlashcardRemoteDataSource
 ) : FlashcardRepository {
 

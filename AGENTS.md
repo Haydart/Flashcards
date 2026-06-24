@@ -75,6 +75,7 @@ class FlashcardViewModel @Inject constructor(
 - Constants: UPPER_SNAKE_CASE
 - Composable functions: PascalCase (`FlashcardScreen()`)
 - ViewModel event handlers (UI → ViewModel callbacks): `onXxx` prefix, present tense (`onCategoriesRefresh`, `onCardSelect`)
+- Interface implementations: `Default` prefix, no `Impl` suffix (`DefaultFlashcardRepository`, not `FlashcardRepositoryImpl`; `DefaultAudioPlayer`, not `AudioPlayerImpl`)
 
 ### Sealed Classes for States
 Use sealed classes for finite UI states (e.g. loading / content / error variants of a screen state).
