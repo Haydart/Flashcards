@@ -39,7 +39,12 @@ class StudySessionViewModel @Inject constructor(
     private var isPastRewindThreshold = false
     private var lastObservedCardIndex = -1
 
-    private var extendedContextRevealed = false
+    private var isExtendedContextDialogOpen = false
+
+    // True only when the pause was caused by the dialog intercepting a natural between-card advance.
+    // Gates auto-advance on dialog dismiss and changes play-button behavior.
+    private var pausedDueToExtendedContext = false
+    private var advanceAfterExtendedContextJob: Job? = null
 
     init {
         loadFlashcards()
@@ -84,15 +89,20 @@ class StudySessionViewModel @Inject constructor(
                 }
                 if (voice.isActive && voice.currentIndex != lastObservedCardIndex) {
                     lastObservedCardIndex = voice.currentIndex
-                    extendedContextRevealed = false
+                    advanceAfterExtendedContextJob?.cancel()
+                    pausedDueToExtendedContext = false
                     startRewindThresholdTimer()
                 } else if (!voice.isActive) {
                     lastObservedCardIndex = -1
-                    extendedContextRevealed = false
+                    advanceAfterExtendedContextJob?.cancel()
+                    pausedDueToExtendedContext = false
                     rewindJob?.cancel()
                     isPastRewindThreshold = false
                 }
-                if (voice.isInBetweenPause && voice.isPlaying && extendedContextRevealed) viewModelScope.launch { voiceGateway.togglePlayPause() }
+                if (voice.isInBetweenPause && voice.isPlaying && isExtendedContextDialogOpen) {
+                    pausedDueToExtendedContext = true
+                    viewModelScope.launch { voiceGateway.togglePlayPause() }
+                }
             }
         }
     }
@@ -134,9 +144,28 @@ class StudySessionViewModel @Inject constructor(
         }
     }
 
-    fun onVoicePlayPause() { voiceGateway.togglePlayPause() }
-    fun onVoiceNext() { voiceGateway.rewindToNext() }
+    fun onVoicePlayPause() {
+        if (pausedDueToExtendedContext) {
+            advanceAfterExtendedContextJob?.cancel()
+            pausedDueToExtendedContext = false
+            viewModelScope.launch {
+                voiceGateway.rewindToNext()
+                voiceGateway.togglePlayPause()
+            }
+        } else {
+            voiceGateway.togglePlayPause()
+        }
+    }
+
+    fun onVoiceNext() {
+        advanceAfterExtendedContextJob?.cancel()
+        pausedDueToExtendedContext = false
+        voiceGateway.rewindToNext()
+    }
+
     fun onVoicePrevious() {
+        advanceAfterExtendedContextJob?.cancel()
+        pausedDueToExtendedContext = false
         if (isPastRewindThreshold || voiceGateway.state.value.currentIndex == 0) {
             voiceGateway.restartCurrentCard()
             startRewindThresholdTimer()
@@ -144,7 +173,33 @@ class StudySessionViewModel @Inject constructor(
             voiceGateway.rewindToPrevious()
         }
     }
+
     fun onVoiceSpeedChange(rate: Float) { voiceGateway.setSpeechRate(rate) }
+
+    fun onExtendedContextDialogOpen() {
+        isExtendedContextDialogOpen = true
+        val voiceState = voiceGateway.state.value
+        if (voiceState.isInBetweenPause && voiceState.isPlaying) {
+            pausedDueToExtendedContext = true
+            viewModelScope.launch { voiceGateway.togglePlayPause() }
+        }
+    }
+
+    fun onExtendedContextDialogDismissed() {
+        isExtendedContextDialogOpen = false
+        if (pausedDueToExtendedContext) {
+            advanceAfterExtendedContextJob = viewModelScope.launch {
+                delay(EXTENDED_CONTEXT_ADVANCE_DELAY_MS)
+                pausedDueToExtendedContext = false
+                voiceGateway.rewindToNext()
+                voiceGateway.togglePlayPause()
+            }
+        }
+    }
+
+    fun onVoiceErrorDismissed() {
+        _state.update { it.copy(voiceError = null) }
+    }
 
     private fun startRewindThresholdTimer() {
         rewindJob?.cancel()
@@ -155,23 +210,12 @@ class StudySessionViewModel @Inject constructor(
         }
     }
 
-    fun onExtendedContextRevealed() {
-        extendedContextRevealed = true
-        if (_state.value.isVoiceActive && voiceGateway.state.value.isInBetweenPause) {
-            viewModelScope.launch { voiceGateway.togglePlayPause() }
-        }
-    }
-
-    fun onExtendedContextCollapsed() {
-        extendedContextRevealed = false
-    }
-
-    fun onVoiceErrorDismissed() {
-        _state.update { it.copy(voiceError = null) }
-    }
-
     public override fun onCleared() {
         voiceGateway.stop()
         super.onCleared()
+    }
+
+    private companion object {
+        const val EXTENDED_CONTEXT_ADVANCE_DELAY_MS = 500L
     }
 }

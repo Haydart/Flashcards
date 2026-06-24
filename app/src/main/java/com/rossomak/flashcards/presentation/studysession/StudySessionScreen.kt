@@ -8,7 +8,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,13 +24,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -49,6 +48,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
@@ -143,8 +143,8 @@ fun StudySessionScreen(
         onVoiceNext = viewModel::onVoiceNext,
         onVoicePrevious = viewModel::onVoicePrevious,
         onVoiceSpeedChange = viewModel::onVoiceSpeedChange,
-        onExtendedContextRevealed = viewModel::onExtendedContextRevealed,
-        onExtendedContextCollapsed = viewModel::onExtendedContextCollapsed,
+        onExtendedContextDialogOpen = viewModel::onExtendedContextDialogOpen,
+        onExtendedContextDialogDismissed = viewModel::onExtendedContextDialogDismissed,
     )
 }
 
@@ -161,8 +161,8 @@ fun StudySessionContent(
     onVoiceNext: () -> Unit,
     onVoicePrevious: () -> Unit,
     onVoiceSpeedChange: (Float) -> Unit,
-    onExtendedContextRevealed: () -> Unit,
-    onExtendedContextCollapsed: () -> Unit,
+    onExtendedContextDialogOpen: () -> Unit,
+    onExtendedContextDialogDismissed: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val scaffoldState = rememberBottomSheetScaffoldState(
@@ -227,8 +227,32 @@ fun StudySessionContent(
             state.flashcards.isEmpty() -> CenteredBox(innerPadding) { Text(text = "No cards available") }
             else -> {
                 val card = state.flashcards[state.currentCardIndex]
-                var isExtendedContextExpanded by remember(card.id) { mutableStateOf(false) }
+                var isExtendedContextDialogOpen by remember(card.id) { mutableStateOf(false) }
                 val syntaxEngine = remember { SyntaxTokenizer() }
+
+                if (isExtendedContextDialogOpen && !card.extendedContext.isNullOrBlank()) {
+                    AlertDialog(
+                        onDismissRequest = {
+                            isExtendedContextDialogOpen = false
+                            onExtendedContextDialogDismissed()
+                        },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                isExtendedContextDialogOpen = false
+                                onExtendedContextDialogDismissed()
+                            }) { Text("Close") }
+                        },
+                        title = { Text("Extended context") },
+                        text = {
+                            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                                Text(
+                                    text = card.extendedContext.withInlineCode(),
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        },
+                    )
+                }
 
                 @OptIn(ExperimentalLayoutApi::class)
                 Column(
@@ -241,19 +265,21 @@ fun StudySessionContent(
                     if (card.tags.isNotEmpty()) {
                         FlowRow(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
                             card.tags.forEach { tag ->
-                                SuggestionChip(
-                                    onClick = {},
-                                    label = {
-                                        Text(
-                                            text = tag,
-                                            style = MaterialTheme.typography.labelSmall,
-                                        )
-                                    },
-                                )
+                                androidx.compose.material3.Surface(
+                                    shape = MaterialTheme.shapes.extraSmall,
+                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                ) {
+                                    Text(
+                                        text = tag,
+                                        modifier = Modifier.padding(6.dp, 3.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    )
+                                }
                             }
                         }
                         Spacer(modifier = Modifier.height(12.dp))
@@ -317,39 +343,21 @@ fun StudySessionContent(
                             if (!card.extendedContext.isNullOrBlank()) {
                                 Spacer(modifier = Modifier.height(16.dp))
                                 HorizontalDivider()
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            val willExpand = !isExtendedContextExpanded
-                                            isExtendedContextExpanded = willExpand
-                                            if (willExpand) onExtendedContextRevealed()
-                                            else onExtendedContextCollapsed()
-                                        }
-                                        .padding(vertical = 12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Text(
-                                        text = "Extended context",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    Icon(
-                                        imageVector = if (isExtendedContextExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                                        contentDescription = if (isExtendedContextExpanded) "Collapse" else "Expand",
-                                    )
-                                }
-                                AnimatedVisibility(
-                                    visible = isExtendedContextExpanded,
-                                    enter = expandVertically(),
-                                    exit = shrinkVertically(),
-                                ) {
-                                    Text(
-                                        text = card.extendedContext.withInlineCode(),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        modifier = Modifier.padding(bottom = 12.dp),
-                                    )
-                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                SuggestionChip(
+                                    onClick = {
+                                        isExtendedContextDialogOpen = true
+                                        onExtendedContextDialogOpen()
+                                    },
+                                    label = { Text("Extended context") },
+                                    icon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Info,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp),
+                                        )
+                                    },
+                                )
                             }
                         }
                     }
@@ -490,7 +498,7 @@ private fun StudySessionVoiceActivePreview() {
         onVoiceNext = {},
         onVoicePrevious = {},
         onVoiceSpeedChange = {},
-        onExtendedContextRevealed = {},
-        onExtendedContextCollapsed = {},
+        onExtendedContextDialogOpen = {},
+        onExtendedContextDialogDismissed = {},
     )
 }
