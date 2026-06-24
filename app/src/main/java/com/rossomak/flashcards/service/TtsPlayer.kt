@@ -30,7 +30,7 @@ import java.util.Locale
  * audio focus). It owns the TTS engine and the per-card sequence:
  * speak question -> pause -> speak answer -> pause -> next card.
  *
- * Two entry points drive the same internal state, then call [publish] to refresh both the Media3
+ * Two entry points drive the same internal state, then call [publishState] to refresh both the Media3
  * state and the [voiceState] side-channel:
  *  - System transport controls route through Media3 into the `handle*` overrides.
  *  - The in-app UI routes through [StudySessionVoiceService.LocalBinder] into the `command*` methods.
@@ -56,6 +56,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
     private var cards: List<VoiceCard> = emptyList()
     private var index = 0
     private var phase = VoicePhase.QUESTION
+    private var extendedContextText = ""
     private var isPlaying = false
     private var isBetweenPause = false
     private var speechRate = VoicePlaybackState.DEFAULT_SPEECH_RATE
@@ -72,7 +73,9 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
     private val tts: TextToSpeech = TextToSpeech(context) { status ->
         if (status == TextToSpeech.SUCCESS) {
             ttsReady = true
-            runCatching { tts.language = Locale.US } // app supports English voice only
+            runCatching {
+                tts.language = Locale.US // app supports English voice only
+            }
             tts.setSpeechRate(speechRate)
             tts.setOnUtteranceProgressListener(utteranceListener)
             if (startWhenReady) {
@@ -150,28 +153,29 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         return Futures.immediateVoidFuture()
     }
 
-    override fun handleSeek(mediaItemIndex: Int, positionMs: Long, seekCommand: Int): ListenableFuture<*> {
+    override fun handleSeek(
+        mediaItemIndex: Int,
+        positionMs: Long,
+        seekCommand: Int
+    ): ListenableFuture<*> {
         when (seekCommand) {
-            Player.COMMAND_SEEK_TO_NEXT, Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> doSkipNext()
+            Player.COMMAND_SEEK_TO_NEXT, Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> doRewindToNext()
             Player.COMMAND_SEEK_TO_PREVIOUS -> doSmartPrevious() // system back: rewind-or-previous
-            Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> doSkipPrevious()
+            Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> doRewindToPrevious()
             else -> if (mediaItemIndex != index) jumpTo(mediaItemIndex)
         }
         return Futures.immediateVoidFuture()
     }
-
-    // endregion
-
-    // region binder commands (in-app UI)
 
     fun commandLoadSession(cards: List<VoiceCard>, startIndex: Int, subcategoryName: String) {
         this.cards = cards
         this.subcategoryName = subcategoryName
         this.index = if (cards.isEmpty()) 0 else startIndex.coerceIn(0, cards.lastIndex)
         this.phase = VoicePhase.QUESTION
+        this.extendedContextText = ""
         this.isBetweenPause = false
         if (cards.isEmpty()) {
-            publish()
+            publishState()
             return
         }
         cardStartedAtMs = SystemClock.elapsedRealtime()
@@ -180,9 +184,9 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
 
     fun commandTogglePlayPause() = if (isPlaying) doPause() else doPlay()
 
-    fun commandSkipNext() = doSkipNext()
+    fun rewindToNext() = doRewindToNext()
 
-    fun commandSkipPrevious() = doSkipPrevious()
+    fun rewindToPrevious() = doRewindToPrevious()
 
     fun commandRestartCurrentCard() = moveToQuestion()
 
@@ -193,60 +197,56 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
             speakAnswer()
         } else {
             stopUtterance()
-            publish()
+            publishState()
         }
     }
 
     fun commandSetSpeechRate(rate: Float) {
-        speechRate = rate.coerceIn(VoicePlaybackState.MIN_SPEECH_RATE, VoicePlaybackState.MAX_SPEECH_RATE)
+        speechRate =
+            rate.coerceIn(VoicePlaybackState.MIN_SPEECH_RATE, VoicePlaybackState.MAX_SPEECH_RATE)
         if (ttsReady) tts.setSpeechRate(speechRate)
         if (isPlaying) {
             when (phase) {
                 VoicePhase.QUESTION -> speakQuestion()
                 VoicePhase.ANSWER -> speakAnswer()
+                VoicePhase.EXTENDED_CONTEXT -> speakExtendedContext()
             }
         } else {
-            publish()
+            publishState()
         }
     }
 
     fun commandSpeakExtendedContext(text: String) {
         if (cards.isEmpty()) return
+        extendedContextText = text
         isBetweenPause = false
-        isPlaying = true
-        val generationId = ++generation
-        requestAudioFocus()
-        publish()
-        tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId(TAG_EXTENDED, generationId))
+        speakExtendedContext()
     }
 
     fun commandStop() = doStop()
-
-    // endregion
-
-    // region playback internals
 
     private fun doPlay() {
         if (cards.isEmpty()) return
         when (phase) {
             VoicePhase.QUESTION -> speakQuestion()
             VoicePhase.ANSWER -> speakAnswer()
+            VoicePhase.EXTENDED_CONTEXT -> speakExtendedContext()
         }
     }
 
     private fun doPause() {
         isPlaying = false
         stopUtterance()
-        publish()
+        publishState()
     }
 
-    private fun doSkipNext() {
+    private fun doRewindToNext() {
         if (index >= cards.lastIndex) return
         index++
         moveToQuestion()
     }
 
-    private fun doSkipPrevious() {
+    private fun doRewindToPrevious() {
         if (index <= 0) return
         index--
         moveToQuestion()
@@ -269,13 +269,14 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
     /** Move to the question of the current [index]; keep playing if we were, else just show it. */
     private fun moveToQuestion() {
         phase = VoicePhase.QUESTION
+        extendedContextText = ""
         isBetweenPause = false
         cardStartedAtMs = SystemClock.elapsedRealtime()
         if (isPlaying) {
             speakQuestion()
         } else {
             stopUtterance()
-            publish()
+            publishState()
         }
     }
 
@@ -287,6 +288,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         abandonAudioFocus()
         cards = emptyList()
         index = 0
+        extendedContextText = ""
         isBetweenPause = false
         _voiceState.value = VoicePlaybackState(isActive = false)
         invalidateState()
@@ -298,7 +300,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         isPlaying = true
         val generationId = ++generation
         requestAudioFocus()
-        publish()
+        publishState()
         tts.speak(
             card.spokenQuestion.ifBlank { " " },
             TextToSpeech.QUEUE_FLUSH,
@@ -313,7 +315,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         isPlaying = true
         val generationId = ++generation
         requestAudioFocus()
-        publish()
+        publishState()
         tts.speak(
             card.spokenAnswer.ifBlank { " " },
             TextToSpeech.QUEUE_FLUSH,
@@ -322,9 +324,23 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         )
     }
 
+    private fun speakExtendedContext() {
+        val text = extendedContextText.ifBlank { return }
+        phase = VoicePhase.EXTENDED_CONTEXT
+        isPlaying = true
+        val generationId = ++generation
+        requestAudioFocus()
+        publishState()
+        tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId(TAG_EXTENDED, generationId))
+    }
+
     private fun silence(durationMs: Long, tag: String) {
         val generationId = ++generation
-        tts.playSilentUtterance(durationMs, TextToSpeech.QUEUE_FLUSH, utteranceId(tag, generationId))
+        tts.playSilentUtterance(
+            durationMs,
+            TextToSpeech.QUEUE_FLUSH,
+            utteranceId(tag, generationId)
+        )
     }
 
     private fun advanceAfterCard() {
@@ -334,9 +350,10 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
             cardStartedAtMs = SystemClock.elapsedRealtime()
             speakQuestion()
         } else {
-            phase = VoicePhase.QUESTION // reset so tapping Play re-reads last card from the question
+            phase =
+                VoicePhase.QUESTION // reset so tapping Play re-reads last card from the question
             isPlaying = false
-            publish()
+            publishState()
         }
     }
 
@@ -360,9 +377,10 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
             TAG_PAUSE -> speakAnswer()
             TAG_ANSWER, TAG_EXTENDED -> {
                 isBetweenPause = true
-                publish()
+                publishState()
                 silence(ANSWER_TO_NEXT_PAUSE_MS, TAG_BETWEEN)
             }
+
             TAG_BETWEEN -> {
                 isBetweenPause = false
                 advanceAfterCard()
@@ -386,7 +404,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
     }
 
     /** Push the current internal state to both the Media3 [getState] and the [voiceState] flow. */
-    private fun publish() {
+    private fun publishState() {
         _voiceState.value = VoicePlaybackState(
             isActive = cards.isNotEmpty(),
             isPlaying = isPlaying,
@@ -398,10 +416,6 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         )
         invalidateState()
     }
-
-    // endregion
-
-    // region audio focus
 
     /** Request focus once and keep it; a no-op if already held (guards against per-utterance churn). */
     private fun requestAudioFocus() {

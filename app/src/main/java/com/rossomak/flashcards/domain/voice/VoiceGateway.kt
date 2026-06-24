@@ -3,7 +3,7 @@ package com.rossomak.flashcards.domain.voice
 import com.rossomak.flashcards.domain.model.Flashcard
 import kotlinx.coroutines.flow.StateFlow
 
-enum class VoicePhase { QUESTION, ANSWER }
+enum class VoicePhase { QUESTION, ANSWER, EXTENDED_CONTEXT }
 
 data class VoicePlaybackState(
     val isActive: Boolean = false,

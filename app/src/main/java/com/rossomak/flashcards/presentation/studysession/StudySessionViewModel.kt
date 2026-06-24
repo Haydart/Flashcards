@@ -80,7 +80,7 @@ class StudySessionViewModel @Inject constructor(
                         isVoicePlaying = voice.isPlaying,
                         speechRate = voice.speechRate,
                         currentCardIndex = if (voice.isActive) voice.currentIndex else it.currentCardIndex,
-                        isAnswerRevealed = if (voice.isActive) voice.phase == VoicePhase.ANSWER else it.isAnswerRevealed,
+                        isAnswerRevealed = if (voice.isActive) voice.phase == VoicePhase.ANSWER || voice.phase == VoicePhase.EXTENDED_CONTEXT else it.isAnswerRevealed,
                     )
                 }
                 if (voice.isActive && voice.currentIndex != lastObservedCardIndex) {
