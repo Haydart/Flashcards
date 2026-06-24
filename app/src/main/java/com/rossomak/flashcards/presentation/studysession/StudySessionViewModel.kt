@@ -52,7 +52,7 @@ class StudySessionViewModel @Inject constructor(
             _state.update { it.copy(isLoading = true, error = null) }
             getFlashcards(subcategoryId)
                 .onSuccess { flashcards ->
-                    val sampleSize = minOf((flashcards.size * 0.6).toInt(), 150)
+                    val sampleSize = minOf((flashcards.size * 0.6).toInt(), 150).coerceAtLeast(1)
                     val sampled = flashcards.shuffled().take(sampleSize)
                         .groupBy { it.difficulty }
                         .toSortedMap()
