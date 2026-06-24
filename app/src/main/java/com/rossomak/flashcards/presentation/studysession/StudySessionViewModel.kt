@@ -138,13 +138,13 @@ class StudySessionViewModel @Inject constructor(
     }
 
     fun onVoicePlayPause() { voiceGateway.togglePlayPause() }
-    fun onVoiceNext() { voiceGateway.skipNext() }
+    fun onVoiceNext() { voiceGateway.rewindToNext() }
     fun onVoicePrevious() {
         if (isPastRewindThreshold || voiceGateway.state.value.currentIndex == 0) {
             voiceGateway.restartCurrentCard()
             startRewindThresholdTimer()
         } else {
-            voiceGateway.skipPrevious()
+            voiceGateway.rewindToPrevious()
         }
     }
     fun onVoiceSpeedChange(rate: Float) { voiceGateway.setSpeechRate(rate) }

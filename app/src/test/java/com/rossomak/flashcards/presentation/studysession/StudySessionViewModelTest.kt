@@ -174,7 +174,7 @@ class StudySessionViewModelTest {
 
         viewModel.onVoicePrevious()
 
-        fakeGateway.skipPreviousCallCount shouldBe 1
+        fakeGateway.rewindToPreviousCallCount shouldBe 1
         fakeGateway.restartCurrentCardCallCount shouldBe 0
     }
 
@@ -186,7 +186,7 @@ class StudySessionViewModelTest {
         viewModel.onVoicePrevious()
 
         fakeGateway.restartCurrentCardCallCount shouldBe 1
-        fakeGateway.skipPreviousCallCount shouldBe 0
+        fakeGateway.rewindToPreviousCallCount shouldBe 0
     }
 
     @Test
@@ -197,7 +197,7 @@ class StudySessionViewModelTest {
         viewModel.onVoicePrevious()
 
         fakeGateway.restartCurrentCardCallCount shouldBe 1
-        fakeGateway.skipPreviousCallCount shouldBe 0
+        fakeGateway.rewindToPreviousCallCount shouldBe 0
     }
 
     @Test
@@ -278,7 +278,7 @@ private class FakeVoiceGateway : VoiceGateway {
     var startCallCount = 0
     var stopCallCount = 0
     var showAnswerCallCount = 0
-    var skipPreviousCallCount = 0
+    var rewindToPreviousCallCount = 0
     var restartCurrentCardCallCount = 0
     var speakExtendedContextCallCount = 0
     var lastSpokenExtendedContextText: String? = null
@@ -291,8 +291,8 @@ private class FakeVoiceGateway : VoiceGateway {
 
     override fun stop() { stopCallCount++ }
     override fun togglePlayPause() {}
-    override fun skipNext() {}
-    override fun skipPrevious() { skipPreviousCallCount++ }
+    override fun rewindToNext() {}
+    override fun rewindToPrevious() { rewindToPreviousCallCount++ }
     override fun restartCurrentCard() { restartCurrentCardCallCount++ }
     override fun showAnswer() { showAnswerCallCount++ }
     override fun setSpeechRate(rate: Float) {}

@@ -38,8 +38,8 @@ class StudySessionVoiceService : MediaSessionService() {
             player.commandLoadSession(cards, startIndex, subcategoryName)
 
         fun togglePlayPause() = player.commandTogglePlayPause()
-        fun skipNext() = player.commandSkipNext()
-        fun skipPrevious() = player.commandSkipPrevious()
+        fun rewindToNext() = player.rewindToNext()
+        fun rewindToPrevious() = player.rewindToPrevious()
         fun restartCurrentCard() = player.commandRestartCurrentCard()
         fun showAnswer() = player.commandShowAnswer()
         fun setSpeechRate(rate: Float) = player.commandSetSpeechRate(rate)

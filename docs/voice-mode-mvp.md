@@ -37,7 +37,7 @@ is ignored — this distinguishes a naturally finished utterance from one cancel
 
 Controls:
 - `togglePlayPause()` — `pause()` = `tts.stop()` (keeps phase+index); `play()` = re-speak current phase from start
-- `skipNext()` / `skipPrevious()` — move card, restart at question (speaks only if playing)
+- `rewindToNext()` / `rewindToPrevious()` — move card, restart at question (speaks only if playing)
 - `showAnswer()` — interrupts the question and immediately speaks the answer (phase → ANSWER)
 - `setSpeechRate(rate)` — `tts.setSpeechRate`; restarts the current utterance for an immediate effect
 - `stopPlayback()` — `tts.stop()`, `stopForeground`, `stopSelf`
