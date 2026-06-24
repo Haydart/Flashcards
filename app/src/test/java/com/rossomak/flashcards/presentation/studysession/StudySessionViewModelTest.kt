@@ -201,6 +201,69 @@ class StudySessionViewModelTest {
     }
 
     @Test
+    fun `onExtendedContextRevealed while in between pause triggers speakExtendedContext`() {
+        loadedViewModel()
+        fakeGateway.emitState(VoicePlaybackState(isActive = true, isInBetweenPause = true, currentIndex = 0))
+
+        viewModel.onExtendedContextRevealed()
+
+        fakeGateway.speakExtendedContextCallCount shouldBe 1
+        fakeGateway.lastSpokenExtendedContextText?.isNotBlank() shouldBe true
+    }
+
+    @Test
+    fun `onExtendedContextRevealed not in between pause does not speak yet`() {
+        loadedViewModel()
+        fakeGateway.emitState(VoicePlaybackState(isActive = true, isInBetweenPause = false, currentIndex = 0))
+
+        viewModel.onExtendedContextRevealed()
+
+        fakeGateway.speakExtendedContextCallCount shouldBe 0
+    }
+
+    @Test
+    fun `entering between pause after reveal triggers speakExtendedContext`() = runTest {
+        loadedViewModel()
+        fakeGateway.emitState(VoicePlaybackState(isActive = true, isInBetweenPause = false, currentIndex = 0))
+        viewModel.onExtendedContextRevealed()
+
+        fakeGateway.emitState(VoicePlaybackState(isActive = true, isInBetweenPause = true, currentIndex = 0))
+
+        fakeGateway.speakExtendedContextCallCount shouldBe 1
+    }
+
+    @Test
+    fun `onExtendedContextCollapsed before between pause prevents speaking`() = runTest {
+        loadedViewModel()
+        fakeGateway.emitState(VoicePlaybackState(isActive = true, isInBetweenPause = false, currentIndex = 0))
+        viewModel.onExtendedContextRevealed()
+        viewModel.onExtendedContextCollapsed()
+
+        fakeGateway.emitState(VoicePlaybackState(isActive = true, isInBetweenPause = true, currentIndex = 0))
+
+        fakeGateway.speakExtendedContextCallCount shouldBe 0
+    }
+
+    @Test
+    fun `onExtendedContextCollapsed after speaking does not prevent speaking`() = runTest {
+        loadedViewModel()
+        fakeGateway.emitState(VoicePlaybackState(isActive = true, isInBetweenPause = true, currentIndex = 0))
+        viewModel.onExtendedContextRevealed()
+        // spoken = true now
+
+        viewModel.onExtendedContextCollapsed()
+
+        fakeGateway.speakExtendedContextCallCount shouldBe 1 // already happened, not cancelled
+    }
+
+    @Test
+    fun `onExtendedContextRevealed does nothing when voice inactive`() {
+        viewModel.onExtendedContextRevealed()
+
+        fakeGateway.speakExtendedContextCallCount shouldBe 0
+    }
+
+    @Test
     fun `onCleared stops gateway`() {
         viewModel.onCleared()
 
@@ -217,6 +280,8 @@ private class FakeVoiceGateway : VoiceGateway {
     var showAnswerCallCount = 0
     var skipPreviousCallCount = 0
     var restartCurrentCardCallCount = 0
+    var speakExtendedContextCallCount = 0
+    var lastSpokenExtendedContextText: String? = null
 
     override fun start(
         cards: List<Flashcard>,
@@ -231,11 +296,15 @@ private class FakeVoiceGateway : VoiceGateway {
     override fun restartCurrentCard() { restartCurrentCardCallCount++ }
     override fun showAnswer() { showAnswerCallCount++ }
     override fun setSpeechRate(rate: Float) {}
+    override fun speakExtendedContext(text: String) {
+        speakExtendedContextCallCount++
+        lastSpokenExtendedContextText = text
+    }
 
     fun emitState(state: VoicePlaybackState) { _state.value = state }
 }
 
-private fun fakeFlashcard(id: String = "1") = Flashcard(
+private fun fakeFlashcard(id: String = "1", extendedContext: String? = "EC$id") = Flashcard(
     id = id,
     subcategoryId = "sub-1",
     tags = emptyList(),
@@ -246,7 +315,7 @@ private fun fakeFlashcard(id: String = "1") = Flashcard(
     answerCode = null,
     questionSpoken = null,
     answerSpoken = null,
-    extendedContext = null,
+    extendedContext = extendedContext,
 )
 
 private fun fakeFlashcards(count: Int = 5) = List(count) { fakeFlashcard(it.toString()) }

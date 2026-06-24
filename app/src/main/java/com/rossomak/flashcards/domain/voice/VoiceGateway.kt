@@ -11,6 +11,7 @@ data class VoicePlaybackState(
     val currentIndex: Int = 0,
     val totalCards: Int = 0,
     val phase: VoicePhase = VoicePhase.QUESTION,
+    val isInBetweenPause: Boolean = false,
     val speechRate: Float = DEFAULT_SPEECH_RATE,
     val error: String? = null,
 ) {
@@ -32,4 +33,5 @@ interface VoiceGateway {
     fun restartCurrentCard()
     fun showAnswer()
     fun setSpeechRate(rate: Float)
+    fun speakExtendedContext(text: String)
 }

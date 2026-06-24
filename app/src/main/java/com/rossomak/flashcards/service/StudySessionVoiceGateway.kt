@@ -4,8 +4,10 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
-import android.os.Build
 import android.os.IBinder
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
+import com.google.common.util.concurrent.ListenableFuture
 import com.rossomak.flashcards.domain.model.Flashcard
 import com.rossomak.flashcards.domain.voice.VoiceGateway
 import com.rossomak.flashcards.domain.voice.VoicePlaybackState
@@ -31,6 +33,12 @@ class StudySessionVoiceGateway @Inject constructor(
     private var voiceBinder: StudySessionVoiceService.LocalBinder? = null
     private var voiceStateJob: Job? = null
     private var isBound = false
+
+    // The LocalBinder carries playback state and commands, but MediaSessionService only registers
+    // its session (and thus shows the notification / lock-screen controls / goes foreground) once a
+    // MediaController connects via onGetSession. This controller exists purely to activate that
+    // system transport surface; commands and state still flow through the binder.
+    private var controllerFuture: ListenableFuture<MediaController>? = null
 
     private var pendingCards: List<VoiceCard> = emptyList()
     private var pendingStartIndex: Int = 0
@@ -62,13 +70,13 @@ class StudySessionVoiceGateway @Inject constructor(
         pendingCards = cards.toVoiceCards()
         pendingStartIndex = startIndex
         pendingSubcategoryName = subcategoryName
-        val intent = Intent(context, StudySessionVoiceService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(intent)
-        } else {
-            context.startService(intent)
+        // Bind only: MediaSessionService promotes itself to a foreground service when playback
+        // starts, so an explicit startForegroundService here would risk a 5s FGS-timeout ANR.
+        val intent = Intent(context, StudySessionVoiceService::class.java).apply {
+            action = StudySessionVoiceService.ACTION_BIND_LOCAL
         }
         isBound = context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+        connectMediaController()
     }
 
     override fun stop() {
@@ -83,6 +91,7 @@ class StudySessionVoiceGateway @Inject constructor(
     override fun restartCurrentCard() { voiceBinder?.restartCurrentCard() }
     override fun showAnswer() { voiceBinder?.showAnswer() }
     override fun setSpeechRate(rate: Float) { voiceBinder?.setSpeechRate(rate) }
+    override fun speakExtendedContext(text: String) { voiceBinder?.speakExtendedContext(text) }
 
     private fun collectVoiceState(binder: StudySessionVoiceService.LocalBinder) {
         voiceStateJob?.cancel()
@@ -98,9 +107,21 @@ class StudySessionVoiceGateway @Inject constructor(
         }
     }
 
+    private fun connectMediaController() {
+        if (controllerFuture != null) return
+        val token = SessionToken(context, ComponentName(context, StudySessionVoiceService::class.java))
+        controllerFuture = MediaController.Builder(context, token).buildAsync()
+    }
+
+    private fun releaseMediaController() {
+        controllerFuture?.let { MediaController.releaseFuture(it) }
+        controllerFuture = null
+    }
+
     private fun unbind() {
         voiceStateJob?.cancel()
         voiceStateJob = null
+        releaseMediaController()
         if (isBound) {
             runCatching { context.unbindService(serviceConnection) }
             isBound = false

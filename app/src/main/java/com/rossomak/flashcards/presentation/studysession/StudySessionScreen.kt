@@ -12,6 +12,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -57,6 +59,7 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -71,6 +74,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.tooling.preview.Preview
@@ -78,15 +82,14 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.ui.graphics.vector.ImageVector
 import com.gallatinapps.syntaxmp.tokenizer.SyntaxTokenizer
 import com.rossomak.flashcards.BuildConfig
 import com.rossomak.flashcards.domain.model.CurationAction
 import com.rossomak.flashcards.domain.voice.VoicePlaybackState
-import java.time.Instant
 import com.rossomak.flashcards.ui.text.SyntaxCodeBlock
 import com.rossomak.flashcards.ui.text.withInlineCode
 import kotlinx.coroutines.launch
+import java.time.Instant
 
 @Composable
 fun StudySessionScreen(
@@ -166,6 +169,8 @@ fun StudySessionScreen(
         onCurationFabClick = viewModel::onCurationFabClick,
         onCurationActionToggle = viewModel::onCurationActionToggle,
         onCurationDialogDismiss = viewModel::onCurationDialogDismiss,
+        onExtendedContextRevealed = viewModel::onExtendedContextRevealed,
+        onExtendedContextCollapsed = viewModel::onExtendedContextCollapsed,
     )
 }
 
@@ -185,6 +190,8 @@ fun StudySessionContent(
     onCurationFabClick: () -> Unit,
     onCurationActionToggle: (CurationAction) -> Unit,
     onCurationDialogDismiss: () -> Unit,
+    onExtendedContextRevealed: () -> Unit,
+    onExtendedContextCollapsed: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val scaffoldState = rememberBottomSheetScaffoldState(
@@ -252,6 +259,7 @@ fun StudySessionContent(
                 var isExtendedContextExpanded by remember(card.id) { mutableStateOf(false) }
                 val syntaxEngine = remember { SyntaxTokenizer() }
 
+                @OptIn(ExperimentalLayoutApi::class)
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -259,6 +267,26 @@ fun StudySessionContent(
                         .padding(16.dp)
                         .verticalScroll(rememberScrollState()),
                 ) {
+                    if (card.tags.isNotEmpty()) {
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            card.tags.forEach { tag ->
+                                SuggestionChip(
+                                    onClick = {},
+                                    label = {
+                                        Text(
+                                            text = tag,
+                                            style = MaterialTheme.typography.labelSmall,
+                                        )
+                                    },
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -322,7 +350,10 @@ fun StudySessionContent(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable {
-                                            isExtendedContextExpanded = !isExtendedContextExpanded
+                                            val willExpand = !isExtendedContextExpanded
+                                            isExtendedContextExpanded = willExpand
+                                            if (willExpand) onExtendedContextRevealed()
+                                            else onExtendedContextCollapsed()
                                         }
                                         .padding(vertical = 12.dp),
                                     verticalAlignment = Alignment.CenterVertically,
@@ -581,5 +612,7 @@ private fun StudySessionVoiceActivePreview() {
         onCurationFabClick = {},
         onCurationActionToggle = {},
         onCurationDialogDismiss = {},
+        onExtendedContextRevealed = {},
+        onExtendedContextCollapsed = {},
     )
 }
