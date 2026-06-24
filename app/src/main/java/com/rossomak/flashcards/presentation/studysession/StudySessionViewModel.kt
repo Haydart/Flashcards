@@ -92,7 +92,7 @@ class StudySessionViewModel @Inject constructor(
                     rewindJob?.cancel()
                     isPastRewindThreshold = false
                 }
-                if (voice.isInBetweenPause && extendedContextRevealed) viewModelScope.launch { voiceGateway.togglePlayPause() }
+                if (voice.isInBetweenPause && voice.isPlaying && extendedContextRevealed) viewModelScope.launch { voiceGateway.togglePlayPause() }
             }
         }
     }
