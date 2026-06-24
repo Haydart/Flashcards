@@ -180,15 +180,15 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         if (ttsReady) speakQuestion() else startWhenReady = true
     }
 
-    fun commandTogglePlayPause() = if (isPlaying) doPause() else doPlay()
+    fun togglePlayPause() = if (isPlaying) doPause() else doPlay()
 
-    fun rewindToNext() = doRewindToNext()
+    fun moveToNextCard() = doRewindToNext()
 
-    fun rewindToPrevious() = doRewindToPrevious()
+    fun moveToPreviousCard() = doRewindToPrevious()
 
-    fun commandRestartCurrentCard() = moveToQuestion()
+    fun restartCurrentCardPlayback() = moveToQuestion()
 
-    fun commandShowAnswer() {
+    fun skipToCardAnswerPlayback() {
         if (cards.isEmpty()) return
         phase = VoicePhase.ANSWER
         if (isPlaying) {
@@ -199,7 +199,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         }
     }
 
-    fun commandSetSpeechRate(rate: Float) {
+    fun setPlaybackSpeechRate(rate: Float) {
         speechRate =
             rate.coerceIn(VoicePlaybackState.MIN_SPEECH_RATE, VoicePlaybackState.MAX_SPEECH_RATE)
         if (ttsReady) tts.setSpeechRate(speechRate)
@@ -213,7 +213,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         }
     }
 
-    fun commandStop() = doStop()
+    fun stopPlayback() = doStop()
 
     private fun doPlay() {
         if (cards.isEmpty()) return

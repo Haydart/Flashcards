@@ -92,23 +92,23 @@ class StudySessionVoiceGateway @Inject constructor(
     }
 
     override fun rewindToNext() {
-        voiceBinder?.rewindToNext()
+        voiceBinder?.moveToNextCard()
     }
 
     override fun rewindToPrevious() {
-        voiceBinder?.rewindToPrevious()
+        voiceBinder?.moveToPreviousCard()
     }
 
     override fun restartCurrentCard() {
-        voiceBinder?.restartCurrentCard()
+        voiceBinder?.restartCurrentCardPlayback()
     }
 
     override fun showAnswer() {
-        voiceBinder?.showAnswer()
+        voiceBinder?.skipToCardAnswerPlayback()
     }
 
     override fun setSpeechRate(rate: Float) {
-        voiceBinder?.setSpeechRate(rate)
+        voiceBinder?.setPlaybackSpeechRate(rate)
     }
 
     private fun collectVoiceState(binder: StudySessionVoiceService.LocalBinder) {

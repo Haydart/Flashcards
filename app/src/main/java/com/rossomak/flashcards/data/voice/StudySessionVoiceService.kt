@@ -8,6 +8,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.rossomak.flashcards.MainActivity
+import com.rossomak.flashcards.data.voice.StudySessionVoiceService.Companion.ACTION_BIND_LOCAL
 import com.rossomak.flashcards.domain.voice.VoicePlaybackState
 import kotlinx.coroutines.flow.StateFlow
 
@@ -37,12 +38,18 @@ class StudySessionVoiceService : MediaSessionService() {
         fun loadSession(cards: List<VoiceCard>, startIndex: Int, subcategoryName: String) =
             player.commandLoadSession(cards, startIndex, subcategoryName)
 
-        fun togglePlayPause() = player.commandTogglePlayPause()
-        fun rewindToNext() = player.rewindToNext()
-        fun rewindToPrevious() = player.rewindToPrevious()
-        fun restartCurrentCard() = player.commandRestartCurrentCard()
-        fun showAnswer() = player.commandShowAnswer()
-        fun setSpeechRate(rate: Float) = player.commandSetSpeechRate(rate)
+        fun togglePlayPause() = player.togglePlayPause()
+
+        fun moveToNextCard() = player.moveToNextCard()
+
+        fun moveToPreviousCard() = player.moveToPreviousCard()
+
+        fun restartCurrentCardPlayback() = player.restartCurrentCardPlayback()
+
+        fun skipToCardAnswerPlayback() = player.skipToCardAnswerPlayback()
+
+        fun setPlaybackSpeechRate(rate: Float) = player.setPlaybackSpeechRate(rate)
+
         fun stopPlayback() = this@StudySessionVoiceService.stopPlayback()
     }
 
@@ -54,7 +61,7 @@ class StudySessionVoiceService : MediaSessionService() {
             .build()
     }
 
-    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession = mediaSession
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo) = mediaSession
 
     override fun onBind(intent: Intent?): IBinder? =
         if (intent?.action == ACTION_BIND_LOCAL) binder else super.onBind(intent)
@@ -66,7 +73,7 @@ class StudySessionVoiceService : MediaSessionService() {
     }
 
     private fun stopPlayback() {
-        player.commandStop()
+        player.stopPlayback()
         stopSelf()
     }
 
