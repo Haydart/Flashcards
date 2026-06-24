@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.service
+package com.rossomak.flashcards.data.voice
 
 import android.content.ComponentName
 import android.content.Context
@@ -87,17 +87,29 @@ class StudySessionVoiceGateway @Inject constructor(
         _state.value = VoicePlaybackState()
     }
 
-    override fun togglePlayPause() { voiceBinder?.togglePlayPause() }
+    override fun togglePlayPause() {
+        voiceBinder?.togglePlayPause()
+    }
 
-    override fun rewindToNext() { voiceBinder?.rewindToNext() }
+    override fun rewindToNext() {
+        voiceBinder?.rewindToNext()
+    }
 
-    override fun rewindToPrevious() { voiceBinder?.rewindToPrevious() }
+    override fun rewindToPrevious() {
+        voiceBinder?.rewindToPrevious()
+    }
 
-    override fun restartCurrentCard() { voiceBinder?.restartCurrentCard() }
+    override fun restartCurrentCard() {
+        voiceBinder?.restartCurrentCard()
+    }
 
-    override fun showAnswer() { voiceBinder?.showAnswer() }
+    override fun showAnswer() {
+        voiceBinder?.showAnswer()
+    }
 
-    override fun setSpeechRate(rate: Float) { voiceBinder?.setSpeechRate(rate) }
+    override fun setSpeechRate(rate: Float) {
+        voiceBinder?.setSpeechRate(rate)
+    }
 
     private fun collectVoiceState(binder: StudySessionVoiceService.LocalBinder) {
         voiceStateJob?.cancel()
@@ -115,7 +127,8 @@ class StudySessionVoiceGateway @Inject constructor(
 
     private fun connectMediaController() {
         if (controllerFuture != null) return
-        val token = SessionToken(context, ComponentName(context, StudySessionVoiceService::class.java))
+        val token =
+            SessionToken(context, ComponentName(context, StudySessionVoiceService::class.java))
         controllerFuture = MediaController.Builder(context, token).buildAsync()
     }
 
@@ -137,8 +150,10 @@ class StudySessionVoiceGateway @Inject constructor(
 
     private fun List<Flashcard>.toVoiceCards(): List<VoiceCard> = map { card ->
         VoiceCard(
-            spokenQuestion = (card.questionSpoken?.takeIf { it.isNotBlank() } ?: card.question).forSpeech(),
-            spokenAnswer = (card.answerSpoken?.takeIf { it.isNotBlank() } ?: card.answer).forSpeech(),
+            spokenQuestion = (card.questionSpoken?.takeIf { it.isNotBlank() }
+                ?: card.question).forSpeech(),
+            spokenAnswer = (card.answerSpoken?.takeIf { it.isNotBlank() }
+                ?: card.answer).forSpeech(),
         )
     }
 
@@ -151,6 +166,6 @@ class StudySessionVoiceGateway @Inject constructor(
                 .replace(Regex(" {2,}"), " ")
                 .trim()
         }
-        return codeTransformed.replace("`", "")
+        return codeTransformed.replace("`", "'")
     }
 }

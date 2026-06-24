@@ -29,7 +29,7 @@
         </activity>
 
         <service
-            android:name=".service.StudySessionVoiceService"
+            android:name=".data.voice.StudySessionVoiceService"
             android:exported="true"
             android:foregroundServiceType="mediaPlayback">
             <intent-filter>

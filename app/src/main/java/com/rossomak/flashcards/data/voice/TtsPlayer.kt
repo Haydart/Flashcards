@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.service
+package com.rossomak.flashcards.data.voice
 
 import android.content.Context
 import android.media.AudioAttributes

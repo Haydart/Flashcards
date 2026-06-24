@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.service
+package com.rossomak.flashcards.data.voice
 
 import android.app.PendingIntent
 import android.content.Intent
@@ -8,8 +8,8 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.rossomak.flashcards.MainActivity
-import kotlinx.coroutines.flow.StateFlow
 import com.rossomak.flashcards.domain.voice.VoicePlaybackState
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Media3 [MediaSessionService] that reads flashcards aloud, with background playback capabilities. It owns a
@@ -86,6 +86,6 @@ class StudySessionVoiceService : MediaSessionService() {
     )
 
     companion object {
-        const val ACTION_BIND_LOCAL = "com.rossomak.flashcards.service.BIND_LOCAL"
+        const val ACTION_BIND_LOCAL = "com.rossomak.flashcards.data.voice.BIND_LOCAL"
     }
 }
