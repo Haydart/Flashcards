@@ -15,15 +15,16 @@ class FlashcardRepositoryImpl @Inject constructor(
     private val remoteDataSource: FlashcardRemoteDataSource
 ) : FlashcardRepository {
 
-    override suspend fun fetchCategories(): Result<List<Category>> = withContext(Dispatchers.IO) {
-        try {
-            Result.success(remoteDataSource.getCategories().map { it.toDomain() })
-        } catch (exception: CancellationException) {
-            throw exception
-        } catch (exception: Exception) {
-            Result.failure(exception)
+    override suspend fun fetchCategories(): Result<List<Category>> =
+        withContext(Dispatchers.IO) {
+            try {
+                Result.success(remoteDataSource.getCategories().map { it.toDomain() })
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: Exception) {
+                Result.failure(exception)
+            }
         }
-    }
 
     override suspend fun fetchSubcategories(categoryId: String): Result<List<Subcategory>> =
         withContext(Dispatchers.IO) {
@@ -43,7 +44,7 @@ class FlashcardRepositoryImpl @Inject constructor(
             try {
                 Result.success(
                     remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId)
-                        .map { it.toDomain(subcategoryId) }
+                        .mapNotNull { it.toDomain(subcategoryId) }
                 )
             } catch (exception: CancellationException) {
                 throw exception

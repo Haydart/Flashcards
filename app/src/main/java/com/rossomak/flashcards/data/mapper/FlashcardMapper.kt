@@ -1,7 +1,6 @@
 package com.rossomak.flashcards.data.mapper
 
 import com.rossomak.flashcards.data.model.CategoryDto
-import com.rossomak.flashcards.data.model.CodeBlockDto
 import com.rossomak.flashcards.data.model.FlashcardDto
 import com.rossomak.flashcards.data.model.SubcategoryDto
 import com.rossomak.flashcards.domain.model.Category
@@ -26,16 +25,20 @@ fun SubcategoryDto.toDomain() = Subcategory(
     cardCount = cardCount
 )
 
-fun FlashcardDto.toDomain(subcategoryId: String) = Flashcard(
-    id = id,
-    subcategoryId = subcategoryId,
-    question = question,
-    answer = answer,
-    tags = tags,
-    difficulty = requireNotNull(difficulty) { "Missing difficulty for flashcard id=$id" },
-    questionCode = questionCode?.map { CodeBlock(it.language, it.code) },
-    answerCode = answerCode?.map { CodeBlock(it.language, it.code) },
-    questionSpoken = questionSpoken,
-    answerSpoken = answerSpoken,
-    extendedContext = extendedContext
-)
+fun FlashcardDto.toDomain(subcategoryId: String): Flashcard? {
+    return difficulty?.let {
+        Flashcard(
+            id = id,
+            subcategoryId = subcategoryId,
+            question = question,
+            answer = answer,
+            tags = tags,
+            difficulty = it,
+            questionCode = questionCode?.map { CodeBlock(it.language, it.code) },
+            answerCode = answerCode?.map { CodeBlock(it.language, it.code) },
+            questionSpoken = questionSpoken,
+            answerSpoken = answerSpoken,
+            extendedContext = extendedContext
+        )
+    }
+}
