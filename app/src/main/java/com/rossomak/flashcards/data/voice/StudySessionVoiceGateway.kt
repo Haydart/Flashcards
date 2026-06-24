@@ -161,7 +161,7 @@ class StudySessionVoiceGateway @Inject constructor(
         val codeTransformed = replace(Regex("`([^`]*)`")) { match ->
             match.groupValues[1]
                 .replace(Regex("<([^>]+)>")) { " of ${it.groupValues[1]}" }
-                .replace(".", " DOT ")
+                .replace(Regex("(?<!\\.)\\.(?!\\.)"), " DOT ")
                 .replace("_", " ")
                 .replace(Regex(" {2,}"), " ")
                 .trim()
