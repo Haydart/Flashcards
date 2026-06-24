@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.domain.model.Flashcard
-import com.rossomak.flashcards.ui.text.withInlineCode
+import com.rossomak.flashcards.ui.design.withInlineCode
 
 @Composable
 fun SubcategoryDetailsScreen(
