@@ -125,6 +125,7 @@ StateFlow / SharedFlow rules:
 
 - DTOs use `@Serializable`; named with `Dto` suffix (`FlashcardDto`)
 - Mappers: `toDomain()` (DTO → Domain), `toDto()` (Domain → DTO)
+- **Firestore string constants**: All Firestore collection names, document names, and field names used in queries must be extracted into `const val` constants in a `companion object` of the data source class. Never pass raw string literals to `.collection()`, `.document()`, `.orderBy()`, `.whereEqualTo()`, etc.
 
 ```kotlin
 object FlashcardMapper {
