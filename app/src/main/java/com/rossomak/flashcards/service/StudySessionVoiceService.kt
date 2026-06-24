@@ -12,11 +12,11 @@ import kotlinx.coroutines.flow.StateFlow
 import com.rossomak.flashcards.domain.voice.VoicePlaybackState
 
 /**
- * Media3 [MediaSessionService] that reads flashcards aloud for the Fast voice study mode. It owns a
+ * Media3 [MediaSessionService] that reads flashcards aloud, with background playback capabilities. It owns a
  * [TtsPlayer] (TextToSpeech wrapped as a Media3 `Player`) and a [MediaSession]; Media3 provides the
  * lock-screen / Bluetooth / notification transport controls, media-button routing and foreground
  * lifecycle. Audio focus is managed inside [TtsPlayer] because Media3 only auto-handles focus for
- * `ExoPlayer`.
+ * `ExoPlayer`, which we cannot use because it does not support TTS OOTB.
  *
  * The in-app UI binds via [LocalBinder] (custom [ACTION_BIND_LOCAL] intent) to push the card queue
  * and drive playback, and observes [LocalBinder.state] — which carries TTS-specific phase and
@@ -43,7 +43,6 @@ class StudySessionVoiceService : MediaSessionService() {
         fun restartCurrentCard() = player.commandRestartCurrentCard()
         fun showAnswer() = player.commandShowAnswer()
         fun setSpeechRate(rate: Float) = player.commandSetSpeechRate(rate)
-        fun speakExtendedContext(text: String) = player.commandSpeakExtendedContext(text)
         fun stopPlayback() = this@StudySessionVoiceService.stopPlayback()
     }
 
@@ -66,15 +65,15 @@ class StudySessionVoiceService : MediaSessionService() {
         super.onTaskRemoved(rootIntent)
     }
 
+    private fun stopPlayback() {
+        player.commandStop()
+        stopSelf()
+    }
+
     override fun onDestroy() {
         mediaSession.release()
         player.release()
         super.onDestroy()
-    }
-
-    private fun stopPlayback() {
-        player.commandStop()
-        stopSelf()
     }
 
     private fun contentPendingIntent(): PendingIntent = PendingIntent.getActivity(

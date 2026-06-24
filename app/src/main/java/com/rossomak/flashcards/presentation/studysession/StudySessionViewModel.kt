@@ -40,7 +40,6 @@ class StudySessionViewModel @Inject constructor(
     private var lastObservedCardIndex = -1
 
     private var extendedContextRevealed = false
-    private var extendedContextSpoken = false
 
     init {
         loadFlashcards()
@@ -80,22 +79,20 @@ class StudySessionViewModel @Inject constructor(
                         isVoicePlaying = voice.isPlaying,
                         speechRate = voice.speechRate,
                         currentCardIndex = if (voice.isActive) voice.currentIndex else it.currentCardIndex,
-                        isAnswerRevealed = if (voice.isActive) voice.phase == VoicePhase.ANSWER || voice.phase == VoicePhase.EXTENDED_CONTEXT else it.isAnswerRevealed,
+                        isAnswerRevealed = if (voice.isActive) voice.phase == VoicePhase.ANSWER else it.isAnswerRevealed,
                     )
                 }
                 if (voice.isActive && voice.currentIndex != lastObservedCardIndex) {
                     lastObservedCardIndex = voice.currentIndex
                     extendedContextRevealed = false
-                    extendedContextSpoken = false
                     startRewindThresholdTimer()
                 } else if (!voice.isActive) {
                     lastObservedCardIndex = -1
                     extendedContextRevealed = false
-                    extendedContextSpoken = false
                     rewindJob?.cancel()
                     isPastRewindThreshold = false
                 }
-                if (voice.isInBetweenPause) maybeSpeakExtendedContext()
+                if (voice.isInBetweenPause && extendedContextRevealed) voiceGateway.togglePlayPause()
             }
         }
     }
@@ -161,20 +158,12 @@ class StudySessionViewModel @Inject constructor(
     fun onExtendedContextRevealed() {
         extendedContextRevealed = true
         if (_state.value.isVoiceActive && voiceGateway.state.value.isInBetweenPause) {
-            maybeSpeakExtendedContext()
+            voiceGateway.togglePlayPause()
         }
     }
 
     fun onExtendedContextCollapsed() {
-        if (!extendedContextSpoken) extendedContextRevealed = false
-    }
-
-    private fun maybeSpeakExtendedContext() {
-        if (!extendedContextRevealed || extendedContextSpoken) return
-        val card = _state.value.flashcards.getOrNull(_state.value.currentCardIndex) ?: return
-        val text = card.extendedContext?.takeIf { it.isNotBlank() }?.replace("`", "") ?: return
-        extendedContextSpoken = true
-        voiceGateway.speakExtendedContext(text)
+        extendedContextRevealed = false
     }
 
     fun onVoiceErrorDismissed() {

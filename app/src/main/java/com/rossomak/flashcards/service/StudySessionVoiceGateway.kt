@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+@UnstableApi
 class StudySessionVoiceGateway @Inject constructor(
     @ApplicationContext private val context: Context,
 ) : VoiceGateway {
@@ -86,12 +88,16 @@ class StudySessionVoiceGateway @Inject constructor(
     }
 
     override fun togglePlayPause() { voiceBinder?.togglePlayPause() }
+
     override fun rewindToNext() { voiceBinder?.rewindToNext() }
+
     override fun rewindToPrevious() { voiceBinder?.rewindToPrevious() }
+
     override fun restartCurrentCard() { voiceBinder?.restartCurrentCard() }
+
     override fun showAnswer() { voiceBinder?.showAnswer() }
+
     override fun setSpeechRate(rate: Float) { voiceBinder?.setSpeechRate(rate) }
-    override fun speakExtendedContext(text: String) { voiceBinder?.speakExtendedContext(text) }
 
     private fun collectVoiceState(binder: StudySessionVoiceService.LocalBinder) {
         voiceStateJob?.cancel()
@@ -136,5 +142,15 @@ class StudySessionVoiceGateway @Inject constructor(
         )
     }
 
-    private fun String.forSpeech(): String = replace("`", "")
+    private fun String.forSpeech(): String {
+        val codeTransformed = replace(Regex("`([^`]*)`")) { match ->
+            match.groupValues[1]
+                .replace(Regex("<([^>]+)>")) { " of ${it.groupValues[1]}" }
+                .replace(".", " DOT ")
+                .replace("_", " ")
+                .replace(Regex(" {2,}"), " ")
+                .trim()
+        }
+        return codeTransformed.replace("`", "")
+    }
 }

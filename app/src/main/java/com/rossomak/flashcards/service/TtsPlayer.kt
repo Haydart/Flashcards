@@ -56,7 +56,6 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
     private var cards: List<VoiceCard> = emptyList()
     private var index = 0
     private var phase = VoicePhase.QUESTION
-    private var extendedContextText = ""
     private var isPlaying = false
     private var isBetweenPause = false
     private var speechRate = VoicePlaybackState.DEFAULT_SPEECH_RATE
@@ -172,7 +171,6 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         this.subcategoryName = subcategoryName
         this.index = if (cards.isEmpty()) 0 else startIndex.coerceIn(0, cards.lastIndex)
         this.phase = VoicePhase.QUESTION
-        this.extendedContextText = ""
         this.isBetweenPause = false
         if (cards.isEmpty()) {
             publishState()
@@ -209,18 +207,10 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
             when (phase) {
                 VoicePhase.QUESTION -> speakQuestion()
                 VoicePhase.ANSWER -> speakAnswer()
-                VoicePhase.EXTENDED_CONTEXT -> speakExtendedContext()
             }
         } else {
             publishState()
         }
-    }
-
-    fun commandSpeakExtendedContext(text: String) {
-        if (cards.isEmpty()) return
-        extendedContextText = text
-        isBetweenPause = false
-        speakExtendedContext()
     }
 
     fun commandStop() = doStop()
@@ -230,7 +220,6 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         when (phase) {
             VoicePhase.QUESTION -> speakQuestion()
             VoicePhase.ANSWER -> speakAnswer()
-            VoicePhase.EXTENDED_CONTEXT -> speakExtendedContext()
         }
     }
 
@@ -269,7 +258,6 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
     /** Move to the question of the current [index]; keep playing if we were, else just show it. */
     private fun moveToQuestion() {
         phase = VoicePhase.QUESTION
-        extendedContextText = ""
         isBetweenPause = false
         cardStartedAtMs = SystemClock.elapsedRealtime()
         if (isPlaying) {
@@ -288,7 +276,6 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         abandonAudioFocus()
         cards = emptyList()
         index = 0
-        extendedContextText = ""
         isBetweenPause = false
         _voiceState.value = VoicePlaybackState(isActive = false)
         invalidateState()
@@ -322,16 +309,6 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
             null,
             utteranceId(TAG_ANSWER, generationId),
         )
-    }
-
-    private fun speakExtendedContext() {
-        val text = extendedContextText.ifBlank { return }
-        phase = VoicePhase.EXTENDED_CONTEXT
-        isPlaying = true
-        val generationId = ++generation
-        requestAudioFocus()
-        publishState()
-        tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId(TAG_EXTENDED, generationId))
     }
 
     private fun silence(durationMs: Long, tag: String) {
@@ -375,7 +352,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         when (utteranceId.substringBefore(SEPARATOR)) {
             TAG_QUESTION -> silence(QUESTION_TO_ANSWER_PAUSE_MS, TAG_PAUSE)
             TAG_PAUSE -> speakAnswer()
-            TAG_ANSWER, TAG_EXTENDED -> {
+            TAG_ANSWER -> {
                 isBetweenPause = true
                 publishState()
                 silence(ANSWER_TO_NEXT_PAUSE_MS, TAG_BETWEEN)
@@ -467,7 +444,6 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         const val TAG_QUESTION = "question"
         const val TAG_PAUSE = "pause"
         const val TAG_ANSWER = "answer"
-        const val TAG_EXTENDED = "extended"
         const val TAG_BETWEEN = "between"
 
         val AVAILABLE_COMMANDS = Player.Commands.Builder()

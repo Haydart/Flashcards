@@ -201,39 +201,38 @@ class StudySessionViewModelTest {
     }
 
     @Test
-    fun `onExtendedContextRevealed while in between pause triggers speakExtendedContext`() {
+    fun `onExtendedContextRevealed while in between pause pauses playback`() {
         loadedViewModel()
         fakeGateway.emitState(VoicePlaybackState(isActive = true, isInBetweenPause = true, currentIndex = 0))
 
         viewModel.onExtendedContextRevealed()
 
-        fakeGateway.speakExtendedContextCallCount shouldBe 1
-        fakeGateway.lastSpokenExtendedContextText?.isNotBlank() shouldBe true
+        fakeGateway.togglePlayPauseCallCount shouldBe 1
     }
 
     @Test
-    fun `onExtendedContextRevealed not in between pause does not speak yet`() {
+    fun `onExtendedContextRevealed not in between pause does not pause`() {
         loadedViewModel()
         fakeGateway.emitState(VoicePlaybackState(isActive = true, isInBetweenPause = false, currentIndex = 0))
 
         viewModel.onExtendedContextRevealed()
 
-        fakeGateway.speakExtendedContextCallCount shouldBe 0
+        fakeGateway.togglePlayPauseCallCount shouldBe 0
     }
 
     @Test
-    fun `entering between pause after reveal triggers speakExtendedContext`() = runTest {
+    fun `entering between pause after reveal pauses playback`() = runTest {
         loadedViewModel()
         fakeGateway.emitState(VoicePlaybackState(isActive = true, isInBetweenPause = false, currentIndex = 0))
         viewModel.onExtendedContextRevealed()
 
         fakeGateway.emitState(VoicePlaybackState(isActive = true, isInBetweenPause = true, currentIndex = 0))
 
-        fakeGateway.speakExtendedContextCallCount shouldBe 1
+        fakeGateway.togglePlayPauseCallCount shouldBe 1
     }
 
     @Test
-    fun `onExtendedContextCollapsed before between pause prevents speaking`() = runTest {
+    fun `onExtendedContextCollapsed before between pause prevents pause`() = runTest {
         loadedViewModel()
         fakeGateway.emitState(VoicePlaybackState(isActive = true, isInBetweenPause = false, currentIndex = 0))
         viewModel.onExtendedContextRevealed()
@@ -241,26 +240,14 @@ class StudySessionViewModelTest {
 
         fakeGateway.emitState(VoicePlaybackState(isActive = true, isInBetweenPause = true, currentIndex = 0))
 
-        fakeGateway.speakExtendedContextCallCount shouldBe 0
-    }
-
-    @Test
-    fun `onExtendedContextCollapsed after speaking does not prevent speaking`() = runTest {
-        loadedViewModel()
-        fakeGateway.emitState(VoicePlaybackState(isActive = true, isInBetweenPause = true, currentIndex = 0))
-        viewModel.onExtendedContextRevealed()
-        // spoken = true now
-
-        viewModel.onExtendedContextCollapsed()
-
-        fakeGateway.speakExtendedContextCallCount shouldBe 1 // already happened, not cancelled
+        fakeGateway.togglePlayPauseCallCount shouldBe 0
     }
 
     @Test
     fun `onExtendedContextRevealed does nothing when voice inactive`() {
         viewModel.onExtendedContextRevealed()
 
-        fakeGateway.speakExtendedContextCallCount shouldBe 0
+        fakeGateway.togglePlayPauseCallCount shouldBe 0
     }
 
     @Test
@@ -278,10 +265,9 @@ private class FakeVoiceGateway : VoiceGateway {
     var startCallCount = 0
     var stopCallCount = 0
     var showAnswerCallCount = 0
+    var togglePlayPauseCallCount = 0
     var rewindToPreviousCallCount = 0
     var restartCurrentCardCallCount = 0
-    var speakExtendedContextCallCount = 0
-    var lastSpokenExtendedContextText: String? = null
 
     override fun start(
         cards: List<Flashcard>,
@@ -290,16 +276,12 @@ private class FakeVoiceGateway : VoiceGateway {
     ) { startCallCount++ }
 
     override fun stop() { stopCallCount++ }
-    override fun togglePlayPause() {}
+    override fun togglePlayPause() { togglePlayPauseCallCount++ }
     override fun rewindToNext() {}
     override fun rewindToPrevious() { rewindToPreviousCallCount++ }
     override fun restartCurrentCard() { restartCurrentCardCallCount++ }
     override fun showAnswer() { showAnswerCallCount++ }
     override fun setSpeechRate(rate: Float) {}
-    override fun speakExtendedContext(text: String) {
-        speakExtendedContextCallCount++
-        lastSpokenExtendedContextText = text
-    }
 
     fun emitState(state: VoicePlaybackState) { _state.value = state }
 }
