@@ -112,8 +112,6 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         }
     }
 
-    // region Media3 Player state
-
     override fun getState(): State {
         val items = cards.mapIndexed { cardIndex, _ ->
             MediaItemData.Builder("card-$cardIndex")
@@ -128,8 +126,8 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         }
         return State.Builder()
             .setAvailableCommands(AVAILABLE_COMMANDS)
-            .setPlaybackState(if (cards.isEmpty()) Player.STATE_IDLE else Player.STATE_READY)
-            .setPlayWhenReady(isPlaying, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlaybackState(if (cards.isEmpty()) STATE_IDLE else STATE_READY)
+            .setPlayWhenReady(isPlaying, PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
             .setPlaylist(items)
             .setCurrentMediaItemIndex(index.coerceIn(0, maxOf(0, cards.lastIndex)))
             .build()
@@ -143,7 +141,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
     override fun handlePrepare(): ListenableFuture<*> = Futures.immediateVoidFuture()
 
     override fun handleStop(): ListenableFuture<*> {
-        doStop()
+        stopPlayback()
         return Futures.immediateVoidFuture()
     }
 
@@ -158,15 +156,15 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         seekCommand: Int
     ): ListenableFuture<*> {
         when (seekCommand) {
-            Player.COMMAND_SEEK_TO_NEXT, Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> doRewindToNext()
-            Player.COMMAND_SEEK_TO_PREVIOUS -> doSmartPrevious() // system back: rewind-or-previous
-            Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> doRewindToPrevious()
+            COMMAND_SEEK_TO_NEXT, COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> moveToNextCard()
+            COMMAND_SEEK_TO_PREVIOUS -> doSmartPrevious() // system back: rewind-or-previous
+            COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> moveToPreviousCard()
             else -> if (mediaItemIndex != index) jumpTo(mediaItemIndex)
         }
         return Futures.immediateVoidFuture()
     }
 
-    fun commandLoadSession(cards: List<VoiceCard>, startIndex: Int, subcategoryName: String) {
+    fun loadAndStartSession(cards: List<VoiceCard>, startIndex: Int, subcategoryName: String) {
         this.cards = cards
         this.subcategoryName = subcategoryName
         this.index = if (cards.isEmpty()) 0 else startIndex.coerceIn(0, cards.lastIndex)
@@ -182,9 +180,17 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
 
     fun togglePlayPause() = if (isPlaying) doPause() else doPlay()
 
-    fun moveToNextCard() = doRewindToNext()
+    fun moveToNextCard() {
+        if (index >= cards.lastIndex) return
+        index++
+        moveToQuestion()
+    }
 
-    fun moveToPreviousCard() = doRewindToPrevious()
+    fun moveToPreviousCard() {
+        if (index <= 0) return
+        index--
+        moveToQuestion()
+    }
 
     fun restartCurrentCardPlayback() = moveToQuestion()
 
@@ -213,7 +219,18 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         }
     }
 
-    fun stopPlayback() = doStop()
+    fun stopPlayback() {
+        isPlaying = false
+        startWhenReady = false
+        generation++
+        stopUtterance()
+        abandonAudioFocus()
+        cards = emptyList()
+        index = 0
+        isBetweenPause = false
+        _voiceState.value = VoicePlaybackState(isActive = false)
+        invalidateState()
+    }
 
     private fun doPlay() {
         if (cards.isEmpty()) return
@@ -227,18 +244,6 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         isPlaying = false
         stopUtterance()
         publishState()
-    }
-
-    private fun doRewindToNext() {
-        if (index >= cards.lastIndex) return
-        index++
-        moveToQuestion()
-    }
-
-    private fun doRewindToPrevious() {
-        if (index <= 0) return
-        index--
-        moveToQuestion()
     }
 
     /** Rewind-or-previous used by system transport: within the threshold, jump to the previous card. */
@@ -266,19 +271,6 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
             stopUtterance()
             publishState()
         }
-    }
-
-    private fun doStop() {
-        isPlaying = false
-        startWhenReady = false
-        generation++
-        stopUtterance()
-        abandonAudioFocus()
-        cards = emptyList()
-        index = 0
-        isBetweenPause = false
-        _voiceState.value = VoicePlaybackState(isActive = false)
-        invalidateState()
     }
 
     private fun speakQuestion() {
@@ -431,8 +423,6 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         }
     }
 
-    // endregion
-
     private companion object {
         const val ERROR_TTS_UNAVAILABLE = "tts_unavailable"
         const val DEFAULT_TITLE = "Study session"
@@ -448,18 +438,18 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
 
         val AVAILABLE_COMMANDS = Player.Commands.Builder()
             .addAll(
-                Player.COMMAND_PLAY_PAUSE,
-                Player.COMMAND_PREPARE,
-                Player.COMMAND_STOP,
-                Player.COMMAND_SEEK_TO_NEXT,
-                Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
-                Player.COMMAND_SEEK_TO_PREVIOUS,
-                Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
-                Player.COMMAND_SEEK_TO_MEDIA_ITEM,
-                Player.COMMAND_GET_CURRENT_MEDIA_ITEM,
-                Player.COMMAND_GET_METADATA,
-                Player.COMMAND_GET_TIMELINE,
-                Player.COMMAND_RELEASE,
+                COMMAND_PLAY_PAUSE,
+                COMMAND_PREPARE,
+                COMMAND_STOP,
+                COMMAND_SEEK_TO_NEXT,
+                COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
+                COMMAND_SEEK_TO_PREVIOUS,
+                COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
+                COMMAND_SEEK_TO_MEDIA_ITEM,
+                COMMAND_GET_CURRENT_MEDIA_ITEM,
+                COMMAND_GET_METADATA,
+                COMMAND_GET_TIMELINE,
+                COMMAND_RELEASE,
             )
             .build()
 

@@ -36,7 +36,7 @@ class StudySessionVoiceService : MediaSessionService() {
         val state: StateFlow<VoicePlaybackState> get() = player.voiceState
 
         fun loadSession(cards: List<VoiceCard>, startIndex: Int, subcategoryName: String) =
-            player.commandLoadSession(cards, startIndex, subcategoryName)
+            player.loadAndStartSession(cards, startIndex, subcategoryName)
 
         fun togglePlayPause() = player.togglePlayPause()
 
