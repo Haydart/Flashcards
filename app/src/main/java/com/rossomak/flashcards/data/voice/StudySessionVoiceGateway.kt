@@ -160,7 +160,7 @@ class StudySessionVoiceGateway @Inject constructor(
     private fun String.forSpeech(): String {
         val codeTransformed = replace(Regex("`([^`]*)`")) { match ->
             match.groupValues[1]
-                .replace(Regex("<([^>]+)>")) { " of ${it.groupValues[1]}" }
+                .replace(Regex("(?<=\\S)<([^>]+)>")) { " of ${it.groupValues[1]}" }
                 .replace(Regex("(?<!\\.)\\.(?!\\.)"), " DOT ")
                 .replace("_", " ")
                 .replace(Regex(" {2,}"), " ")
