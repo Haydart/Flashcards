@@ -160,7 +160,7 @@ class StudySessionVoiceGateway @Inject constructor(
     private fun String.forSpeech(): String {
         val codeTransformed = replace(Regex("`([^`]*)`")) { match -> // extract code span content; wraps result in single quotes for verbal separation
             val inner = match.groupValues[1]
-                .replace(Regex("(?<=\\S)<([^>]+)>")) { " of ${it.groupValues[1]}" } // generic types: List<String> → "List of String"; skips standalone tags like <service> (no non-ws before <)
+                .replace(Regex("(?<=\\S)<(?!/)([^>]+)>")) { " of ${it.groupValues[1]}" } // generic types: List<String> → "List of String"; skips standalone tags like <service> (no non-ws before <); skips closing tags
                 .replace(Regex("(?<!\\.)\\.(?!\\.)"), " DOT ") // member access dots → " DOT "; lets through ellipsis (...)
                 .replace("_", " ") // snake_case separators → spaces
                 .replace(Regex(" {2,}"), " ") // collapse runs of spaces left by prior replacements
