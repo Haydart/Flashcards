@@ -93,13 +93,14 @@ class StudySessionViewModel @Inject constructor(
                     pausedDueToExtendedContext = false
                     startRewindThresholdTimer()
                 } else if (!voice.isActive) {
+                    voiceStarted = false
                     lastObservedCardIndex = -1
                     advanceAfterExtendedContextJob?.cancel()
                     pausedDueToExtendedContext = false
                     rewindJob?.cancel()
                     isPastRewindThreshold = false
                 }
-                if (voice.isInBetweenPause && voice.isPlaying && isExtendedContextDialogOpen) {
+                if (voice.isInBetweenPause && voice.isPlaying && isExtendedContextDialogOpen && !pausedDueToExtendedContext) {
                     pausedDueToExtendedContext = true
                     viewModelScope.launch { voiceGateway.togglePlayPause() }
                 }
