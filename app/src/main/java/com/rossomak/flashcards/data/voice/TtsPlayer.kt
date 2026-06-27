@@ -336,6 +336,19 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
 
         @Deprecated("Deprecated in Java")
         override fun onError(utteranceId: String?) = Unit
+
+        override fun onError(utteranceId: String?, errorCode: Int) {
+            utteranceId ?: return
+            handler.post { onUtteranceError(utteranceId) }
+        }
+    }
+
+    private fun onUtteranceError(utteranceId: String) {
+        val generationId = utteranceId.substringAfterLast(SEPARATOR).toIntOrNull() ?: return
+        if (generationId != generation) return
+        generation++
+        isPlaying = false
+        publishState()
     }
 
     private fun onUtteranceDone(utteranceId: String) {
