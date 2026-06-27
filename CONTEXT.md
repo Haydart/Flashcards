@@ -97,6 +97,34 @@ _Avoid_: Session setup, Session wizard
 A full-screen summary shown before every Study Session begins. Displays session scope (card count, topic count, estimated duration). Below the stats row: a pill-button radio group for **Study Mode** selection (Rated | Fast); tapping a pill shows a short description of that mode beneath the group. Default selection: Rated. Contains a "Start session" button that launches the session with the selected mode. Only place in the app where Study Mode is chosen.
 _Avoid_: Pre-session screen, Session config, Mode picker
 
+**Persistent Mastery**:
+A cross-session record of Flashcards a User has ever reached a Mastered Terminal State on within a Rated Study Session. Stored in Firestore as `users/{uid}/masteredCards/{cardId}`. A Flashcard is in the Persistent Mastery set iff the User currently holds mastery — mastery is removed (de-mastered) when the card reaches a Failed Terminal State in a subsequent Rated session. Applies to global Flashcards only; Private Flashcards are excluded.
+_Avoid_: Permanent mastery, Long-term mastery, Mastered set
+
+**Mastery Defense**:
+The mechanic by which previously mastered Flashcards are re-inserted into a Rated Study Session's card pool (up to 10% of the pool). A Mastery Defense card is visually marked with a shield icon during the session. Successfully answering a Mastery Defense card (Correct on any Attempt) retains Persistent Mastery and earns bonus XP. Failing (Failed Terminal State) removes the card from Persistent Mastery (de-mastery) and costs XP. Mastery Defense applies to Rated sessions only.
+_Avoid_: Review card, Recall challenge
+
+**XP (Experience Points)**:
+Points earned by a User through study activities (card mastery, time studied, session completion, daily goal, streak). Accumulate toward the next Level. XP can decrease when a previously mastered Flashcard is de-mastered (XP loss), but Level never decreases — XP loss is clamped to the current Level's floor.
+_Avoid_: Score, Points, Credits
+
+**Level**:
+A User's progression milestone derived from total XP accumulated. Early levels are fast to achieve; later levels require significantly more XP (super-linear curve). Level-up triggers a celebration animation. Milestone levels (5, 10, 25, 50, 100) unlock badges. Level is displayed on the Progress screen and in the medium launcher widget.
+_Avoid_: Rank, Tier, Grade
+
+**Streak**:
+The count of consecutive calendar days on which a User started at least one Study Session (partial or full). Day boundary is midnight in the device's local timezone. A Streak breaks when a full calendar day passes without a session. Best Streak is the historical peak; it never decrements.
+_Avoid_: Combo, Daily count
+
+**Daily Goal**:
+A User-configured target for minutes studied per calendar day. Default: 20 minutes. Set during onboarding (skippable) and editable inline on the Progress screen. Meeting the Daily Goal awards XP once per calendar day.
+_Avoid_: Study target, Quota
+
+**Sessions Completed**:
+Count of Study Sessions in which the User reached deck end (last card completed). Partial sessions (exited before deck end) do not count. Tracked as a lifetime aggregate stat on the Progress screen.
+_Avoid_: Sessions finished, Sessions done
+
 
 ## Relationships
 
@@ -109,4 +137,8 @@ _Avoid_: Pre-session screen, Session config, Mode picker
 - An **Attempt** produces exactly one **Rating** *(Rated sessions only)*
 - A **Flashcard** in a **Rated** Study Session has at most 3 **Attempts**
 - A **Terminal State** of Mastered means the Flashcard received a Correct **Rating**; Failed means 3 Attempts passed without Correct *(Rated sessions only)*
+- A **Flashcard** in **Persistent Mastery** is eligible to appear as a **Mastery Defense** card in future Rated Study Sessions
+- A **User** accumulates **XP** through study activity; XP determines **Level**
+- A **Streak** belongs to a **User** and increments once per calendar day a Study Session is started
+- A **Daily Goal** belongs to a **User** and is compared against today's total studied minutes
 
