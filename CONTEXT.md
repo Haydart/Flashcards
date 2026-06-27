@@ -122,7 +122,7 @@ A User's progression milestone derived from total XP accumulated. Early levels a
 _Avoid_: Rank, Tier, Grade
 
 **Streak**:
-The count of consecutive calendar days on which a User started at least one Study Session (reached the Session Summary screen, partial or full). Day boundary is midnight in the device's local timezone. A Streak breaks when a full calendar day passes without a session. Best Streak is the historical peak; it never decrements.
+The count of consecutive calendar days on which a User started at least one Study Session (partial or full). Day boundary is midnight in the device's local timezone. A Streak breaks when a full calendar day passes without a session. Best Streak is the historical peak; it never decrements.
 _Avoid_: Combo, Daily count
 
 **Daily Goal**:
