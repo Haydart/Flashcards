@@ -13,7 +13,7 @@ import androidx.compose.ui.unit.sp
 fun String.withInlineCode(): AnnotatedString {
     val codeBackground = MaterialTheme.colorScheme.surfaceVariant
     val codeColor = MaterialTheme.colorScheme.onSurfaceVariant
-    return remember(this, codeBackground) {
+    return remember(this, codeBackground, codeColor) {
         buildAnnotatedString {
             val source = this@withInlineCode
             var cursor = 0
