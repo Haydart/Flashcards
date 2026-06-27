@@ -19,7 +19,7 @@ flowchart TD
     StudyScreen --> TypeSearch[/Search bar — min 2 chars/]
 
     TypeSearch --> Results(SEARCH RESULTS\nTopics section · Categories section)
-    Results -->|no match| NoMatch(EMPTY STATE\n"No topics match ...")
+    Results -->|no match| NoMatch(EMPTY STATE\nNo topics match ...)
     Results --> TapTopicRow[/Tap Topic row\nsingle-subcategory intent/]
     Results --> TapCatInResults[/Tap Category card/]
     TapTopicRow --> SubcatDetails
@@ -124,10 +124,11 @@ flowchart TD
 
     %% ── Fast Session ──────────────────────────────────────────────
     FastSession(STUDY SESSION — FAST\nTTS auto-play · no ratings · no mastery)
-    FastSession --> TtsLoop["TTS: reads Q → 1.5s pause → reads A → 2.5s pause → auto-advance
-    Controls (no navigation change): pause/play · skip-next · skip-previous
-    Speed slider 0.5×–2× · 'Show Answer' interrupts Q and reads A immediately
-    Playback survives screen-off and app backgrounded via foreground MediaSession service"]
+    %% Controls available during Fast session — no navigation change:
+    %% pause/play · skip-next · skip-previous · speed slider 0.5×–2×
+    %% Show Answer: interrupts Q utterance, reads A immediately
+    %% Playback survives screen-off/app-background via foreground MediaSession service
+    FastSession --> TtsLoop[TTS: Q → 1.5s pause → A → 2.5s pause → auto-advance]
     TtsLoop --> FastQueueCheck{Queue empty?}
     FastQueueCheck -->|no| FastSession
     FastQueueCheck -->|yes| WriteFast[Write to Firestore:\nsession record · isPartial = false\nno card mastery written]
