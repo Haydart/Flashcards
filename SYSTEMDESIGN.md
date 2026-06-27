@@ -2,9 +2,9 @@
 
 ## Navigation
 
-3 top-level tabs:
+4 top-level tabs:
 ```
-🏠 Home · 📚 Study · ⚙️ Settings
+🏠 Home · 📚 Study · 📊 Progress · ⚙️ Settings
 ```
 
 ### Nav graph structure
@@ -19,6 +19,8 @@ Root NavHost
     │   │   └── HomeRoot
     │   ├── StudyGraph (nested graph)
     │   │   └── StudyRoot
+    │   ├── ProgressGraph (nested graph)
+    │   │   └── ProgressRoot
     │   └── SettingsGraph (nested graph)
     │       ├── SettingsRoot
     │       └── FlagsScreen

@@ -28,4 +28,4 @@ The current recommended Android media stack. Would give `MediaSessionService` in
 - TTS language is fixed to `Locale.US` (app is English-only); voice/language selection is deferred to a future Settings option.
 - Speech rate is configurable (0.5×–2×) but restarts the current utterance on change (TTS cannot resume mid-word).
 - Audio focus is managed manually (`AudioFocusRequest`): `AUDIOFOCUS_LOSS_TRANSIENT` pauses with auto-resume; `AUDIOFOCUS_LOSS` pauses without auto-resume.
-- Backtick characters are stripped from spoken text at session load time (`forSpeech()` in ViewModel) to prevent TTS from reading "backtick" aloud; Flashcard model text is unaffected.
+- Backtick characters are stripped from spoken text at session load time (`forSpeech()` in `StudySessionVoiceGateway`) to prevent TTS from reading "backtick" aloud; Flashcard model text is unaffected.

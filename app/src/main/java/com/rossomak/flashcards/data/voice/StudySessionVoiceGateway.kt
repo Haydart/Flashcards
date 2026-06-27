@@ -1,10 +1,11 @@
-package com.rossomak.flashcards.service
+package com.rossomak.flashcards.data.voice
 
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+@UnstableApi
 class StudySessionVoiceGateway @Inject constructor(
     @ApplicationContext private val context: Context,
 ) : VoiceGateway {
@@ -85,13 +87,29 @@ class StudySessionVoiceGateway @Inject constructor(
         _state.value = VoicePlaybackState()
     }
 
-    override fun togglePlayPause() { voiceBinder?.togglePlayPause() }
-    override fun skipNext() { voiceBinder?.skipNext() }
-    override fun skipPrevious() { voiceBinder?.skipPrevious() }
-    override fun restartCurrentCard() { voiceBinder?.restartCurrentCard() }
-    override fun showAnswer() { voiceBinder?.showAnswer() }
-    override fun setSpeechRate(rate: Float) { voiceBinder?.setSpeechRate(rate) }
-    override fun speakExtendedContext(text: String) { voiceBinder?.speakExtendedContext(text) }
+    override fun togglePlayPause() {
+        voiceBinder?.togglePlayPause()
+    }
+
+    override fun rewindToNext() {
+        voiceBinder?.moveToNextCard()
+    }
+
+    override fun rewindToPrevious() {
+        voiceBinder?.moveToPreviousCard()
+    }
+
+    override fun restartCurrentCard() {
+        voiceBinder?.restartCurrentCardPlayback()
+    }
+
+    override fun showAnswer() {
+        voiceBinder?.skipToCardAnswerPlayback()
+    }
+
+    override fun setSpeechRate(rate: Float) {
+        voiceBinder?.setPlaybackSpeechRate(rate)
+    }
 
     private fun collectVoiceState(binder: StudySessionVoiceService.LocalBinder) {
         voiceStateJob?.cancel()
@@ -109,7 +127,8 @@ class StudySessionVoiceGateway @Inject constructor(
 
     private fun connectMediaController() {
         if (controllerFuture != null) return
-        val token = SessionToken(context, ComponentName(context, StudySessionVoiceService::class.java))
+        val token =
+            SessionToken(context, ComponentName(context, StudySessionVoiceService::class.java))
         controllerFuture = MediaController.Builder(context, token).buildAsync()
     }
 
@@ -131,10 +150,27 @@ class StudySessionVoiceGateway @Inject constructor(
 
     private fun List<Flashcard>.toVoiceCards(): List<VoiceCard> = map { card ->
         VoiceCard(
-            spokenQuestion = (card.questionSpoken?.takeIf { it.isNotBlank() } ?: card.question).forSpeech(),
-            spokenAnswer = (card.answerSpoken?.takeIf { it.isNotBlank() } ?: card.answer).forSpeech(),
+            spokenQuestion = (card.questionSpoken?.takeIf { it.isNotBlank() }
+                ?: card.question).forSpeech(),
+            spokenAnswer = (card.answerSpoken?.takeIf { it.isNotBlank() }
+                ?: card.answer).forSpeech(),
         )
     }
 
-    private fun String.forSpeech(): String = replace("`", "")
+    private fun String.forSpeech(): String {
+        val codeTransformed = replace(Regex("`([^`]*)`")) { match -> // extract code span content; wraps result in single quotes for verbal separation
+            val inner = match.groupValues[1]
+                .replace(Regex("(?<=\\S)<(?!/)([^>]+)>")) { " of ${it.groupValues[1]}" } // generic types: List<String> → "List of String"; skips standalone tags like <service> (no non-ws before <); skips closing tags
+                .replace(Regex("(?<!\\.)\\.(?!\\.)"), " DOT ") // member access dots → " DOT "; lets through ellipsis (...)
+                .replace("_", " ") // snake_case separators → spaces
+                .replace(Regex(" {2,}"), " ") // collapse runs of spaces left by prior replacements
+                .trim()
+            "'$inner'" // single quotes in order to verbally separate the inline code from surrounding text; avoids reading it as a single word
+        }
+        return codeTransformed
+            .replace(Regex("</?([^>]+?)\\s*/?>")) { it.groupValues[1].trim() } // XML/HTML tags → inner content; handles <tag>, </tag>, <tag />; lets through < and > not forming a full tag
+            .replace(Regex("\\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\\b")) { it.value.lowercase().replace('_', ' ') } // SCREAMING_SNAKE_CASE → lowercase words; requires at least one underscore, lets through bare acronyms like HTTP
+            .replace(Regex("[→←↑↓⇒⇐⇑⇓↔⇔]"), ".") // Unicode arrows → full stop; avoid reading them as "right pointing arrow" etc.; they are used as visual separators and reading them is distracting
+            .replace("`", "'") // remaining stray backticks → single quotes
+    }
 }

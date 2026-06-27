@@ -28,10 +28,9 @@ interface VoiceGateway {
     fun start(cards: List<Flashcard>, startIndex: Int, subcategoryName: String)
     fun stop()
     fun togglePlayPause()
-    fun skipNext()
-    fun skipPrevious()
+    fun rewindToNext()
+    fun rewindToPrevious()
     fun restartCurrentCard()
     fun showAnswer()
     fun setSpeechRate(rate: Float)
-    fun speakExtendedContext(text: String)
 }

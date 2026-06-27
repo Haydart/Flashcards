@@ -48,8 +48,12 @@ class StudySessionViewModel @Inject constructor(
     private var isPastRewindThreshold = false
     private var lastObservedCardIndex = -1
 
-    private var extendedContextRevealed = false
-    private var extendedContextSpoken = false
+    private var isExtendedContextDialogOpen = false
+
+    // True only when the pause was caused by the dialog intercepting a natural between-card advance.
+    // Gates auto-advance on dialog dismiss and changes play-button behavior.
+    private var pausedDueToExtendedContext = false
+    private var advanceAfterExtendedContextJob: Job? = null
 
     init {
         loadFlashcards()
@@ -61,7 +65,7 @@ class StudySessionViewModel @Inject constructor(
             _state.update { it.copy(isLoading = true, error = null) }
             getFlashcards(subcategoryId)
                 .onSuccess { flashcards ->
-                    val sampleSize = minOf((flashcards.size * 0.6).toInt(), 150)
+                    val sampleSize = minOf((flashcards.size * 0.6).toInt(), 150).coerceAtLeast(1)
                     val sampled = flashcards.shuffled().take(sampleSize)
                         .groupBy { it.difficulty }
                         .toSortedMap()
@@ -94,17 +98,21 @@ class StudySessionViewModel @Inject constructor(
                 }
                 if (voice.isActive && voice.currentIndex != lastObservedCardIndex) {
                     lastObservedCardIndex = voice.currentIndex
-                    extendedContextRevealed = false
-                    extendedContextSpoken = false
+                    advanceAfterExtendedContextJob?.cancel()
+                    pausedDueToExtendedContext = false
                     startRewindThresholdTimer()
                 } else if (!voice.isActive) {
+                    voiceStarted = false
                     lastObservedCardIndex = -1
-                    extendedContextRevealed = false
-                    extendedContextSpoken = false
+                    advanceAfterExtendedContextJob?.cancel()
+                    pausedDueToExtendedContext = false
                     rewindJob?.cancel()
                     isPastRewindThreshold = false
                 }
-                if (voice.isInBetweenPause) maybeSpeakExtendedContext()
+                if (voice.isInBetweenPause && voice.isPlaying && isExtendedContextDialogOpen && !pausedDueToExtendedContext) {
+                    pausedDueToExtendedContext = true
+                    viewModelScope.launch { voiceGateway.togglePlayPause() }
+                }
             }
         }
     }
@@ -146,17 +154,62 @@ class StudySessionViewModel @Inject constructor(
         }
     }
 
-    fun onVoicePlayPause() { voiceGateway.togglePlayPause() }
-    fun onVoiceNext() { voiceGateway.skipNext() }
+    fun onVoicePlayPause() {
+        if (pausedDueToExtendedContext) {
+            advanceAfterExtendedContextJob?.cancel()
+            pausedDueToExtendedContext = false
+            viewModelScope.launch {
+                voiceGateway.rewindToNext()
+                voiceGateway.togglePlayPause()
+            }
+        } else {
+            voiceGateway.togglePlayPause()
+        }
+    }
+
+    fun onVoiceNext() {
+        advanceAfterExtendedContextJob?.cancel()
+        pausedDueToExtendedContext = false
+        voiceGateway.rewindToNext()
+    }
+
     fun onVoicePrevious() {
+        advanceAfterExtendedContextJob?.cancel()
+        pausedDueToExtendedContext = false
         if (isPastRewindThreshold || voiceGateway.state.value.currentIndex == 0) {
             voiceGateway.restartCurrentCard()
             startRewindThresholdTimer()
         } else {
-            voiceGateway.skipPrevious()
+            voiceGateway.rewindToPrevious()
         }
     }
+
     fun onVoiceSpeedChange(rate: Float) { voiceGateway.setSpeechRate(rate) }
+
+    fun onExtendedContextDialogOpen() {
+        isExtendedContextDialogOpen = true
+        val voiceState = voiceGateway.state.value
+        if (voiceState.isInBetweenPause && voiceState.isPlaying) {
+            pausedDueToExtendedContext = true
+            viewModelScope.launch { voiceGateway.togglePlayPause() }
+        }
+    }
+
+    fun onExtendedContextDialogDismissed() {
+        isExtendedContextDialogOpen = false
+        if (pausedDueToExtendedContext) {
+            advanceAfterExtendedContextJob = viewModelScope.launch {
+                delay(EXTENDED_CONTEXT_ADVANCE_DELAY_MS)
+                pausedDueToExtendedContext = false
+                voiceGateway.rewindToNext()
+                voiceGateway.togglePlayPause()
+            }
+        }
+    }
+
+    fun onVoiceErrorDismissed() {
+        _state.update { it.copy(voiceError = null) }
+    }
 
     private fun startRewindThresholdTimer() {
         rewindJob?.cancel()
@@ -165,29 +218,6 @@ class StudySessionViewModel @Inject constructor(
             delay(rewindThresholdMs)
             isPastRewindThreshold = true
         }
-    }
-
-    fun onExtendedContextRevealed() {
-        extendedContextRevealed = true
-        if (_state.value.isVoiceActive && voiceGateway.state.value.isInBetweenPause) {
-            maybeSpeakExtendedContext()
-        }
-    }
-
-    fun onExtendedContextCollapsed() {
-        if (!extendedContextSpoken) extendedContextRevealed = false
-    }
-
-    private fun maybeSpeakExtendedContext() {
-        if (!extendedContextRevealed || extendedContextSpoken) return
-        val card = _state.value.flashcards.getOrNull(_state.value.currentCardIndex) ?: return
-        val text = card.extendedContext?.takeIf { it.isNotBlank() }?.replace("`", "") ?: return
-        extendedContextSpoken = true
-        voiceGateway.speakExtendedContext(text)
-    }
-
-    fun onVoiceErrorDismissed() {
-        _state.update { it.copy(voiceError = null) }
     }
 
     fun onCurationFabClick() {
@@ -267,8 +297,13 @@ class StudySessionViewModel @Inject constructor(
         _state.update { it.copy(curationError = null) }
     }
 
+
     public override fun onCleared() {
         voiceGateway.stop()
         super.onCleared()
+    }
+
+    private companion object {
+        const val EXTENDED_CONTEXT_ADVANCE_DELAY_MS = 500L
     }
 }

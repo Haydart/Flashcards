@@ -75,6 +75,7 @@ class FlashcardViewModel @Inject constructor(
 - Constants: UPPER_SNAKE_CASE
 - Composable functions: PascalCase (`FlashcardScreen()`)
 - ViewModel event handlers (UI → ViewModel callbacks): `onXxx` prefix, present tense (`onCategoriesRefresh`, `onCardSelect`)
+- Interface implementations: `Default` prefix, no `Impl` suffix (`DefaultFlashcardRepository`, not `FlashcardRepositoryImpl`; `DefaultAudioPlayer`, not `AudioPlayerImpl`)
 
 ### Sealed Classes for States
 Use sealed classes for finite UI states (e.g. loading / content / error variants of a screen state).
@@ -125,6 +126,7 @@ StateFlow / SharedFlow rules:
 
 - DTOs use `@Serializable`; named with `Dto` suffix (`FlashcardDto`)
 - Mappers: `toDomain()` (DTO → Domain), `toDto()` (Domain → DTO)
+- **Firestore string constants**: All Firestore collection names, document names, and field names used in queries must be extracted into `const val` constants in a `companion object` of the data source class. Never pass raw string literals to `.collection()`, `.document()`, `.orderBy()`, `.whereEqualTo()`, etc.
 
 ```kotlin
 object FlashcardMapper {

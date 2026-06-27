@@ -8,7 +8,7 @@ import com.rossomak.flashcards.domain.repository.AuthRepository
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
-class AuthRepositoryImpl @Inject constructor(
+class DefaultAuthRepository @Inject constructor(
     private val firebaseAuth: FirebaseAuth
 ) : AuthRepository {
 

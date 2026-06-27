@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.service
+package com.rossomak.flashcards.data.voice
 
 import android.app.PendingIntent
 import android.content.Intent
@@ -8,15 +8,16 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.rossomak.flashcards.MainActivity
-import kotlinx.coroutines.flow.StateFlow
+import com.rossomak.flashcards.data.voice.StudySessionVoiceService.Companion.ACTION_BIND_LOCAL
 import com.rossomak.flashcards.domain.voice.VoicePlaybackState
+import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Media3 [MediaSessionService] that reads flashcards aloud for the Fast voice study mode. It owns a
+ * Media3 [MediaSessionService] that reads flashcards aloud, with background playback capabilities. It owns a
  * [TtsPlayer] (TextToSpeech wrapped as a Media3 `Player`) and a [MediaSession]; Media3 provides the
  * lock-screen / Bluetooth / notification transport controls, media-button routing and foreground
  * lifecycle. Audio focus is managed inside [TtsPlayer] because Media3 only auto-handles focus for
- * `ExoPlayer`.
+ * `ExoPlayer`, which we cannot use because it does not support TTS OOTB.
  *
  * The in-app UI binds via [LocalBinder] (custom [ACTION_BIND_LOCAL] intent) to push the card queue
  * and drive playback, and observes [LocalBinder.state] — which carries TTS-specific phase and
@@ -35,15 +36,20 @@ class StudySessionVoiceService : MediaSessionService() {
         val state: StateFlow<VoicePlaybackState> get() = player.voiceState
 
         fun loadSession(cards: List<VoiceCard>, startIndex: Int, subcategoryName: String) =
-            player.commandLoadSession(cards, startIndex, subcategoryName)
+            player.loadAndStartSession(cards, startIndex, subcategoryName)
 
-        fun togglePlayPause() = player.commandTogglePlayPause()
-        fun skipNext() = player.commandSkipNext()
-        fun skipPrevious() = player.commandSkipPrevious()
-        fun restartCurrentCard() = player.commandRestartCurrentCard()
-        fun showAnswer() = player.commandShowAnswer()
-        fun setSpeechRate(rate: Float) = player.commandSetSpeechRate(rate)
-        fun speakExtendedContext(text: String) = player.commandSpeakExtendedContext(text)
+        fun togglePlayPause() = player.togglePlayPause()
+
+        fun moveToNextCard() = player.moveToNextCard()
+
+        fun moveToPreviousCard() = player.moveToPreviousCard()
+
+        fun restartCurrentCardPlayback() = player.restartCurrentCardPlayback()
+
+        fun skipToCardAnswerPlayback() = player.skipToCardAnswerPlayback()
+
+        fun setPlaybackSpeechRate(rate: Float) = player.setPlaybackSpeechRate(rate)
+
         fun stopPlayback() = this@StudySessionVoiceService.stopPlayback()
     }
 
@@ -55,7 +61,7 @@ class StudySessionVoiceService : MediaSessionService() {
             .build()
     }
 
-    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession = mediaSession
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo) = mediaSession
 
     override fun onBind(intent: Intent?): IBinder? =
         if (intent?.action == ACTION_BIND_LOCAL) binder else super.onBind(intent)
@@ -66,15 +72,15 @@ class StudySessionVoiceService : MediaSessionService() {
         super.onTaskRemoved(rootIntent)
     }
 
+    private fun stopPlayback() {
+        player.stopPlayback()
+        stopSelf()
+    }
+
     override fun onDestroy() {
         mediaSession.release()
         player.release()
         super.onDestroy()
-    }
-
-    private fun stopPlayback() {
-        player.commandStop()
-        stopSelf()
     }
 
     private fun contentPendingIntent(): PendingIntent = PendingIntent.getActivity(
@@ -87,6 +93,6 @@ class StudySessionVoiceService : MediaSessionService() {
     )
 
     companion object {
-        const val ACTION_BIND_LOCAL = "com.rossomak.flashcards.service.BIND_LOCAL"
+        const val ACTION_BIND_LOCAL = "com.rossomak.flashcards.data.voice.BIND_LOCAL"
     }
 }
