@@ -16,6 +16,8 @@ import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -23,6 +25,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class StudySessionViewModelTest {
 
     @get:Rule
@@ -60,8 +63,11 @@ class StudySessionViewModelTest {
         voiceGateway = fakeGateway,
     ).also { it.rewindThresholdMs = rewindThresholdMs }
 
-    private fun loadedViewModel(rewindThresholdMs: Long = Long.MAX_VALUE) {
-        coEvery { flashcardRepository.fetchFlashcards(any()) } returns Result.success(fakeFlashcards())
+    private fun loadedViewModel(
+        rewindThresholdMs: Long = Long.MAX_VALUE,
+        flashcards: List<Flashcard> = fakeFlashcards(),
+    ) {
+        coEvery { flashcardRepository.fetchFlashcards(any()) } returns Result.success(flashcards)
         viewModel.onCleared()
         fakeGateway = FakeVoiceGateway()
         viewModel = buildViewModel(rewindThresholdMs = rewindThresholdMs)
@@ -201,51 +207,51 @@ class StudySessionViewModelTest {
     }
 
     @Test
-    fun `onExtendedContextRevealed while in between pause pauses playback`() {
+    fun `onExtendedContextDialogOpen while in between pause pauses playback`() {
         loadedViewModel()
-        fakeGateway.emitState(VoicePlaybackState(isActive = true, isInBetweenPause = true, currentIndex = 0))
+        fakeGateway.emitState(VoicePlaybackState(isActive = true, isPlaying = true, isInBetweenPause = true, currentIndex = 0))
 
-        viewModel.onExtendedContextRevealed()
+        viewModel.onExtendedContextDialogOpen()
 
         fakeGateway.togglePlayPauseCallCount shouldBe 1
     }
 
     @Test
-    fun `onExtendedContextRevealed not in between pause does not pause`() {
+    fun `onExtendedContextDialogOpen not in between pause does not pause`() {
         loadedViewModel()
-        fakeGateway.emitState(VoicePlaybackState(isActive = true, isInBetweenPause = false, currentIndex = 0))
+        fakeGateway.emitState(VoicePlaybackState(isActive = true, isPlaying = true, isInBetweenPause = false, currentIndex = 0))
 
-        viewModel.onExtendedContextRevealed()
+        viewModel.onExtendedContextDialogOpen()
 
         fakeGateway.togglePlayPauseCallCount shouldBe 0
     }
 
     @Test
-    fun `entering between pause after reveal pauses playback`() = runTest {
+    fun `entering between pause after dialog open pauses playback`() = runTest {
         loadedViewModel()
-        fakeGateway.emitState(VoicePlaybackState(isActive = true, isInBetweenPause = false, currentIndex = 0))
-        viewModel.onExtendedContextRevealed()
+        fakeGateway.emitState(VoicePlaybackState(isActive = true, isPlaying = true, isInBetweenPause = false, currentIndex = 0))
+        viewModel.onExtendedContextDialogOpen()
 
-        fakeGateway.emitState(VoicePlaybackState(isActive = true, isInBetweenPause = true, currentIndex = 0))
+        fakeGateway.emitState(VoicePlaybackState(isActive = true, isPlaying = true, isInBetweenPause = true, currentIndex = 0))
 
         fakeGateway.togglePlayPauseCallCount shouldBe 1
     }
 
     @Test
-    fun `onExtendedContextCollapsed before between pause prevents pause`() = runTest {
+    fun `onExtendedContextDialogDismissed before between pause prevents pause`() = runTest {
         loadedViewModel()
-        fakeGateway.emitState(VoicePlaybackState(isActive = true, isInBetweenPause = false, currentIndex = 0))
-        viewModel.onExtendedContextRevealed()
-        viewModel.onExtendedContextCollapsed()
+        fakeGateway.emitState(VoicePlaybackState(isActive = true, isPlaying = true, isInBetweenPause = false, currentIndex = 0))
+        viewModel.onExtendedContextDialogOpen()
+        viewModel.onExtendedContextDialogDismissed()
 
-        fakeGateway.emitState(VoicePlaybackState(isActive = true, isInBetweenPause = true, currentIndex = 0))
+        fakeGateway.emitState(VoicePlaybackState(isActive = true, isPlaying = true, isInBetweenPause = true, currentIndex = 0))
 
         fakeGateway.togglePlayPauseCallCount shouldBe 0
     }
 
     @Test
-    fun `onExtendedContextRevealed does nothing when voice inactive`() {
-        viewModel.onExtendedContextRevealed()
+    fun `onExtendedContextDialogOpen does nothing when voice inactive`() {
+        viewModel.onExtendedContextDialogOpen()
 
         fakeGateway.togglePlayPauseCallCount shouldBe 0
     }
@@ -255,6 +261,134 @@ class StudySessionViewModelTest {
         viewModel.onCleared()
 
         fakeGateway.stopCallCount shouldBe 1
+    }
+
+    @Test
+    fun `init failure sets error state`() {
+        coEvery { flashcardRepository.fetchFlashcards(any()) } returns Result.failure(Exception("network"))
+        viewModel.onCleared()
+        viewModel = buildViewModel()
+
+        viewModel.state.assertValue {
+            error shouldBe "Could not load flashcards"
+            isLoading shouldBe false
+        }
+    }
+
+    @Test
+    fun `onNextCard advances currentCardIndex and hides answer`() {
+        loadedViewModel()
+        viewModel.onShowAnswer()
+
+        viewModel.onNextCard()
+
+        viewModel.state.assertValue {
+            currentCardIndex shouldBe 1
+            isAnswerRevealed shouldBe false
+        }
+    }
+
+    @Test
+    fun `onNextCard on last card marks session complete`() {
+        loadedViewModel(flashcards = fakeFlashcards(count = 1))
+
+        viewModel.onNextCard()
+
+        viewModel.state.value.isSessionComplete shouldBe true
+    }
+
+    @Test
+    fun `onVoicePlayPause delegates to gateway`() {
+        viewModel.onVoicePlayPause()
+
+        fakeGateway.togglePlayPauseCallCount shouldBe 1
+    }
+
+    @Test
+    fun `onVoicePlayPause when paused due to extended context rewinds to next and resumes`() {
+        loadedViewModel()
+        fakeGateway.emitState(VoicePlaybackState(isActive = true, isPlaying = true, isInBetweenPause = true, currentIndex = 0))
+        viewModel.onExtendedContextDialogOpen()
+
+        viewModel.onVoicePlayPause()
+
+        fakeGateway.rewindToNextCallCount shouldBe 1
+        fakeGateway.togglePlayPauseCallCount shouldBe 2
+    }
+
+    @Test
+    fun `onVoiceNext calls rewindToNext on gateway`() {
+        viewModel.onVoiceNext()
+
+        fakeGateway.rewindToNextCallCount shouldBe 1
+    }
+
+    @Test
+    fun `onVoiceNext clears pause state so subsequent play pause uses normal path`() {
+        loadedViewModel()
+        fakeGateway.emitState(VoicePlaybackState(isActive = true, isPlaying = true, isInBetweenPause = true, currentIndex = 0))
+        viewModel.onExtendedContextDialogOpen()
+
+        viewModel.onVoiceNext()
+        viewModel.onVoicePlayPause()
+
+        fakeGateway.rewindToNextCallCount shouldBe 1
+        fakeGateway.togglePlayPauseCallCount shouldBe 2
+    }
+
+    @Test
+    fun `onVoiceSpeedChange delegates to gateway`() {
+        val rate = 1.5f
+
+        viewModel.onVoiceSpeedChange(rate)
+
+        fakeGateway.setSpeechRateCallCount shouldBe 1
+        fakeGateway.lastSpeechRate shouldBe rate
+    }
+
+    @Test
+    fun `voice speech rate propagates to screen state`() {
+        fakeGateway.emitState(VoicePlaybackState(isActive = true, speechRate = 1.5f))
+
+        viewModel.state.value.speechRate shouldBe 1.5f
+    }
+
+    @Test
+    fun `voice becoming inactive clears voice active and playing state`() {
+        fakeGateway.emitState(VoicePlaybackState(isActive = true, isPlaying = true))
+
+        fakeGateway.emitState(VoicePlaybackState(isActive = false))
+
+        viewModel.state.assertValue {
+            isVoiceActive shouldBe false
+            isVoicePlaying shouldBe false
+        }
+    }
+
+    @Test
+    fun `card advance clears pause state so subsequent play pause uses normal path`() {
+        loadedViewModel()
+        fakeGateway.emitState(VoicePlaybackState(isActive = true, isPlaying = true, isInBetweenPause = true, currentIndex = 0))
+        viewModel.onExtendedContextDialogOpen()
+
+        fakeGateway.emitState(VoicePlaybackState(isActive = true, isPlaying = true, currentIndex = 1))
+        viewModel.onVoicePlayPause()
+
+        fakeGateway.rewindToNextCallCount shouldBe 0
+        fakeGateway.togglePlayPauseCallCount shouldBe 2
+    }
+
+    @Test
+    fun `onExtendedContextDialogDismissed when paused due to extended context auto-advances after delay`() = runTest(mainDispatcherRule.testDispatcher) {
+        loadedViewModel()
+        fakeGateway.emitState(VoicePlaybackState(isActive = true, isPlaying = true, isInBetweenPause = true, currentIndex = 0))
+        viewModel.onExtendedContextDialogOpen()
+
+        viewModel.onExtendedContextDialogDismissed()
+        advanceUntilIdle()
+
+        fakeGateway.rewindToNextCallCount shouldBe 1
+        fakeGateway.togglePlayPauseCallCount shouldBe 2
     }
 }
 
@@ -266,8 +400,11 @@ private class FakeVoiceGateway : VoiceGateway {
     var stopCallCount = 0
     var showAnswerCallCount = 0
     var togglePlayPauseCallCount = 0
+    var rewindToNextCallCount = 0
     var rewindToPreviousCallCount = 0
     var restartCurrentCardCallCount = 0
+    var setSpeechRateCallCount = 0
+    var lastSpeechRate: Float = 0f
 
     override fun start(
         cards: List<Flashcard>,
@@ -277,11 +414,14 @@ private class FakeVoiceGateway : VoiceGateway {
 
     override fun stop() { stopCallCount++ }
     override fun togglePlayPause() { togglePlayPauseCallCount++ }
-    override fun rewindToNext() {}
+    override fun rewindToNext() { rewindToNextCallCount++ }
     override fun rewindToPrevious() { rewindToPreviousCallCount++ }
     override fun restartCurrentCard() { restartCurrentCardCallCount++ }
     override fun showAnswer() { showAnswerCallCount++ }
-    override fun setSpeechRate(rate: Float) {}
+    override fun setSpeechRate(rate: Float) {
+        setSpeechRateCallCount++
+        lastSpeechRate = rate
+    }
 
     fun emitState(state: VoicePlaybackState) { _state.value = state }
 }
