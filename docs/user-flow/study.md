@@ -82,7 +82,7 @@ flowchart TD
     %% Legend: (Screen)  [/Action/]  {Decision}  ([Entry/Exit])
 
     %% ── Pre-start Screen ──────────────────────────────────────────
-    PreStart(PRE-START SCREEN\nScope summary · card count · estimated duration\nStudy Mode: Rated ◉ | Fast ○\nStart Session button)
+    PreStart(PRE-START SCREEN\nScope summary · card count · estimated duration\nStudy Mode: Rated or Fast\nStart Session button)
     PreStart --> ModeChoice{Study Mode?}
     ModeChoice -->|Rated| RatedSession
     ModeChoice -->|Fast| FastSession
