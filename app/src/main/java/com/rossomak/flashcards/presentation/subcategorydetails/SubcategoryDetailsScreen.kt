@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.domain.model.Flashcard
+import com.rossomak.flashcards.ui.design.withInlineCode
 
 @Composable
 fun SubcategoryDetailsScreen(
@@ -187,7 +188,7 @@ private fun FlashcardItem(
                             )
                         }
                         Text(
-                            text = flashcard.question,
+                            text = flashcard.question.withInlineCode(),
                             style = MaterialTheme.typography.bodyLarge,
                         )
                     }
@@ -227,7 +228,7 @@ private fun FlashcardItem(
             ) {
                 Column(modifier = Modifier.padding(top = 12.dp)) {
                     Text(
-                        text = flashcard.answer,
+                        text = flashcard.answer.withInlineCode(),
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(start = 38.dp)
                     )
