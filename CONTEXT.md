@@ -84,6 +84,14 @@ _Avoid_: Report, Suggest, Propose, Mark-for-deletion
 The intent carried by a Flag. Values: **Retire** (delete the Flashcard from the global pool) or **Rework** (edit the Flashcard for quality). Chosen by the User at flag time; changeable later from the Flags Screen.
 _Avoid_: Flag type, Flag reason, Flag status
 
+**Curation Request**:
+A debug-only developer signal that a global Flashcard needs a specific content fix. Stored at `users/{uid}/curationRequests/{cardId}`. One document per card; multiple Curation Actions can be active simultaneously. Distinct from Flags — Curation Requests are consumed by admin sync scripts and never shown in the Flags Screen. Only present in debug builds.
+_Avoid_: Flag, Report, Curation Flag
+
+**Curation Action**:
+A specific fix directive attached to a Curation Request. Values: `DIFFICULTY_TOO_EASY` (AI should raise difficulty), `DIFFICULTY_TOO_HARD` (AI should lower difficulty), `DELETE` (card is duplicate or worthless), `BACKTICK_REDO` (inline-code formatting is wrong), `NEEDS_CODE_EXAMPLE` (answer needs a code block), `FULL_REDO` (factually wrong or structurally broken). `DIFFICULTY_TOO_EASY` and `DIFFICULTY_TOO_HARD` are mutually exclusive. All other actions can coexist.
+_Avoid_: Flag Action, Curation Type, Curation Flag Action
+
 ### Activities
 
 **Study Creation**:
@@ -114,7 +122,7 @@ A User's progression milestone derived from total XP accumulated. Early levels a
 _Avoid_: Rank, Tier, Grade
 
 **Streak**:
-The count of consecutive calendar days on which a User started at least one Study Session (reached the Session Summary screen, partial or full). Day boundary is midnight in the device's local timezone. A Streak breaks when a full calendar day passes without a session. Best Streak is the historical peak; it never decrements.
+The count of consecutive calendar days on which a User started at least one Study Session (partial or full). Day boundary is midnight in the device's local timezone. A Streak breaks when a full calendar day passes without a session. Best Streak is the historical peak; it never decrements.
 _Avoid_: Combo, Daily count
 
 **Daily Goal**:

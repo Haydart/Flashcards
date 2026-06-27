@@ -3,8 +3,13 @@ package com.rossomak.flashcards.presentation.studysession
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.rossomak.flashcards.domain.model.CurationAction
+import com.rossomak.flashcards.domain.model.CurationRequest
+import com.rossomak.flashcards.domain.usecase.GetCurationRequestsUseCase
 import com.rossomak.flashcards.domain.usecase.GetFlashcardsUseCase
+import com.rossomak.flashcards.domain.usecase.ToggleCurationActionUseCase
 import com.rossomak.flashcards.domain.voice.VoiceGateway
+import java.time.Instant
 import com.rossomak.flashcards.domain.voice.VoicePhase
 import com.rossomak.flashcards.domain.voice.VoicePlaybackState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -22,6 +27,8 @@ class StudySessionViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val getFlashcards: GetFlashcardsUseCase,
     private val voiceGateway: VoiceGateway,
+    private val getCurationRequests: GetCurationRequestsUseCase,
+    private val toggleCurationAction: ToggleCurationActionUseCase,
 ) : ViewModel() {
 
     private val subcategoryId: String = checkNotNull(savedStateHandle["subcategoryId"])
@@ -32,6 +39,8 @@ class StudySessionViewModel @Inject constructor(
 
     // Tracks eagerly so rapid toggles don't race against isVoiceActive propagation.
     private var voiceStarted = false
+
+    private var curationCacheLoadStarted = false
 
     internal var rewindThresholdMs: Long = VoicePlaybackState.REWIND_THRESHOLD_MS
 
@@ -210,6 +219,84 @@ class StudySessionViewModel @Inject constructor(
             isPastRewindThreshold = true
         }
     }
+
+    fun onCurationFabClick() {
+        if (_state.value.isVoicePlaying) voiceGateway.togglePlayPause()
+        _state.update { it.copy(isCurationDialogVisible = true) }
+        if (!curationCacheLoadStarted) {
+            curationCacheLoadStarted = true
+            loadCurationCache()
+        }
+    }
+
+    private fun loadCurationCache() {
+        viewModelScope.launch {
+            val cardIds = _state.value.flashcards.map { it.id }
+            getCurationRequests(cardIds)
+                .onSuccess { requests ->
+                    _state.update { it.copy(curationRequests = requests) }
+                }
+        }
+    }
+
+    fun onCurationActionToggle(action: CurationAction) {
+        val currentCard = _state.value.flashcards.getOrNull(_state.value.currentCardIndex) ?: return
+        val currentRequest = _state.value.curationRequests[currentCard.id]
+        val isCurrentlyActive = currentRequest?.actions?.containsKey(action) == true
+
+        val updatedActions = (currentRequest?.actions ?: emptyMap()).toMutableMap()
+        if (isCurrentlyActive) {
+            updatedActions.remove(action)
+        } else {
+            updatedActions[action] = Instant.now()
+            action.difficultyOpposite()?.let { updatedActions.remove(it) }
+        }
+
+        val updatedRequest = if (updatedActions.isEmpty()) {
+            null
+        } else {
+            CurationRequest(
+                cardId = currentCard.id,
+                subcategoryId = currentCard.subcategoryId,
+                actions = updatedActions,
+            )
+        }
+
+        val optimisticRequests = _state.value.curationRequests.toMutableMap().apply {
+            if (updatedRequest == null) remove(currentCard.id) else put(currentCard.id, updatedRequest)
+        }
+        _state.update { it.copy(curationRequests = optimisticRequests) }
+
+        viewModelScope.launch {
+            toggleCurationAction(
+                ToggleCurationActionUseCase.Params(
+                    cardId = currentCard.id,
+                    subcategoryId = currentCard.subcategoryId,
+                    action = action,
+                    isCurrentlyActive = isCurrentlyActive,
+                )
+            ).onFailure {
+                val revertedRequests = _state.value.curationRequests.toMutableMap().apply {
+                    if (currentRequest == null) remove(currentCard.id) else put(currentCard.id, currentRequest)
+                }
+                _state.update {
+                    it.copy(
+                        curationRequests = revertedRequests,
+                        curationError = "Failed to save curation request",
+                    )
+                }
+            }
+        }
+    }
+
+    fun onCurationDialogDismiss() {
+        _state.update { it.copy(isCurationDialogVisible = false) }
+    }
+
+    fun onCurationErrorDismissed() {
+        _state.update { it.copy(curationError = null) }
+    }
+
 
     public override fun onCleared() {
         voiceGateway.stop()
