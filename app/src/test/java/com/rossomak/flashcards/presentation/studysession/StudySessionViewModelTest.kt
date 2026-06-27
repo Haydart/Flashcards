@@ -4,7 +4,9 @@ import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
 import com.rossomak.flashcards.domain.model.Flashcard
 import com.rossomak.flashcards.domain.repository.FlashcardRepository
+import com.rossomak.flashcards.domain.usecase.GetCurationRequestsUseCase
 import com.rossomak.flashcards.domain.usecase.GetFlashcardsUseCase
+import com.rossomak.flashcards.domain.usecase.ToggleCurationActionUseCase
 import com.rossomak.flashcards.domain.voice.VoiceGateway
 import com.rossomak.flashcards.domain.voice.VoicePhase
 import com.rossomak.flashcards.domain.voice.VoicePlaybackState
@@ -33,6 +35,8 @@ class StudySessionViewModelTest {
 
     private val flashcardRepository: FlashcardRepository = mockk()
     private val getFlashcards = GetFlashcardsUseCase(flashcardRepository)
+    private val getCurationRequests: GetCurationRequestsUseCase = mockk()
+    private val toggleCurationAction: ToggleCurationActionUseCase = mockk()
     private lateinit var fakeGateway: FakeVoiceGateway
     private lateinit var viewModel: StudySessionViewModel
 
@@ -61,6 +65,8 @@ class StudySessionViewModelTest {
         ),
         getFlashcards = getFlashcards,
         voiceGateway = fakeGateway,
+        getCurationRequests = getCurationRequests,
+        toggleCurationAction = toggleCurationAction,
     ).also { it.rewindThresholdMs = rewindThresholdMs }
 
     private fun loadedViewModel(
