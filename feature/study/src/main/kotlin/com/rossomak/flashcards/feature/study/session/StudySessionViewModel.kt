@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.presentation.studysession
+package com.rossomak.flashcards.feature.study.session
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -8,10 +8,10 @@ import com.rossomak.flashcards.core.domain.model.CurationRequest
 import com.rossomak.flashcards.core.domain.usecase.GetCurationRequestsUseCase
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.ToggleCurationActionUseCase
-import com.rossomak.flashcards.domain.voice.VoiceGateway
+import com.rossomak.flashcards.feature.study.voice.VoiceGateway
 import java.time.Instant
-import com.rossomak.flashcards.domain.voice.VoicePhase
-import com.rossomak.flashcards.domain.voice.VoicePlaybackState
+import com.rossomak.flashcards.feature.study.voice.VoicePhase
+import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay

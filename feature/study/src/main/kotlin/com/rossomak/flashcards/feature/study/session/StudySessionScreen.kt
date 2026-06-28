@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.presentation.studysession
+package com.rossomak.flashcards.feature.study.session
 
 import android.Manifest
 import android.content.Intent
@@ -82,9 +82,9 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gallatinapps.syntaxmp.tokenizer.SyntaxTokenizer
-import com.rossomak.flashcards.BuildConfig
+import com.rossomak.flashcards.feature.study.BuildConfig
 import com.rossomak.flashcards.core.domain.model.CurationAction
-import com.rossomak.flashcards.domain.voice.VoicePlaybackState
+import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 import com.rossomak.flashcards.core.ui.SyntaxCodeBlock
 import com.rossomak.flashcards.core.ui.withInlineCode
 import kotlinx.coroutines.launch
