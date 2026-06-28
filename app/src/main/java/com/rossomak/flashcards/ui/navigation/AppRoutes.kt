@@ -22,4 +22,6 @@ import kotlinx.serialization.Serializable
 @Serializable object SettingsRoot
 
 // Shared full-screen destinations (no bottom nav)
-@Serializable data class StudySession(val subcategoryId: String, val subcategoryName: String)
+@Serializable data class StudyRoute(val subcategoryId: String, val subcategoryName: String)
+@Serializable data object StudySessionRoute
+@Serializable data object StudySummaryRoute

@@ -9,10 +9,10 @@ import com.rossomak.flashcards.feature.browse.CategoryDetailsRoute
 import com.rossomak.flashcards.feature.browse.CategoryDetailsScreen
 import com.rossomak.flashcards.feature.browse.SubcategoryDetailsRoute
 import com.rossomak.flashcards.feature.browse.SubcategoryDetailsScreen
+import com.rossomak.flashcards.feature.study.session.StudySessionScreen
 import com.rossomak.flashcards.presentation.login.LoginScreen
 import com.rossomak.flashcards.presentation.main.MainScreen
 import com.rossomak.flashcards.presentation.splash.SplashScreen
-import com.rossomak.flashcards.presentation.studysession.StudySessionScreen
 
 @Composable
 fun FlashcardsNavGraph(
@@ -73,11 +73,11 @@ fun FlashcardsNavGraph(
             SubcategoryDetailsScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToStudySession = { subcategoryId, subcategoryName ->
-                    navController.navigate(StudySession(subcategoryId, subcategoryName))
+                    navController.navigate(StudyRoute(subcategoryId, subcategoryName))
                 }
             )
         }
-        composable<StudySession> {
+        composable<StudyRoute> {
             StudySessionScreen(
                 onNavigateBack = { navController.popBackStack() }
             )

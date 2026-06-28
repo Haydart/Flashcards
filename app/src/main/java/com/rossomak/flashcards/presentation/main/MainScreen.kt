@@ -27,7 +27,7 @@ import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import com.rossomak.flashcards.feature.home.HomeScreen
 import com.rossomak.flashcards.feature.settings.SettingsScreen
-import com.rossomak.flashcards.presentation.study.StudyScreen
+import com.rossomak.flashcards.feature.study.prestart.StudyScreen
 import com.rossomak.flashcards.ui.navigation.HomeGraph
 import com.rossomak.flashcards.ui.navigation.HomeRoot
 import com.rossomak.flashcards.ui.navigation.SettingsGraph
