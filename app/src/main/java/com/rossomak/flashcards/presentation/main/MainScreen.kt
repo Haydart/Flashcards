@@ -25,7 +25,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
-import com.rossomak.flashcards.presentation.home.HomeScreen
+import com.rossomak.flashcards.feature.home.HomeScreen
 import com.rossomak.flashcards.feature.settings.SettingsScreen
 import com.rossomak.flashcards.presentation.study.StudyScreen
 import com.rossomak.flashcards.ui.navigation.HomeGraph
