@@ -11,9 +11,22 @@ import com.rossomak.flashcards.feature.browse.CategoryDetailsRoute
 import com.rossomak.flashcards.feature.browse.CategoryDetailsScreen
 import com.rossomak.flashcards.feature.browse.SubcategoryDetailsRoute
 import com.rossomak.flashcards.feature.browse.SubcategoryDetailsScreen
+import com.rossomak.flashcards.feature.study.StudyRoute
 import com.rossomak.flashcards.feature.study.session.StudySessionScreen
 import com.rossomak.flashcards.presentation.main.MainScreen
 import com.rossomak.flashcards.presentation.splash.SplashScreen
+import kotlinx.serialization.Serializable
+
+@Serializable object Splash
+@Serializable object Main
+
+@Serializable object HomeGraph
+@Serializable object StudyGraph
+@Serializable object SettingsGraph
+
+@Serializable object HomeRoot
+@Serializable object StudyRoot
+@Serializable object SettingsRoot
 
 @Composable
 fun FlashcardsNavGraph(
