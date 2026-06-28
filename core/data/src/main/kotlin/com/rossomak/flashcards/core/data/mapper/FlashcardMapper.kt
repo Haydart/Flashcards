@@ -1,8 +1,8 @@
-package com.rossomak.flashcards.data.mapper
+package com.rossomak.flashcards.core.data.mapper
 
-import com.rossomak.flashcards.data.model.CategoryDto
-import com.rossomak.flashcards.data.model.FlashcardDto
-import com.rossomak.flashcards.data.model.SubcategoryDto
+import com.rossomak.flashcards.core.data.model.CategoryDto
+import com.rossomak.flashcards.core.data.model.FlashcardDto
+import com.rossomak.flashcards.core.data.model.SubcategoryDto
 import com.rossomak.flashcards.core.domain.model.Category
 import com.rossomak.flashcards.core.domain.model.CodeBlock
 import com.rossomak.flashcards.core.domain.model.Flashcard

@@ -1,6 +1,6 @@
-package com.rossomak.flashcards.data.mapper
+package com.rossomak.flashcards.core.data.mapper
 
-import com.rossomak.flashcards.data.model.CurationRequestDto
+import com.rossomak.flashcards.core.data.model.CurationRequestDto
 import com.rossomak.flashcards.core.domain.model.CurationAction
 import com.rossomak.flashcards.core.domain.model.CurationRequest
 
