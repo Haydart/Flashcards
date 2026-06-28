@@ -1,7 +1,7 @@
 package com.rossomak.flashcards.domain.usecase
 
-import com.rossomak.flashcards.domain.model.AuthUser
-import com.rossomak.flashcards.domain.repository.AuthRepository
+import com.rossomak.flashcards.core.domain.model.AuthUser
+import com.rossomak.flashcards.core.domain.repository.AuthRepository
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk

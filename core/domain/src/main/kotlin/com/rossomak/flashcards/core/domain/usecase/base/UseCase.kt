@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.domain.usecase.base
+package com.rossomak.flashcards.core.domain.usecase.base
 
 interface UseCase<in P, out R> {
     suspend operator fun invoke(params: P): R

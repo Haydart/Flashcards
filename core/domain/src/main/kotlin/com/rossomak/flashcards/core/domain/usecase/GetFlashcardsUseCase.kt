@@ -1,8 +1,8 @@
-package com.rossomak.flashcards.domain.usecase
+package com.rossomak.flashcards.core.domain.usecase
 
-import com.rossomak.flashcards.domain.model.Flashcard
-import com.rossomak.flashcards.domain.repository.FlashcardRepository
-import com.rossomak.flashcards.domain.usecase.base.UseCase
+import com.rossomak.flashcards.core.domain.model.Flashcard
+import com.rossomak.flashcards.core.domain.repository.FlashcardRepository
+import com.rossomak.flashcards.core.domain.usecase.base.UseCase
 import javax.inject.Inject
 
 class GetFlashcardsUseCase @Inject constructor(

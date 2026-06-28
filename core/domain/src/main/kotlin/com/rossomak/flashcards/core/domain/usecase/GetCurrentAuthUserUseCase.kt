@@ -1,8 +1,8 @@
-package com.rossomak.flashcards.domain.usecase
+package com.rossomak.flashcards.core.domain.usecase
 
-import com.rossomak.flashcards.domain.model.AuthUser
-import com.rossomak.flashcards.domain.repository.AuthRepository
-import com.rossomak.flashcards.domain.usecase.base.NoParamUseCase
+import com.rossomak.flashcards.core.domain.model.AuthUser
+import com.rossomak.flashcards.core.domain.repository.AuthRepository
+import com.rossomak.flashcards.core.domain.usecase.base.NoParamUseCase
 import javax.inject.Inject
 
 class GetCurrentAuthUserUseCase @Inject constructor(

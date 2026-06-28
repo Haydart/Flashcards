@@ -1,8 +1,8 @@
-package com.rossomak.flashcards.domain.usecase
+package com.rossomak.flashcards.core.domain.usecase
 
-import com.rossomak.flashcards.domain.model.Category
-import com.rossomak.flashcards.domain.repository.FlashcardRepository
-import com.rossomak.flashcards.domain.usecase.base.NoParamUseCase
+import com.rossomak.flashcards.core.domain.model.Category
+import com.rossomak.flashcards.core.domain.repository.FlashcardRepository
+import com.rossomak.flashcards.core.domain.usecase.base.NoParamUseCase
 import javax.inject.Inject
 
 class GetCategoriesUseCase @Inject constructor(
