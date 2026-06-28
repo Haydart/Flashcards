@@ -26,3 +26,5 @@ dependencyResolutionManagement {
 rootProject.name = "Flashcards"
 include(":app")
 include(":core:domain")
+include(":core:design")
+include(":core:ui")
