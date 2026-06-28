@@ -1,8 +1,8 @@
-package com.rossomak.flashcards.domain.repository
+package com.rossomak.flashcards.core.domain.repository
 
-import com.rossomak.flashcards.domain.model.Category
-import com.rossomak.flashcards.domain.model.Flashcard
-import com.rossomak.flashcards.domain.model.Subcategory
+import com.rossomak.flashcards.core.domain.model.Category
+import com.rossomak.flashcards.core.domain.model.Flashcard
+import com.rossomak.flashcards.core.domain.model.Subcategory
 
 interface FlashcardRepository {
 

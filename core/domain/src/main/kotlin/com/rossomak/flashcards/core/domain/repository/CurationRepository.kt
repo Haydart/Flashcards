@@ -1,7 +1,7 @@
-package com.rossomak.flashcards.domain.repository
+package com.rossomak.flashcards.core.domain.repository
 
-import com.rossomak.flashcards.domain.model.CurationAction
-import com.rossomak.flashcards.domain.model.CurationRequest
+import com.rossomak.flashcards.core.domain.model.CurationAction
+import com.rossomak.flashcards.core.domain.model.CurationRequest
 
 interface CurationRepository {
     suspend fun getCurationRequests(cardIds: List<String>): Result<Map<String, CurationRequest>>

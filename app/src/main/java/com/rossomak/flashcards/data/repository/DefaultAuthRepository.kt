@@ -3,8 +3,8 @@ package com.rossomak.flashcards.data.repository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
-import com.rossomak.flashcards.domain.model.AuthUser
-import com.rossomak.flashcards.domain.repository.AuthRepository
+import com.rossomak.flashcards.core.domain.model.AuthUser
+import com.rossomak.flashcards.core.domain.repository.AuthRepository
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 

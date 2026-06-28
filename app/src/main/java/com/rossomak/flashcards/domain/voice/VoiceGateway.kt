@@ -1,6 +1,6 @@
 package com.rossomak.flashcards.domain.voice
 
-import com.rossomak.flashcards.domain.model.Flashcard
+import com.rossomak.flashcards.core.domain.model.Flashcard
 import kotlinx.coroutines.flow.StateFlow
 
 enum class VoicePhase { QUESTION, ANSWER }

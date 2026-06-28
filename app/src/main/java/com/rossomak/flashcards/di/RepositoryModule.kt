@@ -3,9 +3,9 @@ package com.rossomak.flashcards.di
 import com.rossomak.flashcards.data.repository.CurationRepositoryImpl
 import com.rossomak.flashcards.data.repository.DefaultAuthRepository
 import com.rossomak.flashcards.data.repository.DefaultFlashcardRepository
-import com.rossomak.flashcards.domain.repository.AuthRepository
-import com.rossomak.flashcards.domain.repository.CurationRepository
-import com.rossomak.flashcards.domain.repository.FlashcardRepository
+import com.rossomak.flashcards.core.domain.repository.AuthRepository
+import com.rossomak.flashcards.core.domain.repository.CurationRepository
+import com.rossomak.flashcards.core.domain.repository.FlashcardRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn

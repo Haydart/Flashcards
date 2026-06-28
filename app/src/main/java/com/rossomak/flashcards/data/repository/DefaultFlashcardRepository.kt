@@ -2,10 +2,10 @@ package com.rossomak.flashcards.data.repository
 
 import com.rossomak.flashcards.data.mapper.toDomain
 import com.rossomak.flashcards.data.source.FlashcardRemoteDataSource
-import com.rossomak.flashcards.domain.model.Category
-import com.rossomak.flashcards.domain.model.Flashcard
-import com.rossomak.flashcards.domain.model.Subcategory
-import com.rossomak.flashcards.domain.repository.FlashcardRepository
+import com.rossomak.flashcards.core.domain.model.Category
+import com.rossomak.flashcards.core.domain.model.Flashcard
+import com.rossomak.flashcards.core.domain.model.Subcategory
+import com.rossomak.flashcards.core.domain.repository.FlashcardRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

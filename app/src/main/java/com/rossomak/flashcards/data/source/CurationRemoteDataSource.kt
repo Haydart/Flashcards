@@ -8,7 +8,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.rossomak.flashcards.data.model.CurationActionEntryDto
 import com.rossomak.flashcards.data.model.CurationRequestDto
-import com.rossomak.flashcards.domain.model.CurationAction
+import com.rossomak.flashcards.core.domain.model.CurationAction
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 

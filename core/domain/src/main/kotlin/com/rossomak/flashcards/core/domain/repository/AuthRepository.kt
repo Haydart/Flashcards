@@ -1,6 +1,6 @@
-package com.rossomak.flashcards.domain.repository
+package com.rossomak.flashcards.core.domain.repository
 
-import com.rossomak.flashcards.domain.model.AuthUser
+import com.rossomak.flashcards.core.domain.model.AuthUser
 
 interface AuthRepository {
     fun getCurrentUser(): AuthUser?

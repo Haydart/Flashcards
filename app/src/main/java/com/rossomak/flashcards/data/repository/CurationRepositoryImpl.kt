@@ -2,9 +2,9 @@ package com.rossomak.flashcards.data.repository
 
 import com.rossomak.flashcards.data.mapper.toDomain
 import com.rossomak.flashcards.data.source.CurationRemoteDataSource
-import com.rossomak.flashcards.domain.model.CurationAction
-import com.rossomak.flashcards.domain.model.CurationRequest
-import com.rossomak.flashcards.domain.repository.CurationRepository
+import com.rossomak.flashcards.core.domain.model.CurationAction
+import com.rossomak.flashcards.core.domain.model.CurationRequest
+import com.rossomak.flashcards.core.domain.repository.CurationRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
