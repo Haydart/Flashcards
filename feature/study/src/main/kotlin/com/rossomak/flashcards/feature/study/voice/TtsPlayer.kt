@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.data.voice
+package com.rossomak.flashcards.feature.study.voice
 
 import android.content.Context
 import android.media.AudioAttributes
@@ -17,8 +17,6 @@ import androidx.media3.common.SimpleBasePlayer
 import androidx.media3.common.util.UnstableApi
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
-import com.rossomak.flashcards.domain.voice.VoicePhase
-import com.rossomak.flashcards.domain.voice.VoicePlaybackState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

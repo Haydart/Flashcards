@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.data.voice
+package com.rossomak.flashcards.feature.study.voice
 
 import android.app.PendingIntent
 import android.content.Intent
@@ -7,9 +7,6 @@ import android.os.IBinder
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
-import com.rossomak.flashcards.MainActivity
-import com.rossomak.flashcards.data.voice.StudySessionVoiceService.Companion.ACTION_BIND_LOCAL
-import com.rossomak.flashcards.domain.voice.VoicePlaybackState
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -83,16 +80,17 @@ class StudySessionVoiceService : MediaSessionService() {
         super.onDestroy()
     }
 
-    private fun contentPendingIntent(): PendingIntent = PendingIntent.getActivity(
-        this,
-        0,
-        Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-        },
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-    )
+    private fun contentPendingIntent(): PendingIntent {
+        val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
+            ?.apply { flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP }
+            ?: Intent().apply { setPackage(packageName) }
+        return PendingIntent.getActivity(
+            this, 0, launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
 
     companion object {
-        const val ACTION_BIND_LOCAL = "com.rossomak.flashcards.data.voice.BIND_LOCAL"
+        const val ACTION_BIND_LOCAL = "com.rossomak.flashcards.feature.study.voice.BIND_LOCAL"
     }
 }

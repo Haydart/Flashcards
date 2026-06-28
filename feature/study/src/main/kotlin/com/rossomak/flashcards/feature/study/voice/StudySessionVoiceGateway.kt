@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.data.voice
+package com.rossomak.flashcards.feature.study.voice
 
 import android.content.ComponentName
 import android.content.Context
@@ -10,8 +10,6 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.rossomak.flashcards.core.domain.model.Flashcard
-import com.rossomak.flashcards.domain.voice.VoiceGateway
-import com.rossomak.flashcards.domain.voice.VoicePlaybackState
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

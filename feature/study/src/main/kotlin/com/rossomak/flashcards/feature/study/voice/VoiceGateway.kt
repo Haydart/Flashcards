@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.domain.voice
+package com.rossomak.flashcards.feature.study.voice
 
 import com.rossomak.flashcards.core.domain.model.Flashcard
 import kotlinx.coroutines.flow.StateFlow
