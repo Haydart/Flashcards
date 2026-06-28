@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.data.repository
+package com.rossomak.flashcards.core.data.repository
 
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser

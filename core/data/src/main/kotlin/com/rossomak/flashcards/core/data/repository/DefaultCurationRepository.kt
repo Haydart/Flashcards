@@ -1,7 +1,7 @@
-package com.rossomak.flashcards.data.repository
+package com.rossomak.flashcards.core.data.repository
 
-import com.rossomak.flashcards.data.mapper.toDomain
-import com.rossomak.flashcards.data.source.CurationRemoteDataSource
+import com.rossomak.flashcards.core.data.mapper.toDomain
+import com.rossomak.flashcards.core.data.source.CurationRemoteDataSource
 import com.rossomak.flashcards.core.domain.model.CurationAction
 import com.rossomak.flashcards.core.domain.model.CurationRequest
 import com.rossomak.flashcards.core.domain.repository.CurationRepository

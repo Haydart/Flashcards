@@ -1,7 +1,7 @@
-package com.rossomak.flashcards.data.repository
+package com.rossomak.flashcards.core.data.repository
 
-import com.rossomak.flashcards.data.mapper.toDomain
-import com.rossomak.flashcards.data.source.FlashcardRemoteDataSource
+import com.rossomak.flashcards.core.data.mapper.toDomain
+import com.rossomak.flashcards.core.data.source.FlashcardRemoteDataSource
 import com.rossomak.flashcards.core.domain.model.Category
 import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.core.domain.model.Subcategory
