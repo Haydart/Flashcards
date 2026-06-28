@@ -37,6 +37,8 @@ A `build-logic/` included build holds precompiled script plugins:
 
 Each plugin sets `compileSdk`, `minSdk`, Kotlin options, and Compose compiler config in one place. Individual `build.gradle.kts` files only declare dependencies and apply the matching plugin — ~5 lines each.
 
+The concrete implementation under AGP 9.2.1 + Kotlin 2.3.0 (classic Kotlin, KSP instead of kapt, body-applied plugins, shared classloader) is non-trivial — see ADR-0018.
+
 ## Navigation
 Each feature module declares its own `@Serializable` route data class (e.g. `StudyRoute(subcategoryId: String)`) as its public entry point. `:app`'s `NavGraph` imports feature modules and navigates via `navController.navigate(StudyRoute(id))`. Features never reference each other's route types — only `:app` does.
 
