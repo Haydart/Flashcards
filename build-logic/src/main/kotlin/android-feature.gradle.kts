@@ -10,7 +10,7 @@ pluginManager.apply("org.jetbrains.kotlin.plugin.serialization")
 android {
     compileSdk = 37
     defaultConfig {
-        minSdk = 24
+        minSdk = 26
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     compileOptions {

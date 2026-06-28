@@ -14,7 +14,7 @@ pluginManager.apply("com.google.gms.google-services")
 android {
     compileSdk = 37
     defaultConfig {
-        minSdk = 24
+        minSdk = 26
         targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
