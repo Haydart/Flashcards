@@ -1,6 +1,7 @@
 package com.rossomak.flashcards.domain.usecase
 
 import com.rossomak.flashcards.core.domain.repository.AuthRepository
+import com.rossomak.flashcards.core.domain.usecase.SignOutUseCase
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify

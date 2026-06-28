@@ -2,6 +2,7 @@ package com.rossomak.flashcards.domain.usecase
 
 import com.rossomak.flashcards.core.domain.model.AuthUser
 import com.rossomak.flashcards.core.domain.repository.AuthRepository
+import com.rossomak.flashcards.core.domain.usecase.SignInWithGoogleUseCase
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.coVerify
