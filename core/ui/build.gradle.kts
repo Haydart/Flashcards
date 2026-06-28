@@ -9,7 +9,7 @@ android {
 dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.android.compiler)
-    implementation(project(":core:design"))
+    api(project(":core:design"))
     implementation(project(":core:domain"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
