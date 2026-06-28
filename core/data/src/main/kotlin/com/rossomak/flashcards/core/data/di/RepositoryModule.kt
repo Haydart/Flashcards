@@ -1,8 +1,8 @@
-package com.rossomak.flashcards.di
+package com.rossomak.flashcards.core.data.di
 
-import com.rossomak.flashcards.data.repository.DefaultCurationRepository
-import com.rossomak.flashcards.data.repository.DefaultAuthRepository
-import com.rossomak.flashcards.data.repository.DefaultFlashcardRepository
+import com.rossomak.flashcards.core.data.repository.DefaultCurationRepository
+import com.rossomak.flashcards.core.data.repository.DefaultAuthRepository
+import com.rossomak.flashcards.core.data.repository.DefaultFlashcardRepository
 import com.rossomak.flashcards.core.domain.repository.AuthRepository
 import com.rossomak.flashcards.core.domain.repository.CurationRepository
 import com.rossomak.flashcards.core.domain.repository.FlashcardRepository
