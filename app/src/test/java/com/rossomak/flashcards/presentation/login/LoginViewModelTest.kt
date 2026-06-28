@@ -1,8 +1,8 @@
 package com.rossomak.flashcards.presentation.login
 
-import com.rossomak.flashcards.domain.model.AuthUser
-import com.rossomak.flashcards.domain.repository.AuthRepository
-import com.rossomak.flashcards.domain.usecase.SignInWithGoogleUseCase
+import com.rossomak.flashcards.core.domain.model.AuthUser
+import com.rossomak.flashcards.core.domain.repository.AuthRepository
+import com.rossomak.flashcards.core.domain.usecase.SignInWithGoogleUseCase
 import com.rossomak.flashcards.testutil.MainDispatcherRule
 import com.rossomak.flashcards.testutil.assertValue
 import io.kotest.matchers.shouldBe

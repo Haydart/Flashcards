@@ -1,8 +1,8 @@
 package com.rossomak.flashcards.data.mapper
 
 import com.rossomak.flashcards.data.model.CurationRequestDto
-import com.rossomak.flashcards.domain.model.CurationAction
-import com.rossomak.flashcards.domain.model.CurationRequest
+import com.rossomak.flashcards.core.domain.model.CurationAction
+import com.rossomak.flashcards.core.domain.model.CurationRequest
 
 fun CurationRequestDto.toDomain(cardId: String): CurationRequest {
     val domainActions = actions.mapNotNull { (key, entry) ->

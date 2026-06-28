@@ -83,7 +83,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gallatinapps.syntaxmp.tokenizer.SyntaxTokenizer
 import com.rossomak.flashcards.BuildConfig
-import com.rossomak.flashcards.domain.model.CurationAction
+import com.rossomak.flashcards.core.domain.model.CurationAction
 import com.rossomak.flashcards.domain.voice.VoicePlaybackState
 import com.rossomak.flashcards.ui.design.SyntaxCodeBlock
 import com.rossomak.flashcards.ui.design.withInlineCode
@@ -274,7 +274,7 @@ fun StudySessionContent(
                         text = {
                             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                                 Text(
-                                    text = card.extendedContext.withInlineCode(),
+                                    text = card.extendedContext.orEmpty().withInlineCode(),
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                             }

@@ -1,7 +1,7 @@
 package com.rossomak.flashcards.presentation.studysession
 
-import com.rossomak.flashcards.domain.model.CurationRequest
-import com.rossomak.flashcards.domain.model.Flashcard
+import com.rossomak.flashcards.core.domain.model.CurationRequest
+import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.domain.voice.VoicePlaybackState
 
 data class StudySessionScreenState(

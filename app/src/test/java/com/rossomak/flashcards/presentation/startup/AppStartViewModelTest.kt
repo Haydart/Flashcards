@@ -1,7 +1,7 @@
 package com.rossomak.flashcards.presentation.startup
 
-import com.rossomak.flashcards.domain.model.AuthUser
-import com.rossomak.flashcards.domain.usecase.GetCurrentAuthUserUseCase
+import com.rossomak.flashcards.core.domain.model.AuthUser
+import com.rossomak.flashcards.core.domain.usecase.GetCurrentAuthUserUseCase
 import com.rossomak.flashcards.testutil.MainDispatcherRule
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery

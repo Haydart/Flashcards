@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.domain.model
+package com.rossomak.flashcards.core.domain.model
 
 enum class CurationAction {
     DIFFICULTY_TOO_EASY,

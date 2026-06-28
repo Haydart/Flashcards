@@ -2,7 +2,7 @@ package com.rossomak.flashcards.presentation.login
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.rossomak.flashcards.domain.usecase.SignInWithGoogleUseCase
+import com.rossomak.flashcards.core.domain.usecase.SignInWithGoogleUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

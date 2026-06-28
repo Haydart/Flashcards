@@ -3,11 +3,11 @@ package com.rossomak.flashcards.presentation.studysession
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.rossomak.flashcards.domain.model.CurationAction
-import com.rossomak.flashcards.domain.model.CurationRequest
-import com.rossomak.flashcards.domain.usecase.GetCurationRequestsUseCase
-import com.rossomak.flashcards.domain.usecase.GetFlashcardsUseCase
-import com.rossomak.flashcards.domain.usecase.ToggleCurationActionUseCase
+import com.rossomak.flashcards.core.domain.model.CurationAction
+import com.rossomak.flashcards.core.domain.model.CurationRequest
+import com.rossomak.flashcards.core.domain.usecase.GetCurationRequestsUseCase
+import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
+import com.rossomak.flashcards.core.domain.usecase.ToggleCurationActionUseCase
 import com.rossomak.flashcards.domain.voice.VoiceGateway
 import java.time.Instant
 import com.rossomak.flashcards.domain.voice.VoicePhase

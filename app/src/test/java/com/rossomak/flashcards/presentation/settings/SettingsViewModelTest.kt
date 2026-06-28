@@ -1,6 +1,6 @@
 package com.rossomak.flashcards.presentation.settings
 
-import com.rossomak.flashcards.domain.usecase.SignOutUseCase
+import com.rossomak.flashcards.core.domain.usecase.SignOutUseCase
 import com.rossomak.flashcards.testutil.MainDispatcherRule
 import com.rossomak.flashcards.testutil.assertValue
 import io.kotest.matchers.shouldBe

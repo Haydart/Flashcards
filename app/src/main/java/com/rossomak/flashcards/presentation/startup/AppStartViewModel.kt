@@ -2,7 +2,7 @@ package com.rossomak.flashcards.presentation.startup
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.rossomak.flashcards.domain.usecase.GetCurrentAuthUserUseCase
+import com.rossomak.flashcards.core.domain.usecase.GetCurrentAuthUserUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted

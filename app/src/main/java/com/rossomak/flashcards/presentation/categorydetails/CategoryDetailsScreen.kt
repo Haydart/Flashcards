@@ -30,7 +30,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.rossomak.flashcards.domain.model.Subcategory
+import com.rossomak.flashcards.core.domain.model.Subcategory
 
 @Composable
 fun CategoryDetailsScreen(

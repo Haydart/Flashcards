@@ -1,6 +1,6 @@
 package com.rossomak.flashcards.presentation.categorydetails
 
-import com.rossomak.flashcards.domain.model.Subcategory
+import com.rossomak.flashcards.core.domain.model.Subcategory
 
 data class CategoryDetailsScreenState(
     val categoryId: String = "",

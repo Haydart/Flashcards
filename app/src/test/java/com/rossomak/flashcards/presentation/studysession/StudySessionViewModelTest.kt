@@ -2,11 +2,11 @@ package com.rossomak.flashcards.presentation.studysession
 
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
-import com.rossomak.flashcards.domain.model.Flashcard
-import com.rossomak.flashcards.domain.repository.FlashcardRepository
-import com.rossomak.flashcards.domain.usecase.GetCurationRequestsUseCase
-import com.rossomak.flashcards.domain.usecase.GetFlashcardsUseCase
-import com.rossomak.flashcards.domain.usecase.ToggleCurationActionUseCase
+import com.rossomak.flashcards.core.domain.model.Flashcard
+import com.rossomak.flashcards.core.domain.repository.FlashcardRepository
+import com.rossomak.flashcards.core.domain.usecase.GetCurationRequestsUseCase
+import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
+import com.rossomak.flashcards.core.domain.usecase.ToggleCurationActionUseCase
 import com.rossomak.flashcards.domain.voice.VoiceGateway
 import com.rossomak.flashcards.domain.voice.VoicePhase
 import com.rossomak.flashcards.domain.voice.VoicePlaybackState
