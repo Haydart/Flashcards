@@ -46,6 +46,7 @@ dependencies {
     implementation(project(":feature:home"))
     implementation(project(":feature:browse"))
     implementation(project(":feature:study"))
+    implementation(project(":feature:auth"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.lifecycle.runtime.ktx)

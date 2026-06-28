@@ -5,12 +5,13 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.rossomak.flashcards.feature.auth.AuthRoute
+import com.rossomak.flashcards.feature.auth.LoginScreen
 import com.rossomak.flashcards.feature.browse.CategoryDetailsRoute
 import com.rossomak.flashcards.feature.browse.CategoryDetailsScreen
 import com.rossomak.flashcards.feature.browse.SubcategoryDetailsRoute
 import com.rossomak.flashcards.feature.browse.SubcategoryDetailsScreen
 import com.rossomak.flashcards.feature.study.session.StudySessionScreen
-import com.rossomak.flashcards.presentation.login.LoginScreen
 import com.rossomak.flashcards.presentation.main.MainScreen
 import com.rossomak.flashcards.presentation.splash.SplashScreen
 
@@ -32,17 +33,17 @@ fun FlashcardsNavGraph(
                     }
                 },
                 onNavigateToLogin = {
-                    navController.navigate(Login) {
+                    navController.navigate(AuthRoute) {
                         popUpTo(Splash) { inclusive = true }
                     }
                 }
             )
         }
-        composable<Login> {
+        composable<AuthRoute> {
             LoginScreen(
                 onNavigateToMain = {
                     navController.navigate(Main) {
-                        popUpTo(Login) { inclusive = true }
+                        popUpTo(AuthRoute) { inclusive = true }
                     }
                 }
             )
@@ -50,7 +51,7 @@ fun FlashcardsNavGraph(
         composable<Main> {
             MainScreen(
                 onNavigateToLogin = {
-                    navController.navigate(Login) {
+                    navController.navigate(AuthRoute) {
                         popUpTo(Main) { inclusive = true }
                     }
                 },

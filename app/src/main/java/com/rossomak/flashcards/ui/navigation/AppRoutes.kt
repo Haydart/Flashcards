@@ -4,7 +4,6 @@ import kotlinx.serialization.Serializable
 
 // Root destinations
 @Serializable object Splash
-@Serializable object Login
 @Serializable object Main
 
 // Tab graph containers
