@@ -5,11 +5,13 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.rossomak.flashcards.presentation.categorydetails.CategoryDetailsScreen
+import com.rossomak.flashcards.feature.browse.CategoryDetailsRoute
+import com.rossomak.flashcards.feature.browse.CategoryDetailsScreen
+import com.rossomak.flashcards.feature.browse.SubcategoryDetailsRoute
+import com.rossomak.flashcards.feature.browse.SubcategoryDetailsScreen
 import com.rossomak.flashcards.presentation.login.LoginScreen
 import com.rossomak.flashcards.presentation.main.MainScreen
 import com.rossomak.flashcards.presentation.splash.SplashScreen
-import com.rossomak.flashcards.presentation.subcategorydetails.SubcategoryDetailsScreen
 import com.rossomak.flashcards.presentation.studysession.StudySessionScreen
 
 @Composable
@@ -53,21 +55,21 @@ fun FlashcardsNavGraph(
                     }
                 },
                 onNavigateToCategoryDetails = { categoryId, categoryName ->
-                    navController.navigate(CategoryDetails(categoryId, categoryName))
+                    navController.navigate(CategoryDetailsRoute(categoryId, categoryName))
                 }
             )
         }
-        composable<CategoryDetails> {
+        composable<CategoryDetailsRoute> {
             CategoryDetailsScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToSubcategoryDetails = { categoryId, categoryName, subcategoryId, subcategoryName ->
                     navController.navigate(
-                        SubcategoryDetails(categoryId, categoryName, subcategoryId, subcategoryName)
+                        SubcategoryDetailsRoute(categoryId, categoryName, subcategoryId, subcategoryName)
                     )
                 }
             )
         }
-        composable<SubcategoryDetails> {
+        composable<SubcategoryDetailsRoute> {
             SubcategoryDetailsScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToStudySession = { subcategoryId, subcategoryName ->
