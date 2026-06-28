@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.presentation.studysession
+package com.rossomak.flashcards.feature.study.session
 
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
@@ -7,9 +7,9 @@ import com.rossomak.flashcards.core.domain.repository.FlashcardRepository
 import com.rossomak.flashcards.core.domain.usecase.GetCurationRequestsUseCase
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.ToggleCurationActionUseCase
-import com.rossomak.flashcards.domain.voice.VoiceGateway
-import com.rossomak.flashcards.domain.voice.VoicePhase
-import com.rossomak.flashcards.domain.voice.VoicePlaybackState
+import com.rossomak.flashcards.feature.study.voice.VoiceGateway
+import com.rossomak.flashcards.feature.study.voice.VoicePhase
+import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 import com.rossomak.flashcards.testutil.MainDispatcherRule
 import com.rossomak.flashcards.testutil.assertValue
 import io.kotest.matchers.shouldBe
