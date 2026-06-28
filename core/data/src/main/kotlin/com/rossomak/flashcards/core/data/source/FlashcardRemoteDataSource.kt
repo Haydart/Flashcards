@@ -1,9 +1,9 @@
-package com.rossomak.flashcards.data.source
+package com.rossomak.flashcards.core.data.source
 
 import com.google.firebase.firestore.FirebaseFirestore
-import com.rossomak.flashcards.data.model.CategoryDto
-import com.rossomak.flashcards.data.model.FlashcardDto
-import com.rossomak.flashcards.data.model.SubcategoryDto
+import com.rossomak.flashcards.core.data.model.CategoryDto
+import com.rossomak.flashcards.core.data.model.FlashcardDto
+import com.rossomak.flashcards.core.data.model.SubcategoryDto
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 

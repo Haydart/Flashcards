@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.data.source
+package com.rossomak.flashcards.core.data.source
 
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
@@ -6,8 +6,8 @@ import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
-import com.rossomak.flashcards.data.model.CurationActionEntryDto
-import com.rossomak.flashcards.data.model.CurationRequestDto
+import com.rossomak.flashcards.core.data.model.CurationActionEntryDto
+import com.rossomak.flashcards.core.data.model.CurationRequestDto
 import com.rossomak.flashcards.core.domain.model.CurationAction
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
