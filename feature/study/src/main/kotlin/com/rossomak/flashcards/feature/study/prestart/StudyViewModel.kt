@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.presentation.study
+package com.rossomak.flashcards.feature.study.prestart
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -28,7 +28,7 @@ class StudyViewModel @Inject constructor(
     }
 
     fun onCategorySelected(categoryId: String, categoryName: String) {
-        _state.update { it.copy(navigationDestination = StudyDestination.CategoryDetails(categoryId, categoryName)) }
+        _state.update { it.copy(navigationDestination = StudyNavigationDestination.CategoryDetails(categoryId, categoryName)) }
     }
 
     fun onNavigationHandled() {

@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.presentation.study
+package com.rossomak.flashcards.feature.study.prestart
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -31,7 +31,7 @@ fun StudyScreen(
 
     LaunchedEffect(state.navigationDestination) {
         when (val destination = state.navigationDestination) {
-            is StudyDestination.CategoryDetails -> {
+            is StudyNavigationDestination.CategoryDetails -> {
                 onNavigateToCategoryDetails(destination.categoryId, destination.categoryName)
                 viewModel.onNavigationHandled()
             }
