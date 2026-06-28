@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.data.model
+package com.rossomak.flashcards.core.data.model
 
 import com.google.firebase.Timestamp
 
