@@ -195,7 +195,7 @@ Accessible via a FAB on `StudySessionScreen`, visible only in debug builds (`Bui
 - **Doc deletion**: when all actions are removed from a card, the Firestore document is deleted.
 - **No Flags Screen integration**: Curation Requests are invisible to users, consumed only by admin sync scripts.
 
-See [ADR-0013](docs/adr/0013-debug-curation-system.md).
+See [ADR-0017](docs/adr/0017-debug-curation-system.md).
 
 ## Flags Screen
 
