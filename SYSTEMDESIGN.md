@@ -195,7 +195,7 @@ Accessible via a FAB on `StudySessionScreen`, visible only in debug builds (`Bui
 - **Doc deletion**: when all actions are removed from a card, the Firestore document is deleted.
 - **No Flags Screen integration**: Curation Requests are invisible to users, consumed only by admin sync scripts.
 
-See [ADR-0013](docs/adr/0013-debug-curation-system.md).
+See [ADR-0017](docs/adr/0017-debug-curation-system.md).
 
 ## Flags Screen
 
@@ -251,7 +251,7 @@ users/{uid}/curationRequests/{cardId}                       → { subcategoryId:
 - **Category `iconUrl`**: absolute HTTPS URL. No Firebase Storage SDK dependency in UI layer.
 - **`recentSessions` denormalizes names and stats** at write time — `categoryName`, `subcategoryNames[]`, `cardCount`, `masteredCount` — so the Home screen renders Recent cards from a single read per session. `masteredCount` omitted for Fast Study Sessions.
 - Private Flashcard `status`: `"private" | "submitted" | "approved"` — promotion pipeline to global pool.
-- **`curationRequests/{cardId}` is a debug-only flat collection** keyed by globally-unique cardId. Stores structured content-fix directives for admin sync scripts. Not shown in the app UI. Actions are a map of `CurationAction` string → `{ flaggedAt }`. Doc is deleted when all actions are removed. See [ADR-0013](docs/adr/0013-debug-curation-system.md).
+- **`curationRequests/{cardId}` is a debug-only flat collection** keyed by globally-unique cardId. Stores structured content-fix directives for admin sync scripts. Not shown in the app UI. Actions are a map of `CurationAction` string → `{ flaggedAt }`. Doc is deleted when all actions are removed. See [ADR-0017](docs/adr/0017-debug-curation-system.md).
 - **`flaggedCards/{cardId}` is a flat collection keyed by globally-unique cardId** — one Flag per card per user, upserted. `subcategoryId` is denormalized here (deviates from ADR-0007's exclusion of subcategoryId from Flashcard docs) to enable single-read fetch and client-side grouping on the Flags Screen. See [ADR-0009](docs/adr/0009-flag-system-design.md).
 - Offline: Firestore Android SDK built-in persistence. No Room needed.
 - Partial Rating is an in-session mechanic only; never written to Firestore as a standalone status.
