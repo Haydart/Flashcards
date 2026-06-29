@@ -10,7 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
-class CurationRepositoryImpl @Inject constructor(
+class DefaultCurationRepository @Inject constructor(
     private val remoteDataSource: CurationRemoteDataSource,
 ) : CurationRepository {
 

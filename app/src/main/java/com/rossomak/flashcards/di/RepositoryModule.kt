@@ -1,6 +1,6 @@
 package com.rossomak.flashcards.di
 
-import com.rossomak.flashcards.data.repository.CurationRepositoryImpl
+import com.rossomak.flashcards.data.repository.DefaultCurationRepository
 import com.rossomak.flashcards.data.repository.DefaultAuthRepository
 import com.rossomak.flashcards.data.repository.DefaultFlashcardRepository
 import com.rossomak.flashcards.domain.repository.AuthRepository
@@ -26,5 +26,5 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindCurationRepository(curationRepositoryImpl: CurationRepositoryImpl): CurationRepository
+    abstract fun bindCurationRepository(defaultCurationRepository: DefaultCurationRepository): CurationRepository
 }

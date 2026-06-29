@@ -52,16 +52,14 @@ class CurationRemoteDataSource @Inject constructor(
 
     suspend fun upsertCurationAction(cardId: String, subcategoryId: String, action: CurationAction) {
         val docRef = collection().document(cardId)
-        docRef.set(
-            mapOf(
-                "subcategoryId" to subcategoryId,
-                "actions.${action.name}" to FieldValue.serverTimestamp(),
-            ),
-            SetOptions.merge(),
-        ).await()
-
-        val opposite = action.difficultyOpposite() ?: return
-        docRef.update("actions.${opposite.name}", FieldValue.delete()).await()
+        val updates = mutableMapOf<String, Any>(
+            "subcategoryId" to subcategoryId,
+            "actions.${action.name}" to mapOf("flaggedAt" to FieldValue.serverTimestamp()),
+        )
+        action.difficultyOpposite()?.let { opposite ->
+            updates["actions.${opposite.name}"] = FieldValue.delete()
+        }
+        docRef.set(updates, SetOptions.merge()).await()
     }
 
     suspend fun removeCurationAction(cardId: String, action: CurationAction) {
@@ -71,6 +69,7 @@ class CurationRemoteDataSource @Inject constructor(
             if (!snapshot.exists()) return@runTransaction
             @Suppress("UNCHECKED_CAST")
             val actionsMap = snapshot.get("actions") as? Map<String, Any> ?: emptyMap()
+            if (!actionsMap.containsKey(action.name)) return@runTransaction
             if (actionsMap.size <= 1) {
                 transaction.delete(docRef)
             } else {

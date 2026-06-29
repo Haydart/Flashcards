@@ -393,7 +393,7 @@ fun StudySessionContent(
             }
         }
 
-        if (BuildConfig.DEBUG) {
+        if (BuildConfig.DEBUG && state.flashcards.getOrNull(state.currentCardIndex) != null) {
             FloatingActionButton(
                 onClick = onCurationFabClick,
                 modifier = Modifier

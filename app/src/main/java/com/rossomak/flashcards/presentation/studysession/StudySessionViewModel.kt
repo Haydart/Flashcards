@@ -222,19 +222,29 @@ class StudySessionViewModel @Inject constructor(
 
     fun onCurationFabClick() {
         if (_state.value.isVoicePlaying) voiceGateway.togglePlayPause()
-        _state.update { it.copy(isCurationDialogVisible = true) }
         if (!curationCacheLoadStarted) {
             curationCacheLoadStarted = true
-            loadCurationCache()
+            loadCurationCache(showDialogOnSuccess = true)
+        } else {
+            _state.update { it.copy(isCurationDialogVisible = true) }
         }
     }
 
-    private fun loadCurationCache() {
+    private fun loadCurationCache(showDialogOnSuccess: Boolean = false) {
         viewModelScope.launch {
             val cardIds = _state.value.flashcards.map { it.id }
             getCurationRequests(cardIds)
                 .onSuccess { requests ->
-                    _state.update { it.copy(curationRequests = requests) }
+                    _state.update {
+                        it.copy(
+                            curationRequests = requests,
+                            isCurationDialogVisible = it.isCurationDialogVisible || showDialogOnSuccess,
+                        )
+                    }
+                }
+                .onFailure {
+                    curationCacheLoadStarted = false
+                    _state.update { it.copy(curationError = "Failed to load curation requests") }
                 }
         }
     }
