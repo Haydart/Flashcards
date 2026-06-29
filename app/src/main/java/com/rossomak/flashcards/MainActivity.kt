@@ -12,7 +12,7 @@ import androidx.navigation.compose.rememberNavController
 import com.rossomak.flashcards.presentation.startup.AppStartViewModel
 import com.rossomak.flashcards.presentation.startup.AppStartupState
 import com.rossomak.flashcards.ui.navigation.FlashcardsNavGraph
-import com.rossomak.flashcards.core.design.theme.FlashcardsTheme
+import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint

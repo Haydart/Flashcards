@@ -85,8 +85,8 @@ import com.gallatinapps.syntaxmp.tokenizer.SyntaxTokenizer
 import com.rossomak.flashcards.feature.study.BuildConfig
 import com.rossomak.flashcards.core.domain.model.CurationAction
 import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
-import com.rossomak.flashcards.core.ui.SyntaxCodeBlock
-import com.rossomak.flashcards.core.ui.withInlineCode
+import com.rossomak.flashcards.core.ui.composables.SyntaxCodeBlock
+import com.rossomak.flashcards.core.ui.composables.withInlineCode
 import kotlinx.coroutines.launch
 import java.time.Instant
 

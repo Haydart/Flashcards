@@ -42,7 +42,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.feature.home.R
-import com.rossomak.flashcards.core.design.theme.brandColors
+import com.rossomak.flashcards.core.ui.theme.brandColors
 
 @Composable
 fun HomeScreen(
