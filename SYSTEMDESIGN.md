@@ -184,6 +184,19 @@ A session is scoped to one Category and one or more Subcategories. Card selectio
 - Not for Category or Subcategory management
 - **My Flags** entry → navigates to Flags Screen
 
+## Debug Curation (debug builds only)
+
+Accessible via a FAB on `StudySessionScreen`, visible only in debug builds (`BuildConfig.DEBUG`). Lets the developer flag the current Flashcard for a specific content fix without leaving the session.
+
+- **FAB**: always visible (bottom-right, above sheet). Tapping pauses voice playback if active; voice does **not** auto-resume on dialog dismiss.
+- **Dialog**: lists all 6 Curation Actions with icon + label. Each action shows active state (already flagged on this card). Tapping toggles the action. Dialog stays open — multiple actions can be set per card per dialog session.
+- **State loading**: batch-fetched lazily on first FAB tap for all cards in the session deck (`whereIn` in chunks of 30). Cached in `StudySessionViewModel` for the session.
+- **Writes**: optimistic — local cache updated immediately, Firestore written in background. Failure: cache reverted, snackbar error shown.
+- **Doc deletion**: when all actions are removed from a card, the Firestore document is deleted.
+- **No Flags Screen integration**: Curation Requests are invisible to users, consumed only by admin sync scripts.
+
+See [ADR-0017](docs/adr/0017-debug-curation-system.md).
+
 ## Flags Screen
 
 Accessible from Settings → My Flags. Full-screen, no bottom nav.
@@ -219,6 +232,14 @@ users/{uid}/progress/{cardId}                         → { failedCount, correct
 users/{uid}/progress/{cardId}/reviews/{id}            → { rating, reviewedAt }
 users/{uid}/privateCards/{subcategoryId}/flashcards/{cardId} → { question, answer, tags[], status, createdAt }
 users/{uid}/flaggedCards/{cardId}                           → { action: "RETIRE"|"REWORK", flaggedAt, subcategoryId }
+
+// Debug-only (debug builds)
+users/{uid}/curationRequests/{cardId}                       → { subcategoryId: String,
+                                                               actions: {
+                                                                 "<CurationAction>": { flaggedAt: Timestamp }
+                                                               } }
+// CurationAction values: DIFFICULTY_TOO_EASY | DIFFICULTY_TOO_HARD | DELETE |
+//                        BACKTICK_REDO | NEEDS_CODE_EXAMPLE | FULL_REDO
 ```
 
 - **Strict 2-level taxonomy**: Categories and Subcategories are separate top-level collections. Subcategory IDs are namespaced `{categoryId}-{subSlug}` (e.g. `android-testing`) to guarantee uniqueness across parent categories. See [ADR-0001](docs/adr/0001-flat-two-level-taxonomy.md) and [ADR-0007](docs/adr/0007-firestore-collection-structure.md).
@@ -230,6 +251,7 @@ users/{uid}/flaggedCards/{cardId}                           → { action: "RETIR
 - **Category `iconUrl`**: absolute HTTPS URL. No Firebase Storage SDK dependency in UI layer.
 - **`recentSessions` denormalizes names and stats** at write time — `categoryName`, `subcategoryNames[]`, `cardCount`, `masteredCount` — so the Home screen renders Recent cards from a single read per session. `masteredCount` omitted for Fast Study Sessions.
 - Private Flashcard `status`: `"private" | "submitted" | "approved"` — promotion pipeline to global pool.
+- **`curationRequests/{cardId}` is a debug-only flat collection** keyed by globally-unique cardId. Stores structured content-fix directives for admin sync scripts. Not shown in the app UI. Actions are a map of `CurationAction` string → `{ flaggedAt }`. Doc is deleted when all actions are removed. See [ADR-0017](docs/adr/0017-debug-curation-system.md).
 - **`flaggedCards/{cardId}` is a flat collection keyed by globally-unique cardId** — one Flag per card per user, upserted. `subcategoryId` is denormalized here (deviates from ADR-0007's exclusion of subcategoryId from Flashcard docs) to enable single-read fetch and client-side grouping on the Flags Screen. See [ADR-0009](docs/adr/0009-flag-system-design.md).
 - Offline: Firestore Android SDK built-in persistence. No Room needed.
 - Partial Rating is an in-session mechanic only; never written to Firestore as a standalone status.
