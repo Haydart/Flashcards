@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.core.ui
+package com.rossomak.flashcards.core.ui.composables
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth

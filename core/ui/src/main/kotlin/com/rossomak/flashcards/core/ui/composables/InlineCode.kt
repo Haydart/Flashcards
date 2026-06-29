@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.core.ui
+package com.rossomak.flashcards.core.ui.composables
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
