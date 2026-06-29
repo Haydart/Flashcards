@@ -26,9 +26,9 @@ import javax.inject.Inject
 class StudySessionViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val getFlashcards: GetFlashcardsUseCase,
-    private val voiceGateway: VoiceGateway,
     private val getCurationRequests: GetCurationRequestsUseCase,
     private val toggleCurationAction: ToggleCurationActionUseCase,
+    private val voiceGateway: VoiceGateway,
 ) : ViewModel() {
 
     private val subcategoryId: String = checkNotNull(savedStateHandle["subcategoryId"])
