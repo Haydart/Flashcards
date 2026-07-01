@@ -57,6 +57,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
     private var isPlaying = false
     private var isBetweenPause = false
     private var speechRate = VoicePlaybackState.DEFAULT_SPEECH_RATE
+    private var pendingVoiceId: String? = null
     private var subcategoryName = ""
 
     /**
@@ -72,6 +73,9 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
             ttsReady = true
             runCatching {
                 tts.language = Locale.US // app supports English voice only
+            }
+            pendingVoiceId?.let { voiceId ->
+                tts.voices?.firstOrNull { it.name == voiceId }?.let { tts.voice = it }
             }
             tts.setSpeechRate(speechRate)
             tts.setOnUtteranceProgressListener(utteranceListener)
@@ -200,6 +204,20 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         } else {
             stopUtterance()
             publishState()
+        }
+    }
+
+    fun setVoice(voiceId: String?) {
+        pendingVoiceId = voiceId
+        if (ttsReady) {
+            val matched = voiceId?.let { id -> tts.voices?.firstOrNull { it.name == id } }
+            tts.voice = matched ?: tts.defaultVoice
+            if (isPlaying) {
+                when (phase) {
+                    VoicePhase.QUESTION -> speakQuestion()
+                    VoicePhase.ANSWER -> speakAnswer()
+                }
+            }
         }
     }
 

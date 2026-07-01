@@ -109,6 +109,10 @@ class StudySessionVoiceGateway @Inject constructor(
         voiceBinder?.setPlaybackSpeechRate(rate)
     }
 
+    override fun setVoice(voiceId: String?) {
+        voiceBinder?.setVoice(voiceId)
+    }
+
     private fun collectVoiceState(binder: StudySessionVoiceService.LocalBinder) {
         voiceStateJob?.cancel()
         voiceStateJob = scope.launch {
