@@ -34,10 +34,11 @@ import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.DataObject
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RecordVoiceOver
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.AlertDialog
@@ -53,7 +54,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -86,6 +86,7 @@ import com.rossomak.flashcards.feature.study.BuildConfig
 import com.rossomak.flashcards.core.domain.model.CurationAction
 import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 import com.rossomak.flashcards.core.ui.composables.SyntaxCodeBlock
+import com.rossomak.flashcards.core.ui.composables.VoiceSettingsDialog
 import com.rossomak.flashcards.core.ui.composables.withInlineCode
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -164,7 +165,11 @@ fun StudySessionScreen(
         onVoicePlayPause = viewModel::onVoicePlayPause,
         onVoiceNext = viewModel::onVoiceNext,
         onVoicePrevious = viewModel::onVoicePrevious,
-        onVoiceSpeedChange = viewModel::onVoiceSpeedChange,
+        onVoiceSettingsCogClick = viewModel::onVoiceSettingsCogClick,
+        onVoiceSettingsDraftVoiceChanged = viewModel::onVoiceSettingsDraftVoiceChanged,
+        onVoiceSettingsDraftSpeedChanged = viewModel::onVoiceSettingsDraftSpeedChanged,
+        onVoiceSettingsSave = viewModel::onVoiceSettingsSave,
+        onVoiceSettingsDismiss = viewModel::onVoiceSettingsDismiss,
         onCurationFabClick = viewModel::onCurationFabClick,
         onCurationActionToggle = viewModel::onCurationActionToggle,
         onCurationDialogDismiss = viewModel::onCurationDialogDismiss,
@@ -185,7 +190,11 @@ fun StudySessionContent(
     onVoicePlayPause: () -> Unit,
     onVoiceNext: () -> Unit,
     onVoicePrevious: () -> Unit,
-    onVoiceSpeedChange: (Float) -> Unit,
+    onVoiceSettingsCogClick: () -> Unit,
+    onVoiceSettingsDraftVoiceChanged: (String?) -> Unit,
+    onVoiceSettingsDraftSpeedChanged: (Float) -> Unit,
+    onVoiceSettingsSave: () -> Unit,
+    onVoiceSettingsDismiss: () -> Unit,
     onCurationFabClick: () -> Unit,
     onCurationActionToggle: (CurationAction) -> Unit,
     onCurationDialogDismiss: () -> Unit,
@@ -202,7 +211,7 @@ fun StudySessionContent(
         scaffoldState = scaffoldState,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         sheetSwipeEnabled = false,
-        sheetPeekHeight = if (state.isVoiceActive) 220.dp else 112.dp,
+        sheetPeekHeight = if (state.isVoiceActive) 100.dp else 112.dp,
         topBar = {
             TopAppBar(
                 title = { Text(text = state.subcategoryName) },
@@ -239,13 +248,24 @@ fun StudySessionContent(
         sheetContent = {
             StudySessionSheetContent(
                 state = state,
-                onShowAnswer = onShowAnswer,
                 onNextCard = onNextCard,
+                onShowAnswer = onShowAnswer,
                 onVoicePlayPause = onVoicePlayPause,
                 onVoiceNext = onVoiceNext,
                 onVoicePrevious = onVoicePrevious,
-                onVoiceSpeedChange = onVoiceSpeedChange,
+                onVoiceSettingsCogClick = onVoiceSettingsCogClick,
             )
+            if (state.voiceSettingsState.isVisible) {
+                VoiceSettingsDialog(
+                    availableVoices = state.voiceSettingsState.availableVoices,
+                    selectedVoiceId = state.voiceSettingsState.draftVoiceId,
+                    speechRate = state.voiceSettingsState.draftSpeed,
+                    onVoiceSelected = onVoiceSettingsDraftVoiceChanged,
+                    onSpeedChanged = onVoiceSettingsDraftSpeedChanged,
+                    onSave = onVoiceSettingsSave,
+                    onDismiss = onVoiceSettingsDismiss,
+                )
+            }
         },
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize()) {
@@ -495,7 +515,7 @@ private fun StudySessionSheetContent(
     onVoicePlayPause: () -> Unit,
     onVoiceNext: () -> Unit,
     onVoicePrevious: () -> Unit,
-    onVoiceSpeedChange: (Float) -> Unit,
+    onVoiceSettingsCogClick: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -504,61 +524,52 @@ private fun StudySessionSheetContent(
             .padding(top = 8.dp, bottom = 24.dp),
     ) {
         if (state.isVoiceActive) {
-            if (!state.isAnswerRevealed) {
-                Button(
-                    onClick = onShowAnswer,
-                    modifier = Modifier.fillMaxWidth(),
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.align(Alignment.Center),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("Show Answer")
+                    IconButton(
+                        onClick = onVoicePrevious,
+                        enabled = state.currentCardIndex > 0,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.SkipPrevious,
+                            contentDescription = "Previous card",
+                        )
+                    }
+                    Spacer(modifier = Modifier.size(16.dp))
+                    FilledIconButton(
+                        onClick = onVoicePlayPause,
+                        modifier = Modifier.size(56.dp),
+                    ) {
+                        Icon(
+                            imageVector = if (state.isVoicePlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            contentDescription = if (state.isVoicePlaying) "Pause" else "Play",
+                        )
+                    }
+                    Spacer(modifier = Modifier.size(16.dp))
+                    IconButton(
+                        onClick = if (!state.isAnswerRevealed) onShowAnswer else onVoiceNext,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.SkipNext,
+                            contentDescription = if (!state.isAnswerRevealed) "Show answer" else "Next card",
+                        )
+                    }
                 }
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
                 IconButton(
-                    onClick = onVoicePrevious,
-                    enabled = state.currentCardIndex > 0,
+                    onClick = onVoiceSettingsCogClick,
+                    modifier = Modifier.align(Alignment.CenterEnd),
                 ) {
                     Icon(
-                        imageVector = Icons.Default.SkipPrevious,
-                        contentDescription = "Previous card",
-                    )
-                }
-                Spacer(modifier = Modifier.size(16.dp))
-                FilledIconButton(
-                    onClick = onVoicePlayPause,
-                    modifier = Modifier.size(56.dp),
-                ) {
-                    Icon(
-                        imageVector = if (state.isVoicePlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = if (state.isVoicePlaying) "Pause" else "Play",
-                    )
-                }
-                Spacer(modifier = Modifier.size(16.dp))
-                IconButton(
-                    onClick = onVoiceNext,
-                    enabled = state.currentCardIndex < state.flashcards.lastIndex,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.SkipNext,
-                        contentDescription = "Next card",
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Voice settings",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Speed ${"%.2f".format(state.speechRate)}x",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Slider(
-                value = state.speechRate,
-                onValueChange = onVoiceSpeedChange,
-                valueRange = VoicePlaybackState.MIN_SPEECH_RATE..VoicePlaybackState.MAX_SPEECH_RATE,
-            )
         } else {
             if (!state.isAnswerRevealed) {
                 Button(
@@ -615,7 +626,11 @@ private fun StudySessionVoiceActivePreview() {
         onVoicePlayPause = {},
         onVoiceNext = {},
         onVoicePrevious = {},
-        onVoiceSpeedChange = {},
+        onVoiceSettingsCogClick = {},
+        onVoiceSettingsDraftVoiceChanged = {},
+        onVoiceSettingsDraftSpeedChanged = {},
+        onVoiceSettingsSave = {},
+        onVoiceSettingsDismiss = {},
         onCurationFabClick = {},
         onCurationActionToggle = {},
         onCurationDialogDismiss = {},
