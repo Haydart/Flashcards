@@ -60,7 +60,7 @@ fun VoiceSettingsDialog(
                     onExpandedChange = { dropdownExpanded = it },
                 ) {
                     OutlinedTextField(
-                        value = selectedVoice?.displayName ?: "System default",
+                        value = selectedVoice?.displayName ?: "Select voice",
                         onValueChange = {},
                         readOnly = true,
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded) },
@@ -73,13 +73,6 @@ fun VoiceSettingsDialog(
                         expanded = dropdownExpanded,
                         onDismissRequest = { dropdownExpanded = false },
                     ) {
-                        DropdownMenuItem(
-                            text = { Text("System default") },
-                            onClick = {
-                                dropdownExpanded = false
-                                onVoiceSelected(null)
-                            },
-                        )
                         availableVoices.forEach { voice ->
                             DropdownMenuItem(
                                 text = { Text(voice.displayName) },
@@ -152,7 +145,7 @@ fun VoiceSettingsDialog(
 
 @Preview
 @Composable
-private fun VoiceSettingsDialogSystemDefaultPreview() {
+private fun VoiceSettingsDialogNoSelectionPreview() {
     VoiceSettingsDialog(
         availableVoices = listOf(
             VoiceOption(id = "en-us-x-1", displayName = "English (United States) · Voice 1"),

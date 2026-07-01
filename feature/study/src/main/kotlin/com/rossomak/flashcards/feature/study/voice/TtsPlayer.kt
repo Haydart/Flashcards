@@ -10,6 +10,7 @@ import android.os.Looper
 import android.os.SystemClock
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import com.rossomak.flashcards.core.data.voice.VoiceCuration
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
@@ -74,9 +75,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
             runCatching {
                 tts.language = Locale.US // app supports English voice only
             }
-            pendingVoiceId?.let { voiceId ->
-                tts.voices?.firstOrNull { it.name == voiceId }?.let { tts.voice = it }
-            }
+            applyVoice(pendingVoiceId)
             tts.setSpeechRate(speechRate)
             tts.setOnUtteranceProgressListener(utteranceListener)
             if (startWhenReady) {
@@ -210,8 +209,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
     fun setVoice(voiceId: String?) {
         pendingVoiceId = voiceId
         if (ttsReady) {
-            val matched = voiceId?.let { id -> tts.voices?.firstOrNull { it.name == id } }
-            tts.voice = matched ?: tts.defaultVoice
+            applyVoice(voiceId)
             if (isPlaying) {
                 when (phase) {
                     VoicePhase.QUESTION -> speakQuestion()
@@ -219,6 +217,13 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
                 }
             }
         }
+    }
+
+    /** [voiceId] `null` means "no explicit choice yet" — resolves to a curated English voice, never the device's system default (which may not even be English). */
+    private fun applyVoice(voiceId: String?) {
+        val resolved = voiceId?.let { id -> tts.voices?.firstOrNull { it.name == id } }
+            ?: VoiceCuration.curate(tts.voices.orEmpty()).firstOrNull()
+        if (resolved != null) tts.voice = resolved
     }
 
     fun setPlaybackSpeechRate(rate: Float) {

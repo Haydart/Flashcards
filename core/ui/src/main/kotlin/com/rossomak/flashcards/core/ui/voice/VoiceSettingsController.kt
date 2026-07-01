@@ -51,7 +51,7 @@ class VoiceSettingsController @Inject constructor(
         _draftState.update {
             it.copy(
                 isVisible = true,
-                draftVoiceId = savedSettings.voiceId,
+                draftVoiceId = savedSettings.voiceId ?: cachedVoices?.firstOrNull()?.id,
                 draftSpeed = savedSettings.speechRate,
             )
         }
@@ -62,7 +62,12 @@ class VoiceSettingsController @Inject constructor(
             scope.launch {
                 val voices = getAvailableVoices()
                 cachedVoices = voices
-                _draftState.update { it.copy(availableVoices = voices) }
+                _draftState.update {
+                    it.copy(
+                        availableVoices = voices,
+                        draftVoiceId = it.draftVoiceId ?: voices.firstOrNull()?.id,
+                    )
+                }
             }
         }
     }

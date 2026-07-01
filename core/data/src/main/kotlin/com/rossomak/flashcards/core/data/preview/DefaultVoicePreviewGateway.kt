@@ -2,8 +2,10 @@ package com.rossomak.flashcards.core.data.preview
 
 import android.content.Context
 import android.speech.tts.TextToSpeech
+import com.rossomak.flashcards.core.data.voice.VoiceCuration
 import com.rossomak.flashcards.core.domain.repository.VoicePreviewGateway
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -21,6 +23,7 @@ class DefaultVoicePreviewGateway @Inject constructor(
         if (tts != null) return
         tts = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
+                runCatching { tts?.language = Locale.US }
                 ttsReady = true
                 applyPendingPreview()
             }
@@ -38,9 +41,12 @@ class DefaultVoicePreviewGateway @Inject constructor(
         val engine = tts ?: return
         engine.stop()
         val targetVoiceId = pendingPreviewVoiceId
-        if (targetVoiceId != null) {
-            engine.voices?.firstOrNull { it.name == targetVoiceId }?.let { engine.voice = it }
+        val resolvedVoice = if (targetVoiceId != null) {
+            engine.voices?.firstOrNull { it.name == targetVoiceId }
+        } else {
+            VoiceCuration.curate(engine.voices.orEmpty()).firstOrNull()
         }
+        resolvedVoice?.let { engine.voice = it }
         engine.setSpeechRate(pendingPreviewRate)
         engine.speak(SAMPLE_TEXT, TextToSpeech.QUEUE_FLUSH, null, UTTERANCE_PREVIEW)
     }
