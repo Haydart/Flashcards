@@ -28,6 +28,7 @@ androidxMedia = "1.7.0"
 media3 = "1.5.1"
 ksp = "2.3.9"
 androidDesugarJdkLibs = "2.1.5"
+datastorePreferences = "1.1.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -82,6 +83,7 @@ hilt-gradlePlugin = { group = "com.google.dagger", name = "hilt-android-gradle-p
 google-services-gradlePlugin = { group = "com.google.gms", name = "google-services", version.ref = "googleServices" }
 ksp-gradlePlugin = { group = "com.google.devtools.ksp", name = "symbol-processing-gradle-plugin", version.ref = "ksp" }
 android-desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "androidDesugarJdkLibs" }
+androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastorePreferences" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
