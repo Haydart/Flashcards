@@ -20,6 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.rossomak.flashcards.core.domain.model.VoiceOption
+import com.rossomak.flashcards.core.ui.composables.VoiceSettingsDialog
 
 @Composable
 fun SettingsScreen(
@@ -35,18 +37,32 @@ fun SettingsScreen(
         }
     }
 
+    if (state.voiceSettingsState.isVisible) {
+        VoiceSettingsDialog(
+            availableVoices = state.voiceSettingsState.availableVoices,
+            selectedVoiceId = state.voiceSettingsState.draftVoiceId,
+            speechRate = state.voiceSettingsState.draftSpeed,
+            onVoiceSelected = viewModel::onVoiceSettingsDraftVoiceChanged,
+            onSpeedChanged = viewModel::onVoiceSettingsDraftSpeedChanged,
+            onSave = viewModel::onVoiceSettingsSave,
+            onDismiss = viewModel::onVoiceSettingsDismiss,
+        )
+    }
+
     SettingsContent(
         isSigningOut = state.isSigningOut,
+        onVoicePlaybackSettingsClick = viewModel::onVoicePlaybackSettingsClick,
         onSignOutClick = viewModel::onSignOutClick,
-        modifier = modifier
+        modifier = modifier,
     )
 }
 
 @Composable
 private fun SettingsContent(
     isSigningOut: Boolean,
+    onVoicePlaybackSettingsClick: () -> Unit,
     onSignOutClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier.fillMaxSize(),
@@ -55,6 +71,10 @@ private fun SettingsContent(
     ) {
         Text(text = "Settings - NYI")
         Spacer(modifier = Modifier.height(24.dp))
+        OutlinedButton(onClick = onVoicePlaybackSettingsClick) {
+            Text(text = "Voice playback settings")
+        }
+        Spacer(modifier = Modifier.height(16.dp))
         OutlinedButton(onClick = onSignOutClick, enabled = !isSigningOut) {
             if (isSigningOut) {
                 CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
