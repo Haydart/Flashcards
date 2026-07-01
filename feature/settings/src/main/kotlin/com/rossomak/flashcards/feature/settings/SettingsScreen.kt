@@ -13,7 +13,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,6 +21,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.VoiceOption
 import com.rossomak.flashcards.core.ui.composables.VoiceSettingsDialog
+import com.rossomak.flashcards.core.ui.navigation.ObserveAsEvents
 
 @Composable
 fun SettingsScreen(
@@ -31,9 +31,9 @@ fun SettingsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    LaunchedEffect(state.navigateToLogin) {
-        if (state.navigateToLogin) {
-            onNavigateToLogin()
+    ObserveAsEvents(viewModel.events) { destination ->
+        when (destination) {
+            SettingsDestination.Login -> onNavigateToLogin()
         }
     }
 
