@@ -6,9 +6,11 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -29,6 +31,9 @@ class SubcategoryDetailsViewModel @Inject constructor(
     )
     val state: StateFlow<SubcategoryDetailsScreenState> = _state.asStateFlow()
 
+    private val eventChannel = Channel<SubcategoryDetailsDestination>(Channel.BUFFERED)
+    val events = eventChannel.receiveAsFlow()
+
     init {
         loadFlashcards()
     }
@@ -47,17 +52,13 @@ class SubcategoryDetailsViewModel @Inject constructor(
     }
 
     fun onStartSession() {
-        _state.update {
-            it.copy(
-                navigationDestination = SubcategoryDetailsDestination.StudySession(
+        viewModelScope.launch {
+            eventChannel.send(
+                SubcategoryDetailsDestination.StudySession(
                     route.subcategoryId,
                     route.subcategoryName
                 )
             )
         }
-    }
-
-    fun onNavigationHandled() {
-        _state.update { it.copy(navigationDestination = null) }
     }
 }

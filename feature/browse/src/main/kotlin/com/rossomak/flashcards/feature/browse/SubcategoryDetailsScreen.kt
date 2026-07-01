@@ -30,7 +30,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
@@ -42,6 +41,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.core.ui.composables.withInlineCode
+import com.rossomak.flashcards.core.ui.navigation.ObserveAsEvents
 
 @Composable
 fun SubcategoryDetailsScreen(
@@ -51,13 +51,10 @@ fun SubcategoryDetailsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    LaunchedEffect(state.navigationDestination) {
-        when (val destination = state.navigationDestination) {
-            is SubcategoryDetailsDestination.StudySession -> {
+    ObserveAsEvents(viewModel.events) { destination ->
+        when (destination) {
+            is SubcategoryDetailsDestination.StudySession ->
                 onNavigateToStudySession(destination.subcategoryId, destination.subcategoryName)
-                viewModel.onNavigationHandled()
-            }
-            null -> Unit
         }
     }
 
