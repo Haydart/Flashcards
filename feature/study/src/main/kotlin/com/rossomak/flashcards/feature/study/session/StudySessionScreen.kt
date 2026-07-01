@@ -211,7 +211,7 @@ fun StudySessionContent(
         scaffoldState = scaffoldState,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         sheetSwipeEnabled = false,
-        sheetPeekHeight = if (state.isVoiceActive) 100.dp else 112.dp,
+        sheetPeekHeight = if (state.isVoiceActive) 180.dp else 112.dp,
         topBar = {
             TopAppBar(
                 title = { Text(text = state.subcategoryName) },
@@ -524,7 +524,21 @@ private fun StudySessionSheetContent(
             .padding(top = 8.dp, bottom = 24.dp),
     ) {
         if (state.isVoiceActive) {
-            Box(modifier = Modifier.fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(140.dp),
+            ) {
+                IconButton(
+                    onClick = onVoiceSettingsCogClick,
+                    modifier = Modifier.align(Alignment.TopEnd),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Voice settings",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 Row(
                     modifier = Modifier.align(Alignment.Center),
                     horizontalArrangement = Arrangement.Center,
@@ -558,16 +572,6 @@ private fun StudySessionSheetContent(
                             contentDescription = if (!state.isAnswerRevealed) "Show answer" else "Next card",
                         )
                     }
-                }
-                IconButton(
-                    onClick = onVoiceSettingsCogClick,
-                    modifier = Modifier.align(Alignment.CenterEnd),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Voice settings",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 }
             }
         } else {
