@@ -5,11 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.rossomak.flashcards.core.domain.usecase.GetCurrentAuthUserUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -21,14 +22,8 @@ class SplashViewModel @Inject constructor(
     private val _animationCompleted = MutableStateFlow(false)
     private val _authenticated = MutableStateFlow<Boolean?>(null)
 
-    val navigationDestination: StateFlow<SplashDestination?> = combine(
-        _animationCompleted,
-        _authenticated
-    ) { animDone, authenticated ->
-        if (animDone && authenticated != null) {
-            if (authenticated) SplashDestination.Main else SplashDestination.Login
-        } else null
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    private val eventChannel = Channel<SplashDestination>(Channel.BUFFERED)
+    val events = eventChannel.receiveAsFlow()
 
     init {
         viewModelScope.launch {
@@ -36,6 +31,16 @@ class SplashViewModel @Inject constructor(
                 getCurrentAuthUser() != null
             } ?: false
             _authenticated.value = authenticated
+        }
+        viewModelScope.launch {
+            val destination = combine(_animationCompleted, _authenticated) { animDone, authenticated ->
+                if (animDone && authenticated != null) {
+                    if (authenticated) SplashDestination.Main else SplashDestination.Login
+                } else {
+                    null
+                }
+            }.filterNotNull().first()
+            eventChannel.send(destination)
         }
     }
 

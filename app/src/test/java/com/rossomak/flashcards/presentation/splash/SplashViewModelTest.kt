@@ -1,5 +1,6 @@
 package com.rossomak.flashcards.presentation.splash
 
+import app.cash.turbine.test
 import com.rossomak.flashcards.core.domain.model.AuthUser
 import com.rossomak.flashcards.core.domain.usecase.GetCurrentAuthUserUseCase
 import com.rossomak.flashcards.testutil.MainDispatcherRule
@@ -8,7 +9,6 @@ import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import org.junit.Test
@@ -27,85 +27,85 @@ class SplashViewModelTest {
         SplashViewModel(getCurrentAuthUserUseCase)
 
     @Test
-    fun `navigationDestination is null before coroutine runs`() = runTest(mainDispatcherRule.testDispatcher) {
-        coEvery { getCurrentAuthUserUseCase() } returns testUser
-
-        val viewModel = createViewModel()
-
-        viewModel.navigationDestination.value shouldBe null
-    }
-
-    @Test
-    fun `animation completed before timeout with user navigates to Main`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `animation completed before timeout with user emits Main`() = runTest(mainDispatcherRule.testDispatcher) {
         coEvery { getCurrentAuthUserUseCase() } returns testUser
 
         val viewModel = createViewModel()
         viewModel.onAnimationCompleted()
-        advanceUntilIdle()
 
-        viewModel.navigationDestination.value shouldBe SplashDestination.Main
+        viewModel.events.test {
+            awaitItem() shouldBe SplashDestination.Main
+        }
     }
 
     @Test
-    fun `animation completed before timeout with null user navigates to Login`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `animation completed before timeout with null user emits Login`() = runTest(mainDispatcherRule.testDispatcher) {
         coEvery { getCurrentAuthUserUseCase() } returns null
 
         val viewModel = createViewModel()
         viewModel.onAnimationCompleted()
-        advanceUntilIdle()
 
-        viewModel.navigationDestination.value shouldBe SplashDestination.Login
+        viewModel.events.test {
+            awaitItem() shouldBe SplashDestination.Login
+        }
     }
 
     @Test
-    fun `auth timeout alone without animation completing keeps destination null`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `auth timeout alone without animation completing emits no event`() = runTest(mainDispatcherRule.testDispatcher) {
         coEvery { getCurrentAuthUserUseCase() } returns null
 
         val viewModel = createViewModel()
         // Do NOT call onAnimationCompleted - simulate animation hang.
-        advanceUntilIdle()
+        val scheduler = testScheduler
 
-        // Auth resolves to false after 1000ms timeout, but animation hasn't completed,
-        // so combine never emits a destination.
-        viewModel.navigationDestination.value shouldBe null
+        viewModel.events.test {
+            scheduler.advanceUntilIdle()
+            // Auth resolves to false after 1000ms timeout, but animation hasn't completed,
+            // so combine never produces a destination and nothing is emitted.
+            expectNoEvents()
+        }
         testScheduler.currentTime shouldBeLessThan 7_000L
     }
 
     @Test
-    fun `navigation destination resolves without extra delay when animation and auth both complete`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `navigation event resolves without extra delay when animation and auth both complete`() = runTest(mainDispatcherRule.testDispatcher) {
         coEvery { getCurrentAuthUserUseCase() } returns testUser
 
         val viewModel = createViewModel()
         viewModel.onAnimationCompleted()
-        advanceUntilIdle()
 
-        viewModel.navigationDestination.value shouldBe SplashDestination.Main
-        // No post-animation delay in current implementation - destination set immediately.
+        viewModel.events.test {
+            awaitItem() shouldBe SplashDestination.Main
+        }
+        // No post-animation delay in current implementation - destination emitted immediately.
         testScheduler.currentTime shouldBeLessThan 2_000L
     }
 
     @Test
-    fun `onAnimationCompleted called multiple times still navigates to expected destination`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `onAnimationCompleted called multiple times still emits expected destination once`() = runTest(mainDispatcherRule.testDispatcher) {
         coEvery { getCurrentAuthUserUseCase() } returns testUser
 
         val viewModel = createViewModel()
         viewModel.onAnimationCompleted()
         viewModel.onAnimationCompleted()
-        advanceUntilIdle()
 
-        viewModel.navigationDestination.value shouldBe SplashDestination.Main
+        viewModel.events.test {
+            awaitItem() shouldBe SplashDestination.Main
+            expectNoEvents()
+        }
     }
 
     @Test
-    fun `onAnimationCompleted called after timeout does not change navigation destination`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `onAnimationCompleted called after timeout emits Login`() = runTest(mainDispatcherRule.testDispatcher) {
         coEvery { getCurrentAuthUserUseCase() } returns null
 
         val viewModel = createViewModel()
-        advanceUntilIdle()
+        testScheduler.advanceUntilIdle()
 
         viewModel.onAnimationCompleted()
-        advanceUntilIdle()
 
-        viewModel.navigationDestination.value shouldBe SplashDestination.Login
+        viewModel.events.test {
+            awaitItem() shouldBe SplashDestination.Login
+        }
     }
 }
