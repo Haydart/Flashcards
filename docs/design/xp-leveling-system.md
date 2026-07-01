@@ -8,13 +8,15 @@ RPG-style progression layer to improve user retention. XP is earned by studying 
 
 | Source | Amount | Notes |
 |---|---|---|
-| Card Mastered (Rated) | `difficulty × 10` | Range 10–100 XP per card. Rated sessions only. |
-| Mastery Defended (Correct on any Attempt) | `difficulty × 5` | Range 5–50 XP. Rated sessions only. See [Persistent Card Mastery](persistent-card-mastery.md). |
-| Card de-mastered (Failed Terminal State on previously mastered card) | `-(difficulty × 8)` | Range −8 to −80 XP. Rated sessions only. |
+| Card Mastered (Rated) | **100 XP per card** (flat) | Rated sessions only. Flat rate regardless of difficulty. |
+| Mastery Defended (Correct on any Attempt) | **50 XP per card** (flat) | Rated sessions only. See [Persistent Card Mastery](persistent-card-mastery.md). |
+| Card de-mastered (Failed Terminal State on previously mastered card) | **−80 XP per card** (flat) | Rated sessions only. |
 | Session fully completed (deck end reached) | **+500 XP** | Both Fast and Rated. Partial sessions do not earn this. |
 | Daily goal met | **+1000 XP** | Awarded once per calendar day when today's studied minutes ≥ daily goal. |
 | Streak continuation | `min(streakDays × 250, 2500)` XP | Day 1 = 250, Day 2 = 500, …, Day 10+ = 2500 (cap). Awarded once per calendar day a session is started. |
 | Time studied | **10 XP per minute** | Both Fast and Rated. Based on session duration (start → deck end or exit). |
+
+> **Note:** Flat per-card rates (100 / 50 / −80) are tunable constants, chosen at implementation time. Flat rates make the session summary equation readable: `{N} cards × {rate} = {XP}`.
 
 ## Fast vs Rated XP
 
@@ -44,24 +46,31 @@ Suggested formula shape: `ceil(base × level^exponent / 1000) × 1000` — tune 
 
 ## Session Summary XP presentation
 
-XP is calculated and written to Firestore at the end of every session (on the Session Summary screen). The summary screen shows an itemized XP breakdown with sequential animation:
+XP is calculated and written to Firestore at the end of every session (on the Session Summary screen). The summary screen shows an itemized XP breakdown as a sequential "pour" animation in the dark header zone (after the mastery ring sweep for Rated sessions).
 
-```
-Card Mastery          +640 XP
-Mastery Defense       +120 XP
-Session Completed     +500 XP
-Daily Goal Met       +1000 XP
-Streak Day 8         +2000 XP
-Time Studied (18 min) +180 XP
-──────────────────────────────
-Total               +4440 XP   → Level 12!
-```
+### Animation sequence
 
-- Each line animates in sequentially (top to bottom)
-- Lines with 0 XP are omitted
-- XP loss lines (de-mastery) are shown in a distinct color (red/error)
-- If a level-up occurs, it is revealed after the total line with the celebration animation
-- If the session is partial, "Session Completed" line is omitted
+1. **Total XP counter** appears prominently at top, starting at 0.
+2. First **item tile** slides up from below into view, showing a math equation:
+   - `{N} cards × 100 = {XP}` (Card Mastery)
+   - `{N} cards × 50 = {XP}` (Mastery Defense)
+   - `{N} cards × 80 = -{XP}` (De-mastery)
+   - `{N} min × 10 = {XP}` (Time Studied)
+   - `{N} day streak × 250 = {XP}` (Streak, capped display)
+   - `Session completed = +500` (flat, no multiplier)
+   - `Daily goal met = +1000` (flat, no multiplier)
+3. The XP value after the `=` sign counts **down to 0** while the total counter counts **up** by the same amount simultaneously ("pouring" the number into the total).
+4. Item disappears once its value reaches 0. Next item slides up.
+5. After all items consumed: total XP from session animates into the user's overall XP progress.
+6. If a level-up occurred: level-up celebration appears (confetti + new level display). Multiple level-ups in one session play sequentially.
+
+### Rules
+
+- Items with 0 XP are omitted entirely
+- De-mastery items use error color (red) for the equation and the pour animation
+- `Session Completed` line omitted for partial sessions
+- For Rated sessions, mastery ring sweep plays **before** the XP pour sequence begins
+- For Fast sessions, XP pour begins immediately (no ring phase)
 
 ## Firestore storage
 

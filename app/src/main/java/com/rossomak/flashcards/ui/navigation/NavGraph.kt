@@ -5,12 +5,28 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.rossomak.flashcards.presentation.categorydetails.CategoryDetailsScreen
-import com.rossomak.flashcards.presentation.login.LoginScreen
+import com.rossomak.flashcards.feature.auth.AuthRoute
+import com.rossomak.flashcards.feature.auth.LoginScreen
+import com.rossomak.flashcards.feature.browse.CategoryDetailsRoute
+import com.rossomak.flashcards.feature.browse.CategoryDetailsScreen
+import com.rossomak.flashcards.feature.browse.SubcategoryDetailsRoute
+import com.rossomak.flashcards.feature.browse.SubcategoryDetailsScreen
+import com.rossomak.flashcards.feature.study.StudyRoute
+import com.rossomak.flashcards.feature.study.session.StudySessionScreen
 import com.rossomak.flashcards.presentation.main.MainScreen
 import com.rossomak.flashcards.presentation.splash.SplashScreen
-import com.rossomak.flashcards.presentation.subcategorydetails.SubcategoryDetailsScreen
-import com.rossomak.flashcards.presentation.studysession.StudySessionScreen
+import kotlinx.serialization.Serializable
+
+@Serializable object Splash
+@Serializable object Main
+
+@Serializable object HomeGraph
+@Serializable object StudyGraph
+@Serializable object SettingsGraph
+
+@Serializable object HomeRoot
+@Serializable object StudyRoot
+@Serializable object SettingsRoot
 
 @Composable
 fun FlashcardsNavGraph(
@@ -30,17 +46,17 @@ fun FlashcardsNavGraph(
                     }
                 },
                 onNavigateToLogin = {
-                    navController.navigate(Login) {
+                    navController.navigate(AuthRoute) {
                         popUpTo(Splash) { inclusive = true }
                     }
                 }
             )
         }
-        composable<Login> {
+        composable<AuthRoute> {
             LoginScreen(
                 onNavigateToMain = {
                     navController.navigate(Main) {
-                        popUpTo(Login) { inclusive = true }
+                        popUpTo(AuthRoute) { inclusive = true }
                     }
                 }
             )
@@ -48,34 +64,34 @@ fun FlashcardsNavGraph(
         composable<Main> {
             MainScreen(
                 onNavigateToLogin = {
-                    navController.navigate(Login) {
+                    navController.navigate(AuthRoute) {
                         popUpTo(Main) { inclusive = true }
                     }
                 },
                 onNavigateToCategoryDetails = { categoryId, categoryName ->
-                    navController.navigate(CategoryDetails(categoryId, categoryName))
+                    navController.navigate(CategoryDetailsRoute(categoryId, categoryName))
                 }
             )
         }
-        composable<CategoryDetails> {
+        composable<CategoryDetailsRoute> {
             CategoryDetailsScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToSubcategoryDetails = { categoryId, categoryName, subcategoryId, subcategoryName ->
                     navController.navigate(
-                        SubcategoryDetails(categoryId, categoryName, subcategoryId, subcategoryName)
+                        SubcategoryDetailsRoute(categoryId, categoryName, subcategoryId, subcategoryName)
                     )
                 }
             )
         }
-        composable<SubcategoryDetails> {
+        composable<SubcategoryDetailsRoute> {
             SubcategoryDetailsScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToStudySession = { subcategoryId, subcategoryName ->
-                    navController.navigate(StudySession(subcategoryId, subcategoryName))
+                    navController.navigate(StudyRoute(subcategoryId, subcategoryName))
                 }
             )
         }
-        composable<StudySession> {
+        composable<StudyRoute> {
             StudySessionScreen(
                 onNavigateBack = { navController.popBackStack() }
             )

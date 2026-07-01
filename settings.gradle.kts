@@ -1,4 +1,5 @@
 pluginManagement {
+    includeBuild("build-logic")
     repositories {
         google {
             content {
@@ -24,3 +25,11 @@ dependencyResolutionManagement {
 
 rootProject.name = "Flashcards"
 include(":app")
+include(":core:domain")
+include(":core:ui")
+include(":core:data")
+include(":feature:settings")
+include(":feature:home")
+include(":feature:browse")
+include(":feature:study")
+include(":feature:auth")
