@@ -16,7 +16,7 @@ RPG-style progression layer to improve user retention. XP is earned by studying 
 | Streak continuation | `min(streakDays × 250, 2500)` XP | Day 1 = 250, Day 2 = 500, …, Day 10+ = 2500 (cap). Awarded once per calendar day a session is started. |
 | Time studied | **10 XP per minute** | Both Fast and Rated. Based on session duration (start → deck end or exit). |
 
-> **Note:** Flat per-card rates (100 / 50 / −80) are tunable constants, chosen at implementation time. Flat rates make the session summary equation readable: `{N} cards × {rate} = {XP}`.`
+> **Note:** Flat per-card rates (100 / 50 / −80) are tunable constants, chosen at implementation time. Flat rates make the session summary equation readable: `{N} cards × {rate} = {XP}`.
 
 ## Fast vs Rated XP
 

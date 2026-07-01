@@ -1,7 +1,7 @@
 # Multi-module architecture: feature modules with shared core
 
 ## Decision
-The project is structured as a multi-module Gradle build with one module per user flow (`:feature:*`), a thin `:app` shell, and four shared core modules. Each feature declares its own typed entry-point route; `:app`'s `NavGraph` is the sole wiring point — features never reference each other's routes or classes.
+The project is structured as a multi-module Gradle build with one module per user flow (`:feature:*`), a thin `:app` shell, and three shared core modules. Each feature declares its own typed entry-point route; `:app`'s `NavGraph` is the sole wiring point — features never reference each other's routes or classes.
 
 ## Context
 Portfolio project designed to demonstrate enterprise-grade Android development. A single-module structure works at the current scale but does not showcase the architectural skills expected in professional Android teams. Modularization is the de facto standard in large Android codebases (see Google's Now in Android). This ADR establishes the target architecture before the codebase grows further. Migration is incremental — not a one-shot rewrite.
@@ -19,10 +19,9 @@ Portfolio project designed to demonstrate enterprise-grade Android development. 
 | `:feature:settings` | `SettingsScreen` + VM | `:core:domain`, `:core:ui` |
 | `:core:domain` | models, repository interfaces, use cases — pure Kotlin, no Android deps | nothing |
 | `:core:data` | repository impls, DTOs, mappers, Firestore sources, Hilt bindings | `:core:domain` |
-| `:core:design` | Theme, colors, typography, spacing tokens — no composables | Compose/M3 only |
-| `:core:ui` | shared composables (buttons, cards, chips, etc.) | `:core:design`, `:core:domain` |
+| `:core:ui` | theme, colors, typography, spacing tokens, shared composables (buttons, cards, chips, etc.) | `:core:domain` |
 
-**Strict rule:** no `:feature:*` may depend on another `:feature:*`. No `:core:*` may depend on `:app` or any `:feature:*`. Features import `:core:ui` for shared composables; they never import `:core:design` directly.
+**Strict rule:** no `:feature:*` may depend on another `:feature:*`. No `:core:*` may depend on `:app` or any `:feature:*`. Features import `:core:ui` for theme and shared composables.
 
 ## Build convention plugins
 
@@ -32,7 +31,8 @@ A `build-logic/` included build holds precompiled script plugins:
 |---|---|
 | `android-feature.gradle.kts` | all `:feature:*` modules |
 | `android-core-kotlin.gradle.kts` | `:core:domain` (pure Kotlin, no Android) |
-| `android-core-android.gradle.kts` | `:core:data`, `:core:ui`, `:core:design` |
+| `android-core-data.gradle.kts` | `:core:data` |
+| `android-core-android.gradle.kts` | `:core:ui` |
 | `android-app.gradle.kts` | `:app` |
 
 Each plugin sets `compileSdk`, `minSdk`, Kotlin options, and Compose compiler config in one place. Individual `build.gradle.kts` files only declare dependencies and apply the matching plugin — ~5 lines each.
