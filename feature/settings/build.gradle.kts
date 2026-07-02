@@ -4,6 +4,10 @@ plugins {
 
 android {
     namespace = "com.rossomak.flashcards.feature.settings"
+
+    buildFeatures {
+        buildConfig = true
+    }
 }
 
 dependencies {
@@ -12,7 +16,7 @@ dependencies {
     implementation(project(":core:ui"))
     implementation(libs.hilt.android)
     ksp(libs.hilt.android.compiler)
-    implementation(libs.androidx.hilt.navigation.compose)
+    implementation(libs.androidx.hilt.lifecycle.viewmodel.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.material3)

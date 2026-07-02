@@ -1,77 +1,101 @@
 # Navigation Pattern
 
-Use `StateFlow`-based navigation, not `SharedFlow`. Navigation destination is a nullable field in the screen's state class.
+Navigation is a **one-time side effect**, delivered through a `Channel` and collected once in the UI —
+never merged into persistent screen state. Destinations stay type-safe sealed interfaces (no route
+strings). See [ADR-0019](adr/0019-navigation-as-one-time-events.md) for the rationale (this supersedes
+the earlier state-field / `SharedFlow` discussion).
 
 ## Composable Taxonomy
 
-- `XxxScreen` — nav-aware entry point; holds ViewModel, observes state, triggers navigation callbacks
+- `XxxScreen` — nav-aware entry point; holds ViewModel, observes state, collects nav events
 - `XxxContent` — stateless UI; accepts state and callbacks, no ViewModel, fully previewable
 
 ## Rules
 
-- All destination sealed interfaces implement `NavigationDestination` (`ui/navigation/NavigationDestination.kt`)
-- Each screen has a `XxxDestination.kt` sealed interface listing possible next destinations
-- `XxxScreenState` holds `navigationDestination: XxxDestination? = null`
-- ViewModel sets destination via `_state.update { it.copy(navigationDestination = XxxDestination.Foo) }`
-- `XxxScreen` observes via `LaunchedEffect(state.navigationDestination)` and calls nav callback
-- No destination reset needed when screen is popped inclusive from back stack
+- Each screen has a `XxxDestination` sealed interface implementing `NavigationEvent`
+  (`core:ui`, `core/ui/.../navigation/NavigationEvent.kt`), listing its possible next destinations.
+- The ViewModel owns `private val eventChannel = Channel<XxxDestination>(Channel.BUFFERED)` and exposes
+  `val events = eventChannel.receiveAsFlow()`.
+- Navigation handlers dispatch via `viewModelScope.launch { eventChannel.send(XxxDestination.Foo) }`.
+- `XxxScreen` collects with `ObserveAsEvents(viewModel.events) { … }`
+  (`core:ui`, `core/ui/.../navigation/ObserveAsEvents.kt`) and calls the nav callback inside.
+- **No** `navigationDestination` field on screen state and **no** `onNavigationHandled()` — delivery is
+  once-only, so there is nothing to reset.
 
-## Why not SharedFlow
+## Why a buffered Channel (not state, not plain SharedFlow)
 
-With default config (`replay=0`, no buffer), SharedFlow drops events when no collector is active — e.g., during recomposition or before the composable attaches. Replay/buffering can mitigate this, but navigation destination is state, not an event: it has a current value, survives recomposition, and is naturally idempotent. StateFlow models that directly without extra configuration.
+- `receiveAsFlow()` is uni-cast: each event is delivered exactly once, so navigation can't re-fire on
+  recomposition or config change — no reset bookkeeping.
+- `Channel.BUFFERED` queues events emitted while no collector is attached (mid-recomposition, or before
+  the composable attaches), which a default `SharedFlow` (replay=0) would drop.
+- Screen state describes only what is rendered; navigation is a transient concern kept out of it.
+
+Snackbars/toasts remain separate transient events and are not part of this navigation channel.
 
 ## File layout per screen
 
-- `XxxDestination.kt` — sealed interface implementing `NavigationDestination`, lists possible nav targets
-- `XxxScreenState.kt` — UI state data class including `navigationDestination` field
-- `XxxViewModel.kt` — sets `navigationDestination` on state
+- `XxxDestination.kt` — sealed interface `: NavigationEvent`, lists possible nav targets
+- `XxxScreenState.kt` — UI state data class (no navigation field)
+- `XxxViewModel.kt` — `eventChannel` + `events`; sends destinations from handlers
 - `XxxScreen.kt` — contains both `XxxScreen` (nav entry point) and `XxxContent` (stateless UI)
+
+## Shared infra (`core:ui`)
+
+```kotlin
+// core/ui/.../navigation/NavigationEvent.kt
+interface NavigationEvent
+
+// core/ui/.../navigation/ObserveAsEvents.kt
+@Composable
+fun <T> ObserveAsEvents(events: Flow<T>, onEvent: (T) -> Unit) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val currentOnEvent = rememberUpdatedState(onEvent)
+    LaunchedEffect(events, lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            withContext(Dispatchers.Main.immediate) {
+                events.collect { currentOnEvent.value(it) }
+            }
+        }
+    }
+}
+```
 
 ## Example
 
 ```kotlin
-// ui/navigation/NavigationDestination.kt
-interface NavigationDestination
-
 // XxxDestination.kt
-sealed interface XxxDestination : NavigationDestination {
+sealed interface XxxDestination : NavigationEvent {
     data object Home : XxxDestination
-    data object Login : XxxDestination
+    data class Details(val id: String) : XxxDestination
 }
 
-// XxxScreenState.kt
-data class XxxScreenState(
-    val navigationDestination: XxxDestination? = null
-)
-
 // XxxViewModel.kt
-_state.update { it.copy(navigationDestination = XxxDestination.Login) }
+private val eventChannel = Channel<XxxDestination>(Channel.BUFFERED)
+val events = eventChannel.receiveAsFlow()
+
+fun onItemClick(id: String) {
+    viewModelScope.launch { eventChannel.send(XxxDestination.Details(id)) }
+}
 
 // XxxScreen.kt — nav entry point
 @Composable
 fun XxxScreen(
     onNavigateToHome: () -> Unit,
-    onNavigateToLogin: () -> Unit,
+    onNavigateToDetails: (String) -> Unit,
     viewModel: XxxViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    LaunchedEffect(state.navigationDestination) {
-        when (state.navigationDestination) {
+    ObserveAsEvents(viewModel.events) { destination ->
+        when (destination) {
             XxxDestination.Home -> onNavigateToHome()
-            XxxDestination.Login -> onNavigateToLogin()
-            null -> Unit
+            is XxxDestination.Details -> onNavigateToDetails(destination.id)
         }
     }
 
-    XxxContent(state = state, onAction = viewModel::onAction)
+    XxxContent(state = state, onItemClick = viewModel::onItemClick)
 }
-
-// XxxScreen.kt — stateless UI
-@Composable
-fun XxxContent(
-    state: XxxScreenState,
-    onAction: () -> Unit,
-    modifier: Modifier = Modifier
-) { ... }
 ```
+
+Screens whose navigation is a direct callback from a click handler (e.g. Home, CategoryDetails) don't
+need a ViewModel channel — they invoke the nav callback directly.

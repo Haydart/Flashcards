@@ -13,13 +13,13 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.rossomak.flashcards.core.ui.navigation.ObserveAsEvents
 
 @Composable
 fun StudyScreen(
@@ -29,13 +29,10 @@ fun StudyScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    LaunchedEffect(state.navigationDestination) {
-        when (val destination = state.navigationDestination) {
-            is StudyNavigationDestination.CategoryDetails -> {
+    ObserveAsEvents(viewModel.events) { destination ->
+        when (destination) {
+            is StudyNavigationDestination.CategoryDetails ->
                 onNavigateToCategoryDetails(destination.categoryId, destination.categoryName)
-                viewModel.onNavigationHandled()
-            }
-            null -> Unit
         }
     }
 

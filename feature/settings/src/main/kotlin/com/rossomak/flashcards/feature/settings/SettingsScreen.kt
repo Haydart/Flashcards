@@ -14,18 +14,26 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.rossomak.flashcards.core.domain.model.VoiceOption
 import com.rossomak.flashcards.core.ui.composables.VoiceSettingsDialog
 import com.rossomak.flashcards.core.ui.showcase.Showcase
+import com.rossomak.flashcards.core.ui.navigation.ObserveAsEvents
+
+/**
+ * Process-static sink used only to demonstrate LeakCanary in debug builds. Anything added here
+ * outlives the component it came from, so a stashed Activity becomes a retained instance once it is
+ * destroyed and LeakCanary reports it.
+ */
+private object LeakCanaryTestSink {
+    val leakedReferences = mutableListOf<Any>()
+}
 
 @Composable
 fun SettingsScreen(
@@ -34,10 +42,11 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
-    LaunchedEffect(state.navigateToLogin) {
-        if (state.navigateToLogin) {
-            onNavigateToLogin()
+    ObserveAsEvents(viewModel.events) { destination ->
+        when (destination) {
+            SettingsDestination.Login -> onNavigateToLogin()
         }
     }
 
@@ -53,7 +62,6 @@ fun SettingsScreen(
         )
     }
 
-    val context = LocalContext.current
     val showcaseIntent = remember { Showcase.intentOrNull(context) }
 
     SettingsContent(
@@ -61,6 +69,11 @@ fun SettingsScreen(
         showcaseIntent = showcaseIntent,
         onVoicePlaybackSettingsClick = viewModel::onVoicePlaybackSettingsClick,
         onSignOutClick = viewModel::onSignOutClick,
+        onTriggerMemoryLeakClick = if (BuildConfig.DEBUG) {
+            { LeakCanaryTestSink.leakedReferences.add(context) }
+        } else {
+            null
+        },
         modifier = modifier,
     )
 }
@@ -71,6 +84,7 @@ private fun SettingsContent(
     showcaseIntent: Intent?,
     onVoicePlaybackSettingsClick: () -> Unit,
     onSignOutClick: () -> Unit,
+    onTriggerMemoryLeakClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -92,6 +106,12 @@ private fun SettingsContent(
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
+        if (onTriggerMemoryLeakClick != null) {
+            OutlinedButton(onClick = onTriggerMemoryLeakClick) {
+                Text(text = "Test LeakCanary (leak activity)")
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
         OutlinedButton(onClick = onSignOutClick, enabled = !isSigningOut) {
             if (isSigningOut) {
                 CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)

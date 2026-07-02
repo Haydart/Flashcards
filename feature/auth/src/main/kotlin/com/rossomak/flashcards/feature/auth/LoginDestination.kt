@@ -1,5 +1,7 @@
 package com.rossomak.flashcards.feature.auth
 
-sealed interface LoginDestination {
+import com.rossomak.flashcards.core.ui.navigation.NavigationEvent
+
+sealed interface LoginDestination : NavigationEvent {
     data object Main : LoginDestination
 }

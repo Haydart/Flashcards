@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.rossomak.flashcards.core.ui.navigation.ObserveAsEvents
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -32,8 +33,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.rossomak.flashcards.R
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -64,13 +64,10 @@ fun SplashScreen(
     onNavigateToLogin: () -> Unit,
     viewModel: SplashViewModel = hiltViewModel()
 ) {
-    val navDestination by viewModel.navigationDestination.collectAsStateWithLifecycle()
-
-    LaunchedEffect(navDestination) {
-        when (navDestination) {
+    ObserveAsEvents(viewModel.events) { destination ->
+        when (destination) {
             SplashDestination.Main -> onNavigateToMain()
             SplashDestination.Login -> onNavigateToLogin()
-            null -> {}
         }
     }
 

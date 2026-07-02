@@ -15,7 +15,7 @@ dependencies {
     implementation(project(":core:ui"))
     implementation(libs.hilt.android)
     ksp(libs.hilt.android.compiler)
-    implementation(libs.androidx.hilt.navigation.compose)
+    implementation(libs.androidx.hilt.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
@@ -30,5 +30,4 @@ dependencies {
     implementation(libs.syntaxmp)
     debugImplementation(libs.androidx.compose.ui.tooling)
     implementation(libs.androidx.compose.ui.tooling.preview)
-    testImplementation(testFixtures(project(":core:domain")))
 }

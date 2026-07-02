@@ -2,6 +2,7 @@ package com.rossomak.flashcards.core.data.preview
 
 import android.content.Context
 import android.speech.tts.TextToSpeech
+import android.util.Log
 import com.rossomak.flashcards.core.data.voice.VoiceCuration
 import com.rossomak.flashcards.core.domain.repository.VoicePreviewGateway
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -14,18 +15,25 @@ class DefaultVoicePreviewGateway @Inject constructor(
     @ApplicationContext private val context: Context,
 ) : VoicePreviewGateway {
 
-    private var tts: TextToSpeech? = null
-    private var ttsReady = false
-    private var pendingPreviewVoiceId: String? = null
-    private var pendingPreviewRate: Float = 1f
+    @Volatile private var tts: TextToSpeech? = null
+    @Volatile private var ttsReady = false
+    @Volatile private var ttsInitFailed = false
+    @Volatile private var pendingPreviewVoiceId: String? = null
+    @Volatile private var pendingPreviewRate: Float = 1f
 
+    @Synchronized
     private fun ensureTts() {
-        if (tts != null) return
+        if (tts != null && !ttsInitFailed) return
+        tts?.shutdown()
+        ttsInitFailed = false
         tts = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 runCatching { tts?.language = Locale.US }
                 ttsReady = true
                 applyPendingPreview()
+            } else {
+                Log.e(TAG, "TextToSpeech init failed with status $status")
+                ttsInitFailed = true
             }
         }
     }
@@ -53,9 +61,13 @@ class DefaultVoicePreviewGateway @Inject constructor(
 
     override fun stop() {
         tts?.stop()
+        tts?.shutdown()
+        tts = null
+        ttsReady = false
     }
 
     companion object {
+        private const val TAG = "VoicePreviewGateway"
         private const val UTTERANCE_PREVIEW = "preview"
         private const val SAMPLE_TEXT =
             "Here is an example of how this voice sounds at the selected speed."

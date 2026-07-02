@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.rossomak.flashcards.core.domain.model.VoiceOption
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,7 +97,7 @@ fun VoiceSettingsDialog(
                         modifier = Modifier.weight(1f),
                     )
                     Text(
-                        text = "${"%.2f".format(speechRate)}×",
+                        text = "${String.format(Locale.US, "%.2f", speechRate)}×",
                         style = MaterialTheme.typography.labelMedium,
                     )
                 }

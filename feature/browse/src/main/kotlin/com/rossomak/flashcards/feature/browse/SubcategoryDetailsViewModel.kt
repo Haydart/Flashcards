@@ -3,12 +3,14 @@ package com.rossomak.flashcards.feature.browse
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.navigation.toRoute
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
+import com.rossomak.flashcards.core.ui.navigation.decodeRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -19,7 +21,7 @@ class SubcategoryDetailsViewModel @Inject constructor(
     private val getFlashcards: GetFlashcardsUseCase
 ) : ViewModel() {
 
-    private val route = savedStateHandle.toRoute<SubcategoryDetailsRoute>()
+    private val route = savedStateHandle.decodeRoute<SubcategoryDetailsRoute>()
 
     private val _state = MutableStateFlow(
         SubcategoryDetailsScreenState(
@@ -28,6 +30,9 @@ class SubcategoryDetailsViewModel @Inject constructor(
         )
     )
     val state: StateFlow<SubcategoryDetailsScreenState> = _state.asStateFlow()
+
+    private val eventChannel = Channel<SubcategoryDetailsDestination>(Channel.BUFFERED)
+    val events = eventChannel.receiveAsFlow()
 
     init {
         loadFlashcards()
@@ -47,17 +52,13 @@ class SubcategoryDetailsViewModel @Inject constructor(
     }
 
     fun onStartSession() {
-        _state.update {
-            it.copy(
-                navigationDestination = SubcategoryDetailsDestination.StudySession(
+        viewModelScope.launch {
+            eventChannel.send(
+                SubcategoryDetailsDestination.StudySession(
                     route.subcategoryId,
                     route.subcategoryName
                 )
             )
         }
-    }
-
-    fun onNavigationHandled() {
-        _state.update { it.copy(navigationDestination = null) }
     }
 }

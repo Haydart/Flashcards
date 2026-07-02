@@ -8,7 +8,9 @@ import com.rossomak.flashcards.core.domain.model.CurationRequest
 import com.rossomak.flashcards.core.domain.usecase.GetCurationRequestsUseCase
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.ToggleCurationActionUseCase
+import com.rossomak.flashcards.core.ui.navigation.decodeRoute
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsController
+import com.rossomak.flashcards.feature.study.StudyRoute
 import com.rossomak.flashcards.feature.study.voice.VoiceGateway
 import java.time.Instant
 import com.rossomak.flashcards.feature.study.voice.VoicePhase
@@ -33,8 +35,9 @@ class StudySessionViewModel @Inject constructor(
     private val voiceSettingsController: VoiceSettingsController,
 ) : ViewModel() {
 
-    private val subcategoryId: String = checkNotNull(savedStateHandle["subcategoryId"])
-    private val subcategoryName: String = checkNotNull(savedStateHandle["subcategoryName"])
+    private val route = savedStateHandle.decodeRoute<StudyRoute>()
+    private val subcategoryId: String = route.subcategoryId
+    private val subcategoryName: String = route.subcategoryName
 
     private val _state = MutableStateFlow(StudySessionScreenState(subcategoryName = subcategoryName))
     val state: StateFlow<StudySessionScreenState> = _state.asStateFlow()
@@ -56,6 +59,9 @@ class StudySessionViewModel @Inject constructor(
     // Gates auto-advance on dialog dismiss and changes play-button behavior.
     private var pausedDueToExtendedContext = false
     private var advanceAfterExtendedContextJob: Job? = null
+
+    // True only when opening voice settings paused an in-progress playback; gates resume on close.
+    private var pausedForVoiceSettings = false
 
     init {
         loadFlashcards()
@@ -231,7 +237,10 @@ class StudySessionViewModel @Inject constructor(
     }
 
     fun onVoiceSettingsCogClick() {
-        if (_state.value.isVoicePlaying) voiceGateway.togglePlayPause()
+        if (_state.value.isVoicePlaying) {
+            pausedForVoiceSettings = true
+            voiceGateway.togglePlayPause()
+        }
         voiceSettingsController.open(viewModelScope)
     }
 
@@ -249,10 +258,19 @@ class StudySessionViewModel @Inject constructor(
             voiceGateway.setSpeechRate(settings.speechRate)
             voiceGateway.setVoice(settings.voiceId)
         }
+        resumeIfPausedForVoiceSettings()
     }
 
     fun onVoiceSettingsDismiss() {
         voiceSettingsController.dismiss()
+        resumeIfPausedForVoiceSettings()
+    }
+
+    private fun resumeIfPausedForVoiceSettings() {
+        if (pausedForVoiceSettings) {
+            pausedForVoiceSettings = false
+            voiceGateway.togglePlayPause()
+        }
     }
 
     fun onCurationFabClick() {
