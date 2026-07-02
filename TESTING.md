@@ -2,14 +2,16 @@
 
 Authoritative reference for JVM unit tests. All test-writing agents and contributors must follow these rules. Examples drawn from real tests under `app/src/test/java/com/rossomak/flashcards/`.
 
-> Scope: JVM unit tests only (`app/src/test/`). Instrumented/Compose UI conventions not yet documented.
+> Scope: JVM unit tests only (`app/src/test/` and each `feature/*/src/test/`). Instrumented/Compose UI conventions not yet documented.
 
 ---
 
 ## 1. Scope and Stack
-- **Frameworks**: JUnit 4.13.2, MockK 1.13.13, Turbine 1.2.0, Kotest Assertions 5.9.1, kotlinx-coroutines-test 1.10.2.
-- **Location**: `app/src/test/java/com/rossomak/flashcards/`, mirroring production package structure.
-- **Shared utilities**: `testutil/MainDispatcherRule.kt`.
+- **Frameworks**: JUnit 4.13.2, MockK 1.14.11, Turbine 1.2.1, Kotest Assertions 5.9.1, kotlinx-coroutines-test 1.11.0. No Robolectric — tests run on the plain JVM.
+- **Nav-arg ViewModels**: read routes via `SavedStateHandle.decodeRoute<T>()` (`core:ui`, `navigation/RouteDecoder.kt`), not the bare `toRoute` (whose `android.os.Bundle` decode can't run off-device). Tests stub the seam: `mockkObject(RouteDecoder)` + `every { RouteDecoder.decode(any<() -> MyRoute>()) } returns fakeRoute`, with `unmockkObject(RouteDecoder)` in `@After`.
+- **Location**: `app/src/test/java/…` and `feature/*/src/test/kotlin/…`, mirroring production package structure.
+- **Test wiring**: feature-module test deps (junit, mockk, turbine, kotest, coroutines-test) are applied centrally by the `android-feature` convention plugin — do not re-declare them per module.
+- **Shared utilities**: `MainDispatcherRule` and the `assertValue` helper live in `core:domain` **testFixtures** (package `com.rossomak.flashcards.testutil`); consume via `testImplementation(testFixtures(project(":core:domain")))`. Domain fakes (`FakeAuthRepository`, `FakeFlashcardRepository`) live there too — prefer a fake over mocking a use case that returns `kotlin.Result` (MockK unwraps the `Result` value class and hands back its payload).
 - **Coverage targets**: use cases 90%+, ViewModels 80%+, repositories 80%+.
 
 ---
