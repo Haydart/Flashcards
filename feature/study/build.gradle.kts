@@ -30,5 +30,4 @@ dependencies {
     implementation(libs.syntaxmp)
     debugImplementation(libs.androidx.compose.ui.tooling)
     implementation(libs.androidx.compose.ui.tooling.preview)
-    testImplementation(testFixtures(project(":core:domain")))
 }

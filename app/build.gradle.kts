@@ -69,6 +69,7 @@ dependencies {
     testImplementation(libs.turbine)
     testImplementation(libs.kotest.assertions.core)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(testFixtures(project(":core:domain")))
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
