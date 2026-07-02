@@ -6,9 +6,12 @@ import com.rossomak.flashcards.core.domain.usecase.SignOutUseCase
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -20,6 +23,9 @@ class SettingsViewModel @Inject constructor(
 
     private val _state = MutableStateFlow(SettingsScreenState())
     val state: StateFlow<SettingsScreenState> = _state.asStateFlow()
+
+    private val eventChannel = Channel<SettingsDestination>(Channel.BUFFERED)
+    val events = eventChannel.receiveAsFlow()
 
     init {
         voiceSettingsController.bind(viewModelScope)
@@ -60,15 +66,13 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 signOutUseCase()
+            } catch (e: CancellationException) {
+                throw e
             } catch (_: Exception) {
                 // Intentionally navigate to login even if remote sign-out fails.
             } finally {
-                _state.update {
-                    it.copy(
-                        isSigningOut = false,
-                        navigateToLogin = true
-                    )
-                }
+                _state.update { it.copy(isSigningOut = false) }
+                eventChannel.send(SettingsDestination.Login)
             }
         }
     }

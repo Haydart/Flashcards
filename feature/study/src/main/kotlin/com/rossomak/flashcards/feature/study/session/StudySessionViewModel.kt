@@ -8,7 +8,9 @@ import com.rossomak.flashcards.core.domain.model.CurationRequest
 import com.rossomak.flashcards.core.domain.usecase.GetCurationRequestsUseCase
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.ToggleCurationActionUseCase
+import com.rossomak.flashcards.core.ui.navigation.decodeRoute
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsController
+import com.rossomak.flashcards.feature.study.StudyRoute
 import com.rossomak.flashcards.feature.study.voice.VoiceGateway
 import java.time.Instant
 import com.rossomak.flashcards.feature.study.voice.VoicePhase
@@ -33,8 +35,9 @@ class StudySessionViewModel @Inject constructor(
     private val voiceSettingsController: VoiceSettingsController,
 ) : ViewModel() {
 
-    private val subcategoryId: String = checkNotNull(savedStateHandle["subcategoryId"])
-    private val subcategoryName: String = checkNotNull(savedStateHandle["subcategoryName"])
+    private val route = savedStateHandle.decodeRoute<StudyRoute>()
+    private val subcategoryId: String = route.subcategoryId
+    private val subcategoryName: String = route.subcategoryName
 
     private val _state = MutableStateFlow(StudySessionScreenState(subcategoryName = subcategoryName))
     val state: StateFlow<StudySessionScreenState> = _state.asStateFlow()
