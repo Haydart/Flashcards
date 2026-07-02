@@ -63,7 +63,11 @@ fun SettingsScreen(
         isSigningOut = state.isSigningOut,
         onVoicePlaybackSettingsClick = viewModel::onVoicePlaybackSettingsClick,
         onSignOutClick = viewModel::onSignOutClick,
-        onTriggerMemoryLeakClick = { LeakCanaryTestSink.leakedReferences.add(context) },
+        onTriggerMemoryLeakClick = if (BuildConfig.DEBUG) {
+            { LeakCanaryTestSink.leakedReferences.add(context) }
+        } else {
+            null
+        },
         modifier = modifier,
     )
 }
@@ -73,7 +77,7 @@ private fun SettingsContent(
     isSigningOut: Boolean,
     onVoicePlaybackSettingsClick: () -> Unit,
     onSignOutClick: () -> Unit,
-    onTriggerMemoryLeakClick: () -> Unit,
+    onTriggerMemoryLeakClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -87,10 +91,12 @@ private fun SettingsContent(
             Text(text = "Voice playback settings")
         }
         Spacer(modifier = Modifier.height(16.dp))
-        OutlinedButton(onClick = onTriggerMemoryLeakClick) {
-            Text(text = "Test LeakCanary (leak activity)")
+        if (onTriggerMemoryLeakClick != null) {
+            OutlinedButton(onClick = onTriggerMemoryLeakClick) {
+                Text(text = "Test LeakCanary (leak activity)")
+            }
+            Spacer(modifier = Modifier.height(16.dp))
         }
-        Spacer(modifier = Modifier.height(16.dp))
         OutlinedButton(onClick = onSignOutClick, enabled = !isSigningOut) {
             if (isSigningOut) {
                 CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
