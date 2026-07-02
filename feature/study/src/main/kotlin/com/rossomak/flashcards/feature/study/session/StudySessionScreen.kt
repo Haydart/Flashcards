@@ -36,7 +36,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SkipNext
@@ -107,11 +106,11 @@ fun StudySessionScreen(
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
-    ) { viewModel.onToggleVoiceMode() }
+    ) { viewModel.onVoiceAutoStart() }
 
-    val onToggleVoiceMode = {
-        val needsNotificationPermission = !state.isVoiceActive &&
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+    LaunchedEffect(state.isVoiceAutoStartPending) {
+        if (!state.isVoiceAutoStartPending) return@LaunchedEffect
+        val needsNotificationPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                 ContextCompat.checkSelfPermission(
                     context,
                     Manifest.permission.POST_NOTIFICATIONS
@@ -120,7 +119,7 @@ fun StudySessionScreen(
         if (needsNotificationPermission) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
-            viewModel.onToggleVoiceMode()
+            viewModel.onVoiceAutoStart()
         }
     }
 
@@ -161,7 +160,6 @@ fun StudySessionScreen(
         onNavigateBack = onNavigateBack,
         onShowAnswer = viewModel::onShowAnswer,
         onNextCard = viewModel::onNextCard,
-        onToggleVoiceMode = onToggleVoiceMode,
         onVoicePlayPause = viewModel::onVoicePlayPause,
         onVoiceNext = viewModel::onVoiceNext,
         onVoicePrevious = viewModel::onVoicePrevious,
@@ -186,7 +184,6 @@ fun StudySessionContent(
     onNavigateBack: () -> Unit,
     onShowAnswer: () -> Unit,
     onNextCard: () -> Unit,
-    onToggleVoiceMode: () -> Unit,
     onVoicePlayPause: () -> Unit,
     onVoiceNext: () -> Unit,
     onVoicePrevious: () -> Unit,
@@ -215,7 +212,7 @@ fun StudySessionContent(
         sheetDragHandle = {},
         topBar = {
             TopAppBar(
-                title = { Text(text = state.subcategoryName) },
+                title = { Text(text = state.sessionTitle) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
@@ -225,17 +222,6 @@ fun StudySessionContent(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onToggleVoiceMode) {
-                        Icon(
-                            imageVector = Icons.Default.RecordVoiceOver,
-                            contentDescription = if (state.isVoiceActive) "Stop voice playback" else "Start voice playback",
-                            tint = if (state.isVoiceActive) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                        )
-                    }
                     if (state.flashcards.isNotEmpty()) {
                         Text(
                             text = "${state.currentCardIndex + 1} / ${state.flashcards.size}",
@@ -619,7 +605,7 @@ private fun CenteredBox(
 private fun StudySessionVoiceActivePreview() {
     StudySessionContent(
         state = StudySessionScreenState(
-            subcategoryName = "Compose",
+            sessionTitle = "Compose",
             flashcards = emptyList(),
             isVoiceActive = true,
             isVoicePlaying = true,
@@ -629,7 +615,6 @@ private fun StudySessionVoiceActivePreview() {
         onNavigateBack = {},
         onShowAnswer = {},
         onNextCard = {},
-        onToggleVoiceMode = {},
         onVoicePlayPause = {},
         onVoiceNext = {},
         onVoicePrevious = {},
