@@ -6,7 +6,7 @@ import com.rossomak.flashcards.core.ui.voice.VoiceSettingsDraftState
 import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 
 data class StudySessionScreenState(
-    val subcategoryName: String = "",
+    val sessionTitle: String = "",
     val isLoading: Boolean = false,
     val flashcards: List<Flashcard> = emptyList(),
     val currentCardIndex: Int = 0,
@@ -15,6 +15,7 @@ data class StudySessionScreenState(
     val error: String? = null,
     val isVoiceActive: Boolean = false,
     val isVoicePlaying: Boolean = false,
+    val isVoiceAutoStartPending: Boolean = false,
     val speechRate: Float = VoicePlaybackState.DEFAULT_SPEECH_RATE,
     val voiceError: String? = null,
     val isCurationDialogVisible: Boolean = false,

@@ -50,12 +50,17 @@ class SubcategoryDetailsViewModelTest {
         SubcategoryDetailsViewModel(savedStateHandle, getFlashcards)
 
     @Test
-    fun `onStartSession emits StudySession with subcategory id and name`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `onStartSession emits PreviewStudySession with category and subcategory ids and names`() = runTest(mainDispatcherRule.testDispatcher) {
         val viewModel = createViewModel()
         viewModel.onStartSession()
 
         viewModel.events.test {
-            awaitItem() shouldBe SubcategoryDetailsDestination.StudySession(route.subcategoryId, route.subcategoryName)
+            awaitItem() shouldBe SubcategoryDetailsDestination.PreviewStudySession(
+                categoryId = route.categoryId,
+                categoryName = route.categoryName,
+                subcategoryId = route.subcategoryId,
+                subcategoryName = route.subcategoryName,
+            )
         }
     }
 }

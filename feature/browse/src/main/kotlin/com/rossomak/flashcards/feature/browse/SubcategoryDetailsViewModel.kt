@@ -54,9 +54,11 @@ class SubcategoryDetailsViewModel @Inject constructor(
     fun onStartSession() {
         viewModelScope.launch {
             eventChannel.send(
-                SubcategoryDetailsDestination.StudySession(
-                    route.subcategoryId,
-                    route.subcategoryName
+                SubcategoryDetailsDestination.PreviewStudySession(
+                    categoryId = route.categoryId,
+                    categoryName = route.categoryName,
+                    subcategoryId = route.subcategoryId,
+                    subcategoryName = route.subcategoryName,
                 )
             )
         }

@@ -11,7 +11,7 @@ Pinned home screen shortcuts that deep-link directly into a specific Category or
 | Category shortcut | Category name | Category Details screen |
 | Subcategory shortcut | Subcategory name | Subcategory Details screen |
 
-Future: destinations may change to Pre-start Screen (with the Category/Subcategory pre-selected) to reduce taps to session start. Not in current scope.
+Future: destinations may change to Preview Study Session Screen (with the Category/Subcategory pre-selected) to reduce taps to session start. Not in current scope.
 
 ## Creation surface
 

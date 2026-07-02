@@ -6,7 +6,7 @@ Flashcards are stored as a subcollection directly under their Subcategory docume
 
 ## Context
 
-Every read of Flashcards is scoped to one or more Subcategories (Subcategory Details, Pre-start Screen card selection, Quick Session). The original flat `cards/{cardId}` collection required a `WHERE subcategoryId == X` query and a Firestore composite index for every such read.
+Every read of Flashcards is scoped to one or more Subcategories (Subcategory Details, Preview Study Session Screen card selection, Quick Session). The original flat `cards/{cardId}` collection required a `WHERE subcategoryId == X` query and a Firestore composite index for every such read.
 
 Subcategories were originally stored in the `categories/` collection alongside Categories, distinguished by a `parentId` field. Direct lookup by subcategoryId (required for Favorites and Recents on the Home screen, which store only `subcategoryId`) worked cleanly, but Category + Subcategory were conflated in a single collection.
 
@@ -23,7 +23,7 @@ Subcategories were originally stored in the `categories/` collection alongside C
 ## Consequences
 
 - Fetching all Flashcards for a Subcategory: single `getDocuments()` on `subcategories/{subcategoryId}/flashcards` — no WHERE, no index.
-- Multi-subcategory fetch (Quick Session, composite Pre-start): N parallel `getDocuments()` calls, one per Subcategory.
+- Multi-subcategory fetch (Quick Session, composite Preview Study Session): N parallel `getDocuments()` calls, one per Subcategory.
 - `subcategoryId` field dropped from Flashcard documents — redundant with path, cannot drift out of sync.
 - Favorites and Recents look up Subcategory docs directly: `subcategories/android-testing` — one read, no join.
 - Category Details loads Subcategories via `subcategories.where("categoryId", "==", "android")` — single indexed query.

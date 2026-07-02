@@ -8,10 +8,12 @@ class FakeFlashcardRepository : FlashcardRepository {
     var categoriesToReturn: Result<List<Category>> = Result.success(emptyList())
     var subcategoriesToReturn: Result<List<Subcategory>> = Result.success(emptyList())
     var flashcardsToReturn: Result<List<Flashcard>> = Result.success(emptyList())
+    val flashcardsBySubcategory: MutableMap<String, Result<List<Flashcard>>> = mutableMapOf()
 
     override suspend fun fetchCategories(): Result<List<Category>> = categoriesToReturn
 
     override suspend fun fetchSubcategories(categoryId: String): Result<List<Subcategory>> = subcategoriesToReturn
 
-    override suspend fun fetchFlashcards(subcategoryId: String): Result<List<Flashcard>> = flashcardsToReturn
+    override suspend fun fetchFlashcards(subcategoryId: String): Result<List<Flashcard>> =
+        flashcardsBySubcategory[subcategoryId] ?: flashcardsToReturn
 }
