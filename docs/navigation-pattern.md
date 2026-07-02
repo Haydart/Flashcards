@@ -49,10 +49,11 @@ interface NavigationEvent
 @Composable
 fun <T> ObserveAsEvents(events: Flow<T>, onEvent: (T) -> Unit) {
     val lifecycleOwner = LocalLifecycleOwner.current
+    val currentOnEvent = rememberUpdatedState(onEvent)
     LaunchedEffect(events, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             withContext(Dispatchers.Main.immediate) {
-                events.collect(onEvent)
+                events.collect { currentOnEvent.value(it) }
             }
         }
     }
