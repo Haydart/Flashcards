@@ -1,5 +1,6 @@
 package com.rossomak.flashcards.feature.settings
 
+import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -14,6 +15,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -21,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.ui.composables.VoiceSettingsDialog
+import com.rossomak.flashcards.core.ui.showcase.Showcase
 import com.rossomak.flashcards.core.ui.navigation.ObserveAsEvents
 
 /**
@@ -59,8 +62,11 @@ fun SettingsScreen(
         )
     }
 
+    val showcaseIntent = remember { Showcase.intentOrNull(context) }
+
     SettingsContent(
         isSigningOut = state.isSigningOut,
+        showcaseIntent = showcaseIntent,
         onVoicePlaybackSettingsClick = viewModel::onVoicePlaybackSettingsClick,
         onSignOutClick = viewModel::onSignOutClick,
         onTriggerMemoryLeakClick = if (BuildConfig.DEBUG) {
@@ -75,11 +81,14 @@ fun SettingsScreen(
 @Composable
 private fun SettingsContent(
     isSigningOut: Boolean,
+    showcaseIntent: Intent?,
     onVoicePlaybackSettingsClick: () -> Unit,
     onSignOutClick: () -> Unit,
     onTriggerMemoryLeakClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
+
     Column(
         modifier = modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -89,6 +98,12 @@ private fun SettingsContent(
         Spacer(modifier = Modifier.height(24.dp))
         OutlinedButton(onClick = onVoicePlaybackSettingsClick) {
             Text(text = "Voice playback settings")
+        }
+        if (showcaseIntent != null) {
+            Spacer(modifier = Modifier.height(16.dp))
+            OutlinedButton(onClick = { context.startActivity(showcaseIntent) }) {
+                Text(text = "UI component showcase")
+            }
         }
         Spacer(modifier = Modifier.height(16.dp))
         if (onTriggerMemoryLeakClick != null) {
