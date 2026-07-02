@@ -82,6 +82,53 @@ Use sealed classes for finite UI states (e.g. loading / content / error variants
 
 For fallible operations, return `kotlin.Result<T>` and consume with `.onSuccess { ... }` / `.onFailure { ... }`. Do not define a project-local `Result` type — it would shadow the stdlib one.
 
+## Argument Order
+
+Every signature type below has one fixed parameter order — rationale in [ADR-0020](./docs/adr/0020-argument-order-conventions.md).
+
+**After writing or editing any `XxxScreen`/`XxxContent` composable, `@HiltViewModel` class, or Repository/DataSource method, run:**
+```
+./scripts/check-arg-order.sh
+```
+Exit code `0` + `check-arg-order: no violations found.` means clean. Exit code `1` prints one `path/to/File.kt:LINE: message (ADR-0020)` line per violation — fix each one and re-run before considering the task done. It's a regex/awk heuristic (no Detekt/ktlint set up yet), so it can miss unusual formatting; don't treat a clean run as a substitute for actually following the rules below, only as a backstop.
+
+**Composable Screens** (`XxxScreen`, nav entry points) — `modifier` → `viewModel` → nav callbacks (`onNavigateBack` first if present, then remaining callbacks happy-path-first):
+```kotlin
+@Composable
+fun ExampleScreen(
+    modifier: Modifier = Modifier,
+    viewModel: ExampleViewModel = hiltViewModel(),
+    onNavigateBack: () -> Unit,
+    onNavigateToDetails: (id: String) -> Unit,
+) { ... }
+```
+Nav callbacks have no default, so they sit after defaulted params (`modifier`, `viewModel`) — every call site must use named arguments (already the case throughout `NavGraph.kt`).
+
+**Composable Content** (`XxxContent`, stateless) — `state` → callbacks → `modifier` last:
+```kotlin
+@Composable
+fun ExampleContent(
+    state: ExampleScreenState,
+    onRefresh: () -> Unit,
+    modifier: Modifier = Modifier,
+) { ... }
+```
+
+**ViewModel constructors** — `SavedStateHandle` (if present) → use cases → gateways/controllers/other collaborators:
+```kotlin
+@HiltViewModel
+class ExampleViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
+    private val getExamplesUseCase: GetExamplesUseCase,
+    private val exampleGateway: ExampleGateway,
+) : ViewModel() { ... }
+```
+
+**Repository / DataSource / UseCase multi-param methods** — identifiers/keys → payload/action/value:
+```kotlin
+suspend fun upsertCurationAction(cardId: String, subcategoryId: String, action: CurationAction): Result<Unit>
+```
+
 ## Jetpack Compose Guidelines
 
 **Composable taxonomy:**
