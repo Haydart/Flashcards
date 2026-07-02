@@ -30,3 +30,6 @@ graphify-out/
 
 # Raw docs, sources for generating the flashcards
 /docs/temp/
+
+# Python bytecode cache
+scripts/__pycache__/
