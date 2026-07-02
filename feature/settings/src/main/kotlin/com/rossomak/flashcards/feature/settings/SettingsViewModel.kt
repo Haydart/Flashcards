@@ -6,6 +6,7 @@ import com.rossomak.flashcards.core.domain.usecase.SignOutUseCase
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -65,6 +66,8 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 signOutUseCase()
+            } catch (e: CancellationException) {
+                throw e
             } catch (_: Exception) {
                 // Intentionally navigate to login even if remote sign-out fails.
             } finally {
