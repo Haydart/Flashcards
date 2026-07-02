@@ -32,4 +32,4 @@ We deliberately deviate from that guideline's ordering of nav callbacks: they're
 
 ## Consequences
 
-- `scripts/check-arg-order.sh` provides a grep-based check since no Detekt/ktlint custom-rule infra exists yet; heuristic, not AST-verified. AGENTS.md §Argument Order tells agents to run it after touching any Screen/Content/ViewModel/Repository file.
+- `scripts/check-arg-order.py` provides a regex/paren-depth check since no Detekt/ktlint custom-rule infra exists yet; heuristic, not AST-verified. Covers all four signature types, including the identifiers-before-payload rule on `*Repository.kt`/`*DataSource.kt`/`*UseCase.kt` files. AGENTS.md §Argument Order tells agents to run it after touching any of those files.

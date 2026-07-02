@@ -86,11 +86,11 @@ For fallible operations, return `kotlin.Result<T>` and consume with `.onSuccess 
 
 Every signature type below has one fixed parameter order — rationale in [ADR-0020](./docs/adr/0020-argument-order-conventions.md).
 
-**After writing or editing any `XxxScreen`/`XxxContent` composable, `@HiltViewModel` class, or Repository/DataSource method, run:**
+**After writing or editing any `XxxScreen`/`XxxContent` composable, `@HiltViewModel` class, or `*Repository.kt`/`*DataSource.kt`/`*UseCase.kt` file, run:**
 ```
-./scripts/check-arg-order.sh
+python3 ./scripts/check-arg-order.py
 ```
-Exit code `0` + `check-arg-order: no violations found.` means clean. Exit code `1` prints one `path/to/File.kt:LINE: message (ADR-0020)` line per violation — fix each one and re-run before considering the task done. It's a regex/awk heuristic (no Detekt/ktlint set up yet), so it can miss unusual formatting; don't treat a clean run as a substitute for actually following the rules below, only as a backstop.
+Exit code `0` + `check-arg-order: no violations found.` means clean. Exit code `1` prints one `path/to/File.kt:LINE: message (ADR-0020)` line per violation — fix each one and re-run before considering the task done. It's a regex/paren-depth heuristic (no Detekt/ktlint set up yet), so it can miss unusual formatting; don't treat a clean run as a substitute for actually following the rules below, only as a backstop.
 
 **Composable Screens** (`XxxScreen`, nav entry points) — `modifier` → `viewModel` → nav callbacks (`onNavigateBack` first if present, then remaining callbacks happy-path-first):
 ```kotlin
