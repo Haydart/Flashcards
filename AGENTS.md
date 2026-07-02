@@ -119,7 +119,7 @@ Dispatchers:
 StateFlow / SharedFlow rules:
 - `StateFlow` for UI state in ViewModels (single source of truth per screen)
 - `SharedFlow` for transient one-time events such as snackbars and toasts
-- **Navigation is the exception**: model navigation as a nullable destination field on the screen state, not as a `SharedFlow` event. Observe with `LaunchedEffect(state.navigationDestination)` and trigger the nav callback. See [docs/navigation-pattern.md](./docs/navigation-pattern.md) for the rationale (recomposition-safe, idempotent, no replay/buffer tuning).
+- **Navigation is a one-time event, not state**: dispatch it through a `Channel<XxxDestination>(Channel.BUFFERED)` exposed via `receiveAsFlow()` and collect it once in the UI with `ObserveAsEvents(viewModel.events) { … }` (`core:ui`). Destinations stay type-safe sealed interfaces implementing `NavigationEvent` (no route strings). Never put navigation in persistent screen state; there is no `onNavigationHandled()` reset. See [docs/navigation-pattern.md](./docs/navigation-pattern.md) and [ADR-0019](./docs/adr/0019-navigation-as-one-time-events.md).
 - Handle errors with `.catch()` operator on upstream flows
 
 ## Data Layer Standards

@@ -18,7 +18,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -35,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.rossomak.flashcards.core.ui.navigation.ObserveAsEvents
 import com.rossomak.flashcards.feature.auth.R
 import kotlinx.coroutines.launch
 
@@ -59,10 +59,9 @@ fun LoginScreen(
     val coroutineScope = rememberCoroutineScope()
     val signInLauncher = remember(context) { GoogleSignInLauncher(context) }
 
-    LaunchedEffect(state.navigationDestination) {
-        when (state.navigationDestination) {
+    ObserveAsEvents(viewModel.events) { destination ->
+        when (destination) {
             LoginDestination.Main -> onNavigateToMain()
-            null -> Unit
         }
     }
 
