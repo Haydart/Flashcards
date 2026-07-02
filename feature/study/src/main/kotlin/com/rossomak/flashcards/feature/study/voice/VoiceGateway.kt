@@ -33,4 +33,5 @@ interface VoiceGateway {
     fun restartCurrentCard()
     fun showAnswer()
     fun setSpeechRate(rate: Float)
+    fun setVoice(voiceId: String?)
 }

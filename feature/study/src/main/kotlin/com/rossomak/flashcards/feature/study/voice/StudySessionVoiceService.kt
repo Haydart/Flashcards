@@ -47,6 +47,8 @@ class StudySessionVoiceService : MediaSessionService() {
 
         fun setPlaybackSpeechRate(rate: Float) = player.setPlaybackSpeechRate(rate)
 
+        fun setVoice(voiceId: String?) = player.setVoice(voiceId)
+
         fun stopPlayback() = this@StudySessionVoiceService.stopPlayback()
     }
 

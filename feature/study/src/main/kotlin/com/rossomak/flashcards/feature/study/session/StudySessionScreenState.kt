@@ -2,6 +2,7 @@ package com.rossomak.flashcards.feature.study.session
 
 import com.rossomak.flashcards.core.domain.model.CurationRequest
 import com.rossomak.flashcards.core.domain.model.Flashcard
+import com.rossomak.flashcards.core.ui.voice.VoiceSettingsDraftState
 import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 
 data class StudySessionScreenState(
@@ -19,4 +20,5 @@ data class StudySessionScreenState(
     val isCurationDialogVisible: Boolean = false,
     val curationRequests: Map<String, CurationRequest> = emptyMap(),
     val curationError: String? = null,
+    val voiceSettingsState: VoiceSettingsDraftState = VoiceSettingsDraftState(),
 )

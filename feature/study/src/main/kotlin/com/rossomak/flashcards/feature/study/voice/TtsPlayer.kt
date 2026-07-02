@@ -10,6 +10,7 @@ import android.os.Looper
 import android.os.SystemClock
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import com.rossomak.flashcards.core.data.voice.VoiceCuration
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
@@ -57,6 +58,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
     private var isPlaying = false
     private var isBetweenPause = false
     private var speechRate = VoicePlaybackState.DEFAULT_SPEECH_RATE
+    private var pendingVoiceId: String? = null
     private var subcategoryName = ""
 
     /**
@@ -73,6 +75,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
             runCatching {
                 tts.language = Locale.US // app supports English voice only
             }
+            applyVoice(pendingVoiceId)
             tts.setSpeechRate(speechRate)
             tts.setOnUtteranceProgressListener(utteranceListener)
             if (startWhenReady) {
@@ -201,6 +204,26 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
             stopUtterance()
             publishState()
         }
+    }
+
+    fun setVoice(voiceId: String?) {
+        pendingVoiceId = voiceId
+        if (ttsReady) {
+            applyVoice(voiceId)
+            if (isPlaying) {
+                when (phase) {
+                    VoicePhase.QUESTION -> speakQuestion()
+                    VoicePhase.ANSWER -> speakAnswer()
+                }
+            }
+        }
+    }
+
+    /** [voiceId] `null` means "no explicit choice yet" — resolves to a curated English voice, never the device's system default (which may not even be English). */
+    private fun applyVoice(voiceId: String?) {
+        val resolved = voiceId?.let { id -> tts.voices?.firstOrNull { it.name == id } }
+            ?: VoiceCuration.curate(tts.voices.orEmpty()).firstOrNull()
+        if (resolved != null) tts.voice = resolved
     }
 
     fun setPlaybackSpeechRate(rate: Float) {

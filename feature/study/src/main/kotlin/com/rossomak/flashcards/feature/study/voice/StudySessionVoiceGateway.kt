@@ -43,6 +43,8 @@ class StudySessionVoiceGateway @Inject constructor(
     private var pendingCards: List<VoiceCard> = emptyList()
     private var pendingStartIndex: Int = 0
     private var pendingSubcategoryName: String = ""
+    private var pendingSpeechRate: Float? = null
+    private var pendingVoiceId: String? = null
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -54,6 +56,10 @@ class StudySessionVoiceGateway @Inject constructor(
             val binder = service as? StudySessionVoiceService.LocalBinder ?: return
             voiceBinder = binder
             binder.loadSession(pendingCards, pendingStartIndex, pendingSubcategoryName)
+            // setSpeechRate/setVoice can land before the async bind completes (voiceBinder was
+            // still null), so replay whatever was requested in the meantime.
+            pendingSpeechRate?.let { binder.setPlaybackSpeechRate(it) }
+            pendingVoiceId?.let { binder.setVoice(it) }
             collectVoiceState(binder)
         }
 
@@ -106,7 +112,13 @@ class StudySessionVoiceGateway @Inject constructor(
     }
 
     override fun setSpeechRate(rate: Float) {
+        pendingSpeechRate = rate
         voiceBinder?.setPlaybackSpeechRate(rate)
+    }
+
+    override fun setVoice(voiceId: String?) {
+        pendingVoiceId = voiceId
+        voiceBinder?.setVoice(voiceId)
     }
 
     private fun collectVoiceState(binder: StudySessionVoiceService.LocalBinder) {

@@ -8,6 +8,7 @@ import com.rossomak.flashcards.core.domain.model.CurationRequest
 import com.rossomak.flashcards.core.domain.usecase.GetCurationRequestsUseCase
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.ToggleCurationActionUseCase
+import com.rossomak.flashcards.core.ui.voice.VoiceSettingsController
 import com.rossomak.flashcards.feature.study.voice.VoiceGateway
 import java.time.Instant
 import com.rossomak.flashcards.feature.study.voice.VoicePhase
@@ -29,6 +30,7 @@ class StudySessionViewModel @Inject constructor(
     private val getCurationRequests: GetCurationRequestsUseCase,
     private val toggleCurationAction: ToggleCurationActionUseCase,
     private val voiceGateway: VoiceGateway,
+    private val voiceSettingsController: VoiceSettingsController,
 ) : ViewModel() {
 
     private val subcategoryId: String = checkNotNull(savedStateHandle["subcategoryId"])
@@ -55,9 +57,18 @@ class StudySessionViewModel @Inject constructor(
     private var pausedDueToExtendedContext = false
     private var advanceAfterExtendedContextJob: Job? = null
 
+    // True only when opening voice settings paused an in-progress playback; gates resume on close.
+    private var pausedForVoiceSettings = false
+
     init {
         loadFlashcards()
         observeVoiceState()
+        voiceSettingsController.bind(viewModelScope)
+        viewModelScope.launch {
+            voiceSettingsController.draftState.collect { draft ->
+                _state.update { it.copy(voiceSettingsState = draft) }
+            }
+        }
     }
 
     private fun loadFlashcards() {
@@ -151,6 +162,8 @@ class StudySessionViewModel @Inject constructor(
                 startIndex = _state.value.currentCardIndex,
                 subcategoryName = subcategoryName,
             )
+            voiceGateway.setSpeechRate(voiceSettingsController.currentSettings.speechRate)
+            voiceGateway.setVoice(voiceSettingsController.currentSettings.voiceId)
         }
     }
 
@@ -217,6 +230,43 @@ class StudySessionViewModel @Inject constructor(
         rewindJob = viewModelScope.launch {
             delay(rewindThresholdMs)
             isPastRewindThreshold = true
+        }
+    }
+
+    fun onVoiceSettingsCogClick() {
+        if (_state.value.isVoicePlaying) {
+            pausedForVoiceSettings = true
+            voiceGateway.togglePlayPause()
+        }
+        voiceSettingsController.open(viewModelScope)
+    }
+
+    fun onVoiceSettingsDraftVoiceChanged(voiceId: String?) {
+        voiceSettingsController.onDraftVoiceChanged(voiceId)
+    }
+
+    fun onVoiceSettingsDraftSpeedChanged(speed: Float) {
+        voiceSettingsController.onDraftSpeedChanged(speed)
+    }
+
+    fun onVoiceSettingsSave() {
+        val settings = voiceSettingsController.save(viewModelScope)
+        if (_state.value.isVoiceActive) {
+            voiceGateway.setSpeechRate(settings.speechRate)
+            voiceGateway.setVoice(settings.voiceId)
+        }
+        resumeIfPausedForVoiceSettings()
+    }
+
+    fun onVoiceSettingsDismiss() {
+        voiceSettingsController.dismiss()
+        resumeIfPausedForVoiceSettings()
+    }
+
+    private fun resumeIfPausedForVoiceSettings() {
+        if (pausedForVoiceSettings) {
+            pausedForVoiceSettings = false
+            voiceGateway.togglePlayPause()
         }
     }
 
