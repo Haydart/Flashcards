@@ -93,8 +93,9 @@ import java.time.Instant
 
 @Composable
 fun StudySessionScreen(
-    onNavigateBack: () -> Unit,
+    modifier: Modifier = Modifier,
     viewModel: StudySessionViewModel = hiltViewModel(),
+    onNavigateBack: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -175,6 +176,7 @@ fun StudySessionScreen(
         onCurationDialogDismiss = viewModel::onCurationDialogDismiss,
         onExtendedContextDialogOpen = viewModel::onExtendedContextDialogOpen,
         onExtendedContextDialogDismissed = viewModel::onExtendedContextDialogDismissed,
+        modifier = modifier,
     )
 }
 

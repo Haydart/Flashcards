@@ -34,9 +34,10 @@ import com.rossomak.flashcards.core.domain.model.Subcategory
 
 @Composable
 fun CategoryDetailsScreen(
+    modifier: Modifier = Modifier,
+    viewModel: CategoryDetailsViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
     onNavigateToSubcategoryDetails: (String, String, String, String) -> Unit,
-    viewModel: CategoryDetailsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
@@ -44,6 +45,7 @@ fun CategoryDetailsScreen(
         state = state,
         onNavigateBack = onNavigateBack,
         onNavigateToSubcategoryDetails = onNavigateToSubcategoryDetails,
+        modifier = modifier,
     )
 }
 

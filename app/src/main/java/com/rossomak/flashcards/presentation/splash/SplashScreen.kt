@@ -21,7 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.rossomak.flashcards.core.ui.navigation.ObserveAsEvents
+import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -60,18 +60,19 @@ private const val ANIMATION_COMPLETE_MS = 2000L
 
 @Composable
 fun SplashScreen(
+    modifier: Modifier = Modifier,
+    viewModel: SplashViewModel = hiltViewModel(),
     onNavigateToMain: () -> Unit,
     onNavigateToLogin: () -> Unit,
-    viewModel: SplashViewModel = hiltViewModel()
 ) {
-    ObserveAsEvents(viewModel.events) { destination ->
+    observeAsEvents(viewModel.events) { destination ->
         when (destination) {
             SplashDestination.Main -> onNavigateToMain()
             SplashDestination.Login -> onNavigateToLogin()
         }
     }
 
-    SplashContent(onAnimationCompleted = viewModel::onAnimationCompleted)
+    SplashContent(onAnimationCompleted = viewModel::onAnimationCompleted, modifier = modifier)
 }
 
 @OptIn(ExperimentalAnimationGraphicsApi::class)

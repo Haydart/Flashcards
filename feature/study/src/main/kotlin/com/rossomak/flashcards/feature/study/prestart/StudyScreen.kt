@@ -19,17 +19,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.rossomak.flashcards.core.ui.navigation.ObserveAsEvents
+import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 
 @Composable
 fun StudyScreen(
-    onNavigateToCategoryDetails: (String, String) -> Unit = { _, _ -> },
-    viewModel: StudyViewModel = hiltViewModel(),
     modifier: Modifier = Modifier,
+    viewModel: StudyViewModel = hiltViewModel(),
+    onNavigateToCategoryDetails: (String, String) -> Unit = { _, _ -> },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    ObserveAsEvents(viewModel.events) { destination ->
+    observeAsEvents(viewModel.events) { destination ->
         when (destination) {
             is StudyNavigationDestination.CategoryDetails ->
                 onNavigateToCategoryDetails(destination.categoryId, destination.categoryName)

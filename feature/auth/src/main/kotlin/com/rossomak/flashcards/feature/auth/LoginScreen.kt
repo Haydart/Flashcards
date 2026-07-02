@@ -34,8 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.rossomak.flashcards.core.ui.navigation.ObserveAsEvents
-import com.rossomak.flashcards.feature.auth.R
+import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import kotlinx.coroutines.launch
 
 private val LoginGradientStart = Color(0xFF7B2FBE)
@@ -51,15 +50,16 @@ private val LogoWidth = 200.dp
 
 @Composable
 fun LoginScreen(
+    modifier: Modifier = Modifier,
+    viewModel: LoginViewModel = hiltViewModel(),
     onNavigateToMain: () -> Unit,
-    viewModel: LoginViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val signInLauncher = remember(context) { GoogleSignInLauncher(context) }
 
-    ObserveAsEvents(viewModel.events) { destination ->
+    observeAsEvents(viewModel.events) { destination ->
         when (destination) {
             LoginDestination.Main -> onNavigateToMain()
         }
@@ -74,7 +74,8 @@ fun LoginScreen(
                     .onSuccess { idToken -> viewModel.onGoogleIdTokenReceived(idToken) }
                     .onFailure { error -> viewModel.onSignInFailed(error.message) }
             }
-        }
+        },
+        modifier = modifier,
     )
 }
 

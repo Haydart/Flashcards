@@ -24,12 +24,14 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.ui.composables.VoiceSettingsDialog
 import com.rossomak.flashcards.core.ui.showcase.Showcase
-import com.rossomak.flashcards.core.ui.navigation.ObserveAsEvents
+import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
+import leakcanary.AppWatcher
 
 /**
- * Process-static sink used only to demonstrate LeakCanary in debug builds. Anything added here
- * outlives the component it came from, so a stashed Activity becomes a retained instance once it is
- * destroyed and LeakCanary reports it.
+ * Process-static sink used only to demonstrate LeakCanary in debug builds. Holding a hard
+ * reference here keeps each watched object from becoming weakly reachable, so LeakCanary's
+ * retained-object check (~5s after [AppWatcher.objectWatcher.expectWeaklyReachable]) reports it
+ * as a leak without needing an actual Activity destroy/recreate to happen first.
  */
 private object LeakCanaryTestSink {
     val leakedReferences = mutableListOf<Any>()
@@ -37,14 +39,14 @@ private object LeakCanaryTestSink {
 
 @Composable
 fun SettingsScreen(
-    onNavigateToLogin: () -> Unit,
+    modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
-    modifier: Modifier = Modifier
+    onNavigateToLogin: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    ObserveAsEvents(viewModel.events) { destination ->
+    observeAsEvents(viewModel.events) { destination ->
         when (destination) {
             SettingsDestination.Login -> onNavigateToLogin()
         }
@@ -70,7 +72,11 @@ fun SettingsScreen(
         onVoicePlaybackSettingsClick = viewModel::onVoicePlaybackSettingsClick,
         onSignOutClick = viewModel::onSignOutClick,
         onTriggerMemoryLeakClick = if (BuildConfig.DEBUG) {
-            { LeakCanaryTestSink.leakedReferences.add(context) }
+            {
+                val leaked = Any()
+                LeakCanaryTestSink.leakedReferences.add(leaked)
+                AppWatcher.objectWatcher.expectWeaklyReachable(leaked, "Manually triggered from Settings screen")
+            }
         } else {
             null
         },
