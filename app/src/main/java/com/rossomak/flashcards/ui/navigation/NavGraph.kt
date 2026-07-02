@@ -11,7 +11,9 @@ import com.rossomak.flashcards.feature.browse.CategoryDetailsRoute
 import com.rossomak.flashcards.feature.browse.CategoryDetailsScreen
 import com.rossomak.flashcards.feature.browse.SubcategoryDetailsRoute
 import com.rossomak.flashcards.feature.browse.SubcategoryDetailsScreen
-import com.rossomak.flashcards.feature.study.StudyRoute
+import com.rossomak.flashcards.feature.study.PreviewStudySessionRoute
+import com.rossomak.flashcards.feature.study.StudySessionRoute
+import com.rossomak.flashcards.feature.study.preview.PreviewStudySessionScreen
 import com.rossomak.flashcards.feature.study.session.StudySessionScreen
 import com.rossomak.flashcards.presentation.main.MainScreen
 import com.rossomak.flashcards.presentation.splash.SplashScreen
@@ -86,12 +88,25 @@ fun FlashcardsNavGraph(
         composable<SubcategoryDetailsRoute> {
             SubcategoryDetailsScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToStudySession = { subcategoryId, subcategoryName ->
-                    navController.navigate(StudyRoute(subcategoryId, subcategoryName))
+                onNavigateToPreviewStudySession = { categoryId, categoryName, subcategoryId, subcategoryName ->
+                    navController.navigate(
+                        PreviewStudySessionRoute(
+                            categoryId = categoryId,
+                            categoryName = categoryName,
+                            subcategoryIds = listOf(subcategoryId),
+                            subcategoryNames = listOf(subcategoryName),
+                        )
+                    )
                 }
             )
         }
-        composable<StudyRoute> {
+        composable<PreviewStudySessionRoute> {
+            PreviewStudySessionScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToStudySession = { route -> navController.navigate(route) }
+            )
+        }
+        composable<StudySessionRoute> {
             StudySessionScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
