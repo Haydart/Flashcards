@@ -60,6 +60,9 @@ class StudySessionViewModel @Inject constructor(
     private var pausedDueToExtendedContext = false
     private var advanceAfterExtendedContextJob: Job? = null
 
+    // True only when opening voice settings paused an in-progress playback; gates resume on close.
+    private var pausedForVoiceSettings = false
+
     init {
         loadFlashcards()
         observeVoiceState()
@@ -234,7 +237,10 @@ class StudySessionViewModel @Inject constructor(
     }
 
     fun onVoiceSettingsCogClick() {
-        if (_state.value.isVoicePlaying) voiceGateway.togglePlayPause()
+        if (_state.value.isVoicePlaying) {
+            pausedForVoiceSettings = true
+            voiceGateway.togglePlayPause()
+        }
         voiceSettingsController.open(viewModelScope)
     }
 
@@ -252,10 +258,19 @@ class StudySessionViewModel @Inject constructor(
             voiceGateway.setSpeechRate(settings.speechRate)
             voiceGateway.setVoice(settings.voiceId)
         }
+        resumeIfPausedForVoiceSettings()
     }
 
     fun onVoiceSettingsDismiss() {
         voiceSettingsController.dismiss()
+        resumeIfPausedForVoiceSettings()
+    }
+
+    private fun resumeIfPausedForVoiceSettings() {
+        if (pausedForVoiceSettings) {
+            pausedForVoiceSettings = false
+            voiceGateway.togglePlayPause()
+        }
     }
 
     fun onCurationFabClick() {

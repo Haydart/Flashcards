@@ -60,7 +60,7 @@ class VoiceSettingsController @Inject constructor(
             _draftState.update { it.copy(availableVoices = cached) }
         } else {
             scope.launch {
-                val voices = getAvailableVoices()
+                val voices = runCatching { getAvailableVoices() }.getOrDefault(emptyList())
                 cachedVoices = voices
                 _draftState.update {
                     it.copy(
@@ -87,7 +87,7 @@ class VoiceSettingsController @Inject constructor(
             speechRate = _draftState.value.draftSpeed,
             voiceId = _draftState.value.draftVoiceId,
         )
-        scope.launch { saveVoiceSettings(settings) }
+        scope.launch { runCatching { saveVoiceSettings(settings) } }
         previewGateway.stop()
         _draftState.update { it.copy(isVisible = false) }
         return settings
