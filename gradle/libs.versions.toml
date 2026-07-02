@@ -29,7 +29,7 @@ media3 = "1.10.1"
 ksp = "2.3.9"
 androidDesugarJdkLibs = "2.1.5"
 datastorePreferences = "1.2.1"
-showkase = "1.0.2"
+showkase = "1.0.5"
 leakcanary = "2.14"
 
 [libraries]
