@@ -17,10 +17,20 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.ui.composables.VoiceSettingsDialog
+
+/**
+ * Process-static sink used only to demonstrate LeakCanary in debug builds. Anything added here
+ * outlives the component it came from, so a stashed Activity becomes a retained instance once it is
+ * destroyed and LeakCanary reports it.
+ */
+private object LeakCanaryTestSink {
+    val leakedReferences = mutableListOf<Any>()
+}
 
 @Composable
 fun SettingsScreen(
@@ -29,6 +39,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     LaunchedEffect(state.navigateToLogin) {
         if (state.navigateToLogin) {
@@ -52,6 +63,7 @@ fun SettingsScreen(
         isSigningOut = state.isSigningOut,
         onVoicePlaybackSettingsClick = viewModel::onVoicePlaybackSettingsClick,
         onSignOutClick = viewModel::onSignOutClick,
+        onTriggerMemoryLeakClick = { LeakCanaryTestSink.leakedReferences.add(context) },
         modifier = modifier,
     )
 }
@@ -61,6 +73,7 @@ private fun SettingsContent(
     isSigningOut: Boolean,
     onVoicePlaybackSettingsClick: () -> Unit,
     onSignOutClick: () -> Unit,
+    onTriggerMemoryLeakClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -72,6 +85,10 @@ private fun SettingsContent(
         Spacer(modifier = Modifier.height(24.dp))
         OutlinedButton(onClick = onVoicePlaybackSettingsClick) {
             Text(text = "Voice playback settings")
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        OutlinedButton(onClick = onTriggerMemoryLeakClick) {
+            Text(text = "Test LeakCanary (leak activity)")
         }
         Spacer(modifier = Modifier.height(16.dp))
         OutlinedButton(onClick = onSignOutClick, enabled = !isSigningOut) {
