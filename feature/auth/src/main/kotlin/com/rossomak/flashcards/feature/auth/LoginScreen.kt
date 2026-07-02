@@ -51,8 +51,9 @@ private val LogoWidth = 200.dp
 
 @Composable
 fun LoginScreen(
+    modifier: Modifier = Modifier,
+    viewModel: LoginViewModel = hiltViewModel(),
     onNavigateToMain: () -> Unit,
-    viewModel: LoginViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -74,7 +75,8 @@ fun LoginScreen(
                     .onSuccess { idToken -> viewModel.onGoogleIdTokenReceived(idToken) }
                     .onFailure { error -> viewModel.onSignInFailed(error.message) }
             }
-        }
+        },
+        modifier = modifier,
     )
 }
 

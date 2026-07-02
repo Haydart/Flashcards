@@ -45,9 +45,10 @@ import com.rossomak.flashcards.core.ui.navigation.ObserveAsEvents
 
 @Composable
 fun SubcategoryDetailsScreen(
+    modifier: Modifier = Modifier,
+    viewModel: SubcategoryDetailsViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
     onNavigateToStudySession: (subcategoryId: String, subcategoryName: String) -> Unit,
-    viewModel: SubcategoryDetailsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
@@ -62,6 +63,7 @@ fun SubcategoryDetailsScreen(
         state = state,
         onNavigateBack = onNavigateBack,
         onStartSession = viewModel::onStartSession,
+        modifier = modifier,
     )
 }
 

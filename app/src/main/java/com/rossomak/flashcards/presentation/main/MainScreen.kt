@@ -54,14 +54,16 @@ private val tabs = listOf(
 
 @Composable
 fun MainScreen(
-    onNavigateToLogin: () -> Unit,
+    modifier: Modifier = Modifier,
     onNavigateToCategoryDetails: (String, String) -> Unit,
+    onNavigateToLogin: () -> Unit,
 ) {
     val tabNavController = rememberNavController()
     val navBackStackEntry by tabNavController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
     Scaffold(
+        modifier = modifier,
         bottomBar = {
             NavigationBar(
                 containerColor = BottomBarBackground

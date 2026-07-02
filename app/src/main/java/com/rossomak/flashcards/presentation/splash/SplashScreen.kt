@@ -60,9 +60,10 @@ private const val ANIMATION_COMPLETE_MS = 2000L
 
 @Composable
 fun SplashScreen(
+    modifier: Modifier = Modifier,
+    viewModel: SplashViewModel = hiltViewModel(),
     onNavigateToMain: () -> Unit,
     onNavigateToLogin: () -> Unit,
-    viewModel: SplashViewModel = hiltViewModel()
 ) {
     ObserveAsEvents(viewModel.events) { destination ->
         when (destination) {
@@ -71,7 +72,7 @@ fun SplashScreen(
         }
     }
 
-    SplashContent(onAnimationCompleted = viewModel::onAnimationCompleted)
+    SplashContent(onAnimationCompleted = viewModel::onAnimationCompleted, modifier = modifier)
 }
 
 @OptIn(ExperimentalAnimationGraphicsApi::class)

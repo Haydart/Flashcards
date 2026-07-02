@@ -46,9 +46,9 @@ import com.rossomak.flashcards.core.ui.theme.brandColors
 
 @Composable
 fun HomeScreen(
-    onNavigateToCategoryDetails: (String, String) -> Unit = { _, _ -> },
-    viewModel: HomeViewModel = hiltViewModel(),
     modifier: Modifier = Modifier,
+    viewModel: HomeViewModel = hiltViewModel(),
+    onNavigateToCategoryDetails: (String, String) -> Unit = { _, _ -> },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 

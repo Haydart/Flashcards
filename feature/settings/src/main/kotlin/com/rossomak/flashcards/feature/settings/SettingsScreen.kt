@@ -24,9 +24,9 @@ import com.rossomak.flashcards.core.ui.navigation.ObserveAsEvents
 
 @Composable
 fun SettingsScreen(
-    onNavigateToLogin: () -> Unit,
+    modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
-    modifier: Modifier = Modifier
+    onNavigateToLogin: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
