@@ -21,7 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.rossomak.flashcards.core.ui.navigation.ObserveAsEvents
+import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -65,7 +65,7 @@ fun SplashScreen(
     onNavigateToMain: () -> Unit,
     onNavigateToLogin: () -> Unit,
 ) {
-    ObserveAsEvents(viewModel.events) { destination ->
+    observeAsEvents(viewModel.events) { destination ->
         when (destination) {
             SplashDestination.Main -> onNavigateToMain()
             SplashDestination.Login -> onNavigateToLogin()

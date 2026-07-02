@@ -41,7 +41,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.core.ui.composables.withInlineCode
-import com.rossomak.flashcards.core.ui.navigation.ObserveAsEvents
+import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 
 @Composable
 fun SubcategoryDetailsScreen(
@@ -52,7 +52,7 @@ fun SubcategoryDetailsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    ObserveAsEvents(viewModel.events) { destination ->
+    observeAsEvents(viewModel.events) { destination ->
         when (destination) {
             is SubcategoryDetailsDestination.StudySession ->
                 onNavigateToStudySession(destination.subcategoryId, destination.subcategoryName)

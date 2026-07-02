@@ -18,7 +18,7 @@ import kotlinx.coroutines.withContext
  * [Dispatchers.Main.immediate] so handlers dispatch synchronously when already on the main thread.
  */
 @Composable
-fun <T> ObserveAsEvents(events: Flow<T>, onEvent: (T) -> Unit) {
+fun <T> observeAsEvents(events: Flow<T>, onEvent: (T) -> Unit) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val currentOnEvent = rememberUpdatedState(onEvent)
     LaunchedEffect(events, lifecycleOwner) {
