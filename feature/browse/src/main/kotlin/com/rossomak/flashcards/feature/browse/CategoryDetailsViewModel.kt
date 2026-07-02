@@ -3,8 +3,8 @@ package com.rossomak.flashcards.feature.browse
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.navigation.toRoute
 import com.rossomak.flashcards.core.domain.usecase.GetSubcategoriesUseCase
+import com.rossomak.flashcards.core.ui.navigation.decodeRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,7 +19,7 @@ class CategoryDetailsViewModel @Inject constructor(
     private val getSubcategories: GetSubcategoriesUseCase,
 ) : ViewModel() {
 
-    private val route = savedStateHandle.toRoute<CategoryDetailsRoute>()
+    private val route = savedStateHandle.decodeRoute<CategoryDetailsRoute>()
 
     private val _state = MutableStateFlow(CategoryDetailsScreenState(categoryId = route.categoryId, categoryName = route.categoryName))
     val state: StateFlow<CategoryDetailsScreenState> = _state.asStateFlow()
