@@ -6,6 +6,10 @@ android {
     namespace = "com.rossomak.flashcards.core.ui"
 }
 
+ksp {
+    arg("skipPrivatePreviews", "true")
+}
+
 dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.android.compiler)
@@ -16,4 +20,6 @@ dependencies {
     implementation(libs.androidx.compose.ui.text.google.fonts)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.syntaxmp)
+    debugImplementation(libs.showkase)
+    kspDebug(libs.showkase.processor)
 }
