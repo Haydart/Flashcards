@@ -14,7 +14,7 @@ Portfolio project designed to demonstrate enterprise-grade Android development. 
 | `:feature:auth` | `LoginScreen` + VM | `:core:domain`, `:core:ui` |
 | `:feature:home` | `HomeScreen` + VM | `:core:domain`, `:core:ui` |
 | `:feature:browse` | `CategoryDetailsScreen`, `SubcategoryDetailsScreen` + VMs | `:core:domain`, `:core:ui` |
-| `:feature:study` | `PreStartScreen`, `StudySessionScreen`, `SessionSummaryScreen` + VMs | `:core:domain`, `:core:ui` |
+| `:feature:study` | `PreviewStudySessionScreen`, `StudySessionScreen`, `SessionSummaryScreen` + VMs | `:core:domain`, `:core:ui` |
 | `:feature:progress` | `ProgressScreen` + VM | `:core:domain`, `:core:ui` |
 | `:feature:settings` | `SettingsScreen` + VM | `:core:domain`, `:core:ui` |
 | `:core:domain` | models, repository interfaces, use cases — pure Kotlin, no Android deps | nothing |
@@ -42,13 +42,13 @@ The concrete implementation under AGP 9.2.1 + Kotlin 2.3.0 (classic Kotlin, KSP 
 ## Navigation
 Each feature module declares its own `@Serializable` route data class (e.g. `StudyRoute(subcategoryId: String)`) as its public entry point. `:app`'s `NavGraph` imports feature modules and navigates via `navController.navigate(StudyRoute(id))`. Features never reference each other's route types — only `:app` does.
 
-Intra-feature navigation (e.g. `PreStartScreen` → `StudySessionScreen`) uses `() -> Unit` lambdas hoisted to the feature's internal nav graph or wired directly in `:app`. Route types for internal screens may live in the feature module or inline in `:app` — no strict rule needed since they have exactly one caller.
+Intra-feature navigation (e.g. `PreviewStudySessionScreen` → `StudySessionScreen`) uses `() -> Unit` lambdas hoisted to the feature's internal nav graph or wired directly in `:app`. Route types for internal screens may live in the feature module or inline in `:app` — no strict rule needed since they have exactly one caller.
 
 ## Key rationale
 
 **Hilt bindings belong to the module that owns the implementation** — data-layer bindings (repository interfaces → `Default*` implementations) live in `:core:data`. Feature-local bindings (e.g. `TtsPlayer`, `AudioFocusManager` in `:feature:study`) live in that feature's own `@Module`. `:app` owns no Hilt modules. XP, Level, Streak, DailyGoal repositories and their DataStore/Firestore sources live in `:core:data`, organized by internal package (`data/progress/`, `data/flashcard/`, etc.).
 
-**`:feature:study` holds all three session screens** — `PreStartScreen`, `StudySessionScreen`, `SessionSummaryScreen` form one user journey. State is passed between screens via nav arguments — session config from PreStart into StudySession, summary data from StudySession into SessionSummary. Current session state is small enough that nav arg serialization is safe. Splitting into separate modules buys no isolation.
+**`:feature:study` holds all three session screens** — `PreviewStudySessionScreen`, `StudySessionScreen`, `SessionSummaryScreen` form one user journey. State is passed between screens via nav arguments — session config from PreviewStudySession into StudySession, summary data from StudySession into SessionSummary. Current session state is small enough that nav arg serialization is safe. Splitting into separate modules buys no isolation.
 
 **`MediaSessionService` and `TtsPlayer` live in `:feature:study`** — Fast Study Mode's TTS service is exclusively consumed by the study flow. No other feature reads or controls playback state. `:app` picks up the service declaration via manifest merger.
 

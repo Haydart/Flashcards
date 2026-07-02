@@ -26,8 +26,8 @@ Root NavHost
     │       └── FlagsScreen
     ├── CategoryDetails(categoryId, categoryName)                    ← full-screen, no bottom nav; shared by Home + Study
     ├── SubcategoryDetails(categoryId, categoryName, subcategoryId, subcategoryName)  ← full-screen, no bottom nav; shared by Home + Study
-    ├── PreStartScreen(categoryId, subcategoryIds, filterTagIds)
-    ├── StudySession(categoryId, subcategoryIds, cardIds)
+    ├── PreviewStudySession(categoryId, categoryName, subcategoryIds, subcategoryNames, filterTagIds, isQuickSession)
+    ├── StudySession(categoryId, sessionTitle, subcategoryIds, cardIds, studyMode)
     ├── SessionSummary
     └── CreatePrivateFlashcard(subcategoryId)
 ```
@@ -40,9 +40,9 @@ Accessible from both Home and Study tabs. Registered at the root NavHost level (
 
 ### Session entry routing
 
-All session entry points navigate to `PreStartScreen`, which owns card selection from the given scope. See [ADR-0004](docs/adr/0004-pre-start-screen-owns-card-selection.md).
+All session entry points navigate to `PreviewStudySessionScreen`, which owns card selection from the given scope. See [ADR-0004](docs/adr/0004-preview-study-session-screen-owns-card-selection.md).
 
-- **Study Again (All)**: → `PreStartScreen` with same params, `popUpTo<Main>()`.
+- **Study Again (All)**: → `PreviewStudySessionScreen` with same params, `popUpTo<Main>()`.
 - **Study Again (Failed)**: → `StudySession` directly with `cardIds = [failedCardIds]`, `popUpTo<Main>()`.
 - **Back to Home / system back from SessionSummary**: `popUpTo<Main>(inclusive = false)` — returns to whatever tab was active.
 
@@ -82,16 +82,16 @@ Home empty state CTA ("Start your first session") triggers a tab switch to Study
 
 - Lists all Subcategories (labeled **Topics**) for the Category
 - Three session-start options:
-  - **Quick Session** button — system auto-selects Subcategories → Pre-start Screen → composite Study Session begins
-  - **Start Composite Session** button — transforms the list into multi-select mode; user selects Topics; "Start" button becomes active after ≥1 selected → Pre-start Screen → composite Study Session begins
-  - **Fast-start action on each Topic row** — routes directly to Pre-start Screen for that Subcategory (skips Subcategory Details), without navigating away from Category Details
+  - **Quick Session** button — system auto-selects Subcategories → Preview Study Session Screen → composite Study Session begins
+  - **Start Composite Session** button — transforms the list into multi-select mode; user selects Topics; "Start" button becomes active after ≥1 selected → Preview Study Session Screen → composite Study Session begins
+  - **Fast-start action on each Topic row** — routes directly to Preview Study Session Screen for that Subcategory (skips Subcategory Details), without navigating away from Category Details
 - Tapping a Topic row (not its fast-start action) → Subcategory Details screen
 
 ## Subcategory Details Screen
 
 - Lists all Flashcards belonging to the Subcategory as collapsible items (collapsed: question + tag chips; expanded: + answer)
 - App bar includes:
-  - **"Start Session"** button → Pre-start Screen with `filterTagIds` = currently active Tags → single-subcategory Study Session begins
+  - **"Start Session"** button → Preview Study Session Screen with `filterTagIds` = currently active Tags → single-subcategory Study Session begins
   - **Filter icon button** (top-right) — opens the Tag filter dialog; shows a dot badge when ≥1 Tag is active
 - **Tag filter dialog** (modal overlay, no Apply button — selections apply on close):
   - Header row: **"Select All"** and **"Unselect All"** actions, separated from the tag list by a divider
@@ -102,13 +102,13 @@ Home empty state CTA ("Start your first session") triggers a tab switch to Study
   - Default mode: Start Session button + multiselect toggle icon (bottom-left)
   - **Multiselect mode** (activated by multiselect toggle): checkboxes appear on each Flashcard item; bottom toolbar shows **Retire** and **Rework** action buttons; tapping either flags all selected Flashcards with that Flag Action (upserts `users/{uid}/flaggedCards/{cardId}` for each)
 
-## Pre-start Screen
+## Preview Study Session Screen
 
-Full-screen modal that precedes every Study Session. Receives `categoryId`, `subcategoryIds`, and `filterTagIds: List<String>` (empty by default). Displays session scope summary: card count, topic count, estimated duration. Below the stats row: pill-button radio group for **Study Mode** selection (Rated | Fast), with a short description shown beneath the selected pill. Default: Rated. "Start session" button launches the session with the selected mode. Future: re-randomize button, card count slider.
+Full-screen modal that precedes every Study Session. Receives `categoryId`, `categoryName`, `subcategoryIds`, `subcategoryNames`, `filterTagIds: List<String>` (empty by default), and `isQuickSession: Boolean` (false by default). Displays a preview of the session scope: card count, topic count (multi-topic sessions only), estimated duration, and the active Tag filter when `filterTagIds` is non-empty. Below the stats row: radio-card group for **Study Mode** selection (Rated | Fast), each with a short description. Default: Rated. "Start session" button launches the session with the selected mode. A "Re-randomize" button (multi-topic and Quick sessions only) re-runs card selection over the same pool. Future: card count slider.
 
 This is the only place Study Mode is chosen.
 
-**Card selection algorithm (runs on Pre-start Screen):**
+**Card selection algorithm (runs on Preview Study Session Screen):**
 1. Fetch all Flashcards for the given `subcategoryIds`
 2. If `filterTagIds` is non-empty: filter to cards where `card.tags` intersects `filterTagIds` (OR semantics — a card qualifies if it carries any of the active Tags)
 3. Apply scoring and selection (MVP: random shuffle; target: performance-weighted sort → pick top N)
@@ -118,13 +118,13 @@ This is the only place Study Mode is chosen.
 
 ## Study Session Flow
 
-A session is scoped to one Category and one or more Subcategories. Card selection and Study Mode are determined on the Pre-start Screen before the session begins. If the available Flashcard pool is smaller than the configured session size N, the session starts with however many Flashcards exist — no warning shown.
+A session is scoped to one Category and one or more Subcategories. Card selection and Study Mode are determined on the Preview Study Session Screen before the session begins. If the available Flashcard pool is smaller than the configured session size N, the session starts with however many Flashcards exist — no warning shown.
 
 **Study Modes:**
 - **Rated**: user reveals each answer manually, then self-rates (Failed / Partial / Correct). Terminal State cards written to Firestore.
 - **Fast**: system TTS reads the question (`questionSpoken` if present, else `question`), pauses 1 500 ms, reads the answer (`answerSpoken` if present, else `answer`), pauses 2 500 ms, then auto-advances. User controls: pause/play, skip-next, skip-previous, speech-rate slider (0.5×–2×), Show Answer (interrupts question, reads answer immediately). Playback persists with screen off or app backgrounded via `StudySessionVoiceService` (foreground `mediaPlayback` service). Persistent `MediaStyle` notification + lock-screen controls via `MediaSessionCompat`. No Ratings, no Attempts, no Terminal States. Firestore session metadata write deferred. See [ADR-0012](docs/adr/0012-tts-mediasession-stack-for-fast-mode.md).
 
-**Fast mode entry point (interim):** Fast mode is currently activated by a `RecordVoiceOver` toggle in the `StudySessionScreen` `TopAppBar`, not through the Pre-start Screen. This is a temporary measure pending Pre-start Screen implementation — once built, Study Mode selection moves there exclusively (ADR-0004). Voice is tied to the session screen lifetime; navigating away stops playback. A confirmation dialog on session exit is planned.
+**Fast mode entry point:** Study Mode is chosen exclusively on the Preview Study Session Screen (ADR-0004). A session routed with `studyMode = FAST` auto-starts voice playback once its cards are loaded (requesting the notification permission first on Android 13+). Voice is tied to the session screen lifetime; navigating away stops playback. A confirmation dialog on session exit is planned.
 
 ### Flashcard Mechanics
 
@@ -172,7 +172,7 @@ A session is scoped to one Category and one or more Subcategories. Card selectio
 
 ### Session Summary Screen
 
-- **Study Again (All)** — navigates to Pre-start Screen with same `categoryId` + `subcategoryIds`, clearing the session stack (`popUpTo<Main>()`); card re-selection happens fresh on the Pre-start Screen
+- **Study Again (All)** — navigates to Preview Study Session Screen with same `categoryId` + `subcategoryIds`, clearing the session stack (`popUpTo<Main>()`); card re-selection happens fresh on the Preview Study Session Screen
 - **Study Again (Failed)** — shown only if ≥1 Flashcard reached Terminal State Failed; navigates directly to `StudySession` with `cardIds = [failedCardIds]`, `popUpTo<Main>()`
 - **Back to Home** — `popUpTo<Main>(inclusive = false)`; returns to Main on whichever tab was active. System back has the same behavior.
 
