@@ -1,0 +1,363 @@
+package com.rossomak.flashcards.feature.study.preview
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.rossomak.flashcards.core.domain.model.StudyMode
+import com.rossomak.flashcards.core.ui.navigation.ObserveAsEvents
+import com.rossomak.flashcards.feature.study.StudySessionRoute
+
+@Composable
+fun PreviewStudySessionScreen(
+    onNavigateBack: () -> Unit,
+    onNavigateToStudySession: (StudySessionRoute) -> Unit,
+    viewModel: PreviewStudySessionViewModel = hiltViewModel(),
+    modifier: Modifier = Modifier,
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+
+    ObserveAsEvents(viewModel.events) { destination ->
+        when (destination) {
+            is PreviewStudySessionDestination.StudySession -> onNavigateToStudySession(destination.route)
+        }
+    }
+
+    PreviewStudySessionContent(
+        state = state,
+        onNavigateBack = onNavigateBack,
+        onRetry = viewModel::onRetry,
+        onRerandomize = viewModel::onRerandomize,
+        onStudyModeSelect = viewModel::onStudyModeSelect,
+        onStartSession = viewModel::onStartSession,
+        modifier = modifier,
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PreviewStudySessionContent(
+    state: PreviewStudySessionScreenState,
+    onNavigateBack: () -> Unit,
+    onRetry: () -> Unit,
+    onRerandomize: () -> Unit,
+    onStudyModeSelect: (StudyMode) -> Unit,
+    onStartSession: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            TopAppBar(
+                title = { Text(text = screenTitle(state)) },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close session preview",
+                        )
+                    }
+                },
+            )
+        },
+    ) { innerPadding ->
+        when {
+            state.isLoading -> Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator()
+            }
+            state.error != null -> ErrorContent(
+                error = state.error,
+                onRetry = onRetry,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+            )
+            else -> ReadyContent(
+                state = state,
+                onRerandomize = onRerandomize,
+                onStudyModeSelect = onStudyModeSelect,
+                onStartSession = onStartSession,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ErrorContent(
+    error: String,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(text = error, style = MaterialTheme.typography.bodyLarge)
+        Spacer(modifier = Modifier.height(16.dp))
+        OutlinedButton(onClick = onRetry) {
+            Text(text = "Retry")
+        }
+    }
+}
+
+@Composable
+private fun ReadyContent(
+    state: PreviewStudySessionScreenState,
+    onRerandomize: () -> Unit,
+    onStudyModeSelect: (StudyMode) -> Unit,
+    onStartSession: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Spacer(modifier = Modifier.weight(1f))
+
+        Text(
+            text = "Ready to start?",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = scopeDescription(state),
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AssistChip(onClick = {}, label = { Text(text = "~ ${state.estimatedMinutes} min") })
+            if (!state.isSingleTopic) {
+                AssistChip(onClick = {}, label = { Text(text = "${state.topicCount} topics") })
+            }
+            AssistChip(onClick = {}, label = { Text(text = "${state.selectedCardCount} cards") })
+        }
+
+        if (state.filterTags.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "Filtered by ${state.filterTags.joinToString()}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        Text(
+            text = "Choose study mode",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Row(
+            modifier = Modifier.selectableGroup(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            StudyModeCard(
+                title = "Rated",
+                description = "Reveal each answer, then rate yourself. Progress is saved.",
+                isSelected = state.selectedStudyMode == StudyMode.RATED,
+                onSelect = { onStudyModeSelect(StudyMode.RATED) },
+                modifier = Modifier.weight(1f),
+            )
+            StudyModeCard(
+                title = "Fast",
+                description = "Cards advance on a timer. Nothing is rated or saved.",
+                isSelected = state.selectedStudyMode == StudyMode.FAST,
+                onSelect = { onStudyModeSelect(StudyMode.FAST) },
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (state.canRerandomize) {
+                FilledTonalButton(
+                    onClick = onRerandomize,
+                    enabled = state.canStart,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(imageVector = Icons.Default.Shuffle, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.size(8.dp))
+                    Text(text = "Re-randomize")
+                }
+            }
+            Button(
+                onClick = onStartSession,
+                enabled = state.canStart,
+                modifier = Modifier.weight(1f),
+            ) {
+                Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.size(8.dp))
+                Text(text = "Start session")
+            }
+        }
+    }
+}
+
+@Composable
+private fun StudyModeCard(
+    title: String,
+    description: String,
+    isSelected: Boolean,
+    onSelect: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    OutlinedCard(
+        modifier = modifier.selectable(
+            selected = isSelected,
+            onClick = onSelect,
+            role = Role.RadioButton,
+        ),
+        border = if (isSelected) {
+            BorderStroke(width = 2.dp, color = MaterialTheme.colorScheme.primary)
+        } else {
+            BorderStroke(width = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
+        },
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                )
+                RadioButton(selected = isSelected, onClick = null)
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+private fun screenTitle(state: PreviewStudySessionScreenState): String = when {
+    state.isSingleTopic -> "${state.categoryName} · ${state.subcategoryNames.first()}"
+    state.isQuickSession -> "${state.categoryName} · Quick session"
+    else -> "${state.categoryName} · Custom session"
+}
+
+private fun scopeDescription(state: PreviewStudySessionScreenState): String = when {
+    state.isSingleTopic ->
+        "${state.selectedCardCount} cards from your ${state.subcategoryNames.first()} deck."
+    state.isQuickSession ->
+        "${state.selectedCardCount} cards auto-selected across ${state.topicCount} ${state.categoryName} topics."
+    else ->
+        "${state.selectedCardCount} cards from ${state.subcategoryNames.joinToString()}."
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun PreviewStudySessionSingleTopicPreview() {
+    PreviewStudySessionContent(
+        state = PreviewStudySessionScreenState(
+            categoryName = "Android",
+            subcategoryNames = listOf("Compose"),
+            filterTags = listOf("State Management", "Modifiers"),
+            isLoading = false,
+            selectedCardCount = 18,
+            estimatedMinutes = 12,
+        ),
+        onNavigateBack = {},
+        onRetry = {},
+        onRerandomize = {},
+        onStudyModeSelect = {},
+        onStartSession = {},
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun PreviewStudySessionQuickSessionPreview() {
+    PreviewStudySessionContent(
+        state = PreviewStudySessionScreenState(
+            categoryName = "Android",
+            subcategoryNames = listOf("Compose", "Coroutines", "Architecture", "Testing", "Navigation"),
+            isQuickSession = true,
+            isLoading = false,
+            selectedCardCount = 20,
+            estimatedMinutes = 13,
+        ),
+        onNavigateBack = {},
+        onRetry = {},
+        onRerandomize = {},
+        onStudyModeSelect = {},
+        onStartSession = {},
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun PreviewStudySessionCustomSessionPreview() {
+    PreviewStudySessionContent(
+        state = PreviewStudySessionScreenState(
+            categoryName = "Android",
+            subcategoryNames = listOf("Compose", "Coroutines", "Architecture"),
+            isLoading = false,
+            selectedCardCount = 12,
+            estimatedMinutes = 8,
+            selectedStudyMode = StudyMode.FAST,
+        ),
+        onNavigateBack = {},
+        onRetry = {},
+        onRerandomize = {},
+        onStudyModeSelect = {},
+        onStartSession = {},
+    )
+}
