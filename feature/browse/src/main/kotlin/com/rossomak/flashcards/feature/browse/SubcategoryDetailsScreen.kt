@@ -46,15 +46,20 @@ import com.rossomak.flashcards.core.ui.navigation.ObserveAsEvents
 @Composable
 fun SubcategoryDetailsScreen(
     onNavigateBack: () -> Unit,
-    onNavigateToStudySession: (subcategoryId: String, subcategoryName: String) -> Unit,
+    onNavigateToPreviewStudySession: (categoryId: String, categoryName: String, subcategoryId: String, subcategoryName: String) -> Unit,
     viewModel: SubcategoryDetailsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     ObserveAsEvents(viewModel.events) { destination ->
         when (destination) {
-            is SubcategoryDetailsDestination.StudySession ->
-                onNavigateToStudySession(destination.subcategoryId, destination.subcategoryName)
+            is SubcategoryDetailsDestination.PreviewStudySession ->
+                onNavigateToPreviewStudySession(
+                    destination.categoryId,
+                    destination.categoryName,
+                    destination.subcategoryId,
+                    destination.subcategoryName,
+                )
         }
     }
 
