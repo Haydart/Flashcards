@@ -165,13 +165,16 @@ class StudySessionViewModel @Inject constructor(
 
     fun onVoiceAutoStart() {
         _state.update { it.copy(isVoiceAutoStartPending = false) }
-        if (_state.value.flashcards.isEmpty() || voiceStarted) return
-        voiceStarted = true
-        voiceGateway.start(
-            cards = _state.value.flashcards,
-            startIndex = _state.value.currentCardIndex,
-            subcategoryName = sessionTitle,
-        )
+        if (voiceStarted) return
+        with(_state.value) {
+            if (flashcards.isEmpty()) return
+            voiceStarted = true
+            voiceGateway.start(
+                cards = flashcards,
+                startIndex = currentCardIndex,
+                subcategoryName = sessionTitle,
+            )
+        }
         voiceGateway.setSpeechRate(voiceSettingsController.currentSettings.speechRate)
         voiceGateway.setVoice(voiceSettingsController.currentSettings.voiceId)
     }
