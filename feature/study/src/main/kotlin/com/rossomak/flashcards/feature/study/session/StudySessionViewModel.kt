@@ -163,6 +163,10 @@ class StudySessionViewModel @Inject constructor(
         }
     }
 
+    fun onVoiceAutoStartDeclined() {
+        _state.update { it.copy(isVoiceAutoStartPending = false) }
+    }
+
     fun onVoiceAutoStart() {
         _state.update { it.copy(isVoiceAutoStartPending = false) }
         if (voiceStarted) return

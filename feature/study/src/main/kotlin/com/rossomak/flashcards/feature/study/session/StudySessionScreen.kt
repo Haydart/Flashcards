@@ -107,7 +107,9 @@ fun StudySessionScreen(
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
-    ) { viewModel.onVoiceAutoStart() }
+    ) { isGranted ->
+        if (isGranted) viewModel.onVoiceAutoStart() else viewModel.onVoiceAutoStartDeclined()
+    }
 
     LaunchedEffect(state.isVoiceAutoStartPending) {
         if (!state.isVoiceAutoStartPending) return@LaunchedEffect
