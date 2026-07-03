@@ -73,7 +73,7 @@ flowchart TD
 ## Session
 
 > Study Mode selection happens on the Preview Study Session Screen; a session routed with Fast mode auto-starts voice playback (ADR-0004).
-
+>
 > **Mastery Defense (Rated only):** At Preview Study Session card selection time, up to 10% of the resolved pool is silently filled with previously mastered cards from the same scope. These appear in session with a small shield icon. No user interaction required; transparent to the user.
 
 ```mermaid
