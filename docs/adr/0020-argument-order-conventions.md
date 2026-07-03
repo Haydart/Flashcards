@@ -9,7 +9,7 @@ Accepted.
 Four signature types get one fixed, non-negotiable parameter order (documented in AGENTS.md §Argument Order):
 
 - **Composable Screens** (`XxxScreen`): `modifier` → `viewModel` → nav callbacks (`onNavigateBack` first, then remaining callbacks happy-path-first).
-- **Composable Content** (`XxxContent`): `state` → callbacks → `modifier` last.
+- **Composable Content** (`XxxContent`): `state` → callbacks → `modifier` last. **Superseded by [ADR-0021](./0021-content-modifier-first.md): `modifier` is now first.**
 - **ViewModel constructors**: `SavedStateHandle` (if present) → use cases → gateways/controllers.
 - **Repository / DataSource / UseCase multi-param methods**: identifiers/keys → payload/action/value.
 

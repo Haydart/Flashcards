@@ -64,6 +64,7 @@ class FlashcardViewModel @Inject constructor(
 - Descriptive variable names — no single letters except loop indices
 - `val` over `var`; `when` over `if/else` chains for 3+ branches
 - Avoid `!!`; prefer `?.let`, `?:`
+- Use `with(receiver) { ... }` when repeating same receiver 2+ times in a block (e.g. multi-branch `when` accessing several props of same object) — cuts repetition, no functional change
 
 ### Function Signatures
 - Single-line for < 250 characters; multi-line (one param per line) for 250+
@@ -104,13 +105,13 @@ fun ExampleScreen(
 ```
 Nav callbacks have no default, so they sit after defaulted params (`modifier`, `viewModel`) — every call site must use named arguments (already the case throughout `NavGraph.kt`).
 
-**Composable Content** (`XxxContent`, stateless) — `state` → callbacks → `modifier` last:
+**Composable Content** (`XxxContent`, stateless) — `modifier` first → `state` → callbacks:
 ```kotlin
 @Composable
 fun ExampleContent(
+    modifier: Modifier = Modifier,
     state: ExampleScreenState,
     onRefresh: () -> Unit,
-    modifier: Modifier = Modifier,
 ) { ... }
 ```
 

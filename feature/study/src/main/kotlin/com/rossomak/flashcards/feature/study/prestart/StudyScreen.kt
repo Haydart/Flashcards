@@ -37,20 +37,20 @@ fun StudyScreen(
     }
 
     StudyContent(
+        modifier = modifier,
         state = state,
         onRefresh = viewModel::onCategoriesRefresh,
         onCategoryClick = viewModel::onCategorySelected,
-        modifier = modifier,
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StudyContent(
+    modifier: Modifier = Modifier,
     state: StudyScreenState,
     onRefresh: () -> Unit,
     onCategoryClick: (String, String) -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     PullToRefreshBox(
         isRefreshing = state.isLoading,

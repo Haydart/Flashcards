@@ -66,6 +66,7 @@ fun LoginScreen(
     }
 
     LoginContent(
+        modifier = modifier,
         state = state,
         onGoogleSignInClick = {
             viewModel.onSignInStarted()
@@ -75,15 +76,14 @@ fun LoginScreen(
                     .onFailure { error -> viewModel.onSignInFailed(error.message) }
             }
         },
-        modifier = modifier,
     )
 }
 
 @Composable
 fun LoginContent(
+    modifier: Modifier = Modifier,
     state: LoginScreenState,
     onGoogleSignInClick: () -> Unit,
-    modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier

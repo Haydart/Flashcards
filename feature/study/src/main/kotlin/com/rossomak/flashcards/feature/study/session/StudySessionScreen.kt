@@ -156,6 +156,7 @@ fun StudySessionScreen(
     }
 
     StudySessionContent(
+        modifier = modifier,
         state = state,
         snackbarHostState = snackbarHostState,
         onNavigateBack = onNavigateBack,
@@ -174,13 +175,13 @@ fun StudySessionScreen(
         onCurationDialogDismiss = viewModel::onCurationDialogDismiss,
         onExtendedContextDialogOpen = viewModel::onExtendedContextDialogOpen,
         onExtendedContextDialogDismissed = viewModel::onExtendedContextDialogDismissed,
-        modifier = modifier,
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StudySessionContent(
+    modifier: Modifier = Modifier,
     state: StudySessionScreenState,
     snackbarHostState: SnackbarHostState,
     onNavigateBack: () -> Unit,
@@ -199,7 +200,6 @@ fun StudySessionContent(
     onCurationDialogDismiss: () -> Unit,
     onExtendedContextDialogOpen: () -> Unit,
     onExtendedContextDialogDismissed: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     val scaffoldState = rememberBottomSheetScaffoldState(
         bottomSheetState = rememberStandardBottomSheetState(skipHiddenState = true),

@@ -67,26 +67,26 @@ fun PreviewStudySessionScreen(
     }
 
     PreviewStudySessionContent(
+        modifier = modifier,
         state = state,
         onNavigateBack = onNavigateBack,
         onRetry = viewModel::onRetry,
         onRerandomize = viewModel::onRerandomize,
         onStudyModeSelect = viewModel::onStudyModeSelect,
         onStartSession = viewModel::onStartSession,
-        modifier = modifier,
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PreviewStudySessionContent(
+    modifier: Modifier = Modifier,
     state: PreviewStudySessionScreenState,
     onNavigateBack: () -> Unit,
     onRetry: () -> Unit,
     onRerandomize: () -> Unit,
     onStudyModeSelect: (StudyMode) -> Unit,
     onStartSession: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     Scaffold(
         modifier = modifier,
@@ -114,20 +114,20 @@ fun PreviewStudySessionContent(
                 CircularProgressIndicator()
             }
             state.error != null -> ErrorContent(
-                error = state.error,
-                onRetry = onRetry,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
+                error = state.error,
+                onRetry = onRetry,
             )
             else -> ReadyContent(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
                 state = state,
                 onRerandomize = onRerandomize,
                 onStudyModeSelect = onStudyModeSelect,
                 onStartSession = onStartSession,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
             )
         }
     }
@@ -135,9 +135,9 @@ fun PreviewStudySessionContent(
 
 @Composable
 private fun ErrorContent(
+    modifier: Modifier = Modifier,
     error: String,
     onRetry: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier,
@@ -154,11 +154,11 @@ private fun ErrorContent(
 
 @Composable
 private fun ReadyContent(
+    modifier: Modifier = Modifier,
     state: PreviewStudySessionScreenState,
     onRerandomize: () -> Unit,
     onStudyModeSelect: (StudyMode) -> Unit,
     onStartSession: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier

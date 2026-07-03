@@ -72,14 +72,14 @@ fun SplashScreen(
         }
     }
 
-    SplashContent(onAnimationCompleted = viewModel::onAnimationCompleted, modifier = modifier)
+    SplashContent(modifier = modifier, onAnimationCompleted = viewModel::onAnimationCompleted)
 }
 
 @OptIn(ExperimentalAnimationGraphicsApi::class)
 @Composable
 fun SplashContent(
+    modifier: Modifier = Modifier,
     onAnimationCompleted: () -> Unit,
-    modifier: Modifier = Modifier
 ) {
     val gradientSlide = remember { Animatable(0f) }
     val textReveal = remember { Animatable(0f) }
