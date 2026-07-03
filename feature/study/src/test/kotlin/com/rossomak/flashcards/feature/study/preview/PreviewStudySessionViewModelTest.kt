@@ -12,6 +12,7 @@ import com.rossomak.flashcards.testutil.MainDispatcherRule
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
@@ -199,15 +200,25 @@ class PreviewStudySessionViewModelTest {
 
     @Test
     fun `onRerandomize reselects from pool keeping session size`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
-        flashcardRepository.flashcardsToReturn =
-            Result.success((1..30).map { index -> flashcard(id = "card-$index") })
+        stubRoute(
+            singleTopicRoute.copy(
+                subcategoryIds = listOf("android-compose", "android-coroutines"),
+                subcategoryNames = listOf("Compose", "Coroutines"),
+            )
+        )
+        flashcardRepository.flashcardsBySubcategory["android-compose"] =
+            Result.success((1..30).map { index -> flashcard(id = "compose-$index") })
+        flashcardRepository.flashcardsBySubcategory["android-coroutines"] =
+            Result.success((1..30).map { index -> flashcard(id = "coroutines-$index", subcategoryId = "android-coroutines") })
 
         val viewModel = createViewModel()
         advanceUntilIdle()
+        val cardIdsBeforeRerandomize = viewModel.selectedCardIds
+
         viewModel.onRerandomize()
 
         viewModel.state.value.selectedCardCount shouldBe 20
+        viewModel.selectedCardIds shouldNotBe cardIdsBeforeRerandomize
     }
 
     @Test
