@@ -13,7 +13,7 @@ Portfolio project designed to demonstrate enterprise-grade Android development. 
 | `:app` | `MainActivity`, `NavGraph`, splash/startup, `@HiltAndroidApp` | all modules |
 | `:feature:auth` | `LoginScreen` + VM | `:core:domain`, `:core:ui` |
 | `:feature:home` | `HomeScreen` + VM | `:core:domain`, `:core:ui` |
-| `:feature:browse` | `CategoryDetailsScreen`, `SubcategoryDetailsScreen` + VMs | `:core:domain`, `:core:ui` |
+| `:feature:browse` | `BrowseScreen` (bottom-nav "Study" tab root; category/subcategory browse + search), `CategoryDetailsScreen`, `SubcategoryDetailsScreen` + VMs | `:core:domain`, `:core:ui` |
 | `:feature:study` | `PreviewStudySessionScreen`, `StudySessionScreen`, `SessionSummaryScreen` + VMs | `:core:domain`, `:core:ui` |
 | `:feature:progress` | `ProgressScreen` + VM | `:core:domain`, `:core:ui` |
 | `:feature:settings` | `SettingsScreen` + VM | `:core:domain`, `:core:ui` |
@@ -47,6 +47,8 @@ Intra-feature navigation (e.g. `PreviewStudySessionScreen` → `StudySessionScre
 ## Key rationale
 
 **Hilt bindings belong to the module that owns the implementation** — data-layer bindings (repository interfaces → `Default*` implementations) live in `:core:data`. Feature-local bindings (e.g. `TtsPlayer`, `AudioFocusManager` in `:feature:study`) live in that feature's own `@Module`. `:app` owns no Hilt modules. XP, Level, Streak, DailyGoal repositories and their DataStore/Firestore sources live in `:core:data`, organized by internal package (`data/progress/`, `data/flashcard/`, etc.).
+
+**`BrowseScreen` lives in `:feature:browse`, not `:feature:study`, despite being the bottom-nav "Study" tab's root screen** — the tab label is a UX concern (`:app`'s `MainScreen`), decoupled from module ownership. `BrowseScreen`'s job is listing/searching categories and subcategories, identical in kind to `CategoryDetailsScreen`/`SubcategoryDetailsScreen`, not session logic. `:feature:study` starts only once a subcategory selection reaches `PreviewStudySessionScreen`.
 
 **`:feature:study` holds all three session screens** — `PreviewStudySessionScreen`, `StudySessionScreen`, `SessionSummaryScreen` form one user journey. State is passed between screens via nav arguments — session config from PreviewStudySession into StudySession, summary data from StudySession into SessionSummary. Current session state is small enough that nav arg serialization is safe. Splitting into separate modules buys no isolation.
 

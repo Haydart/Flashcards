@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.feature.study.prestart
+package com.rossomak.flashcards.feature.browse
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -22,21 +22,21 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 
 @Composable
-fun StudyScreen(
+fun BrowseScreen(
     modifier: Modifier = Modifier,
-    viewModel: StudyViewModel = hiltViewModel(),
+    viewModel: BrowseViewModel = hiltViewModel(),
     onNavigateToCategoryDetails: (String, String) -> Unit = { _, _ -> },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     observeAsEvents(viewModel.events) { destination ->
         when (destination) {
-            is StudyNavigationDestination.CategoryDetails ->
+            is BrowseNavigationDestination.CategoryDetails ->
                 onNavigateToCategoryDetails(destination.categoryId, destination.categoryName)
         }
     }
 
-    StudyContent(
+    BrowseContent(
         modifier = modifier,
         state = state,
         onRefresh = viewModel::onCategoriesRefresh,
@@ -46,9 +46,9 @@ fun StudyScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StudyContent(
+fun BrowseContent(
     modifier: Modifier = Modifier,
-    state: StudyScreenState,
+    state: BrowseScreenState,
     onRefresh: () -> Unit,
     onCategoryClick: (String, String) -> Unit,
 ) {
@@ -70,7 +70,7 @@ fun StudyContent(
 
 @Composable
 private fun CategoryList(
-    state: StudyScreenState,
+    state: BrowseScreenState,
     onCategoryClick: (String, String) -> Unit,
 ) {
     if (state.categories.isEmpty()) {
