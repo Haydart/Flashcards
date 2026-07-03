@@ -45,6 +45,9 @@ class PreviewStudySessionViewModel @Inject constructor(
 
     private var cardPool: List<Flashcard> = emptyList()
     private var selectedCards: List<Flashcard> = emptyList()
+    private var sessionStartInFlight = false
+
+    internal val selectedCardIds: List<String> get() = selectedCards.map { it.id }
 
     init {
         loadCardPool()
@@ -63,7 +66,8 @@ class PreviewStudySessionViewModel @Inject constructor(
     }
 
     fun onStartSession() {
-        if (selectedCards.isEmpty()) return
+        if (selectedCards.isEmpty() || sessionStartInFlight) return
+        sessionStartInFlight = true
         viewModelScope.launch {
             eventChannel.send(
                 PreviewStudySessionDestination.StudySession(
