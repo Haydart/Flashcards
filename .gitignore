@@ -31,5 +31,8 @@ graphify-out/
 # Raw docs, sources for generating the flashcards
 /docs/temp/
 
+# Kotlin language reference docs — local working material, not committed
+/docs/kotlin/
+
 # Python bytecode cache
 scripts/__pycache__/
