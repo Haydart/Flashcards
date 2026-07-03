@@ -166,7 +166,7 @@ private fun ReadyContent(
             .padding(horizontal = 24.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.height(24.dp))
 
         Text(
             text = "Ready to start?",
@@ -197,7 +197,7 @@ private fun ReadyContent(
             )
         }
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.height(24.dp))
 
         Text(
             text = "Choose study mode",
@@ -210,18 +210,18 @@ private fun ReadyContent(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             StudyModeCard(
+                modifier = Modifier.weight(1f),
                 title = "Rated",
                 description = "Reveal each answer, then rate yourself. Progress is saved.",
                 isSelected = state.selectedStudyMode == StudyMode.RATED,
                 onSelect = { onStudyModeSelect(StudyMode.RATED) },
-                modifier = Modifier.weight(1f),
             )
             StudyModeCard(
+                modifier = Modifier.weight(1f),
                 title = "Fast",
                 description = "Cards advance on a timer. Nothing is rated or saved.",
                 isSelected = state.selectedStudyMode == StudyMode.FAST,
                 onSelect = { onStudyModeSelect(StudyMode.FAST) },
-                modifier = Modifier.weight(1f),
             )
         }
         Spacer(modifier = Modifier.height(16.dp))
@@ -253,11 +253,11 @@ private fun ReadyContent(
 
 @Composable
 private fun StudyModeCard(
+    modifier: Modifier = Modifier,
     title: String,
     description: String,
     isSelected: Boolean,
     onSelect: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     OutlinedCard(
         modifier = modifier.selectable(
@@ -334,6 +334,41 @@ private fun AnnotatedString.Builder.appendOxfordList(names: List<String>, append
         }
         appendBold(name)
     }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun PreviewStudySessionLoadingPreview() {
+    PreviewStudySessionContent(
+        state = PreviewStudySessionScreenState(
+            categoryName = "Android",
+            subcategoryNames = listOf("Compose"),
+            isLoading = true,
+        ),
+        onNavigateBack = {},
+        onRetry = {},
+        onRerandomize = {},
+        onStudyModeSelect = {},
+        onStartSession = {},
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun PreviewStudySessionErrorPreview() {
+    PreviewStudySessionContent(
+        state = PreviewStudySessionScreenState(
+            categoryName = "Android",
+            subcategoryNames = listOf("Compose"),
+            isLoading = false,
+            error = "Could not load flashcards",
+        ),
+        onNavigateBack = {},
+        onRetry = {},
+        onRerandomize = {},
+        onStudyModeSelect = {},
+        onStartSession = {},
+    )
 }
 
 @Preview(showBackground = true)
