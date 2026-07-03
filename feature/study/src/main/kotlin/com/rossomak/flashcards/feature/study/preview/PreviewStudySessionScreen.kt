@@ -44,19 +44,19 @@ import androidx.compose.foundation.verticalScroll
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.StudyMode
-import com.rossomak.flashcards.core.ui.navigation.ObserveAsEvents
+import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import com.rossomak.flashcards.feature.study.StudySessionRoute
 
 @Composable
 fun PreviewStudySessionScreen(
+    modifier: Modifier = Modifier,
+    viewModel: PreviewStudySessionViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
     onNavigateToStudySession: (StudySessionRoute) -> Unit,
-    viewModel: PreviewStudySessionViewModel = hiltViewModel(),
-    modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    ObserveAsEvents(viewModel.events) { destination ->
+    observeAsEvents(viewModel.events) { destination ->
         when (destination) {
             is PreviewStudySessionDestination.StudySession -> onNavigateToStudySession(destination.route)
         }
