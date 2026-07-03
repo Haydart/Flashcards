@@ -34,7 +34,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.selection.selectable
@@ -287,19 +291,49 @@ private fun StudyModeCard(
     }
 }
 
+// isQuickSession is checked before isSingleTopic so a quick session that happens to land on one
+// topic still reads as "Quick session" rather than misreporting as a plain single-topic preview.
 private fun screenTitle(state: PreviewStudySessionScreenState): String = when {
-    state.isSingleTopic -> "${state.categoryName} · ${state.subcategoryNames.first()}"
     state.isQuickSession -> "${state.categoryName} · Quick session"
+    state.isSingleTopic -> "${state.categoryName} · ${state.subcategoryNames.first()}"
     else -> "${state.categoryName} · Custom session"
 }
 
-private fun scopeDescription(state: PreviewStudySessionScreenState): String = when {
-    state.isSingleTopic ->
-        "${state.selectedCardCount} cards from your ${state.subcategoryNames.first()} deck."
-    state.isQuickSession ->
-        "${state.selectedCardCount} cards auto-selected across ${state.topicCount} ${state.categoryName} topics."
-    else ->
-        "${state.selectedCardCount} cards from ${state.subcategoryNames.joinToString()}."
+private fun scopeDescription(state: PreviewStudySessionScreenState): AnnotatedString = buildAnnotatedString {
+    fun appendBold(text: String) {
+        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(text) }
+    }
+
+    when {
+        state.isQuickSession -> {
+            appendBold("${state.selectedCardCount} cards")
+            append(" auto-selected across ")
+            appendBold("${state.topicCount} ${state.categoryName}")
+            append(" topics.")
+        }
+        state.isSingleTopic -> {
+            appendBold("${state.selectedCardCount} cards")
+            append(" from your ${state.subcategoryNames.first()} deck.")
+        }
+        else -> {
+            appendBold("${state.selectedCardCount} cards")
+            append(" from ")
+            appendOxfordList(state.subcategoryNames, ::appendBold)
+            append(".")
+        }
+    }
+}
+
+// Joins names as "A and B" (2 items) or "A, B, and C" (3+ items), bolding each name.
+private fun AnnotatedString.Builder.appendOxfordList(names: List<String>, appendBold: (String) -> Unit) {
+    names.forEachIndexed { index, name ->
+        when (index) {
+            0 -> Unit
+            names.lastIndex -> append(if (names.size > 2) ", and " else " and ")
+            else -> append(", ")
+        }
+        appendBold(name)
+    }
 }
 
 @Preview(showBackground = true)
