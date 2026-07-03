@@ -199,6 +199,85 @@ class PreviewStudySessionViewModelTest {
     }
 
     @Test
+    fun `onStartSession ignores re-entrant calls while a session is already pending`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleTopicRoute)
+        flashcardRepository.flashcardsToReturn = Result.success(listOf(flashcard(id = "card-1")))
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onStartSession()
+        viewModel.onStartSession()
+
+        viewModel.events.test {
+            awaitItem() as PreviewStudySessionDestination.StudySession
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun `onRetry recovers from a previous failure and loads the pool`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleTopicRoute)
+        flashcardRepository.flashcardsToReturn = Result.failure(IllegalStateException("boom"))
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.state.value.error shouldBe "Could not load flashcards"
+
+        flashcardRepository.flashcardsToReturn = Result.success(listOf(flashcard(id = "card-1")))
+        viewModel.onRetry()
+        advanceUntilIdle()
+
+        viewModel.state.value.error shouldBe null
+        viewModel.state.value.selectedCardCount shouldBe 1
+    }
+
+    @Test
+    fun `sessionTitle uses category name for multi topic sessions`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(
+            singleTopicRoute.copy(
+                subcategoryIds = listOf("android-compose", "android-coroutines"),
+                subcategoryNames = listOf("Compose", "Coroutines"),
+            )
+        )
+        flashcardRepository.flashcardsBySubcategory["android-compose"] =
+            Result.success(listOf(flashcard(id = "card-1")))
+        flashcardRepository.flashcardsBySubcategory["android-coroutines"] =
+            Result.success(listOf(flashcard(id = "card-2", subcategoryId = "android-coroutines")))
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onStartSession()
+
+        viewModel.events.test {
+            val destination = awaitItem() as PreviewStudySessionDestination.StudySession
+            destination.route.sessionTitle shouldBe categoryName
+        }
+    }
+
+    @Test
+    fun `estimatedMinutes rounds up to the nearest minute`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleTopicRoute)
+        flashcardRepository.flashcardsToReturn =
+            Result.success((1..5).map { index -> flashcard(id = "card-$index") })
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // 5 cards * 40s/card = 200s -> ceil(200/60) = 4 minutes
+        viewModel.state.value.estimatedMinutes shouldBe 4
+    }
+
+    @Test
+    fun `quick session on a single subcategory can still rerandomize`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleTopicRoute.copy(isQuickSession = true))
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.state.value.canRerandomize.shouldBeTrue()
+    }
+
+    @Test
     fun `onRerandomize reselects from pool keeping session size`() = runTest(mainDispatcherRule.testDispatcher) {
         stubRoute(
             singleTopicRoute.copy(
