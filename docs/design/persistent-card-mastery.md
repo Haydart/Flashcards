@@ -28,13 +28,13 @@ A card exists in this collection iff the User currently holds mastery of it. De-
 
 ## Mastery Defense insertion
 
-Previously mastered cards are re-inserted into the session's Flashcard pool at Pre-start Screen time (Pre-start Screen owns all card selection — ADR-0004).
+Previously mastered cards are re-inserted into the session's Flashcard pool at Preview Study Session Screen time (Preview Study Session Screen owns all card selection — ADR-0004).
 
 Rules:
 - Only cards within the session's Category/Subcategory scope are eligible
 - Up to **10% of the selected card pool** is filled with mastered cards (rounded; minimum 0)
 - Mastered cards are inserted in addition to the normal pool, then the combined pool is randomized
-- The count of mastery defense cards is **not shown** on the Pre-start Screen — internal mechanic, transparent to the user
+- The count of mastery defense cards is **not shown** on the Preview Study Session Screen — internal mechanic, transparent to the user
 
 ## Visual distinction in session
 

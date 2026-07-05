@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.feature.study.prestart
+package com.rossomak.flashcards.feature.browse
 
 import app.cash.turbine.test
 import com.rossomak.flashcards.core.domain.repository.FakeFlashcardRepository
@@ -11,7 +11,7 @@ import org.junit.Rule
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class StudyViewModelTest {
+class BrowseViewModelTest {
 
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
@@ -22,8 +22,8 @@ class StudyViewModelTest {
     private val categoryId = "cat-1"
     private val categoryName = "Android"
 
-    private fun createViewModel(): StudyViewModel =
-        StudyViewModel(getCategories)
+    private fun createViewModel(): BrowseViewModel =
+        BrowseViewModel(getCategories)
 
     @Test
     fun `onCategorySelected emits CategoryDetails with id and name`() = runTest(mainDispatcherRule.testDispatcher) {
@@ -31,7 +31,7 @@ class StudyViewModelTest {
         viewModel.onCategorySelected(categoryId, categoryName)
 
         viewModel.events.test {
-            awaitItem() shouldBe StudyNavigationDestination.CategoryDetails(categoryId, categoryName)
+            awaitItem() shouldBe BrowseNavigationDestination.CategoryDetails(categoryId, categoryName)
         }
     }
 }

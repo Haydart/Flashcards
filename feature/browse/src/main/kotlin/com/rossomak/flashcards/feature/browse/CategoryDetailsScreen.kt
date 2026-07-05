@@ -42,20 +42,20 @@ fun CategoryDetailsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     CategoryDetailsContent(
+        modifier = modifier,
         state = state,
         onNavigateBack = onNavigateBack,
         onNavigateToSubcategoryDetails = onNavigateToSubcategoryDetails,
-        modifier = modifier,
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategoryDetailsContent(
+    modifier: Modifier = Modifier,
     state: CategoryDetailsScreenState,
     onNavigateBack: () -> Unit,
     onNavigateToSubcategoryDetails: (String, String, String, String) -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     val scrollBehavior =
         TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())

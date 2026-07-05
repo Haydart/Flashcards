@@ -67,6 +67,7 @@ fun SettingsScreen(
     val showcaseIntent = remember { Showcase.intentOrNull(context) }
 
     SettingsContent(
+        modifier = modifier,
         isSigningOut = state.isSigningOut,
         showcaseIntent = showcaseIntent,
         onVoicePlaybackSettingsClick = viewModel::onVoicePlaybackSettingsClick,
@@ -80,18 +81,17 @@ fun SettingsScreen(
         } else {
             null
         },
-        modifier = modifier,
     )
 }
 
 @Composable
 private fun SettingsContent(
+    modifier: Modifier = Modifier,
     isSigningOut: Boolean,
     showcaseIntent: Intent?,
     onVoicePlaybackSettingsClick: () -> Unit,
     onSignOutClick: () -> Unit,
     onTriggerMemoryLeakClick: (() -> Unit)?,
-    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
 

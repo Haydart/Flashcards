@@ -4,7 +4,7 @@
 Heuristic, regex + paren-depth based -- not a real AST check. Exits non-zero if
 any violation is found. Covers:
   - Composable Screens (XxxScreen): modifier -> viewModel -> nav callbacks
-  - Composable Content (XxxContent): modifier must be the last parameter
+  - Composable Content (XxxContent): modifier must be the first parameter (ADR-0021)
   - ViewModel constructors: SavedStateHandle must be first
   - Repository / DataSource / UseCase multi-param methods and UseCase Params
     data classes: identifier-like params (name ending in Id/Ids) must precede
@@ -92,7 +92,7 @@ def line_of(text: str, idx: int) -> int:
 
 
 def check_composables(path: Path, text: str, violations: list[str]) -> None:
-    pattern = r"(?:^|\n)(?:private |internal )?fun ([A-Za-z0-9_]+)\("
+    pattern = r"(?:^|\n)[ \t]*(?:private |internal )?fun ([A-Za-z0-9_]+)\("
     for m, params, _ in iter_signatures(text, pattern):
         fn_name = m.group(1)
         names = [param_name(p) for p in params]
@@ -107,6 +107,8 @@ def check_composables(path: Path, text: str, violations: list[str]) -> None:
         modifier_idx = idx_of(lambda n: n == "modifier")
         vm_idx = idx_of(lambda n: n == "viewModel")
         navcb_idx = idx_of(lambda n: n.startswith("onNavigate"))
+        navback_idx = idx_of(lambda n: n == "onNavigateBack")
+        navcb_indices = [i for i, n in enumerate(names) if n.startswith("onNavigate")]
 
         if fn_name.endswith("Screen"):
             if modifier_idx >= 0 and vm_idx >= 0 and vm_idx < modifier_idx:
@@ -115,10 +117,12 @@ def check_composables(path: Path, text: str, violations: list[str]) -> None:
                 violations.append(f"{path}:{line}: {fn_name}: nav callback must come after modifier (ADR-0020)")
             if vm_idx >= 0 and navcb_idx >= 0 and navcb_idx < vm_idx:
                 violations.append(f"{path}:{line}: {fn_name}: nav callback must come after viewModel (ADR-0020)")
+            if navback_idx >= 0 and any(i < navback_idx for i in navcb_indices if i != navback_idx):
+                violations.append(f"{path}:{line}: {fn_name}: onNavigateBack must be the first nav callback (ADR-0020)")
 
         if fn_name.endswith("Content"):
-            if modifier_idx >= 0 and modifier_idx != len(names) - 1:
-                violations.append(f"{path}:{line}: {fn_name}: modifier must be the last parameter (ADR-0020)")
+            if modifier_idx > 0:
+                violations.append(f"{path}:{line}: {fn_name}: modifier must be the first parameter (ADR-0021)")
 
 
 def check_viewmodel_ctor(path: Path, text: str, violations: list[str]) -> None:

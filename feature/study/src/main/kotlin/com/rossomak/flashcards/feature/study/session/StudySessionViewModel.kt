@@ -8,11 +8,15 @@ import com.rossomak.flashcards.core.domain.model.CurationRequest
 import com.rossomak.flashcards.core.domain.usecase.GetCurationRequestsUseCase
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.ToggleCurationActionUseCase
+import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.ui.navigation.decodeRoute
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsController
-import com.rossomak.flashcards.feature.study.StudyRoute
+import com.rossomak.flashcards.feature.study.StudySessionRoute
 import com.rossomak.flashcards.feature.study.voice.VoiceGateway
 import java.time.Instant
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import com.rossomak.flashcards.feature.study.voice.VoicePhase
 import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -35,11 +39,10 @@ class StudySessionViewModel @Inject constructor(
     private val voiceSettingsController: VoiceSettingsController,
 ) : ViewModel() {
 
-    private val route = savedStateHandle.decodeRoute<StudyRoute>()
-    private val subcategoryId: String = route.subcategoryId
-    private val subcategoryName: String = route.subcategoryName
+    private val route = savedStateHandle.decodeRoute<StudySessionRoute>()
+    private val sessionTitle: String = route.sessionTitle
 
-    private val _state = MutableStateFlow(StudySessionScreenState(subcategoryName = subcategoryName))
+    private val _state = MutableStateFlow(StudySessionScreenState(sessionTitle = sessionTitle))
     val state: StateFlow<StudySessionScreenState> = _state.asStateFlow()
 
     // Tracks eagerly so rapid toggles don't race against isVoiceActive propagation.
@@ -74,22 +77,29 @@ class StudySessionViewModel @Inject constructor(
         }
     }
 
+    // Card selection happens on the Preview Study Session screen (ADR-0004); the session only
+    // resolves the routed cardIds to full Flashcards, preserving the routed order.
     private fun loadFlashcards() {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
-            getFlashcards(subcategoryId)
-                .onSuccess { flashcards ->
-                    val sampleSize = minOf((flashcards.size * 0.6).toInt(), 150).coerceAtLeast(1)
-                    val sampled = flashcards.shuffled().take(sampleSize)
-                        .groupBy { it.difficulty }
-                        .toSortedMap()
-                        .values
-                        .flatMap { group -> group.shuffled() }
-                    _state.update { it.copy(isLoading = false, flashcards = sampled) }
-                }
-                .onFailure {
-                    _state.update { it.copy(isLoading = false, error = "Could not load flashcards") }
-                }
+            val results = coroutineScope {
+                route.subcategoryIds
+                    .map { subcategoryId -> async { getFlashcards(subcategoryId) } }
+                    .awaitAll()
+            }
+            if (results.any { it.isFailure }) {
+                _state.update { it.copy(isLoading = false, error = "Could not load flashcards") }
+                return@launch
+            }
+            val cardsById = results.flatMap { it.getOrThrow() }.associateBy { it.id }
+            val sessionCards = route.cardIds.mapNotNull(cardsById::get)
+            _state.update {
+                it.copy(
+                    isLoading = false,
+                    flashcards = sessionCards,
+                    isVoiceAutoStartPending = route.studyMode == StudyMode.FAST && sessionCards.isNotEmpty(),
+                )
+            }
         }
     }
 
@@ -153,21 +163,24 @@ class StudySessionViewModel @Inject constructor(
         }
     }
 
-    fun onToggleVoiceMode() {
-        if (_state.value.flashcards.isEmpty()) return
-        if (voiceStarted) {
-            voiceStarted = false
-            voiceGateway.stop()
-        } else {
+    fun onVoiceAutoStartDeclined() {
+        _state.update { it.copy(isVoiceAutoStartPending = false) }
+    }
+
+    fun onVoiceAutoStart() {
+        _state.update { it.copy(isVoiceAutoStartPending = false) }
+        if (voiceStarted) return
+        with(_state.value) {
+            if (flashcards.isEmpty()) return
             voiceStarted = true
             voiceGateway.start(
-                cards = _state.value.flashcards,
-                startIndex = _state.value.currentCardIndex,
-                subcategoryName = subcategoryName,
+                cards = flashcards,
+                startIndex = currentCardIndex,
+                subcategoryName = sessionTitle,
             )
-            voiceGateway.setSpeechRate(voiceSettingsController.currentSettings.speechRate)
-            voiceGateway.setVoice(voiceSettingsController.currentSettings.voiceId)
         }
+        voiceGateway.setSpeechRate(voiceSettingsController.currentSettings.speechRate)
+        voiceGateway.setVoice(voiceSettingsController.currentSettings.voiceId)
     }
 
     fun onVoicePlayPause() {

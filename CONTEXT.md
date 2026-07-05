@@ -95,15 +95,15 @@ _Avoid_: Flag Action, Curation Type, Curation Flag Action
 ### Activities
 
 **Study Creation**:
-The flow a user goes through to start a Study Session. All entry points route through the **Pre-start Screen** before the session begins.
-- **Single-subcategory**: tap a Subcategory on Category Details (or "Start" in the app bar of Subcategory Details) → Pre-start Screen → session begins.
-- **Quick Session**: tap "Quick Session" on Category Details → system auto-selects Subcategories and Flashcards (MVP: randomized) → Pre-start Screen → session begins.
-- **Composite**: tap "Start Composite Session" on Category Details → list enters multi-select → user selects Subcategories → taps Start → Pre-start Screen → session begins.
+The flow a user goes through to start a Study Session. All entry points route through the **Preview Study Session Screen** before the session begins.
+- **Single-subcategory**: tap a Subcategory on Category Details (or "Start" in the app bar of Subcategory Details) → Preview Study Session Screen → session begins.
+- **Quick Session**: tap "Quick Session" on Category Details → system auto-selects Subcategories and Flashcards (MVP: randomized) → Preview Study Session Screen → session begins.
+- **Composite**: tap "Start Composite Session" on Category Details → list enters multi-select → user selects Subcategories → taps Start → Preview Study Session Screen → session begins.
 _Avoid_: Session setup, Session wizard
 
-**Pre-start Screen**:
-A full-screen summary shown before every Study Session begins. Displays session scope (card count, topic count, estimated duration). Below the stats row: a pill-button radio group for **Study Mode** selection (Rated | Fast); tapping a pill shows a short description of that mode beneath the group. Default selection: Rated. Contains a "Start session" button that launches the session with the selected mode. Only place in the app where Study Mode is chosen.
-_Avoid_: Pre-session screen, Session config, Mode picker
+**Preview Study Session Screen**:
+A full-screen preview shown before every Study Session begins. Displays session scope (card count, topic count, estimated duration, active Tag filter). Below the stats row: a radio-card group for **Study Mode** selection (Rated | Fast), each with a short description. Default selection: Rated. Contains a "Start session" button that launches the session with the selected mode, and a "Re-randomize" button (multi-topic and Quick sessions only). Only place in the app where Study Mode is chosen.
+_Avoid_: Pre-start Screen (retired name), Pre-session screen, Session config, Mode picker
 
 **Persistent Mastery**:
 A cross-session record of Flashcards a User has ever reached a Mastered Terminal State on within a Rated Study Session. Stored in Firestore as `users/{uid}/masteredCards/{cardId}`. A Flashcard is in the Persistent Mastery set iff the User currently holds mastery — mastery is removed (de-mastered) when the card reaches a Failed Terminal State in a subsequent Rated session. Applies to global Flashcards only; Private Flashcards are excluded.

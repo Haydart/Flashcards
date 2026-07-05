@@ -48,32 +48,37 @@ fun SubcategoryDetailsScreen(
     modifier: Modifier = Modifier,
     viewModel: SubcategoryDetailsViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
-    onNavigateToStudySession: (subcategoryId: String, subcategoryName: String) -> Unit,
+    onNavigateToPreviewStudySession: (categoryId: String, categoryName: String, subcategoryId: String, subcategoryName: String) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     observeAsEvents(viewModel.events) { destination ->
         when (destination) {
-            is SubcategoryDetailsDestination.StudySession ->
-                onNavigateToStudySession(destination.subcategoryId, destination.subcategoryName)
+            is SubcategoryDetailsDestination.PreviewStudySession ->
+                onNavigateToPreviewStudySession(
+                    destination.categoryId,
+                    destination.categoryName,
+                    destination.subcategoryId,
+                    destination.subcategoryName,
+                )
         }
     }
 
     SubcategoryDetailsContent(
+        modifier = modifier,
         state = state,
         onNavigateBack = onNavigateBack,
         onStartSession = viewModel::onStartSession,
-        modifier = modifier,
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SubcategoryDetailsContent(
+    modifier: Modifier = Modifier,
     state: SubcategoryDetailsScreenState,
     onNavigateBack: () -> Unit,
     onStartSession: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     val scrollBehavior =
         TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())

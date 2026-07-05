@@ -35,14 +35,14 @@ flowchart TD
     CatDetails --> CatAddShortcut[/⋮ → Add to home screen/]
 
     TapSubcatRow --> SubcatDetails
-    TapFastStart --> PreStart(PRE-START SCREEN)
-    TapQuickSession --> PreStart
+    TapFastStart --> PreviewStudySession(PREVIEW STUDY SESSION SCREEN)
+    TapQuickSession --> PreviewStudySession
     CatAddShortcut --> ShortcutPinDialog[Android system\nshortcut pin dialog]
 
     TapComposite --> CatMultiselect(CATEGORY DETAILS\nmulti-select active)
     CatMultiselect --> SelectSubcats[/Select ≥1 subcategories/]
     SelectSubcats --> TapStartComposite[/Tap Start/]
-    TapStartComposite --> PreStart
+    TapStartComposite --> PreviewStudySession
 
     %% ── Subcategory Details ───────────────────────────────────────
     SubcatDetails(SUBCATEGORY DETAILS SCREEN\nFlashcard list · collapsible items)
@@ -57,7 +57,7 @@ flowchart TD
     TapFilterIcon --> TagFilterDialog(TAG FILTER DIALOG\nSelect All · Unselect All\nTag chips + Private chip\nOR semantics · applies on close\nno Apply button)
     TagFilterDialog -->|dismiss| SubcatDetails
 
-    TapStartSession -->|filterTagIds = active tags| PreStart
+    TapStartSession -->|filterTagIds = active tags| PreviewStudySession
 
     TapFAB --> CreateCard(CREATE PRIVATE FLASHCARD SCREEN\nQuestion · Answer · Tags)
     CreateCard -->|Save| SubcatDetails
@@ -72,18 +72,18 @@ flowchart TD
 
 ## Session
 
-> **Current interim:** Study Mode selection lives as a toggle inside the `StudySession` `TopAppBar`, not on Pre-start Screen. This is temporary — once Pre-start Screen is built, mode selection moves there and the toggle is removed (ADR-0004). The diagram below shows the **target state**.
-
-> **Mastery Defense (Rated only):** At Pre-start card selection time, up to 10% of the resolved pool is silently filled with previously mastered cards from the same scope. These appear in session with a small shield icon. No user interaction required; transparent to the user.
+> Study Mode selection happens on the Preview Study Session Screen; a session routed with Fast mode auto-starts voice playback (ADR-0004).
+>
+> **Mastery Defense (Rated only):** At Preview Study Session card selection time, up to 10% of the resolved pool is silently filled with previously mastered cards from the same scope. These appear in session with a small shield icon. No user interaction required; transparent to the user.
 
 ```mermaid
 flowchart TD
 
     %% Legend: (Screen)  [/Action/]  {Decision}  ([Entry/Exit])
 
-    %% ── Pre-start Screen ──────────────────────────────────────────
-    PreStart(PRE-START SCREEN\nScope summary · card count · estimated duration\nStudy Mode: Rated or Fast\nStart Session button)
-    PreStart --> ModeChoice{Study Mode?}
+    %% ── Preview Study Session Screen ──────────────────────────────────────────
+    PreviewStudySession(PREVIEW STUDY SESSION SCREEN\nScope preview · card count · estimated duration\nStudy Mode: Rated or Fast\nStart Session button)
+    PreviewStudySession --> ModeChoice{Study Mode?}
     ModeChoice -->|Rated| RatedSession
     ModeChoice -->|Fast| FastSession
 
@@ -160,7 +160,7 @@ flowchart TD
     Summary --> StudyAgainFailed[/Study Again — Failed\nshown only if ≥1 Terminal Failed\nRated sessions only/]
     Summary --> GoBack[/Tap 'Back to Home' · or system back/]
 
-    StudyAgainAll -->|"same categoryId + subcategoryIds\npopUpTo Main · card re-selection runs fresh"| PreStart
-    StudyAgainFailed -->|"cardIds = failed cards only\nbypasses PreStart · popUpTo Main"| RatedSession
+    StudyAgainAll -->|"same categoryId + subcategoryIds\npopUpTo Main · card re-selection runs fresh"| PreviewStudySession
+    StudyAgainFailed -->|"cardIds = failed cards only\nbypasses PreviewStudySession · popUpTo Main"| RatedSession
     GoBack -.->|"popUpTo Main (inclusive=false)\nreturns to whichever tab was active"| NavRoot([Main Screen])
 ```

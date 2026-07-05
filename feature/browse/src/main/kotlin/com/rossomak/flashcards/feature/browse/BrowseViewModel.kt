@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.feature.study.prestart
+package com.rossomak.flashcards.feature.browse
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -14,14 +14,14 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class StudyViewModel @Inject constructor(
+class BrowseViewModel @Inject constructor(
     private val getCategories: GetCategoriesUseCase
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(StudyScreenState())
-    val state: StateFlow<StudyScreenState> = _state.asStateFlow()
+    private val _state = MutableStateFlow(BrowseScreenState())
+    val state: StateFlow<BrowseScreenState> = _state.asStateFlow()
 
-    private val eventChannel = Channel<StudyNavigationDestination>(Channel.BUFFERED)
+    private val eventChannel = Channel<BrowseNavigationDestination>(Channel.BUFFERED)
     val events = eventChannel.receiveAsFlow()
 
     init {
@@ -34,7 +34,7 @@ class StudyViewModel @Inject constructor(
 
     fun onCategorySelected(categoryId: String, categoryName: String) {
         viewModelScope.launch {
-            eventChannel.send(StudyNavigationDestination.CategoryDetails(categoryId, categoryName))
+            eventChannel.send(BrowseNavigationDestination.CategoryDetails(categoryId, categoryName))
         }
     }
 
