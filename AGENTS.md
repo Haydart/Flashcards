@@ -78,6 +78,14 @@ class FlashcardViewModel @Inject constructor(
 - ViewModel event handlers (UI → ViewModel callbacks): `onXxx` prefix, present tense (`onCategoriesRefresh`, `onCardSelect`)
 - Interface implementations: `Default` prefix, no `Impl` suffix (`DefaultFlashcardRepository`, not `FlashcardRepositoryImpl`; `DefaultAudioPlayer`, not `AudioPlayerImpl`)
 
+### String Resources
+Naming/ownership rules for `strings.xml` — full rationale in [ADR-0023](./docs/adr/0023-string-resource-naming-conventions.md):
+- Each `:feature:*` module and `:core:ui` own their own `strings.xml`; `:app` keeps only app-level strings.
+- Key pattern: `screen_element_role`, no feature-name prefix (e.g. `login_username_label`).
+- Role suffix is one of a closed set: `_label`, `_button`, `_title`, `_hint`, `_error`, `_message`, `_cd`.
+- Shared strings live in `:core:ui` prefixed `common_` (e.g. `common_done_button`) — promote a string there only once a 2nd module needs it verbatim; don't pre-seed a common list.
+- `HardcodedText` lint is `error` in the convention plugins — new hardcoded UI strings fail the build. Existing hardcoded strings migrate incrementally as their screen is touched.
+
 ### Sealed Classes for States
 Use sealed classes for finite UI states (e.g. loading / content / error variants of a screen state).
 
