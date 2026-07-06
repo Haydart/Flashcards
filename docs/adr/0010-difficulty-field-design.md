@@ -1,5 +1,7 @@
 # Difficulty field: mandatory on global pool, filtered at DTO layer, immutable
 
+> **Note:** The "Private Flashcards are exempt" decision below is superseded by [ADR-0022](0022-subcategory-details-filter-sort-toolbar.md) — difficulty is now mandatory on Private Flashcards too. The rest of this ADR (global-pool DTO filtering, immutability) still stands.
+
 ## Decision
 
 Every global admin-curated Flashcard carries a mandatory `difficulty: Int` (1–10). Flashcard documents in Firestore that have no `difficulty` field are silently filtered out at the DTO→domain mapping layer and never reach the domain. Private Flashcards are exempt — they carry no Difficulty. Difficulty is immutable once written to Firestore.
