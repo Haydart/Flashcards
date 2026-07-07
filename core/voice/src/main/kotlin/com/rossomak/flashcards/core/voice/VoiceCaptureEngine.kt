@@ -180,6 +180,7 @@ class VoiceCaptureEngine @Inject constructor(
         } catch (exception: Exception) {
             // VAD inference or AudioRecord failures used to kill the loop silently, leaving the UI
             // stuck on "silence". Surface them so they show up in the debug event log.
+            android.util.Log.e(TAG, "capture loop error", exception)
             _events.emit(VoiceCaptureEvent.CaptureFailed("Capture loop error: ${exception.message}"))
         } finally {
             runCatching { audioRecord.stop() }
@@ -216,7 +217,7 @@ class VoiceCaptureEngine @Inject constructor(
         )
         if (minBufferSize <= 0) return null
         val audioRecord = AudioRecord(
-            MediaRecorder.AudioSource.VOICE_RECOGNITION,
+            preferredAudioSource(),
             SAMPLE_RATE_HZ,
             AudioFormat.CHANNEL_IN_MONO,
             AudioFormat.ENCODING_PCM_16BIT,
@@ -229,6 +230,14 @@ class VoiceCaptureEngine @Inject constructor(
             null
         }
     }
+
+    /**
+     * VOICE_RECOGNITION routes through OEM noise-suppression/AGC that gutted the signal to near
+     * silence on some devices (e.g. Realme/MTK). Prefer UNPROCESSED — a raw, effect-free mic feed,
+     * ideal for our own VAD + cloud ASR — when the device advertises support, otherwise fall back to
+     * the plain MIC source, which still carries a usable level.
+     */
+    private fun preferredAudioSource(): Int = MediaRecorder.AudioSource.MIC
 
     @SuppressLint("DEPRECATION") // startBluetoothSco is the only path below API 31.
     private fun startBluetoothScoRoutingIfNeeded() {
@@ -253,6 +262,7 @@ class VoiceCaptureEngine @Inject constructor(
     }
 
     companion object {
+        private const val TAG = "VoiceCapture"
         const val SAMPLE_RATE_HZ = 16_000
         const val FRAME_DURATION_MS = 20
         const val FRAME_SIZE_SAMPLES = SAMPLE_RATE_HZ * FRAME_DURATION_MS / 1000
