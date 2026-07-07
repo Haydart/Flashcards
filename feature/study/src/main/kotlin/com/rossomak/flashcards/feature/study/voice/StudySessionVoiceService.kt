@@ -7,7 +7,14 @@ import android.os.IBinder
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /**
  * Media3 [MediaSessionService] that reads flashcards aloud, with background playback capabilities. It owns a
@@ -20,20 +27,36 @@ import kotlinx.coroutines.flow.StateFlow
  * and drive playback, and observes [LocalBinder.state] — which carries TTS-specific phase and
  * between-card-pause flags that the standard `Player` state cannot express. System controllers
  * connect to the [MediaSession] returned from [onGetSession].
+ *
+ * Voice answering (premium): the service also hosts a [VoiceAnswerController], so background mic
+ * capture shares this exact session-scoped foreground lifecycle — listening starts/stops with
+ * the session, never outlives it (manifest declares the `microphone` FGS type alongside
+ * `mediaPlayback`).
  */
 @UnstableApi
+@AndroidEntryPoint
 class StudySessionVoiceService : MediaSessionService() {
+
+    @Inject
+    lateinit var voiceAnswerController: VoiceAnswerController
 
     private val binder = LocalBinder()
 
     private lateinit var player: TtsPlayer
     private lateinit var mediaSession: MediaSession
 
+    private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private var sessionCards: List<VoiceCard> = emptyList()
+
     inner class LocalBinder : Binder() {
         val state: StateFlow<VoicePlaybackState> get() = player.voiceState
 
-        fun loadSession(cards: List<VoiceCard>, startIndex: Int, subcategoryName: String) =
+        val voiceAnswerState: StateFlow<VoiceAnswerState> get() = voiceAnswerController.state
+
+        fun loadSession(cards: List<VoiceCard>, startIndex: Int, subcategoryName: String) {
+            sessionCards = cards
             player.loadAndStartSession(cards, startIndex, subcategoryName)
+        }
 
         fun togglePlayPause() = player.togglePlayPause()
 
@@ -49,6 +72,11 @@ class StudySessionVoiceService : MediaSessionService() {
 
         fun setVoice(voiceId: String?) = player.setVoice(voiceId)
 
+        fun setVoiceAnswering(enabled: Boolean) {
+            player.setVoiceAnsweringMode(enabled)
+            if (enabled) voiceAnswerController.start() else voiceAnswerController.stop()
+        }
+
         fun stopPlayback() = this@StudySessionVoiceService.stopPlayback()
     }
 
@@ -58,6 +86,33 @@ class StudySessionVoiceService : MediaSessionService() {
         mediaSession = MediaSession.Builder(this, player)
             .setSessionActivity(contentPendingIntent())
             .build()
+        observeCurrentCardForVoiceAnswering()
+        observeVoiceAnswerAdvanceRequests()
+    }
+
+    // Keeps the grading context in lockstep with whichever card TTS playback is on, so a
+    // captured utterance is always graded against the card the user just heard, and opens the
+    // controller's listening window exactly when the shared TTS engine finishes the question
+    // (ADR-0025: never listen while any TTS is speaking).
+    private fun observeCurrentCardForVoiceAnswering() {
+        serviceScope.launch {
+            var wasAwaitingSpokenAnswer = false
+            player.voiceState.collect { voice ->
+                val currentCard = if (voice.isActive) sessionCards.getOrNull(voice.currentIndex) else null
+                voiceAnswerController.setActiveCard(currentCard)
+                if (voice.isAwaitingSpokenAnswer && !wasAwaitingSpokenAnswer) {
+                    voiceAnswerController.onQuestionFinishedSpeaking()
+                }
+                wasAwaitingSpokenAnswer = voice.isAwaitingSpokenAnswer
+            }
+        }
+    }
+
+    // Grade computed (or silence-timeout skip) + notice spoken -> controller asks to move on.
+    private fun observeVoiceAnswerAdvanceRequests() {
+        serviceScope.launch {
+            voiceAnswerController.advanceRequests.collect { player.advanceToNextCardAfterVoiceAnswer() }
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo) = mediaSession
@@ -72,11 +127,14 @@ class StudySessionVoiceService : MediaSessionService() {
     }
 
     private fun stopPlayback() {
+        voiceAnswerController.stop()
         player.stopPlayback()
         stopSelf()
     }
 
     override fun onDestroy() {
+        voiceAnswerController.release()
+        serviceScope.cancel()
         mediaSession.release()
         player.release()
         super.onDestroy()
