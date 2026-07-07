@@ -34,6 +34,8 @@ import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.DataObject
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
@@ -75,6 +77,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -82,7 +85,10 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gallatinapps.syntaxmp.tokenizer.SyntaxTokenizer
 import com.rossomak.flashcards.feature.study.BuildConfig
+import com.rossomak.flashcards.feature.study.R
 import com.rossomak.flashcards.core.domain.model.CurationAction
+import com.rossomak.flashcards.core.domain.model.StudyMode
+import com.rossomak.flashcards.feature.study.voice.VoiceAnswerPhase
 import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 import com.rossomak.flashcards.core.ui.composables.SyntaxCodeBlock
 import com.rossomak.flashcards.core.ui.composables.VoiceSettingsDialog
@@ -128,6 +134,44 @@ fun StudySessionScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
 
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { isGranted -> viewModel.onMicPermissionResult(isGranted) }
+
+    LaunchedEffect(state.isMicPermissionRequestPending) {
+        if (!state.isMicPermissionRequestPending) return@LaunchedEffect
+        val isAlreadyGranted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECORD_AUDIO,
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (isAlreadyGranted) {
+            viewModel.onMicPermissionResult(true)
+        } else {
+            micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    LaunchedEffect(state.lastVoiceAnswerGrade) {
+        val grade = state.lastVoiceAnswerGrade ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(
+            message = context.getString(
+                R.string.study_session_voice_answer_grade_message,
+                grade.gradePercent,
+                grade.feedback,
+            ),
+            duration = SnackbarDuration.Short,
+        )
+        viewModel.onVoiceAnswerGradeDismissed()
+    }
+
+    LaunchedEffect(state.voiceAnswerError) {
+        if (state.voiceAnswerError == null) return@LaunchedEffect
+        snackbarHostState.showSnackbar(
+            message = context.getString(R.string.study_session_voice_answer_error_message),
+            duration = SnackbarDuration.Short,
+        )
+    }
+
     LaunchedEffect(state.isSessionComplete) {
         if (state.isSessionComplete) onNavigateBack()
     }
@@ -172,6 +216,9 @@ fun StudySessionScreen(
         onVoiceSettingsDraftSpeedChanged = viewModel::onVoiceSettingsDraftSpeedChanged,
         onVoiceSettingsSave = viewModel::onVoiceSettingsSave,
         onVoiceSettingsDismiss = viewModel::onVoiceSettingsDismiss,
+        onVoiceAnswerToggle = viewModel::onVoiceAnswerToggle,
+        onVoiceAnswerConsentAccept = viewModel::onVoiceAnswerConsentAccept,
+        onVoiceAnswerConsentDecline = viewModel::onVoiceAnswerConsentDecline,
         onCurationFabClick = viewModel::onCurationFabClick,
         onCurationActionToggle = viewModel::onCurationActionToggle,
         onCurationDialogDismiss = viewModel::onCurationDialogDismiss,
@@ -197,6 +244,9 @@ fun StudySessionContent(
     onVoiceSettingsDraftSpeedChanged: (Float) -> Unit,
     onVoiceSettingsSave: () -> Unit,
     onVoiceSettingsDismiss: () -> Unit,
+    onVoiceAnswerToggle: () -> Unit,
+    onVoiceAnswerConsentAccept: () -> Unit,
+    onVoiceAnswerConsentDecline: () -> Unit,
     onCurationFabClick: () -> Unit,
     onCurationActionToggle: (CurationAction) -> Unit,
     onCurationDialogDismiss: () -> Unit,
@@ -212,7 +262,11 @@ fun StudySessionContent(
         scaffoldState = scaffoldState,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         sheetSwipeEnabled = false,
-        sheetPeekHeight = if (state.isVoiceActive) 176.dp else 112.dp,
+        sheetPeekHeight = when {
+            state.isVoiceActive -> 176.dp
+            state.studyMode == StudyMode.RATED -> 152.dp
+            else -> 112.dp
+        },
         sheetDragHandle = {},
         topBar = {
             TopAppBar(
@@ -245,6 +299,7 @@ fun StudySessionContent(
                 onVoiceNext = onVoiceNext,
                 onVoicePrevious = onVoicePrevious,
                 onVoiceSettingsCogClick = onVoiceSettingsCogClick,
+                onVoiceAnswerToggle = onVoiceAnswerToggle,
             )
             if (state.voiceSettingsState.isVisible) {
                 VoiceSettingsDialog(
@@ -419,6 +474,13 @@ fun StudySessionContent(
         }
         } // end Box
 
+        if (state.isVoiceAnswerConsentDialogVisible) {
+            VoiceAnswerConsentDialog(
+                onAccept = onVoiceAnswerConsentAccept,
+                onDecline = onVoiceAnswerConsentDecline,
+            )
+        }
+
         if (BuildConfig.DEBUG && state.isCurationDialogVisible) {
             val currentCard = state.flashcards.getOrNull(state.currentCardIndex)
             if (currentCard != null) {
@@ -430,6 +492,33 @@ fun StudySessionContent(
             }
         }
     }
+}
+
+@Composable
+private fun VoiceAnswerConsentDialog(
+    onAccept: () -> Unit,
+    onDecline: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDecline,
+        title = { Text(stringResource(R.string.voice_answer_consent_title)) },
+        text = {
+            Text(
+                text = stringResource(R.string.voice_answer_consent_message),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onAccept) {
+                Text(stringResource(R.string.voice_answer_consent_accept_button))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDecline) {
+                Text(stringResource(R.string.voice_answer_consent_decline_button))
+            }
+        },
+    )
 }
 
 @Composable
@@ -507,6 +596,7 @@ private fun StudySessionSheetContent(
     onVoiceNext: () -> Unit,
     onVoicePrevious: () -> Unit,
     onVoiceSettingsCogClick: () -> Unit,
+    onVoiceAnswerToggle: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -517,8 +607,46 @@ private fun StudySessionSheetContent(
         if (state.isVoiceActive) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (state.studyMode == StudyMode.RATED && state.isVoiceAnswerEnabled) {
+                    Text(
+                        text = stringResource(
+                            when (state.voiceAnswerPhase) {
+                                VoiceAnswerPhase.WAITING_FOR_QUESTION -> R.string.study_session_voice_answer_waiting_label
+                                VoiceAnswerPhase.GRADING -> R.string.study_session_voice_answer_grading_label
+                                VoiceAnswerPhase.SPEAKING_NOTICE -> R.string.study_session_voice_answer_feedback_label
+                                else -> R.string.study_session_voice_answer_listening_label
+                            }
+                        ),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (state.voiceAnswerPhase == VoiceAnswerPhase.SPEECH_DETECTED) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                if (state.studyMode == StudyMode.RATED) {
+                    IconButton(onClick = onVoiceAnswerToggle) {
+                        Icon(
+                            imageVector = if (state.isVoiceAnswerEnabled) Icons.Default.Mic else Icons.Default.MicOff,
+                            contentDescription = stringResource(
+                                if (state.isVoiceAnswerEnabled) {
+                                    R.string.study_session_voice_answer_disable_cd
+                                } else {
+                                    R.string.study_session_voice_answer_enable_cd
+                                }
+                            ),
+                            tint = if (state.isVoiceAnswerEnabled) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    }
+                }
                 IconButton(onClick = onVoiceSettingsCogClick) {
                     Icon(
                         imageVector = Icons.Default.Settings,
@@ -568,6 +696,27 @@ private fun StudySessionSheetContent(
                 }
             }
         } else {
+            if (state.studyMode == StudyMode.RATED) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.study_session_voice_answer_label),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(onClick = onVoiceAnswerToggle) {
+                        Icon(
+                            imageVector = Icons.Default.MicOff,
+                            contentDescription = stringResource(R.string.study_session_voice_answer_enable_cd),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
             if (!state.isAnswerRevealed) {
                 Button(
                     onClick = onShowAnswer,
@@ -627,6 +776,9 @@ private fun StudySessionVoiceActivePreview() {
         onVoiceSettingsDraftSpeedChanged = {},
         onVoiceSettingsSave = {},
         onVoiceSettingsDismiss = {},
+        onVoiceAnswerToggle = {},
+        onVoiceAnswerConsentAccept = {},
+        onVoiceAnswerConsentDecline = {},
         onCurationFabClick = {},
         onCurationActionToggle = {},
         onCurationDialogDismiss = {},
