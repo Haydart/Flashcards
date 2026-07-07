@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -17,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -25,15 +27,20 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
+import com.rossomak.flashcards.BuildConfig
+import com.rossomak.flashcards.R
 import com.rossomak.flashcards.feature.browse.BrowseScreen
 import com.rossomak.flashcards.feature.home.HomeScreen
 import com.rossomak.flashcards.feature.settings.SettingsScreen
+import com.rossomak.flashcards.presentation.voicedebug.VoiceDebugScreen
 import com.rossomak.flashcards.ui.navigation.HomeGraph
 import com.rossomak.flashcards.ui.navigation.HomeRoot
 import com.rossomak.flashcards.ui.navigation.SettingsGraph
 import com.rossomak.flashcards.ui.navigation.SettingsRoot
 import com.rossomak.flashcards.ui.navigation.StudyGraph
 import com.rossomak.flashcards.ui.navigation.StudyRoot
+import com.rossomak.flashcards.ui.navigation.VoiceDebugGraph
+import com.rossomak.flashcards.ui.navigation.VoiceDebugRoot
 
 private val BottomBarBackground = Color.White
 private val SelectedIndicatorColor = Color(0xFFEDE7FF)
@@ -46,11 +53,16 @@ private data class TabItem(
     val route: Any
 )
 
-private val tabs = listOf(
-    TabItem("Home", Icons.Filled.Home, HomeGraph),
-    TabItem("Study", Icons.AutoMirrored.Filled.MenuBook, StudyGraph),
-    TabItem("Settings", Icons.Filled.Settings, SettingsGraph)
-)
+@Composable
+private fun mainTabs(): List<TabItem> = buildList {
+    add(TabItem(stringResource(R.string.main_home_tab_label), Icons.Filled.Home, HomeGraph))
+    add(TabItem(stringResource(R.string.main_study_tab_label), Icons.AutoMirrored.Filled.MenuBook, StudyGraph))
+    add(TabItem(stringResource(R.string.main_settings_tab_label), Icons.Filled.Settings, SettingsGraph))
+    // Debug-only harness for the voice grading pipeline — never present in release builds.
+    if (BuildConfig.DEBUG) {
+        add(TabItem(stringResource(R.string.main_voice_debug_tab_label), Icons.Filled.GraphicEq, VoiceDebugGraph))
+    }
+}
 
 @Composable
 fun MainScreen(
@@ -58,6 +70,7 @@ fun MainScreen(
     onNavigateToCategoryDetails: (String, String) -> Unit,
     onNavigateToLogin: () -> Unit,
 ) {
+    val tabs = mainTabs()
     val tabNavController = rememberNavController()
     val navBackStackEntry by tabNavController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
@@ -118,6 +131,13 @@ fun MainScreen(
             navigation<SettingsGraph>(startDestination = SettingsRoot) {
                 composable<SettingsRoot> {
                     SettingsScreen(onNavigateToLogin = onNavigateToLogin)
+                }
+            }
+            if (BuildConfig.DEBUG) {
+                navigation<VoiceDebugGraph>(startDestination = VoiceDebugRoot) {
+                    composable<VoiceDebugRoot> {
+                        VoiceDebugScreen()
+                    }
                 }
             }
         }

@@ -1,4 +1,54 @@
 <resources>
     <string name="app_name">Flashcards</string>
     <string name="splash_tagline">Stay sharp, study smart</string>
+
+    <string name="main_home_tab_label">Home</string>
+    <string name="main_study_tab_label">Study</string>
+    <string name="main_settings_tab_label">Settings</string>
+    <string name="main_voice_debug_tab_label">Voice</string>
+
+    <string name="voice_debug_title">🛠️ Voice Debug</string>
+    <string name="voice_debug_mic_permission_message">Microphone permission required for capture tests</string>
+
+    <string name="voice_debug_vad_title">1. VAD trigger test</string>
+    <string name="voice_debug_vad_start_button">Start listening</string>
+    <string name="voice_debug_vad_stop_button">Stop listening</string>
+    <string name="voice_debug_vad_speech_label">SPEECH DETECTED</string>
+    <string name="voice_debug_vad_silence_label">silence</string>
+    <string name="voice_debug_vad_probability_label">speech prob: %1$.2f</string>
+    <string name="voice_debug_vad_play_utterance_button">Play last answer</string>
+    <string name="voice_debug_vad_utterance_ready_label">%1$d ms captured</string>
+
+    <string name="voice_debug_capture_title">2. Raw capture playback</string>
+    <string name="voice_debug_capture_record_button">Record 3s clip</string>
+    <string name="voice_debug_capture_recording_label">Recording…</string>
+    <string name="voice_debug_capture_play_raw_button">Play raw</string>
+    <string name="voice_debug_capture_clip_ready_label">Clip captured (%1$d ms)</string>
+
+    <string name="voice_debug_obfuscation_title">3. Obfuscation A/B playback</string>
+    <string name="voice_debug_obfuscation_play_obfuscated_button">Play obfuscated</string>
+    <string name="voice_debug_obfuscation_rerandomize_button">Re-randomize shift</string>
+    <string name="voice_debug_obfuscation_no_clip_label">Record a clip in block 2 first</string>
+
+    <string name="voice_debug_transcription_title">4. Transcription test (STT)</string>
+    <string name="voice_debug_transcription_send_button">Transcribe captured clip</string>
+    <string name="voice_debug_transcription_running_label">Transcribing…</string>
+
+    <string name="voice_debug_grade_title">5. Sanitize + grade test (LLM)</string>
+    <string name="voice_debug_grade_question_label">Question</string>
+    <string name="voice_debug_grade_expected_answer_label">Expected answer</string>
+    <string name="voice_debug_grade_transcript_label">Raw transcript (typed, bypasses audio)</string>
+    <string name="voice_debug_grade_send_button">Sanitize + grade</string>
+    <string name="voice_debug_grade_running_label">Grading…</string>
+
+    <string name="voice_debug_entitlement_title">6. Entitlement check test</string>
+    <string name="voice_debug_entitlement_simulate_premium_label">Simulate premium account (fake backend)</string>
+    <string name="voice_debug_entitlement_check_button">Check entitlement</string>
+    <string name="voice_debug_entitlement_checking_label">Checking…</string>
+
+    <string name="voice_debug_toggles_title">Fake / real routing per stage</string>
+    <string name="voice_debug_toggles_backend_unconfigured_label">VOICE_GRADING_BASE_URL not set in local.properties — all stages forced to fake</string>
+    <string name="voice_debug_toggle_transcription_label">Real transcription (ElevenLabs via Cloud Function)</string>
+    <string name="voice_debug_toggle_grading_label">Real sanitize+grade (LLM via Cloud Function)</string>
+    <string name="voice_debug_toggle_entitlement_label">Real entitlement check</string>
 </resources>
