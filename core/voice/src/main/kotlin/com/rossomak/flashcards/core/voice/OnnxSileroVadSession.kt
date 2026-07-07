@@ -4,7 +4,8 @@ import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import com.rossomak.flashcards.core.voice.SileroVadSession.Companion.SAMPLE_RATE_HZ
-import java.nio.FloatBuffer
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.nio.LongBuffer
 
 /**
@@ -26,24 +27,25 @@ class OnnxSileroVadSession(
     // Silero v5 recurrent state is shaped [2, 1, 128]; flattened here, zero-initialised.
     private val state = FloatArray(STATE_LAYERS * STATE_HIDDEN)
 
+    // Silero v5 prepends the previous chunk's last CONTEXT_SIZE samples to each new chunk, so the
+    // model actually consumes CONTEXT_SIZE + 512 samples per step. Zeroed for the first chunk.
+    private val context = FloatArray(CONTEXT_SIZE)
+
     override fun run(window: FloatArray): Float {
         val ortSession = session ?: environment.createSession(modelBytes).also { session = it }
 
-        val inputTensor = OnnxTensor.createTensor(
-            environment,
-            FloatBuffer.wrap(window),
-            longArrayOf(1, window.size.toLong()),
-        )
-        val stateTensor = OnnxTensor.createTensor(
-            environment,
-            FloatBuffer.wrap(state),
-            longArrayOf(STATE_LAYERS.toLong(), 1, STATE_HIDDEN.toLong()),
-        )
-        val sampleRateTensor = OnnxTensor.createTensor(
-            environment,
-            LongBuffer.wrap(longArrayOf(SAMPLE_RATE_HZ)),
-            longArrayOf(),
-        )
+        // Prepend the carried context so the model sees CONTEXT_SIZE + 512 samples, then remember
+        // this chunk's tail as the next step's context. Without it the model scores everything ~0.
+        val contextedWindow = FloatArray(CONTEXT_SIZE + window.size)
+        context.copyInto(contextedWindow, destinationOffset = 0)
+        window.copyInto(contextedWindow, destinationOffset = CONTEXT_SIZE)
+        window.copyInto(context, destinationOffset = 0, startIndex = window.size - CONTEXT_SIZE)
+
+        // Build from Java arrays / direct buffers only: ORT's native side reads a DIRECT buffer
+        // here, and a heap FloatBuffer.wrap(...) silently delivers zeros instead of the audio.
+        val inputTensor = OnnxTensor.createTensor(environment, arrayOf(contextedWindow)) // [1, 576]
+        val stateTensor = OnnxTensor.createTensor(environment, stateAsBatchedArray()) // [2, 1, 128]
+        val sampleRateTensor = OnnxTensor.createTensor(environment, directSampleRateBuffer(), longArrayOf())
 
         inputTensor.use { input ->
             stateTensor.use { previousState ->
@@ -68,7 +70,23 @@ class OnnxSileroVadSession(
 
     override fun reset() {
         state.fill(0f)
+        context.fill(0f)
     }
+
+    /** Current recurrent state reshaped to the model's [2, 1, 128] input layout. */
+    private fun stateAsBatchedArray(): Array<Array<FloatArray>> =
+        Array(STATE_LAYERS) { layer ->
+            arrayOf(FloatArray(STATE_HIDDEN) { unit -> state[layer * STATE_HIDDEN + unit] })
+        }
+
+    private fun directSampleRateBuffer(): LongBuffer =
+        ByteBuffer.allocateDirect(java.lang.Long.BYTES)
+            .order(ByteOrder.nativeOrder())
+            .asLongBuffer()
+            .apply {
+                put(SAMPLE_RATE_HZ)
+                rewind()
+            }
 
     private fun copyNextStateIn(nextState: Array<Array<FloatArray>>) {
         var index = 0
@@ -83,5 +101,6 @@ class OnnxSileroVadSession(
     private companion object {
         const val STATE_LAYERS = 2
         const val STATE_HIDDEN = 128
+        const val CONTEXT_SIZE = 64 // Silero v5 context window for 16kHz
     }
 }
