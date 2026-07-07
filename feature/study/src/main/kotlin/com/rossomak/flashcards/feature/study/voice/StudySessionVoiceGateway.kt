@@ -29,9 +29,13 @@ class StudySessionVoiceGateway @Inject constructor(
     private val _state = MutableStateFlow(VoicePlaybackState())
     override val state: StateFlow<VoicePlaybackState> = _state.asStateFlow()
 
+    private val _voiceAnswerState = MutableStateFlow(VoiceAnswerState())
+    override val voiceAnswerState: StateFlow<VoiceAnswerState> = _voiceAnswerState.asStateFlow()
+
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var voiceBinder: StudySessionVoiceService.LocalBinder? = null
     private var voiceStateJob: Job? = null
+    private var voiceAnswerStateJob: Job? = null
     private var isBound = false
 
     // The LocalBinder carries playback state and commands, but MediaSessionService only registers
@@ -45,6 +49,7 @@ class StudySessionVoiceGateway @Inject constructor(
     private var pendingSubcategoryName: String = ""
     private var pendingSpeechRate: Float? = null
     private var pendingVoiceId: String? = null
+    private var pendingVoiceAnswering: Boolean? = null
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -60,7 +65,9 @@ class StudySessionVoiceGateway @Inject constructor(
             // still null), so replay whatever was requested in the meantime.
             pendingSpeechRate?.let { binder.setPlaybackSpeechRate(it) }
             pendingVoiceId?.let { binder.setVoice(it) }
+            pendingVoiceAnswering?.let { binder.setVoiceAnswering(it) }
             collectVoiceState(binder)
+            collectVoiceAnswerState(binder)
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -89,6 +96,8 @@ class StudySessionVoiceGateway @Inject constructor(
         voiceBinder?.stopPlayback()
         unbind()
         _state.value = VoicePlaybackState()
+        _voiceAnswerState.value = VoiceAnswerState()
+        pendingVoiceAnswering = null
     }
 
     override fun togglePlayPause() {
@@ -121,6 +130,11 @@ class StudySessionVoiceGateway @Inject constructor(
         voiceBinder?.setVoice(voiceId)
     }
 
+    override fun setVoiceAnswering(enabled: Boolean) {
+        pendingVoiceAnswering = enabled
+        voiceBinder?.setVoiceAnswering(enabled)
+    }
+
     private fun collectVoiceState(binder: StudySessionVoiceService.LocalBinder) {
         voiceStateJob?.cancel()
         voiceStateJob = scope.launch {
@@ -132,6 +146,13 @@ class StudySessionVoiceGateway @Inject constructor(
                 }
                 _state.value = voice
             }
+        }
+    }
+
+    private fun collectVoiceAnswerState(binder: StudySessionVoiceService.LocalBinder) {
+        voiceAnswerStateJob?.cancel()
+        voiceAnswerStateJob = scope.launch {
+            binder.voiceAnswerState.collect { _voiceAnswerState.value = it }
         }
     }
 
@@ -150,6 +171,8 @@ class StudySessionVoiceGateway @Inject constructor(
     private fun unbind() {
         voiceStateJob?.cancel()
         voiceStateJob = null
+        voiceAnswerStateJob?.cancel()
+        voiceAnswerStateJob = null
         releaseMediaController()
         if (isBound) {
             runCatching { context.unbindService(serviceConnection) }
@@ -164,6 +187,9 @@ class StudySessionVoiceGateway @Inject constructor(
                 ?: card.question).forSpeech(),
             spokenAnswer = (card.answerSpoken?.takeIf { it.isNotBlank() }
                 ?: card.answer).forSpeech(),
+            cardId = card.id,
+            questionText = card.question,
+            answerText = card.answer,
         )
     }
 
