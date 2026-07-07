@@ -56,7 +56,7 @@ _Avoid_: Quiz, Session alone (ambiguous with auth session)
 
 **Study Mode**:
 The interaction mechanic of a Study Session. Two values:
-- **Rated**: user reveals each answer manually, then self-rates (Failed / Partial / Correct). Flashcards reaching a Terminal State are written to Firestore.
+- **Rated**: user reveals each answer manually, then self-rates (Failed / Partial / Correct) — or enables **Voice Answering** in-session for hands-free listen-and-grade instead. Flashcards reaching a Terminal State are written to Firestore.
 - **Fast**: system TTS reads the question aloud, pauses, reads the answer aloud, then auto-advances. User controls playback via transport controls (pause / play / skip / speed slider). Playback continues with the screen off or app backgrounded. No Ratings, no Attempts, no Terminal States.
 _Avoid_: Automatic mode, Passive mode, Browse mode, Voice mode (voice is the delivery mechanism, not the mode name)
 
@@ -65,8 +65,12 @@ A single presentation of a Flashcard to the user within a **Rated** Study Sessio
 _Avoid_: Turn, Round, Try
 
 **Rating**:
-The user's self-assessment after viewing an answer in a **Rated** Study Session. Values: **Failed**, **Partial**, **Correct**. A Partial or Failed Rating triggers re-insertion of the Flashcard into the session queue; Correct ends the Flashcard's Attempts. Does not apply to Fast Study Sessions.
+The user's self-assessment after viewing an answer in a **Rated** Study Session. Values: **Failed**, **Partial**, **Correct**. Produced either by a manual self-rating tap or by **Voice Answering**'s automatic grade — both write identically. A Partial or Failed Rating triggers re-insertion of the Flashcard into the session queue; Correct ends the Flashcard's Attempts. Does not apply to Fast Study Sessions.
 _Avoid_: Score, Grade, Answer, Response
+
+**Voice Answering**:
+An in-session toggle, Rated Study Sessions only, that replaces manual reveal-and-self-rate with hands-free listen-transcribe-grade: the shared Fast-mode TTS engine reads the question, the app listens for a spoken answer, transcribes and grades it, and the resulting grade band becomes the Flashcard's **Rating** exactly as a manual tap would. Off by default; toggled after the session has already started (never chosen on the Preview Study Session Screen). Enabling it auto-enables question TTS through the same engine Fast mode uses, but stops after the question — it never auto-progresses to reading the answer.
+_Avoid_: Voice mode (voice is the delivery mechanism, not a Study Mode — see Study Mode's avoid list), Voice grading (grading is the mechanism inside the feature, not the feature's name)
 
 **Terminal State**:
 A Flashcard's final outcome in a **Rated** Study Session. A Flashcard reaches a Terminal State when it receives a Correct Rating (any Attempt) or exhausts all 3 Attempts without a Correct Rating. Terminal states written to Firestore: **Mastered** (Correct) or **Failed** (not Correct in 3 Attempts). Partial on the 3rd Attempt resolves to Failed. Does not apply to Fast Study Sessions.
@@ -143,6 +147,7 @@ _Avoid_: Sessions finished, Sessions done
 - A **Recent** is a past **Study Session** — single-subcategory if one Subcategory, composite if multiple
 - A **Favorite** is a bookmarked **Subcategory**
 - An **Attempt** produces exactly one **Rating** *(Rated sessions only)*
+- **Voice Answering** is a toggle available only within a **Rated** Study Session; its automatic grade produces a **Rating** the same way a manual tap does
 - A **Flashcard** in a **Rated** Study Session has at most 3 **Attempts**
 - A **Terminal State** of Mastered means the Flashcard received a Correct **Rating**; Failed means 3 Attempts passed without Correct *(Rated sessions only)*
 - A **Flashcard** in **Persistent Mastery** is eligible to appear as a **Mastery Defense** card in future Rated Study Sessions

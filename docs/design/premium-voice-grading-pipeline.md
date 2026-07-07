@@ -196,6 +196,7 @@ This feature has several hard external dependencies an implementing agent won't 
 
 ## Open decisions carried forward
 
+0. ~~Whether voice-graded Attempts count toward Terminal-State/Mastery/XP~~ — resolved by ADR-0026: they unify with manual Rating once that system (ADR-0016) is built. See also ADR-0026 for the on-screen reveal-timing and grade-display decisions made alongside it.
 1. Grading LLM vendor (or OpenRouter multi-model setup) — see above.
 2. ElevenLabs premium TTS track — separate design pass.
 3. Play Billing entitlement sync mechanics (RTDN → Firestore) — separate design pass; required before ship, not before implementation of the capture mechanism itself.
