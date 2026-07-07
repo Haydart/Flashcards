@@ -8,6 +8,8 @@ import com.rossomak.flashcards.core.domain.model.CurationRequest
 import com.rossomak.flashcards.core.domain.model.FlashcardRating
 import com.rossomak.flashcards.core.domain.usecase.GetCurationRequestsUseCase
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
+import com.rossomak.flashcards.core.domain.usecase.ObserveVoiceAnswerConsentUseCase
+import com.rossomak.flashcards.core.domain.usecase.SetVoiceAnswerConsentUseCase
 import com.rossomak.flashcards.core.domain.usecase.ToggleCurationActionUseCase
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.ui.navigation.decodeRoute
@@ -36,6 +38,8 @@ class StudySessionViewModel @Inject constructor(
     private val getFlashcards: GetFlashcardsUseCase,
     private val getCurationRequests: GetCurationRequestsUseCase,
     private val toggleCurationAction: ToggleCurationActionUseCase,
+    private val observeVoiceAnswerConsent: ObserveVoiceAnswerConsentUseCase,
+    private val setVoiceAnswerConsent: SetVoiceAnswerConsentUseCase,
     private val voiceGateway: VoiceGateway,
     private val voiceSettingsController: VoiceSettingsController,
 ) : ViewModel() {
@@ -43,7 +47,9 @@ class StudySessionViewModel @Inject constructor(
     private val route = savedStateHandle.decodeRoute<StudySessionRoute>()
     private val sessionTitle: String = route.sessionTitle
 
-    private val _state = MutableStateFlow(StudySessionScreenState(sessionTitle = sessionTitle))
+    private val _state = MutableStateFlow(
+        StudySessionScreenState(sessionTitle = sessionTitle, studyMode = route.studyMode)
+    )
     val state: StateFlow<StudySessionScreenState> = _state.asStateFlow()
 
     // Tracks eagerly so rapid toggles don't race against isVoiceActive propagation.
@@ -67,9 +73,13 @@ class StudySessionViewModel @Inject constructor(
     // True only when opening voice settings paused an in-progress playback; gates resume on close.
     private var pausedForVoiceSettings = false
 
+    private var hasVoiceAnswerConsent = false
+
     init {
         loadFlashcards()
         observeVoiceState()
+        observeVoiceAnswerState()
+        observeVoiceAnswerConsentState()
         voiceSettingsController.bind(viewModelScope)
         viewModelScope.launch {
             voiceSettingsController.draftState.collect { draft ->
@@ -142,6 +152,75 @@ class StudySessionViewModel @Inject constructor(
         }
     }
 
+    private fun observeVoiceAnswerState() {
+        viewModelScope.launch {
+            voiceGateway.voiceAnswerState.collect { voiceAnswer ->
+                _state.update {
+                    it.copy(
+                        isVoiceAnswerEnabled = voiceAnswer.isEnabled,
+                        voiceAnswerPhase = voiceAnswer.phase,
+                        lastVoiceAnswerGrade = voiceAnswer.lastGrade,
+                        voiceAnswerError = voiceAnswer.error,
+                    )
+                }
+            }
+        }
+    }
+
+    private fun observeVoiceAnswerConsentState() {
+        viewModelScope.launch {
+            observeVoiceAnswerConsent().collect { hasConsent ->
+                hasVoiceAnswerConsent = hasConsent
+            }
+        }
+    }
+
+    // Voice answering is Rated-only (ADR-0025) — Fast mode has no rating step for it to drive.
+    fun onVoiceAnswerToggle() {
+        if (_state.value.studyMode != StudyMode.RATED) return
+        if (_state.value.isVoiceAnswerEnabled) {
+            // Voice-answering-on drives the shared TTS engine in a stop-after-question shape;
+            // there is no meaningful "keep reading, just stop grading" middle state (ADR-0025),
+            // so disabling it tears down the whole engine back to manual Show Answer/Next.
+            voiceGateway.stop()
+            return
+        }
+        if (hasVoiceAnswerConsent) {
+            _state.update { it.copy(isMicPermissionRequestPending = true) }
+        } else {
+            _state.update { it.copy(isVoiceAnswerConsentDialogVisible = true) }
+        }
+    }
+
+    fun onVoiceAnswerConsentAccept() {
+        viewModelScope.launch {
+            setVoiceAnswerConsent(true)
+            _state.update {
+                it.copy(
+                    isVoiceAnswerConsentDialogVisible = false,
+                    isMicPermissionRequestPending = true,
+                )
+            }
+        }
+    }
+
+    fun onVoiceAnswerConsentDecline() {
+        _state.update { it.copy(isVoiceAnswerConsentDialogVisible = false) }
+    }
+
+    fun onMicPermissionResult(isGranted: Boolean) {
+        _state.update { it.copy(isMicPermissionRequestPending = false) }
+        if (!isGranted) return
+        // Rated sessions never auto-start the gateway (only Fast does, via onVoiceAutoStart);
+        // enabling voice answering is what bootstraps it here (ADR-0025).
+        ensureVoiceGatewayStarted()
+        voiceGateway.setVoiceAnswering(true)
+    }
+
+    fun onVoiceAnswerGradeDismissed() {
+        _state.update { it.copy(lastVoiceAnswerGrade = null) }
+    }
+
     fun onShowAnswer() {
         if (_state.value.isVoiceActive) {
             voiceGateway.showAnswer()
@@ -174,6 +253,10 @@ class StudySessionViewModel @Inject constructor(
 
     fun onVoiceAutoStart() {
         _state.update { it.copy(isVoiceAutoStartPending = false) }
+        ensureVoiceGatewayStarted()
+    }
+
+    private fun ensureVoiceGatewayStarted() {
         if (voiceStarted) return
         with(_state.value) {
             if (flashcards.isEmpty()) return

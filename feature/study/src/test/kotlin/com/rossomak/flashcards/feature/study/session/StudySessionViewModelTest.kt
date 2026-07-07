@@ -9,13 +9,18 @@ import com.rossomak.flashcards.core.domain.model.VoiceSettings
 import com.rossomak.flashcards.core.domain.repository.CurationRepository
 import com.rossomak.flashcards.core.domain.repository.FakeCurationRepository
 import com.rossomak.flashcards.core.domain.repository.FakeFlashcardRepository
+import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
+import com.rossomak.flashcards.core.domain.repository.VoiceAnswerConsentRepository
 import com.rossomak.flashcards.core.domain.usecase.GetCurationRequestsUseCase
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
+import com.rossomak.flashcards.core.domain.usecase.ObserveVoiceAnswerConsentUseCase
+import com.rossomak.flashcards.core.domain.usecase.SetVoiceAnswerConsentUseCase
 import com.rossomak.flashcards.core.domain.usecase.ToggleCurationActionUseCase
 import com.rossomak.flashcards.core.ui.navigation.RouteDecoder
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsController
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsDraftState
 import com.rossomak.flashcards.feature.study.StudySessionRoute
+import com.rossomak.flashcards.feature.study.voice.VoiceAnswerState
 import com.rossomak.flashcards.feature.study.voice.VoiceGateway
 import com.rossomak.flashcards.feature.study.voice.VoicePhase
 import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
@@ -27,6 +32,7 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -45,6 +51,7 @@ class StudySessionViewModelTest {
     private val savedStateHandle: SavedStateHandle = mockk()
     private val flashcardRepository = FakeFlashcardRepository()
     private val getFlashcards = GetFlashcardsUseCase(flashcardRepository)
+    private val voiceAnswerConsentRepository = FakeVoiceAnswerConsentRepository()
     private val voiceGateway = FakeVoiceGateway()
     private val voiceSettingsController: VoiceSettingsController = mockk(relaxed = true)
 
@@ -82,6 +89,8 @@ class StudySessionViewModelTest {
             getFlashcards,
             GetCurationRequestsUseCase(curationRepository),
             ToggleCurationActionUseCase(curationRepository),
+            ObserveVoiceAnswerConsentUseCase(voiceAnswerConsentRepository),
+            SetVoiceAnswerConsentUseCase(voiceAnswerConsentRepository),
             voiceGateway,
             voiceSettingsController,
         )
@@ -430,11 +439,149 @@ class StudySessionViewModelTest {
 
         voiceGateway.stopCalls shouldBe 1
     }
+
+    @Test
+    fun `onVoiceAnswerToggle without consent shows the consent dialog even before the gateway is active`() = runTest(mainDispatcherRule.testDispatcher) {
+        // Rated sessions never auto-start the gateway (ADR-0025) — the toggle must be reachable
+        // while isVoiceActive is still false.
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onVoiceAnswerToggle()
+
+        viewModel.state.value.isVoiceAnswerConsentDialogVisible shouldBe true
+        voiceGateway.lastVoiceAnswering shouldBe null
+    }
+
+    @Test
+    fun `onVoiceAnswerToggle with consent requests the mic permission even before the gateway is active`() = runTest(mainDispatcherRule.testDispatcher) {
+        voiceAnswerConsentRepository.consentFlow.value = true
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onVoiceAnswerToggle()
+
+        viewModel.state.value.isMicPermissionRequestPending shouldBe true
+        viewModel.state.value.isVoiceAnswerConsentDialogVisible shouldBe false
+    }
+
+    @Test
+    fun `onVoiceAnswerToggle in Fast mode does nothing`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(route.copy(studyMode = StudyMode.FAST))
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onVoiceAnswerToggle()
+
+        viewModel.state.value.isVoiceAnswerConsentDialogVisible shouldBe false
+        viewModel.state.value.isMicPermissionRequestPending shouldBe false
+    }
+
+    @Test
+    fun `onVoiceAnswerToggle while enabled stops the gateway`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        voiceGateway.voiceAnswerStateFlow.value = VoiceAnswerState(isEnabled = true)
+        advanceUntilIdle()
+
+        viewModel.onVoiceAnswerToggle()
+
+        voiceGateway.stopCalls shouldBe 1
+    }
+
+    @Test
+    fun `onVoiceAnswerConsentAccept persists consent and requests the mic permission`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onVoiceAnswerConsentAccept()
+        advanceUntilIdle()
+
+        voiceAnswerConsentRepository.consentFlow.value shouldBe true
+        viewModel.state.value.isVoiceAnswerConsentDialogVisible shouldBe false
+        viewModel.state.value.isMicPermissionRequestPending shouldBe true
+    }
+
+    @Test
+    fun `onMicPermissionResult granted enables voice answering on the gateway`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onMicPermissionResult(true)
+
+        voiceGateway.lastVoiceAnswering shouldBe true
+        viewModel.state.value.isMicPermissionRequestPending shouldBe false
+    }
+
+    @Test
+    fun `onMicPermissionResult granted bootstraps the gateway in Rated mode`() = runTest(mainDispatcherRule.testDispatcher) {
+        loadThreeCards()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onMicPermissionResult(true)
+
+        voiceGateway.startCalls shouldBe 1
+        voiceGateway.lastStartCards?.map { it.id } shouldBe route.cardIds
+        voiceGateway.lastVoiceAnswering shouldBe true
+    }
+
+    @Test
+    fun `onMicPermissionResult denied leaves voice answering off`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onMicPermissionResult(false)
+
+        voiceGateway.lastVoiceAnswering shouldBe null
+        viewModel.state.value.isMicPermissionRequestPending shouldBe false
+    }
+
+    @Test
+    fun `voice answer state from the gateway is surfaced in screen state`() = runTest(mainDispatcherRule.testDispatcher) {
+        val grade = VoiceAnswerGrade(sanitizedTranscript = "clean", gradePercent = 82, feedback = "good")
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        voiceGateway.voiceAnswerStateFlow.value = VoiceAnswerState(isEnabled = true, lastGrade = grade)
+        advanceUntilIdle()
+
+        viewModel.state.value.isVoiceAnswerEnabled shouldBe true
+        viewModel.state.value.lastVoiceAnswerGrade shouldBe grade
+    }
+
+    @Test
+    fun `onVoiceAnswerGradeDismissed clears the last grade`() = runTest(mainDispatcherRule.testDispatcher) {
+        val grade = VoiceAnswerGrade(sanitizedTranscript = "clean", gradePercent = 82, feedback = "good")
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        voiceGateway.voiceAnswerStateFlow.value = VoiceAnswerState(isEnabled = true, lastGrade = grade)
+        advanceUntilIdle()
+
+        viewModel.onVoiceAnswerGradeDismissed()
+
+        viewModel.state.value.lastVoiceAnswerGrade shouldBe null
+    }
+}
+
+private class FakeVoiceAnswerConsentRepository : VoiceAnswerConsentRepository {
+    val consentFlow = MutableStateFlow(false)
+
+    override fun observeConsent(): Flow<Boolean> = consentFlow
+
+    override suspend fun setConsent(granted: Boolean) {
+        consentFlow.value = granted
+    }
 }
 
 private class FakeVoiceGateway : VoiceGateway {
     val stateFlow = MutableStateFlow(VoicePlaybackState())
     override val state: StateFlow<VoicePlaybackState> = stateFlow
+
+    val voiceAnswerStateFlow = MutableStateFlow(VoiceAnswerState())
+    override val voiceAnswerState: StateFlow<VoiceAnswerState> = voiceAnswerStateFlow
+
+    var lastVoiceAnswering: Boolean? = null
 
     var startCalls = 0
     var lastStartCards: List<Flashcard>? = null
@@ -464,4 +611,5 @@ private class FakeVoiceGateway : VoiceGateway {
     override fun showAnswer() { showAnswerCalls++ }
     override fun setSpeechRate(rate: Float) { lastSpeechRate = rate }
     override fun setVoice(voiceId: String?) { lastVoiceId = voiceId }
+    override fun setVoiceAnswering(enabled: Boolean) { lastVoiceAnswering = enabled }
 }
