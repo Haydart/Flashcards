@@ -680,6 +680,14 @@ private fun StudySessionSheetContent(
                     VoiceAnswerPhase.GRADING,
                     VoiceAnswerPhase.SPEAKING_NOTICE,
                 )
+                // Pause only needs to stay disabled for the narrower "answer listening" window —
+                // it toggles the main TtsPlayer, which is a no-op while the mic is what's actually
+                // capturing (LISTENING/SPEECH_DETECTED); re-enables the moment the answer (or its
+                // absence) has been noted and GRADING/SPEAKING_NOTICE takes over.
+                val isVoiceAnswerListening = state.isVoiceAnswerEnabled && state.voiceAnswerPhase in setOf(
+                    VoiceAnswerPhase.LISTENING,
+                    VoiceAnswerPhase.SPEECH_DETECTED,
+                )
                 Row(
                     modifier = Modifier.align(Alignment.Center),
                     horizontalArrangement = Arrangement.Center,
@@ -698,6 +706,7 @@ private fun StudySessionSheetContent(
                     FilledIconButton(
                         onClick = onVoicePlayPause,
                         modifier = Modifier.size(56.dp),
+                        enabled = !isVoiceAnswerListening,
                     ) {
                         Icon(
                             imageVector = if (state.isVoicePlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
