@@ -3,6 +3,7 @@ package com.rossomak.flashcards.feature.study.preview
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.rossomak.flashcards.core.domain.model.CardSortOrder
 import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
@@ -65,6 +66,29 @@ class PreviewStudySessionViewModel @Inject constructor(
         _state.update { it.copy(selectedStudyMode = mode) }
     }
 
+    fun onSessionCardCountChange(count: Int) {
+        _state.update { it.copy(sessionCardCount = count) }
+        selectCards()
+    }
+
+    fun onDifficultyRangeChange(range: IntRange) {
+        _state.update { it.copy(difficultyRange = range) }
+        selectCards()
+    }
+
+    fun onSortDialogShow() {
+        _state.update { it.copy(isSortDialogVisible = true) }
+    }
+
+    fun onSortDialogDismiss() {
+        _state.update { it.copy(isSortDialogVisible = false) }
+    }
+
+    fun onSortOrderSelect(sortOrder: CardSortOrder) {
+        _state.update { it.copy(sortOrder = sortOrder) }
+        selectCards()
+    }
+
     fun onStartSession() {
         if (selectedCards.isEmpty() || sessionStartInFlight) return
         sessionStartInFlight = true
@@ -107,7 +131,14 @@ class PreviewStudySessionViewModel @Inject constructor(
     }
 
     private fun selectCards() {
-        selectedCards = cardPool.shuffled().take(SESSION_CARD_COUNT)
+        val difficultyRange = _state.value.difficultyRange
+        val eligibleCards = cardPool.filter { it.difficulty in difficultyRange }
+        val drawnCards = eligibleCards.shuffled().take(_state.value.sessionCardCount)
+        selectedCards = when (_state.value.sortOrder) {
+            CardSortOrder.DEFAULT -> drawnCards
+            CardSortOrder.EASIEST_FIRST -> drawnCards.sortedBy { it.difficulty }
+            CardSortOrder.HARDEST_FIRST -> drawnCards.sortedByDescending { it.difficulty }
+        }
         _state.update {
             it.copy(
                 selectedCardCount = selectedCards.size,
@@ -123,8 +154,6 @@ class PreviewStudySessionViewModel @Inject constructor(
         ((cardCount * SECONDS_PER_CARD) + SECONDS_PER_MINUTE - 1) / SECONDS_PER_MINUTE
 
     private companion object {
-        // Session size default per SYSTEMDESIGN; user-configurable count is a future Settings feature.
-        const val SESSION_CARD_COUNT = 20
         const val SECONDS_PER_CARD = 40
         const val SECONDS_PER_MINUTE = 60
     }

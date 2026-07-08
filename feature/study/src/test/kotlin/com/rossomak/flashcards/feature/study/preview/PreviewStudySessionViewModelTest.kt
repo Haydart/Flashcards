@@ -2,6 +2,7 @@ package com.rossomak.flashcards.feature.study.preview
 
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
+import com.rossomak.flashcards.core.domain.model.CardSortOrder
 import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.repository.FakeFlashcardRepository
@@ -64,14 +65,19 @@ class PreviewStudySessionViewModelTest {
     private fun createViewModel(): PreviewStudySessionViewModel =
         PreviewStudySessionViewModel(savedStateHandle, getFlashcards)
 
-    private fun flashcard(id: String, subcategoryId: String = this.subcategoryId, tags: List<String> = listOf("General")): Flashcard =
+    private fun flashcard(
+        id: String,
+        subcategoryId: String = this.subcategoryId,
+        tags: List<String> = listOf("General"),
+        difficulty: Int = 5,
+    ): Flashcard =
         Flashcard(
             id = id,
             subcategoryId = subcategoryId,
             tags = tags,
             question = "question-$id",
             answer = "answer-$id",
-            difficulty = 5,
+            difficulty = difficulty,
             questionCode = null,
             answerCode = null,
             questionSpoken = null,
@@ -153,6 +159,39 @@ class PreviewStudySessionViewModelTest {
     }
 
     @Test
+    fun `onSessionCardCountChange reselects cards at the new count`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleTopicRoute)
+        flashcardRepository.flashcardsToReturn =
+            Result.success((1..30).map { index -> flashcard(id = "card-$index") })
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onSessionCardCountChange(10)
+
+        viewModel.state.value.sessionCardCount shouldBe 10
+        viewModel.state.value.selectedCardCount shouldBe 10
+    }
+
+    @Test
+    fun `onDifficultyRangeChange filters the pool to the selected band`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleTopicRoute)
+        flashcardRepository.flashcardsToReturn = Result.success(
+            listOf(
+                flashcard(id = "card-1", difficulty = 2),
+                flashcard(id = "card-2", difficulty = 5),
+                flashcard(id = "card-3", difficulty = 9),
+            )
+        )
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDifficultyRangeChange(4..6)
+
+        viewModel.state.value.difficultyRange shouldBe 4..6
+        viewModel.state.value.selectedCardCount shouldBe 1
+    }
+
+    @Test
     fun `onStudyModeSelect updates selected mode`() = runTest(mainDispatcherRule.testDispatcher) {
         stubRoute(singleTopicRoute)
 
@@ -161,6 +200,64 @@ class PreviewStudySessionViewModelTest {
         viewModel.onStudyModeSelect(StudyMode.FAST)
 
         viewModel.state.value.selectedStudyMode shouldBe StudyMode.FAST
+    }
+
+    @Test
+    fun `onSortDialogShow and onSortDialogDismiss toggle dialog visibility`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleTopicRoute)
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onSortDialogShow()
+        viewModel.state.value.isSortDialogVisible shouldBe true
+
+        viewModel.onSortDialogDismiss()
+        viewModel.state.value.isSortDialogVisible shouldBe false
+    }
+
+    @Test
+    fun `onSortOrderSelect orders session cards easiest first`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleTopicRoute)
+        flashcardRepository.flashcardsToReturn = Result.success(
+            listOf(
+                flashcard(id = "card-1", difficulty = 8),
+                flashcard(id = "card-2", difficulty = 2),
+                flashcard(id = "card-3", difficulty = 5),
+            )
+        )
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onSortOrderSelect(CardSortOrder.EASIEST_FIRST)
+        viewModel.onStartSession()
+
+        viewModel.state.value.sortOrder shouldBe CardSortOrder.EASIEST_FIRST
+        viewModel.events.test {
+            val destination = awaitItem() as PreviewStudySessionDestination.StudySession
+            destination.route.cardIds shouldBe listOf("card-2", "card-3", "card-1")
+        }
+    }
+
+    @Test
+    fun `onSortOrderSelect orders session cards hardest first`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleTopicRoute)
+        flashcardRepository.flashcardsToReturn = Result.success(
+            listOf(
+                flashcard(id = "card-1", difficulty = 8),
+                flashcard(id = "card-2", difficulty = 2),
+                flashcard(id = "card-3", difficulty = 5),
+            )
+        )
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onSortOrderSelect(CardSortOrder.HARDEST_FIRST)
+        viewModel.onStartSession()
+
+        viewModel.events.test {
+            val destination = awaitItem() as PreviewStudySessionDestination.StudySession
+            destination.route.cardIds shouldBe listOf("card-1", "card-3", "card-2")
+        }
     }
 
     @Test
