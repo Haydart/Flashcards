@@ -270,6 +270,7 @@ fun StudySessionContent(
         sheetSwipeEnabled = false,
         sheetPeekHeight = when {
             state.isVoiceActive -> 176.dp
+            state.studyMode == StudyMode.RATED && state.isAnswerRevealed -> 200.dp
             state.studyMode == StudyMode.RATED -> 152.dp
             state.isAnswerRevealed -> 160.dp
             else -> 112.dp
@@ -876,6 +877,9 @@ private fun StudySessionVoiceActivePreview() {
         onVoiceSettingsDraftSpeedChanged = {},
         onVoiceSettingsSave = {},
         onVoiceSettingsDismiss = {},
+        onVoiceAnswerToggle = {},
+        onVoiceAnswerConsentAccept = {},
+        onVoiceAnswerConsentDecline = {},
         onCurationFabClick = {},
         onCurationActionToggle = {},
         onCurationDialogDismiss = {},
