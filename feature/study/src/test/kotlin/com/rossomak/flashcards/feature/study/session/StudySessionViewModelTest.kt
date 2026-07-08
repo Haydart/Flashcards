@@ -3,6 +3,7 @@ package com.rossomak.flashcards.feature.study.session
 import androidx.lifecycle.SavedStateHandle
 import com.rossomak.flashcards.core.domain.model.CurationAction
 import com.rossomak.flashcards.core.domain.model.Flashcard
+import com.rossomak.flashcards.core.domain.model.FlashcardRating
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.VoiceSettings
 import com.rossomak.flashcards.core.domain.repository.CurationRepository
@@ -176,6 +177,19 @@ class StudySessionViewModelTest {
         viewModel.state.value.currentCardIndex shouldBe 1
         viewModel.state.value.isAnswerRevealed shouldBe false
         viewModel.state.value.isSessionComplete shouldBe false
+    }
+
+    @Test
+    fun `onRating advances to next card and hides the answer`() = runTest(mainDispatcherRule.testDispatcher) {
+        loadThreeCards()
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onShowAnswer()
+        viewModel.onRating(FlashcardRating.CORRECT)
+
+        viewModel.state.value.currentCardIndex shouldBe 1
+        viewModel.state.value.isAnswerRevealed shouldBe false
     }
 
     @Test

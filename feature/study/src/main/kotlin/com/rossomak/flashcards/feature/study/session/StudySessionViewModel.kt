@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rossomak.flashcards.core.domain.model.CurationAction
 import com.rossomak.flashcards.core.domain.model.CurationRequest
+import com.rossomak.flashcards.core.domain.model.FlashcardRating
 import com.rossomak.flashcards.core.domain.usecase.GetCurationRequestsUseCase
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.ToggleCurationActionUseCase
@@ -161,6 +162,10 @@ class StudySessionViewModel @Inject constructor(
                 )
             }
         }
+    }
+
+    fun onRating(rating: FlashcardRating) {
+        onNextCard()
     }
 
     fun onVoiceAutoStartDeclined() {
