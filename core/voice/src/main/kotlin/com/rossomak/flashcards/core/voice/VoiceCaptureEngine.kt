@@ -274,6 +274,6 @@ class VoiceCaptureEngine @Inject constructor(
         // soft-speech detection keeps these pauses from being padded with false-positive frames.
         private const val END_SILENCE_FRAMES = 75
         private const val MIN_UTTERANCE_FRAMES = 15 // <300ms of speech is discarded as noise
-        private const val MAX_UTTERANCE_FRAMES = 750 // 15s hard cap per utterance
+        private const val MAX_UTTERANCE_FRAMES = 1500 // 30s hard cap per utterance
     }
 }
