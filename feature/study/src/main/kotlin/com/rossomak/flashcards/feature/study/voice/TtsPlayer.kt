@@ -67,6 +67,10 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
     private var isVoiceAnsweringMode = false
     private var isAwaitingSpokenAnswer = false
 
+    // User paused (to keep reading the revealed answer/feedback) right as grading finished —
+    // defer the auto-advance until they resume instead of yanking playback out from under them.
+    private var pendingVoiceAnswerAdvance = false
+
     /**
      * Incremented on every new utterance and every interrupting command. An [onDone] callback whose
      * embedded generation no longer matches has been superseded (e.g. by a pause or skip) and is
@@ -178,6 +182,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         this.phase = VoicePhase.QUESTION
         this.isBetweenPause = false
         this.isAwaitingSpokenAnswer = false
+        this.pendingVoiceAnswerAdvance = false
         if (cards.isEmpty()) {
             publishState()
             return
@@ -194,6 +199,16 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
     /** Called once a spoken answer has been graded (or skipped after a silence timeout); moves on to the next question. */
     fun advanceToNextCardAfterVoiceAnswer() {
         if (!isVoiceAnsweringMode) return
+        if (!isPlaying) {
+            // User paused while reading the revealed answer/feedback — hold here; doPlay() runs
+            // this once they resume instead of re-reading the question they already answered.
+            pendingVoiceAnswerAdvance = true
+            return
+        }
+        doAdvanceToNextCardAfterVoiceAnswer()
+    }
+
+    private fun doAdvanceToNextCardAfterVoiceAnswer() {
         if (index < cards.lastIndex) {
             index++
             cardStartedAtMs = SystemClock.elapsedRealtime()
@@ -268,6 +283,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
     fun stopPlayback() {
         isPlaying = false
         startWhenReady = false
+        pendingVoiceAnswerAdvance = false
         generation++
         stopUtterance()
         abandonAudioFocus()
@@ -281,6 +297,11 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
 
     private fun doPlay() {
         if (cards.isEmpty()) return
+        if (pendingVoiceAnswerAdvance) {
+            pendingVoiceAnswerAdvance = false
+            doAdvanceToNextCardAfterVoiceAnswer()
+            return
+        }
         when (phase) {
             VoicePhase.QUESTION -> speakQuestion()
             VoicePhase.ANSWER -> speakAnswer()
