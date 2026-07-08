@@ -15,6 +15,7 @@ import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.ui.navigation.decodeRoute
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsController
 import com.rossomak.flashcards.feature.study.StudySessionRoute
+import com.rossomak.flashcards.feature.study.voice.VoiceAnswerPhase
 import com.rossomak.flashcards.feature.study.voice.VoiceGateway
 import java.time.Instant
 import kotlinx.coroutines.async
@@ -128,7 +129,16 @@ class StudySessionViewModel @Inject constructor(
                         isVoicePlaying = voice.isPlaying,
                         speechRate = voice.speechRate,
                         currentCardIndex = if (voice.isActive) voice.currentIndex else it.currentCardIndex,
-                        isAnswerRevealed = if (voice.isActive) voice.phase == VoicePhase.ANSWER else it.isAnswerRevealed,
+                        // Grading/feedback also reveals the card (see observeVoiceAnswerState) —
+                        // don't let this collector's phase check stomp that back to false while
+                        // the TTS engine itself is still sitting on QUESTION.
+                        isAnswerRevealed = if (voice.isActive) {
+                            voice.phase == VoicePhase.ANSWER ||
+                                it.voiceAnswerPhase == VoiceAnswerPhase.GRADING ||
+                                it.voiceAnswerPhase == VoiceAnswerPhase.SPEAKING_NOTICE
+                        } else {
+                            it.isAnswerRevealed
+                        },
                     )
                 }
                 if (voice.isActive && voice.currentIndex != lastObservedCardIndex) {
@@ -161,6 +171,11 @@ class StudySessionViewModel @Inject constructor(
                         voiceAnswerPhase = voiceAnswer.phase,
                         lastVoiceAnswerGrade = voiceAnswer.lastGrade,
                         voiceAnswerError = voiceAnswer.error,
+                        // Grading starts as soon as the utterance is captured, before the TTS
+                        // engine's own phase would flip to ANSWER — reveal the card now so the
+                        // user can check what they missed while grading/feedback plays out.
+                        isAnswerRevealed = it.isAnswerRevealed ||
+                            voiceAnswer.phase == VoiceAnswerPhase.GRADING,
                     )
                 }
             }
