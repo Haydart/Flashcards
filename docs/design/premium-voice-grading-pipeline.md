@@ -1,8 +1,8 @@
 # Premium Voice Answer Capture & Grading Pipeline
 
-Design overview for a premium feature: while studying hands-free (screen off, phone in pocket, earphones in), the app listens for the user's spoken answer, obfuscates their voice on-device before it ever leaves the phone, transcribes it, sanitizes the transcript, and has an LLM grade completeness/quality — all without the user touching the screen.
+Design overview for a premium feature: while studying in Rated mode, the app listens for the user's spoken answer, obfuscates their voice on-device before it ever leaves the phone, transcribes it, sanitizes the transcript, and has an LLM grade completeness/quality. This works equally well **screen-on** (the user watching the session, reading their sanitized transcript and grade as they arrive) and **screen-off/pocket** (hands-free, audio-only feedback via TTS) — see ADR-0028, which corrects this document's original screen-off-only framing. Earlier revisions of this document treated the background/pocket case as the single driving constraint; that was wrong — both are first-class.
 
-This document is an **intermediary design overview**, produced by a structured decision-tree interview. It captures the architecture and the rationale behind each choice so it can later be distilled into a concrete implementation plan (and likely an ADR once implementation starts). It intentionally does not yet contain task breakdowns, file-level plans, or Gradle module scaffolding.
+This document is an **intermediary design overview**, produced by a structured decision-tree interview. It captures the architecture and the rationale behind each choice so it can later be distilled into a concrete implementation plan. It intentionally does not yet contain task breakdowns, file-level plans, or Gradle module scaffolding. **See ADR-0024 (proxy shape), ADR-0027 (BT/screen-off mechanics), and ADR-0028 (not background-only; streamed transcript-then-grade over one Firebase Callable connection) for decisions made after this document was first written — those ADRs are authoritative where they conflict with prose below that hasn't been fully rewritten yet.**
 
 ## Scope
 
@@ -13,13 +13,14 @@ This document is an **intermediary design overview**, produced by a structured d
 - Grading LLM vendor selection (Claude vs Gemini vs OpenRouter multi-model A/B testing) — deliberately left open, see "Open decisions" below.
 - Play Billing integration details (subscription purchase flow, Real-time Developer Notifications → Firestore entitlement sync) — required before this feature can ship, but is its own design effort.
 
-## Why this shape: the driving constraint
+## Why this shape: the driving constraints
 
-The single hardest requirement, which shapes nearly every other decision: **this must work fully in the background, with the phone in the user's pocket, while they talk through earphones.** There is no screen to tap, no button to hold. That constraint is why:
-- Voice-activity detection (VAD) replaces a push-to-talk button as the capture trigger.
-- A foreground service + wake lock is mandatory (Android kills/throttles background mic access otherwise).
-- Errors must be communicated by voice (TTS), not a toast or dialog.
-- Bluetooth earphone mic routing (SCO) is a first-class concern, not an edge case.
+Two equally valid usage modes shape this design (ADR-0028):
+
+- **Screen-off/pocket**: the phone is in the user's pocket, they talk through earphones, there is no screen to tap or button to hold. This constraint is why VAD replaces a push-to-talk trigger, a foreground service + wake lock is mandatory (Android kills/throttles background mic access otherwise), errors must be communicated by voice (TTS) as a fallback, and Bluetooth earphone mic routing (SCO/LE Audio) is a first-class concern.
+- **Screen-on**: the user is watching the session, wants to see their sanitized transcript and grade appear promptly as they arrive (not just hear them), and expects manual controls (skip/prev/next/pause) to behave sensibly around the listening/grading window rather than race it.
+
+Nothing in the capture/VAD/obfuscation/routing mechanics below differs between the two modes — the mic pipeline runs the same way regardless of whether the screen is on. What differs is purely the UI layer: whether transcript/grade text renders on screen, and whether TTS is the only feedback channel or a supplement to visible text.
 
 ## End-to-end pipeline
 
@@ -42,26 +43,35 @@ On-device obfuscation DSP: randomized pitch shift + formant shift
 Wrap as 16-bit PCM WAV, 16kHz mono
         │
         ▼
-Retrofit + OkHttp multipart POST, with Firebase Auth ID token
+Base64-encoded WAV in a Firebase Callable Function `data` payload
+(`functions.getHttpsCallable("gradeVoiceAnswer").stream(...)` — auth token attached
+automatically by the Firebase SDK, no manual interceptor needed for this call)
         │
         ▼
-[Firebase Cloud Function — thin proxy, stateless, ephemeral]
+[Firebase Cloud Function — `onCall`, 2nd gen, stateless, ephemeral — see ADR-0028]
 
-1. Verify Firebase Auth ID token
+1. `request.auth` — Firebase Auth ID token already verified by the callable-function runtime
 2. Verify server-side premium entitlement (Firestore record synced from Play Billing —
    client-side "is premium" flag is never trusted)
 3. Forward WAV to ElevenLabs Scribe (server-held API key) → raw transcript
-4. Single LLM call: prompt asks for {sanitized_transcript, grade, feedback} as
-   structured JSON (server-held API key; vendor TBD)
-5. Discard the audio (never written to disk/Cloud Storage — fully ephemeral)
+4. Sanitize LLM call: PII-strip + normalize filler/disfluencies → sanitized_transcript
+5. `response.sendChunk({ sanitizedTranscript })` — client receives this immediately,
+   over the same connection, well before grading finishes (ADR-0028)
+6. Grade LLM call: prompt asks for {grade, feedback} given the sanitized transcript
+   (server-held API key; vendor TBD)
+7. `return { grade, feedback }` — delivered to the client as the stream's final result
+8. Discard the audio (never written to disk/Cloud Storage — fully ephemeral)
         │
         ▼
-Response → client
+Client displays sanitized_transcript the moment step 5 arrives, then grade/feedback
+once step 7 arrives — two on-screen (and, screen-off, two spoken) updates, one connection
         │
         ▼
 Client persists {sanitized_transcript, grade, feedback} to Firestore
 (never the raw audio, never an un-sanitized transcript)
 ```
+
+**Sanitize now runs in phase 1 (transcribe stage), not bundled into the grade LLM call as originally designed** — the text shown to the user must already be PII-stripped and disfluency-normalized, so sanitize can't wait for grading to finish (ADR-0028, decision 3).
 
 ## Client-side details
 
@@ -76,7 +86,7 @@ Rationale: capture/VAD/obfuscation logic has no inherent dependency on the study
 
 Session-scoped only: the mic/VAD pipeline is active only while a study session's foreground service is alive — the same lifecycle `TtsPlayer`'s `MediaSessionService` already uses for voice playback. It does **not** persist after the app is swiped away or the session ends. A true always-on/system-wide listener was considered and rejected: it multiplies battery cost, privacy exposure, and Play Store policy burden for no stated benefit — the actual need is "hands-free during an active study session," not "always listening."
 
-Rated full-voice sessions run **screen-off** (the target use case: a hands-free walk, answering aloud without looking at the device). Fast mode already proves the screen-off TTS-playback lifecycle; Rated full-voice reuses that same playback service and adds the listen+grade turn (mic capture is net-new and Rated-only — Fast mode is consume-only, no answering). Capture and playback share **one dual-typed foreground service** (`mediaPlayback|microphone`), so the existing `MediaSessionService` gains the `microphone` FGS type + `FOREGROUND_SERVICE_MICROPHONE` permission (required on Android 14+; target SDK 36) — one lifecycle, one notification, one wake lock. `MediaSession`/media-button (bud-tap) controls drive pause/resume/skip/repeat with the screen off; the turn loop auto-advances after grading-feedback TTS finishes + ~1s.
+Rated full-voice sessions support **screen-off** (a hands-free walk, answering aloud without looking at the device) as a first-class case, alongside **screen-on** (the user watching, reading transcript/grade as they arrive — ADR-0028); neither is "the" target use case to the exclusion of the other. Fast mode already proves the screen-off TTS-playback lifecycle; Rated full-voice reuses that same playback service and adds the listen+grade turn (mic capture is net-new and Rated-only — Fast mode is consume-only, no answering). Capture and playback share **one dual-typed foreground service** (`mediaPlayback|microphone`), so the existing `MediaSessionService` gains the `microphone` FGS type + `FOREGROUND_SERVICE_MICROPHONE` permission (required on Android 14+; target SDK 36) — one lifecycle, one notification, one wake lock. `MediaSession`/media-button (bud-tap) controls drive pause/resume/skip/repeat with the screen off; the turn loop auto-advances after grading-feedback TTS finishes + ~1s.
 
 ### Capture trigger: VAD, not push-to-talk
 
@@ -105,6 +115,8 @@ Continuous background use with the phone pocketed rules out any button-based tri
 ### Encoding
 
 Raw 16-bit PCM, 16kHz mono, wrapped in a WAV container. Utterances are short (seconds, not minutes) — a 10-second answer is ~320KB uncompressed, so Opus compression's ~10x size reduction wasn't judged worth the added complexity (MediaCodec Opus encoder fragmentation, extra encode step after obfuscation, most STT providers wanting Opus demuxed from ogg/webm anyway). The obfuscation DSP also already operates on raw PCM, so WAV requires zero extra conversion work.
+
+**Transport correction (ADR-0028):** the grading call moved from a Retrofit multipart POST to a Firebase Callable Function, whose `data` payload is JSON, not raw binary — the WAV bytes must be base64-encoded into that payload. A ~320KB WAV becomes ~426KB base64 (the usual ~33% overhead), which is still negligible for an utterance-length clip over a modern connection. Whether `checkEntitlement()` and other `VoiceGradingApi` members also migrate to callable functions, or stay plain REST since they don't need streaming, is left open for the implementing session.
 
 ### Consent and foreground notification
 
@@ -141,7 +153,9 @@ Calling ElevenLabs Scribe and an LLM grader directly from the client (skipping a
 
 ### Proxy shape: Cloud Function, not Cloud Run
 
-Since the app already uses Firebase (Firestore), a Firebase Cloud Function was chosen over standing up a dedicated server, to avoid new infrastructure to run/maintain/monitor. This in turn decided the transport: Cloud Functions are naturally request/response and stateless; they don't suit a long-lived WebSocket connection well. Real-time chunk-by-chunk streaming (which would need Cloud Run instead) was considered and rejected — it only pays off if the product needs a live-transcript UI, and this feature deliberately runs in the background with no visible transcript. Buffering the full VAD-bounded utterance and sending one HTTP POST once speech ends is simpler on both ends (no socket lifecycle/reconnect logic) and the added latency (waiting for the user to stop talking before transcription starts) is invisible in a background/pocket UX.
+Since the app already uses Firebase (Firestore, Auth), a Firebase Cloud Function was chosen over standing up a dedicated server, to avoid new infrastructure to run/maintain/monitor. Buffering the full VAD-bounded utterance and sending one call once speech ends (rather than streaming audio *up* chunk-by-chunk) is still the shape — the added latency (waiting for the user to stop talking before transcription starts) is invisible either screen-on or screen-off.
+
+**Correction (ADR-0028):** the original reasoning here — "this feature deliberately runs in the background with no visible transcript," used to reject any response streaming — no longer holds, since a visible transcript is now a requirement. This does *not* mean moving to Cloud Run/WebSockets, though: Cloud Functions 2nd gen (built on Cloud Run under the hood) has **native streaming callable-function support** (`onCall` + `response.sendChunk()` server-side, `.stream().asFlow()` client-side) — no separate long-lived-connection infrastructure needed, no new deployment target. This endpoint moves from a plain `onRequest` proxy to `onCall`, which also means Firebase Auth ID token verification (`request.auth`) is handled by the callable-function runtime automatically, rather than needing the client's `FirebaseAuthTokenInterceptor` for this specific call. See ADR-0028 for the verified API shape and version requirements.
 
 ### STT vendor: ElevenLabs Scribe
 
@@ -149,11 +163,15 @@ Chosen primarily for vendor consolidation: this project is already integrating E
 
 **Important correction surfaced during design:** ElevenLabs Scribe is transcription-only — it has no built-in PII redaction/sanitization feature. (Deepgram is the one major STT vendor with a native `redact` parameter; ElevenLabs isn't.) This means the "sanitize" step below has to be built, not obtained for free from the STT vendor.
 
-### Sanitize + grade: one combined LLM call
+### Sanitize, then grade: two sequential LLM calls, streamed back over one connection
 
-A single LLM call per answer, prompted to return structured JSON: `{sanitized_transcript, grade, feedback}`. The transcript is: PII stripped (names, emails, phone numbers the user might blurt out) and filler/disfluencies normalized (um, uh, repeated words), before the sanitized version is ever persisted.
+**Superseded by ADR-0028** — originally this was a single combined LLM call returning `{sanitized_transcript, grade, feedback}` all at once. It is now **two sequential LLM calls within the same function invocation**:
+1. **Sanitize** (given the raw ElevenLabs transcript): strips PII (names, emails, phone numbers the user might blurt out) and normalizes filler/disfluencies (um, uh, repeated words) → `sanitized_transcript`. Result is sent to the client immediately via `response.sendChunk()`, before grading starts.
+2. **Grade** (given the sanitized transcript, question, and expected answer): returns `{grade, feedback}` as the function's final return value.
 
-The alternative — a separate deterministic regex/NER redaction pass before a distinct grading LLM call — would give a stronger technical guarantee that PII never reaches a third-party model's context at all, at the cost of a second processing stage and its own false-negative risk (regex/NER missing creative PII phrasing). The combined approach was chosen for simplicity (fewer moving parts, one API call per answer) given the trust already being placed in the same LLM vendor for grading regardless.
+This split exists specifically so the user sees their own (cleaned-up) spoken answer promptly, rather than waiting for grading to finish before anything appears on screen. It costs one extra LLM round-trip server-side (two calls instead of one) in exchange for that responsiveness — judged worth it once a visible transcript became a requirement.
+
+The alternative — a separate deterministic regex/NER redaction pass instead of an LLM sanitize call — would give a stronger technical guarantee that PII never reaches a third-party model's context at all, at the cost of its own false-negative risk (regex/NER missing creative PII phrasing). Not revisited by ADR-0028; still an open option if the LLM-based sanitize proves unreliable in practice.
 
 ### Grading LLM vendor — open decision
 
@@ -201,4 +219,7 @@ This feature has several hard external dependencies an implementing agent won't 
 2. ElevenLabs premium TTS track — separate design pass.
 3. Play Billing entitlement sync mechanics (RTDN → Firestore) — separate design pass; required before ship, not before implementation of the capture mechanism itself.
 4. Exact obfuscation DSP implementation (which library/algorithm implements the pitch/formant shift on Android) — implementation detail, not yet chosen.
-5. Firestore schema for storing sanitized transcript + grade history per card/session — not yet designed.
+5. Firestore schema for storing sanitized transcript + grade history per card/session — not yet designed. ADR-0028 guarantees the sanitized transcript exists and reaches the client promptly per-card, which the eventual Rating/Attempt/Terminal-State system (ADR-0016, still unbuilt) needs in order to support read-only revisit of already-answered cards in Rated sessions — but that system's schema, session-state tracking, and revisit UI are not designed here.
+6. ~~Whether the grading response can be split into a fast transcript-first phase and a separate grade phase without a second client round-trip~~ — resolved by ADR-0028: yes, via Firebase's native streaming callable functions (`onCall` + `sendChunk()`), not raw HTTP streaming.
+7. `checkEntitlement()` and other non-audio `VoiceGradingApi` members: migrate to callable functions for consistency with the now-`onCall`-based grading endpoint, or leave as plain REST since they don't need streaming — not decided (see "Encoding" section above).
+8. `VoiceGradingApi`/`VoiceAnswerGradingRepository`/`GradeSpokenAnswerUseCase`/`VoiceAnswerController`/`FakeVoiceGradingApi` file-level changes needed to actually carry the two-phase result through the app (new `Flow`/sealed-event return shape, new `VoiceAnswerState` transcript field, updated fake) — described at a high level in ADR-0028's Consequences, not implemented.
