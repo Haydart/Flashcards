@@ -82,7 +82,10 @@ class StudySessionVoiceService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
-        player = TtsPlayer(this)
+        // applicationContext, not `this` — TextToSpeech's engine binder connection outlives our
+        // own shutdown() call by a beat (async unbind), and would otherwise pin the whole Service
+        // (MediaSession, CoroutineScope, VoiceAnswerController) alive past onDestroy() (leak).
+        player = TtsPlayer(applicationContext)
         mediaSession = MediaSession.Builder(this, player)
             .setSessionActivity(contentPendingIntent())
             .build()
