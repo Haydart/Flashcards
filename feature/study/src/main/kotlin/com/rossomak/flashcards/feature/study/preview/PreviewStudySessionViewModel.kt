@@ -3,6 +3,7 @@ package com.rossomak.flashcards.feature.study.preview
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.rossomak.flashcards.core.domain.model.CardSortOrder
 import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
@@ -75,6 +76,19 @@ class PreviewStudySessionViewModel @Inject constructor(
         selectCards()
     }
 
+    fun onSortDialogShow() {
+        _state.update { it.copy(isSortDialogVisible = true) }
+    }
+
+    fun onSortDialogDismiss() {
+        _state.update { it.copy(isSortDialogVisible = false) }
+    }
+
+    fun onSortOrderSelect(sortOrder: CardSortOrder) {
+        _state.update { it.copy(sortOrder = sortOrder) }
+        selectCards()
+    }
+
     fun onStartSession() {
         if (selectedCards.isEmpty() || sessionStartInFlight) return
         sessionStartInFlight = true
@@ -119,7 +133,12 @@ class PreviewStudySessionViewModel @Inject constructor(
     private fun selectCards() {
         val difficultyRange = _state.value.difficultyRange
         val eligibleCards = cardPool.filter { it.difficulty in difficultyRange }
-        selectedCards = eligibleCards.shuffled().take(_state.value.sessionCardCount)
+        val drawnCards = eligibleCards.shuffled().take(_state.value.sessionCardCount)
+        selectedCards = when (_state.value.sortOrder) {
+            CardSortOrder.DEFAULT -> drawnCards
+            CardSortOrder.EASIEST_FIRST -> drawnCards.sortedBy { it.difficulty }
+            CardSortOrder.HARDEST_FIRST -> drawnCards.sortedByDescending { it.difficulty }
+        }
         _state.update {
             it.copy(
                 selectedCardCount = selectedCards.size,

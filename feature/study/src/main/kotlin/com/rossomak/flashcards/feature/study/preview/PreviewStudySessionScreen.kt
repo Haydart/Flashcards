@@ -45,11 +45,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.rossomak.flashcards.core.domain.model.CardSortOrder
 import com.rossomak.flashcards.core.domain.model.StudyMode
+import com.rossomak.flashcards.core.ui.composables.CardSortOrderDialog
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import com.rossomak.flashcards.feature.study.StudySessionRoute
 import kotlin.math.roundToInt
@@ -78,6 +81,9 @@ fun PreviewStudySessionScreen(
         onSessionCardCountChange = viewModel::onSessionCardCountChange,
         onDifficultyRangeChange = viewModel::onDifficultyRangeChange,
         onStudyModeSelect = viewModel::onStudyModeSelect,
+        onSortDialogShow = viewModel::onSortDialogShow,
+        onSortDialogDismiss = viewModel::onSortDialogDismiss,
+        onSortOrderSelect = viewModel::onSortOrderSelect,
         onStartSession = viewModel::onStartSession,
     )
 }
@@ -93,8 +99,19 @@ fun PreviewStudySessionContent(
     onSessionCardCountChange: (Int) -> Unit,
     onDifficultyRangeChange: (IntRange) -> Unit,
     onStudyModeSelect: (StudyMode) -> Unit,
+    onSortDialogShow: () -> Unit,
+    onSortDialogDismiss: () -> Unit,
+    onSortOrderSelect: (CardSortOrder) -> Unit,
     onStartSession: () -> Unit,
 ) {
+    if (state.isSortDialogVisible) {
+        CardSortOrderDialog(
+            selectedSortOrder = state.sortOrder,
+            showKeepAsDefaultOption = true,
+            onSortOrderSelect = onSortOrderSelect,
+            onDismiss = onSortDialogDismiss,
+        )
+    }
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -136,6 +153,7 @@ fun PreviewStudySessionContent(
                 onSessionCardCountChange = onSessionCardCountChange,
                 onDifficultyRangeChange = onDifficultyRangeChange,
                 onStudyModeSelect = onStudyModeSelect,
+                onSortDialogShow = onSortDialogShow,
                 onStartSession = onStartSession,
             )
         }
@@ -169,6 +187,7 @@ private fun ReadyContent(
     onSessionCardCountChange: (Int) -> Unit,
     onDifficultyRangeChange: (IntRange) -> Unit,
     onStudyModeSelect: (StudyMode) -> Unit,
+    onSortDialogShow: () -> Unit,
     onStartSession: () -> Unit,
 ) {
     Column(
@@ -191,12 +210,16 @@ private fun ReadyContent(
         )
         Spacer(modifier = Modifier.height(16.dp))
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             AssistChip(onClick = {}, label = { Text(text = "~ ${state.estimatedMinutes} min") })
             if (!state.isSingleTopic) {
                 AssistChip(onClick = {}, label = { Text(text = "${state.topicCount} topics") })
             }
             AssistChip(onClick = {}, label = { Text(text = "${state.selectedCardCount} cards") })
+            AssistChip(onClick = onSortDialogShow, label = { Text(text = "Sort: ${sortOrderLabel(state.sortOrder)}") })
         }
 
         if (state.filterTags.isNotEmpty()) {
@@ -380,6 +403,12 @@ private fun screenTitle(state: PreviewStudySessionScreenState): String = when {
     else -> "${state.categoryName} · Custom session"
 }
 
+private fun sortOrderLabel(sortOrder: CardSortOrder): String = when (sortOrder) {
+    CardSortOrder.DEFAULT -> "Default"
+    CardSortOrder.EASIEST_FIRST -> "Easiest first"
+    CardSortOrder.HARDEST_FIRST -> "Hardest first"
+}
+
 private fun scopeDescription(state: PreviewStudySessionScreenState): AnnotatedString = buildAnnotatedString {
     fun appendBold(text: String) {
         withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(text) }
@@ -432,6 +461,9 @@ private fun PreviewStudySessionLoadingPreview() {
         onSessionCardCountChange = {},
         onDifficultyRangeChange = {},
         onStudyModeSelect = {},
+        onSortDialogShow = {},
+        onSortDialogDismiss = {},
+        onSortOrderSelect = {},
         onStartSession = {},
     )
 }
@@ -452,6 +484,9 @@ private fun PreviewStudySessionErrorPreview() {
         onSessionCardCountChange = {},
         onDifficultyRangeChange = {},
         onStudyModeSelect = {},
+        onSortDialogShow = {},
+        onSortDialogDismiss = {},
+        onSortOrderSelect = {},
         onStartSession = {},
     )
 }
@@ -474,6 +509,9 @@ private fun PreviewStudySessionSingleTopicPreview() {
         onSessionCardCountChange = {},
         onDifficultyRangeChange = {},
         onStudyModeSelect = {},
+        onSortDialogShow = {},
+        onSortDialogDismiss = {},
+        onSortOrderSelect = {},
         onStartSession = {},
     )
 }
@@ -496,6 +534,9 @@ private fun PreviewStudySessionQuickSessionPreview() {
         onSessionCardCountChange = {},
         onDifficultyRangeChange = {},
         onStudyModeSelect = {},
+        onSortDialogShow = {},
+        onSortDialogDismiss = {},
+        onSortOrderSelect = {},
         onStartSession = {},
     )
 }
@@ -518,6 +559,9 @@ private fun PreviewStudySessionCustomSessionPreview() {
         onSessionCardCountChange = {},
         onDifficultyRangeChange = {},
         onStudyModeSelect = {},
+        onSortDialogShow = {},
+        onSortDialogDismiss = {},
+        onSortOrderSelect = {},
         onStartSession = {},
     )
 }
