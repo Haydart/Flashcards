@@ -668,6 +668,18 @@ private fun StudySessionSheetContent(
                     .fillMaxWidth()
                     .height(96.dp),
             ) {
+                // While voice-answering is actively listening/grading/speaking feedback, manual
+                // skip controls must stay disabled: skipping to the answer here would start
+                // TtsPlayer reading the answer aloud while VoiceAnswerController's mic is still
+                // hot (grading the TTS's own voice), and skipping during SPEAKING_NOTICE would
+                // start the next question on the main TTS engine while VoiceAnswerController's
+                // separate notice engine is still talking — two overlapping voices.
+                val isVoiceAnswerBusy = state.isVoiceAnswerEnabled && state.voiceAnswerPhase in setOf(
+                    VoiceAnswerPhase.LISTENING,
+                    VoiceAnswerPhase.SPEECH_DETECTED,
+                    VoiceAnswerPhase.GRADING,
+                    VoiceAnswerPhase.SPEAKING_NOTICE,
+                )
                 Row(
                     modifier = Modifier.align(Alignment.Center),
                     horizontalArrangement = Arrangement.Center,
@@ -675,7 +687,7 @@ private fun StudySessionSheetContent(
                 ) {
                     IconButton(
                         onClick = onVoicePrevious,
-                        enabled = state.currentCardIndex > 0,
+                        enabled = state.currentCardIndex > 0 && !isVoiceAnswerBusy,
                     ) {
                         Icon(
                             imageVector = Icons.Default.SkipPrevious,
@@ -694,11 +706,23 @@ private fun StudySessionSheetContent(
                     }
                     Spacer(modifier = Modifier.size(16.dp))
                     IconButton(
-                        onClick = if (!state.isAnswerRevealed) onShowAnswer else onVoiceNext,
+                        // "Show answer" only makes sense in manual Rated mode. In voice-answering
+                        // mode the answer is revealed by the grading pipeline itself (ADR-0026),
+                        // never by this button — here it can only mean "skip this question".
+                        onClick = if (state.isVoiceAnswerEnabled || state.isAnswerRevealed) {
+                            onVoiceNext
+                        } else {
+                            onShowAnswer
+                        },
+                        enabled = !isVoiceAnswerBusy,
                     ) {
                         Icon(
                             imageVector = Icons.Default.SkipNext,
-                            contentDescription = if (!state.isAnswerRevealed) "Show answer" else "Next card",
+                            contentDescription = if (state.isVoiceAnswerEnabled || state.isAnswerRevealed) {
+                                "Next card"
+                            } else {
+                                "Show answer"
+                            },
                         )
                     }
                 }
