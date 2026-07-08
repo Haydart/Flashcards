@@ -36,3 +36,10 @@ graphify-out/
 
 # Python bytecode cache
 scripts/__pycache__/
+
+# core:voice module build output
+core/voice/build/
+
+# Firebase Cloud Functions
+functions/node_modules/
+functions/lib/
