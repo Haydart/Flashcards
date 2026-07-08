@@ -33,6 +33,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
@@ -343,6 +346,8 @@ private fun SessionCardCountSlider(
     cardCount: Int,
     onCardCountChange: (Int) -> Unit,
 ) {
+    var draftCardCount by remember(cardCount) { mutableStateOf(cardCount.toFloat()) }
+
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
             text = "Session length",
@@ -350,13 +355,14 @@ private fun SessionCardCountSlider(
             fontWeight = FontWeight.Bold,
         )
         Text(
-            text = "$cardCount cards",
+            text = "${draftCardCount.roundToInt()} cards",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Slider(
-            value = cardCount.toFloat(),
-            onValueChange = { onCardCountChange(it.roundToInt()) },
+            value = draftCardCount,
+            onValueChange = { draftCardCount = it },
+            onValueChangeFinished = { onCardCountChange(draftCardCount.roundToInt()) },
             valueRange = PreviewStudySessionScreenState.MIN_SESSION_CARD_COUNT.toFloat()..
                 PreviewStudySessionScreenState.MAX_SESSION_CARD_COUNT.toFloat(),
             steps = PreviewStudySessionScreenState.MAX_SESSION_CARD_COUNT -
@@ -371,6 +377,10 @@ private fun DifficultyRangeSlider(
     difficultyRange: IntRange,
     onDifficultyRangeChange: (IntRange) -> Unit,
 ) {
+    var draftRange by remember(difficultyRange) {
+        mutableStateOf(difficultyRange.first.toFloat()..difficultyRange.last.toFloat())
+    }
+
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
             text = "Difficulty",
@@ -378,14 +388,15 @@ private fun DifficultyRangeSlider(
             fontWeight = FontWeight.Bold,
         )
         Text(
-            text = "${difficultyRange.first}–${difficultyRange.last}",
+            text = "${draftRange.start.roundToInt()}–${draftRange.endInclusive.roundToInt()}",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         RangeSlider(
-            value = difficultyRange.first.toFloat()..difficultyRange.last.toFloat(),
-            onValueChange = { range ->
-                onDifficultyRangeChange(range.start.roundToInt()..range.endInclusive.roundToInt())
+            value = draftRange,
+            onValueChange = { draftRange = it },
+            onValueChangeFinished = {
+                onDifficultyRangeChange(draftRange.start.roundToInt()..draftRange.endInclusive.roundToInt())
             },
             valueRange = PreviewStudySessionScreenState.MIN_DIFFICULTY.toFloat()..
                 PreviewStudySessionScreenState.MAX_DIFFICULTY.toFloat(),
