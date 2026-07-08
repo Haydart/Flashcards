@@ -65,6 +65,16 @@ class PreviewStudySessionViewModel @Inject constructor(
         _state.update { it.copy(selectedStudyMode = mode) }
     }
 
+    fun onSessionCardCountChange(count: Int) {
+        _state.update { it.copy(sessionCardCount = count) }
+        selectCards()
+    }
+
+    fun onDifficultyRangeChange(range: IntRange) {
+        _state.update { it.copy(difficultyRange = range) }
+        selectCards()
+    }
+
     fun onStartSession() {
         if (selectedCards.isEmpty() || sessionStartInFlight) return
         sessionStartInFlight = true
@@ -107,7 +117,9 @@ class PreviewStudySessionViewModel @Inject constructor(
     }
 
     private fun selectCards() {
-        selectedCards = cardPool.shuffled().take(SESSION_CARD_COUNT)
+        val difficultyRange = _state.value.difficultyRange
+        val eligibleCards = cardPool.filter { it.difficulty in difficultyRange }
+        selectedCards = eligibleCards.shuffled().take(_state.value.sessionCardCount)
         _state.update {
             it.copy(
                 selectedCardCount = selectedCards.size,
@@ -123,8 +135,6 @@ class PreviewStudySessionViewModel @Inject constructor(
         ((cardCount * SECONDS_PER_CARD) + SECONDS_PER_MINUTE - 1) / SECONDS_PER_MINUTE
 
     private companion object {
-        // Session size default per SYSTEMDESIGN; user-configurable count is a future Settings feature.
-        const val SESSION_CARD_COUNT = 20
         const val SECONDS_PER_CARD = 40
         const val SECONDS_PER_MINUTE = 60
     }

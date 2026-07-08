@@ -64,14 +64,19 @@ class PreviewStudySessionViewModelTest {
     private fun createViewModel(): PreviewStudySessionViewModel =
         PreviewStudySessionViewModel(savedStateHandle, getFlashcards)
 
-    private fun flashcard(id: String, subcategoryId: String = this.subcategoryId, tags: List<String> = listOf("General")): Flashcard =
+    private fun flashcard(
+        id: String,
+        subcategoryId: String = this.subcategoryId,
+        tags: List<String> = listOf("General"),
+        difficulty: Int = 5,
+    ): Flashcard =
         Flashcard(
             id = id,
             subcategoryId = subcategoryId,
             tags = tags,
             question = "question-$id",
             answer = "answer-$id",
-            difficulty = 5,
+            difficulty = difficulty,
             questionCode = null,
             answerCode = null,
             questionSpoken = null,
@@ -150,6 +155,39 @@ class PreviewStudySessionViewModelTest {
 
         viewModel.state.value.error shouldBe "Could not load flashcards"
         viewModel.state.value.canStart shouldBe false
+    }
+
+    @Test
+    fun `onSessionCardCountChange reselects cards at the new count`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleTopicRoute)
+        flashcardRepository.flashcardsToReturn =
+            Result.success((1..30).map { index -> flashcard(id = "card-$index") })
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onSessionCardCountChange(10)
+
+        viewModel.state.value.sessionCardCount shouldBe 10
+        viewModel.state.value.selectedCardCount shouldBe 10
+    }
+
+    @Test
+    fun `onDifficultyRangeChange filters the pool to the selected band`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleTopicRoute)
+        flashcardRepository.flashcardsToReturn = Result.success(
+            listOf(
+                flashcard(id = "card-1", difficulty = 2),
+                flashcard(id = "card-2", difficulty = 5),
+                flashcard(id = "card-3", difficulty = 9),
+            )
+        )
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDifficultyRangeChange(4..6)
+
+        viewModel.state.value.difficultyRange shouldBe 4..6
+        viewModel.state.value.selectedCardCount shouldBe 1
     }
 
     @Test

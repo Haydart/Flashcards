@@ -26,7 +26,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -50,6 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import com.rossomak.flashcards.feature.study.StudySessionRoute
+import kotlin.math.roundToInt
 
 @Composable
 fun PreviewStudySessionScreen(
@@ -72,6 +75,8 @@ fun PreviewStudySessionScreen(
         onNavigateBack = onNavigateBack,
         onRetry = viewModel::onRetry,
         onRerandomize = viewModel::onRerandomize,
+        onSessionCardCountChange = viewModel::onSessionCardCountChange,
+        onDifficultyRangeChange = viewModel::onDifficultyRangeChange,
         onStudyModeSelect = viewModel::onStudyModeSelect,
         onStartSession = viewModel::onStartSession,
     )
@@ -85,6 +90,8 @@ fun PreviewStudySessionContent(
     onNavigateBack: () -> Unit,
     onRetry: () -> Unit,
     onRerandomize: () -> Unit,
+    onSessionCardCountChange: (Int) -> Unit,
+    onDifficultyRangeChange: (IntRange) -> Unit,
     onStudyModeSelect: (StudyMode) -> Unit,
     onStartSession: () -> Unit,
 ) {
@@ -126,6 +133,8 @@ fun PreviewStudySessionContent(
                     .padding(innerPadding),
                 state = state,
                 onRerandomize = onRerandomize,
+                onSessionCardCountChange = onSessionCardCountChange,
+                onDifficultyRangeChange = onDifficultyRangeChange,
                 onStudyModeSelect = onStudyModeSelect,
                 onStartSession = onStartSession,
             )
@@ -157,6 +166,8 @@ private fun ReadyContent(
     modifier: Modifier = Modifier,
     state: PreviewStudySessionScreenState,
     onRerandomize: () -> Unit,
+    onSessionCardCountChange: (Int) -> Unit,
+    onDifficultyRangeChange: (IntRange) -> Unit,
     onStudyModeSelect: (StudyMode) -> Unit,
     onStartSession: () -> Unit,
 ) {
@@ -196,6 +207,18 @@ private fun ReadyContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        SessionCardCountSlider(
+            cardCount = state.sessionCardCount,
+            onCardCountChange = onSessionCardCountChange,
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        DifficultyRangeSlider(
+            difficultyRange = state.difficultyRange,
+            onDifficultyRangeChange = onDifficultyRangeChange,
+        )
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -291,6 +314,64 @@ private fun StudyModeCard(
     }
 }
 
+@Composable
+private fun SessionCardCountSlider(
+    modifier: Modifier = Modifier,
+    cardCount: Int,
+    onCardCountChange: (Int) -> Unit,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Text(
+            text = "Session length",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            text = "$cardCount cards",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Slider(
+            value = cardCount.toFloat(),
+            onValueChange = { onCardCountChange(it.roundToInt()) },
+            valueRange = PreviewStudySessionScreenState.MIN_SESSION_CARD_COUNT.toFloat()..
+                PreviewStudySessionScreenState.MAX_SESSION_CARD_COUNT.toFloat(),
+            steps = PreviewStudySessionScreenState.MAX_SESSION_CARD_COUNT -
+                PreviewStudySessionScreenState.MIN_SESSION_CARD_COUNT - 1,
+        )
+    }
+}
+
+@Composable
+private fun DifficultyRangeSlider(
+    modifier: Modifier = Modifier,
+    difficultyRange: IntRange,
+    onDifficultyRangeChange: (IntRange) -> Unit,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Text(
+            text = "Difficulty",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            text = "${difficultyRange.first}–${difficultyRange.last}",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        RangeSlider(
+            value = difficultyRange.first.toFloat()..difficultyRange.last.toFloat(),
+            onValueChange = { range ->
+                onDifficultyRangeChange(range.start.roundToInt()..range.endInclusive.roundToInt())
+            },
+            valueRange = PreviewStudySessionScreenState.MIN_DIFFICULTY.toFloat()..
+                PreviewStudySessionScreenState.MAX_DIFFICULTY.toFloat(),
+            steps = PreviewStudySessionScreenState.MAX_DIFFICULTY -
+                PreviewStudySessionScreenState.MIN_DIFFICULTY - 1,
+        )
+    }
+}
+
 // isQuickSession is checked before isSingleTopic so a quick session that happens to land on one
 // topic still reads as "Quick session" rather than misreporting as a plain single-topic preview.
 private fun screenTitle(state: PreviewStudySessionScreenState): String = when {
@@ -348,6 +429,8 @@ private fun PreviewStudySessionLoadingPreview() {
         onNavigateBack = {},
         onRetry = {},
         onRerandomize = {},
+        onSessionCardCountChange = {},
+        onDifficultyRangeChange = {},
         onStudyModeSelect = {},
         onStartSession = {},
     )
@@ -366,6 +449,8 @@ private fun PreviewStudySessionErrorPreview() {
         onNavigateBack = {},
         onRetry = {},
         onRerandomize = {},
+        onSessionCardCountChange = {},
+        onDifficultyRangeChange = {},
         onStudyModeSelect = {},
         onStartSession = {},
     )
@@ -386,6 +471,8 @@ private fun PreviewStudySessionSingleTopicPreview() {
         onNavigateBack = {},
         onRetry = {},
         onRerandomize = {},
+        onSessionCardCountChange = {},
+        onDifficultyRangeChange = {},
         onStudyModeSelect = {},
         onStartSession = {},
     )
@@ -406,6 +493,8 @@ private fun PreviewStudySessionQuickSessionPreview() {
         onNavigateBack = {},
         onRetry = {},
         onRerandomize = {},
+        onSessionCardCountChange = {},
+        onDifficultyRangeChange = {},
         onStudyModeSelect = {},
         onStartSession = {},
     )
@@ -426,6 +515,8 @@ private fun PreviewStudySessionCustomSessionPreview() {
         onNavigateBack = {},
         onRetry = {},
         onRerandomize = {},
+        onSessionCardCountChange = {},
+        onDifficultyRangeChange = {},
         onStudyModeSelect = {},
         onStartSession = {},
     )
