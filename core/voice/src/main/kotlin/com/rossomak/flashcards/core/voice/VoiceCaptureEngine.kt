@@ -288,10 +288,10 @@ class VoiceCaptureEngine @Inject constructor(
         private const val BUFFER_FRAMES = 8
 
         private const val PRE_ROLL_FRAMES = 10 // 200ms of audio kept before speech onset
-        // 1.5s silence closes the utterance. Deliberately generous: spoken answers contain
+        // 2.5s silence closes the utterance. Deliberately generous: spoken answers contain
         // thinking-pauses, and a shorter window cut recordings off mid-answer. Silero's accurate
         // soft-speech detection keeps these pauses from being padded with false-positive frames.
-        private const val END_SILENCE_FRAMES = 75
+        private const val END_SILENCE_FRAMES = 125
         // Only this much silence is kept around each speech burst (leading-in for the next one,
         // trailing-out for this one) before ElevenLabs upload; the rest of a thinking-pause is
         // trimmed at capture time. Silence carries no ASR signal, so cutting it is safe and keeps
