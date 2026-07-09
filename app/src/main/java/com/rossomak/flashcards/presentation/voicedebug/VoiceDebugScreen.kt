@@ -2,6 +2,7 @@ package com.rossomak.flashcards.presentation.voicedebug
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -53,10 +54,15 @@ fun VoiceDebugScreen(
     val context = LocalContext.current
 
     var pendingMicAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val micPermissionDeniedMessage = stringResource(R.string.voice_debug_mic_permission_message)
     val micPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
     ) { isGranted ->
-        if (isGranted) pendingMicAction?.invoke()
+        if (isGranted) {
+            pendingMicAction?.invoke()
+        } else {
+            Toast.makeText(context, micPermissionDeniedMessage, Toast.LENGTH_SHORT).show()
+        }
         pendingMicAction = null
     }
 

@@ -6,13 +6,10 @@ import com.rossomak.flashcards.core.data.model.TranscriptionDto
 import com.rossomak.flashcards.core.data.model.VoiceAnswerGradeDto
 import com.rossomak.flashcards.core.data.network.VoiceGradingApi
 import com.rossomak.flashcards.core.data.network.VoiceGradingEntitlementException
-import com.rossomak.flashcards.core.data.source.VoiceAnswerRemoteDataSource
 import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
 import io.kotest.matchers.shouldBe
-import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.coVerify
-import io.mockk.just
 import io.mockk.mockk
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
@@ -22,7 +19,6 @@ import org.junit.Test
 class DefaultVoiceAnswerGradingRepositoryTest {
 
     private val voiceGradingApi: VoiceGradingApi = mockk()
-    private val voiceAnswerRemoteDataSource: VoiceAnswerRemoteDataSource = mockk()
 
     private val cardId = "card-1"
     private val question = "What is a foreground service?"
@@ -40,19 +36,17 @@ class DefaultVoiceAnswerGradingRepositoryTest {
     )
 
     private fun createRepository(): DefaultVoiceAnswerGradingRepository =
-        DefaultVoiceAnswerGradingRepository(voiceGradingApi, voiceAnswerRemoteDataSource)
+        DefaultVoiceAnswerGradingRepository(voiceGradingApi)
 
     @Test
-    fun `gradeSpokenAnswer maps dto to domain and persists the grade`() = runTest {
+    fun `gradeSpokenAnswer maps dto to domain without persisting`() = runTest {
         coEvery { voiceGradingApi.gradeVoiceAnswer(cardId, question, expectedAnswer, wavBytes) } returns gradeDto
-        coEvery { voiceAnswerRemoteDataSource.saveVoiceAnswerGrade(cardId, expectedGrade) } just Runs
 
         val result = createRepository().gradeSpokenAnswer(cardId, question, expectedAnswer, wavBytes)
 
         result.isSuccess shouldBe true
         result.getOrThrow() shouldBe expectedGrade
         coVerify(exactly = 1) { voiceGradingApi.gradeVoiceAnswer(cardId, question, expectedAnswer, wavBytes) }
-        coVerify(exactly = 1) { voiceAnswerRemoteDataSource.saveVoiceAnswerGrade(cardId, expectedGrade) }
     }
 
     @Test
@@ -60,13 +54,11 @@ class DefaultVoiceAnswerGradingRepositoryTest {
         coEvery {
             voiceGradingApi.gradeVoiceAnswer(cardId, question, expectedAnswer, wavBytes)
         } throws IOException("flaky") andThenThrows IOException("flaky again") andThen gradeDto
-        coEvery { voiceAnswerRemoteDataSource.saveVoiceAnswerGrade(cardId, expectedGrade) } just Runs
 
         val result = createRepository().gradeSpokenAnswer(cardId, question, expectedAnswer, wavBytes)
 
         result.isSuccess shouldBe true
         coVerify(exactly = 3) { voiceGradingApi.gradeVoiceAnswer(cardId, question, expectedAnswer, wavBytes) }
-        coVerify(exactly = 1) { voiceAnswerRemoteDataSource.saveVoiceAnswerGrade(cardId, expectedGrade) }
     }
 
     @Test
@@ -79,7 +71,6 @@ class DefaultVoiceAnswerGradingRepositoryTest {
         result.isFailure shouldBe true
         result.exceptionOrNull() shouldBe error
         coVerify(exactly = 3) { voiceGradingApi.gradeVoiceAnswer(cardId, question, expectedAnswer, wavBytes) }
-        coVerify(exactly = 0) { voiceAnswerRemoteDataSource.saveVoiceAnswerGrade(any(), any()) }
     }
 
     @Test

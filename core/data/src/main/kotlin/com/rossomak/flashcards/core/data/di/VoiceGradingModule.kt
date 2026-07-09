@@ -4,6 +4,8 @@ import com.rossomak.flashcards.core.data.network.VoiceGradingApi
 import com.rossomak.flashcards.core.data.network.VoiceGradingApiRouter
 import com.rossomak.flashcards.core.data.repository.DefaultVoiceAnswerConsentRepository
 import com.rossomak.flashcards.core.data.repository.DefaultVoiceAnswerGradingRepository
+import com.rossomak.flashcards.core.data.source.DataStoreVoiceAnswerConsentLocalDataSource
+import com.rossomak.flashcards.core.data.source.VoiceAnswerConsentLocalDataSource
 import com.rossomak.flashcards.core.domain.repository.VoiceAnswerConsentRepository
 import com.rossomak.flashcards.core.domain.repository.VoiceAnswerGradingRepository
 import dagger.Binds
@@ -31,4 +33,10 @@ abstract class VoiceGradingModule {
     abstract fun bindVoiceAnswerConsentRepository(
         impl: DefaultVoiceAnswerConsentRepository,
     ): VoiceAnswerConsentRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindVoiceAnswerConsentLocalDataSource(
+        impl: DataStoreVoiceAnswerConsentLocalDataSource,
+    ): VoiceAnswerConsentLocalDataSource
 }

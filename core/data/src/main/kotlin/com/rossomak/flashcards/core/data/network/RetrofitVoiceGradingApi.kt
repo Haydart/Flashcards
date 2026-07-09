@@ -8,6 +8,8 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import retrofit2.HttpException
+import java.net.HttpURLConnection
 import javax.inject.Inject
 
 /**
@@ -24,20 +26,33 @@ class RetrofitVoiceGradingApi @Inject constructor(
         question: String,
         expectedAnswer: String,
         wavBytes: ByteArray,
-    ): VoiceAnswerGradeDto = service.gradeVoiceAnswer(
-        audio = wavBytes.toAudioPart(),
-        cardId = cardId.toTextPart(),
-        question = question.toTextPart(),
-        expectedAnswer = expectedAnswer.toTextPart(),
-    )
+    ): VoiceAnswerGradeDto = mappingEntitlementRejection {
+        service.gradeVoiceAnswer(
+            audio = wavBytes.toAudioPart(),
+            cardId = cardId.toTextPart(),
+            question = question.toTextPart(),
+            expectedAnswer = expectedAnswer.toTextPart(),
+        )
+    }
 
     override suspend fun transcribe(wavBytes: ByteArray): TranscriptionDto =
-        service.transcribe(wavBytes.toAudioPart())
+        mappingEntitlementRejection { service.transcribe(wavBytes.toAudioPart()) }
 
     override suspend fun sanitizeAndGrade(request: SanitizeAndGradeRequestDto): VoiceAnswerGradeDto =
-        service.sanitizeAndGrade(request)
+        mappingEntitlementRejection { service.sanitizeAndGrade(request) }
 
-    override suspend fun checkEntitlement(): EntitlementDto = service.checkEntitlement()
+    override suspend fun checkEntitlement(): EntitlementDto =
+        mappingEntitlementRejection { service.checkEntitlement() }
+
+    /** Mirrors [FakeVoiceGradingApi]'s contract: a server-side 403 surfaces as [VoiceGradingEntitlementException]. */
+    private inline fun <T> mappingEntitlementRejection(block: () -> T): T = try {
+        block()
+    } catch (exception: HttpException) {
+        if (exception.code() == HttpURLConnection.HTTP_FORBIDDEN) {
+            throw VoiceGradingEntitlementException()
+        }
+        throw exception
+    }
 
     private fun ByteArray.toAudioPart(): MultipartBody.Part =
         MultipartBody.Part.createFormData(

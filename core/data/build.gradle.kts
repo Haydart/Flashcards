@@ -11,6 +11,9 @@ val localProperties = Properties().apply {
     }
 }
 val voiceGradingBaseUrl: String = localProperties.getProperty("VOICE_GRADING_BASE_URL", "")
+val escapedVoiceGradingBaseUrl: String = voiceGradingBaseUrl
+    .replace("\\", "\\\\")
+    .replace("\"", "\\\"")
 
 android {
     namespace = "com.rossomak.flashcards.core.data"
@@ -18,7 +21,7 @@ android {
         buildConfig = true
     }
     defaultConfig {
-        buildConfigField("String", "VOICE_GRADING_BASE_URL", "\"$voiceGradingBaseUrl\"")
+        buildConfigField("String", "VOICE_GRADING_BASE_URL", "\"$escapedVoiceGradingBaseUrl\"")
     }
 }
 

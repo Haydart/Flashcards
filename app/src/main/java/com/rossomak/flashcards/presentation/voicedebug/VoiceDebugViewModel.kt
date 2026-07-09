@@ -13,6 +13,7 @@ import com.rossomak.flashcards.core.voice.SileroVoiceActivityDetector
 import com.rossomak.flashcards.core.voice.VoiceCaptureEngine
 import com.rossomak.flashcards.core.voice.VoiceCaptureEvent
 import dagger.hilt.android.lifecycle.HiltViewModel
+import org.json.JSONObject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -97,15 +98,18 @@ class VoiceDebugViewModel @Inject constructor(
         if (_state.value.isRecordingClip) return
         _state.update { it.copy(isRecordingClip = true) }
         viewModelScope.launch {
-            rawClip = voiceCaptureEngine.recordRawClip(RAW_CLIP_DURATION_MS)
-            obfuscatedClip = ShortArray(0)
-            _state.update {
-                it.copy(
-                    isRecordingClip = false,
-                    hasRawClip = rawClip.isNotEmpty(),
-                    rawClipDurationMs = rawClip.size * 1000L / VoiceCaptureEngine.SAMPLE_RATE_HZ,
-                    transcriptionResult = null,
-                )
+            try {
+                rawClip = voiceCaptureEngine.recordRawClip(RAW_CLIP_DURATION_MS)
+                obfuscatedClip = ShortArray(0)
+                _state.update {
+                    it.copy(
+                        hasRawClip = rawClip.isNotEmpty(),
+                        rawClipDurationMs = rawClip.size * 1000L / VoiceCaptureEngine.SAMPLE_RATE_HZ,
+                        transcriptionResult = null,
+                    )
+                }
+            } finally {
+                _state.update { it.copy(isRecordingClip = false) }
             }
         }
     }
@@ -134,17 +138,19 @@ class VoiceDebugViewModel @Inject constructor(
         if (rawClip.isEmpty() || _state.value.isTranscribing) return
         _state.update { it.copy(isTranscribing = true) }
         viewModelScope.launch {
-            if (obfuscatedClip.isEmpty()) obfuscatedClip = voiceCaptureEngine.obfuscate(rawClip)
-            val wavBytes = voiceCaptureEngine.encodeWav(obfuscatedClip)
-            transcribeVoiceClip(wavBytes)
-                .onSuccess { transcript ->
-                    _state.update { it.copy(isTranscribing = false, transcriptionResult = transcript) }
-                }
-                .onFailure { error ->
-                    _state.update {
-                        it.copy(isTranscribing = false, transcriptionResult = "ERROR: ${error.message}")
+            try {
+                if (obfuscatedClip.isEmpty()) obfuscatedClip = voiceCaptureEngine.obfuscate(rawClip)
+                val wavBytes = voiceCaptureEngine.encodeWav(obfuscatedClip)
+                transcribeVoiceClip(wavBytes)
+                    .onSuccess { transcript ->
+                        _state.update { it.copy(transcriptionResult = transcript) }
                     }
-                }
+                    .onFailure { error ->
+                        _state.update { it.copy(transcriptionResult = "ERROR: ${error.message}") }
+                    }
+            } finally {
+                _state.update { it.copy(isTranscribing = false) }
+            }
         }
     }
 
@@ -159,25 +165,27 @@ class VoiceDebugViewModel @Inject constructor(
         if (_state.value.isGrading) return
         _state.update { it.copy(isGrading = true) }
         viewModelScope.launch {
-            with(_state.value) {
-                sanitizeAndGradeTranscript(
-                    SanitizeAndGradeTranscriptUseCase.Params(
-                        question = gradeQuestion,
-                        expectedAnswer = gradeExpectedAnswer,
-                        rawTranscript = gradeTranscript,
+            try {
+                with(_state.value) {
+                    sanitizeAndGradeTranscript(
+                        SanitizeAndGradeTranscriptUseCase.Params(
+                            question = gradeQuestion,
+                            expectedAnswer = gradeExpectedAnswer,
+                            rawTranscript = gradeTranscript,
+                        )
                     )
-                )
-            }.onSuccess { grade ->
-                val resultJson = """
-                    {
-                      "sanitized_transcript": "${grade.sanitizedTranscript}",
-                      "grade": ${grade.gradePercent},
-                      "feedback": "${grade.feedback}"
-                    }
-                """.trimIndent()
-                _state.update { it.copy(isGrading = false, gradeResultJson = resultJson) }
-            }.onFailure { error ->
-                _state.update { it.copy(isGrading = false, gradeResultJson = "ERROR: ${error.message}") }
+                }.onSuccess { grade ->
+                    val resultJson = JSONObject()
+                        .put("sanitized_transcript", grade.sanitizedTranscript)
+                        .put("grade", grade.gradePercent)
+                        .put("feedback", grade.feedback)
+                        .toString(JSON_INDENT_SPACES)
+                    _state.update { it.copy(gradeResultJson = resultJson) }
+                }.onFailure { error ->
+                    _state.update { it.copy(gradeResultJson = "ERROR: ${error.message}") }
+                }
+            } finally {
+                _state.update { it.copy(isGrading = false) }
             }
         }
     }
@@ -186,20 +194,19 @@ class VoiceDebugViewModel @Inject constructor(
         if (_state.value.isCheckingEntitlement) return
         _state.update { it.copy(isCheckingEntitlement = true) }
         viewModelScope.launch {
-            checkVoiceGradingEntitlement()
-                .onSuccess { isPremium ->
-                    _state.update {
-                        it.copy(
-                            isCheckingEntitlement = false,
-                            entitlementResult = """{"is_premium": $isPremium}""",
-                        )
+            try {
+                checkVoiceGradingEntitlement()
+                    .onSuccess { isPremium ->
+                        _state.update {
+                            it.copy(entitlementResult = JSONObject().put("is_premium", isPremium).toString())
+                        }
                     }
-                }
-                .onFailure { error ->
-                    _state.update {
-                        it.copy(isCheckingEntitlement = false, entitlementResult = "ERROR: ${error.message}")
+                    .onFailure { error ->
+                        _state.update { it.copy(entitlementResult = "ERROR: ${error.message}") }
                     }
-                }
+            } finally {
+                _state.update { it.copy(isCheckingEntitlement = false) }
+            }
         }
     }
 
@@ -236,5 +243,6 @@ class VoiceDebugViewModel @Inject constructor(
     private companion object {
         const val RAW_CLIP_DURATION_MS = 3_000L
         const val MAX_LOG_LINES = 12
+        const val JSON_INDENT_SPACES = 2
     }
 }
