@@ -5,4 +5,3 @@ firebase-debug.log*
 .runtimeconfig.json
 .env
 .env.*
-package-lock.json
