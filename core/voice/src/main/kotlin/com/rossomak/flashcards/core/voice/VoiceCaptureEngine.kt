@@ -41,7 +41,7 @@ sealed interface VoiceCaptureEvent {
 }
 
 /**
- * Continuous mic capture: AudioRecord (VOICE_RECOGNITION source, 16kHz mono PCM) feeding 20ms
+ * Continuous mic capture: AudioRecord (16kHz mono PCM) feeding 20ms
  * frames through the [VoiceActivityDetector]; VAD-bounded utterances are buffered, run through
  * the [VoiceObfuscator] on-device, WAV-wrapped and emitted via [events]. Raw (un-obfuscated)
  * buffers are zeroed as soon as the obfuscated copy exists.
