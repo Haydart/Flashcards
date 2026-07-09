@@ -8,6 +8,7 @@ import com.rossomak.flashcards.core.data.network.VoicePipelineDebugSettings
 import com.rossomak.flashcards.core.domain.usecase.CheckVoiceGradingEntitlementUseCase
 import com.rossomak.flashcards.core.domain.usecase.SanitizeAndGradeTranscriptUseCase
 import com.rossomak.flashcards.core.domain.usecase.TranscribeVoiceClipUseCase
+import com.rossomak.flashcards.core.voice.AudioRouteManager
 import com.rossomak.flashcards.core.voice.PcmPlayer
 import com.rossomak.flashcards.core.voice.SileroVoiceActivityDetector
 import com.rossomak.flashcards.core.voice.VoiceCaptureEngine
@@ -34,6 +35,7 @@ class VoiceDebugViewModel @Inject constructor(
     private val sanitizeAndGradeTranscript: SanitizeAndGradeTranscriptUseCase,
     private val checkVoiceGradingEntitlement: CheckVoiceGradingEntitlementUseCase,
     private val voiceCaptureEngine: VoiceCaptureEngine,
+    private val audioRouteManager: AudioRouteManager,
     private val voiceActivityDetector: SileroVoiceActivityDetector,
     private val pcmPlayer: PcmPlayer,
     private val debugSettings: VoicePipelineDebugSettings,
@@ -50,6 +52,10 @@ class VoiceDebugViewModel @Inject constructor(
     private var capturedUtterance: ShortArray = ShortArray(0)
 
     init {
+        // Capture (startListening/recordRawClip) reads AudioRouteManager.route, which defaults to
+        // NONE (not capturable) until a session route is acquired — without this the debug screen's
+        // capture loop fails immediately with "Bluetooth microphone unavailable", BT state aside.
+        viewModelScope.launch { audioRouteManager.acquireSessionRoute() }
         viewModelScope.launch {
             voiceCaptureEngine.isSpeechDetected.collect { isSpeech ->
                 _state.update { it.copy(isSpeechDetected = isSpeech) }
@@ -237,6 +243,7 @@ class VoiceDebugViewModel @Inject constructor(
     override fun onCleared() {
         voiceCaptureEngine.stopListening()
         pcmPlayer.stop()
+        audioRouteManager.releaseSessionRoute()
         super.onCleared()
     }
 
