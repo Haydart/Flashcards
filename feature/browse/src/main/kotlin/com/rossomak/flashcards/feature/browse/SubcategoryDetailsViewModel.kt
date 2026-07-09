@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.ui.navigation.decodeRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,13 +14,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 @HiltViewModel
-class SubcategoryDetailsViewModel @Inject constructor(
-    savedStateHandle: SavedStateHandle,
-    private val getFlashcards: GetFlashcardsUseCase
-) : ViewModel() {
+class SubcategoryDetailsViewModel @Inject constructor(savedStateHandle: SavedStateHandle, private val getFlashcards: GetFlashcardsUseCase) :
+    ViewModel() {
 
     private val route = savedStateHandle.decodeRoute<SubcategoryDetailsRoute>()
 
@@ -58,7 +56,7 @@ class SubcategoryDetailsViewModel @Inject constructor(
                     categoryId = route.categoryId,
                     categoryName = route.categoryName,
                     subcategoryId = route.subcategoryId,
-                    subcategoryName = route.subcategoryName,
+                    subcategoryName = route.subcategoryName
                 )
             )
         }

@@ -11,6 +11,7 @@ import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.rossomak.flashcards.core.domain.model.Flashcard
 import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -19,12 +20,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 @UnstableApi
-class StudySessionVoiceGateway @Inject constructor(
-    @ApplicationContext private val context: Context,
-) : VoiceGateway {
+class StudySessionVoiceGateway @Inject constructor(@ApplicationContext private val context: Context) : VoiceGateway {
 
     private val _state = MutableStateFlow(VoicePlaybackState())
     override val state: StateFlow<VoicePlaybackState> = _state.asStateFlow()
@@ -75,11 +73,7 @@ class StudySessionVoiceGateway @Inject constructor(
         }
     }
 
-    override fun start(
-        cards: List<Flashcard>,
-        startIndex: Int,
-        subcategoryName: String,
-    ) {
+    override fun start(cards: List<Flashcard>, startIndex: Int, subcategoryName: String) {
         pendingCards = cards.toVoiceCards()
         pendingStartIndex = startIndex
         pendingSubcategoryName = subcategoryName
@@ -183,30 +177,45 @@ class StudySessionVoiceGateway @Inject constructor(
 
     private fun List<Flashcard>.toVoiceCards(): List<VoiceCard> = map { card ->
         VoiceCard(
-            spokenQuestion = (card.questionSpoken?.takeIf { it.isNotBlank() }
-                ?: card.question).forSpeech(),
-            spokenAnswer = (card.answerSpoken?.takeIf { it.isNotBlank() }
-                ?: card.answer).forSpeech(),
+            spokenQuestion = (
+                card.questionSpoken?.takeIf { it.isNotBlank() }
+                    ?: card.question
+                ).forSpeech(),
+            spokenAnswer = (
+                card.answerSpoken?.takeIf { it.isNotBlank() }
+                    ?: card.answer
+                ).forSpeech(),
             cardId = card.id,
             questionText = card.question,
-            answerText = card.answer,
+            answerText = card.answer
         )
     }
 
     private fun String.forSpeech(): String {
-        val codeTransformed = replace(Regex("`([^`]*)`")) { match -> // extract code span content; wraps result in single quotes for verbal separation
+        // extract code span content; wraps result in single quotes for verbal separation
+        val codeTransformed = replace(Regex("`([^`]*)`")) { match ->
             val inner = match.groupValues[1]
-                .replace(Regex("(?<=\\S)<(?!/)([^>]+)>")) { " of ${it.groupValues[1]}" } // generic types: List<String> → "List of String"; skips standalone tags like <service> (no non-ws before <); skips closing tags
+                // generic types: List<String> → "List of String"; skips standalone tags like
+                // <service> (no non-ws before <); skips closing tags
+                .replace(Regex("(?<=\\S)<(?!/)([^>]+)>")) { " of ${it.groupValues[1]}" }
                 .replace(Regex("(?<!\\.)\\.(?!\\.)"), " DOT ") // member access dots → " DOT "; lets through ellipsis (...)
                 .replace("_", " ") // snake_case separators → spaces
                 .replace(Regex(" {2,}"), " ") // collapse runs of spaces left by prior replacements
                 .trim()
-            "'$inner'" // single quotes in order to verbally separate the inline code from surrounding text; avoids reading it as a single word
+            // single quotes in order to verbally separate the inline code from surrounding text;
+            // avoids reading it as a single word
+            "'$inner'"
         }
         return codeTransformed
-            .replace(Regex("</?([^>]+?)\\s*/?>")) { it.groupValues[1].trim() } // XML/HTML tags → inner content; handles <tag>, </tag>, <tag />; lets through < and > not forming a full tag
-            .replace(Regex("\\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\\b")) { it.value.lowercase().replace('_', ' ') } // SCREAMING_SNAKE_CASE → lowercase words; requires at least one underscore, lets through bare acronyms like HTTP
-            .replace(Regex("[→←↑↓⇒⇐⇑⇓↔⇔]"), ".") // Unicode arrows → full stop; avoid reading them as "right pointing arrow" etc.; they are used as visual separators and reading them is distracting
+            // XML/HTML tags → inner content; handles <tag>, </tag>, <tag />; lets through < and >
+            // not forming a full tag
+            .replace(Regex("</?([^>]+?)\\s*/?>")) { it.groupValues[1].trim() }
+            // SCREAMING_SNAKE_CASE → lowercase words; requires at least one underscore, lets through
+            // bare acronyms like HTTP
+            .replace(Regex("\\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\\b")) { it.value.lowercase().replace('_', ' ') }
+            // Unicode arrows → full stop; avoid reading them as "right pointing arrow" etc.; they are
+            // used as visual separators and reading them is distracting
+            .replace(Regex("[→←↑↓⇒⇐⇑⇓↔⇔]"), ".")
             .replace("`", "'") // remaining stray backticks → single quotes
     }
 }

@@ -49,11 +49,7 @@ private val loginGradient = Brush.linearGradient(
 private val LogoWidth = 200.dp
 
 @Composable
-fun LoginScreen(
-    modifier: Modifier = Modifier,
-    viewModel: LoginViewModel = hiltViewModel(),
-    onNavigateToMain: () -> Unit,
-) {
+fun LoginScreen(modifier: Modifier = Modifier, viewModel: LoginViewModel = hiltViewModel(), onNavigateToMain: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -75,16 +71,12 @@ fun LoginScreen(
                     .onSuccess { idToken -> viewModel.onGoogleIdTokenReceived(idToken) }
                     .onFailure { error -> viewModel.onSignInFailed(error.message) }
             }
-        },
+        }
     )
 }
 
 @Composable
-fun LoginContent(
-    modifier: Modifier = Modifier,
-    state: LoginScreenState,
-    onGoogleSignInClick: () -> Unit,
-) {
+fun LoginContent(modifier: Modifier = Modifier, state: LoginScreenState, onGoogleSignInClick: () -> Unit) {
     Box(
         modifier = modifier
             .fillMaxSize()

@@ -43,8 +43,7 @@ class CategoryDetailsViewModelTest {
         unmockkObject(RouteDecoder)
     }
 
-    private fun createViewModel(): CategoryDetailsViewModel =
-        CategoryDetailsViewModel(savedStateHandle, getSubcategories)
+    private fun createViewModel(): CategoryDetailsViewModel = CategoryDetailsViewModel(savedStateHandle, getSubcategories)
 
     private fun subcategory(id: String): Subcategory = Subcategory(
         id = id,
@@ -52,7 +51,7 @@ class CategoryDetailsViewModelTest {
         categoryId = route.categoryId,
         categoryName = route.categoryName,
         order = 0,
-        cardCount = 3,
+        cardCount = 3
     )
 
     @Test

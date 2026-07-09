@@ -6,17 +6,17 @@ import androidx.lifecycle.viewModelScope
 import com.rossomak.flashcards.core.domain.usecase.GetSubcategoriesUseCase
 import com.rossomak.flashcards.core.ui.navigation.decodeRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 @HiltViewModel
 class CategoryDetailsViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val getSubcategories: GetSubcategoriesUseCase,
+    private val getSubcategories: GetSubcategoriesUseCase
 ) : ViewModel() {
 
     private val route = savedStateHandle.decodeRoute<CategoryDetailsRoute>()

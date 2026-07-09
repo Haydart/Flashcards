@@ -1,6 +1,7 @@
 package com.rossomak.flashcards.feature.study.preview
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +12,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
@@ -46,11 +51,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.CardSortOrder
@@ -65,7 +65,7 @@ fun PreviewStudySessionScreen(
     modifier: Modifier = Modifier,
     viewModel: PreviewStudySessionViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
-    onNavigateToStudySession: (StudySessionRoute) -> Unit,
+    onNavigateToStudySession: (StudySessionRoute) -> Unit
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
@@ -87,7 +87,7 @@ fun PreviewStudySessionScreen(
         onSortDialogShow = viewModel::onSortDialogShow,
         onSortDialogDismiss = viewModel::onSortDialogDismiss,
         onSortOrderSelect = viewModel::onSortOrderSelect,
-        onStartSession = viewModel::onStartSession,
+        onStartSession = viewModel::onStartSession
     )
 }
 
@@ -105,14 +105,14 @@ fun PreviewStudySessionContent(
     onSortDialogShow: () -> Unit,
     onSortDialogDismiss: () -> Unit,
     onSortOrderSelect: (CardSortOrder) -> Unit,
-    onStartSession: () -> Unit,
+    onStartSession: () -> Unit
 ) {
     if (state.isSortDialogVisible) {
         CardSortOrderDialog(
             selectedSortOrder = state.sortOrder,
             showKeepAsDefaultOption = true,
             onSortOrderSelect = onSortOrderSelect,
-            onDismiss = onSortDialogDismiss,
+            onDismiss = onSortDialogDismiss
         )
     }
     Scaffold(
@@ -124,19 +124,19 @@ fun PreviewStudySessionContent(
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Close session preview",
+                            contentDescription = "Close session preview"
                         )
                     }
-                },
+                }
             )
-        },
+        }
     ) { innerPadding ->
         when {
             state.isLoading -> Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
-                contentAlignment = Alignment.Center,
+                contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator()
             }
@@ -145,7 +145,7 @@ fun PreviewStudySessionContent(
                     .fillMaxSize()
                     .padding(innerPadding),
                 error = state.error,
-                onRetry = onRetry,
+                onRetry = onRetry
             )
             else -> ReadyContent(
                 modifier = Modifier
@@ -157,22 +157,18 @@ fun PreviewStudySessionContent(
                 onDifficultyRangeChange = onDifficultyRangeChange,
                 onStudyModeSelect = onStudyModeSelect,
                 onSortDialogShow = onSortDialogShow,
-                onStartSession = onStartSession,
+                onStartSession = onStartSession
             )
         }
     }
 }
 
 @Composable
-private fun ErrorContent(
-    modifier: Modifier = Modifier,
-    error: String,
-    onRetry: () -> Unit,
-) {
+private fun ErrorContent(modifier: Modifier = Modifier, error: String, onRetry: () -> Unit) {
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(text = error, style = MaterialTheme.typography.bodyLarge)
         Spacer(modifier = Modifier.height(16.dp))
@@ -191,31 +187,31 @@ private fun ReadyContent(
     onDifficultyRangeChange: (IntRange) -> Unit,
     onStudyModeSelect: (StudyMode) -> Unit,
     onSortDialogShow: () -> Unit,
-    onStartSession: () -> Unit,
+    onStartSession: () -> Unit
 ) {
     Column(
         modifier = modifier
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 24.dp, vertical = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(modifier = Modifier.height(24.dp))
 
         Text(
             text = "Ready to start?",
             style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.Bold
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = scopeDescription(state),
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyLarge
         )
         Spacer(modifier = Modifier.height(16.dp))
 
         Row(
             modifier = Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             AssistChip(onClick = {}, label = { Text(text = "~ ${state.estimatedMinutes} min") })
             if (!state.isSingleTopic) {
@@ -230,7 +226,7 @@ private fun ReadyContent(
             Text(
                 text = "Filtered by ${state.filterTags.joinToString()}",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
@@ -238,12 +234,12 @@ private fun ReadyContent(
 
         SessionCardCountSlider(
             cardCount = state.sessionCardCount,
-            onCardCountChange = onSessionCardCountChange,
+            onCardCountChange = onSessionCardCountChange
         )
         Spacer(modifier = Modifier.height(16.dp))
         DifficultyRangeSlider(
             difficultyRange = state.difficultyRange,
-            onDifficultyRangeChange = onDifficultyRangeChange,
+            onDifficultyRangeChange = onDifficultyRangeChange
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -251,26 +247,26 @@ private fun ReadyContent(
         Text(
             text = "Choose study mode",
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.Bold
         )
         Spacer(modifier = Modifier.height(12.dp))
         Row(
             modifier = Modifier.selectableGroup(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             StudyModeCard(
                 modifier = Modifier.weight(1f),
                 title = "Rated",
                 description = "Reveal each answer, then rate yourself. Progress is saved.",
                 isSelected = state.selectedStudyMode == StudyMode.RATED,
-                onSelect = { onStudyModeSelect(StudyMode.RATED) },
+                onSelect = { onStudyModeSelect(StudyMode.RATED) }
             )
             StudyModeCard(
                 modifier = Modifier.weight(1f),
                 title = "Fast",
                 description = "Cards advance on a timer. Nothing is rated or saved.",
                 isSelected = state.selectedStudyMode == StudyMode.FAST,
-                onSelect = { onStudyModeSelect(StudyMode.FAST) },
+                onSelect = { onStudyModeSelect(StudyMode.FAST) }
             )
         }
         Spacer(modifier = Modifier.height(16.dp))
@@ -280,7 +276,7 @@ private fun ReadyContent(
                 FilledTonalButton(
                     onClick = onRerandomize,
                     enabled = state.canStart,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f)
                 ) {
                     Icon(imageVector = Icons.Default.Shuffle, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.size(8.dp))
@@ -290,7 +286,7 @@ private fun ReadyContent(
             Button(
                 onClick = onStartSession,
                 enabled = state.canStart,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f)
             ) {
                 Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.size(8.dp))
@@ -301,24 +297,18 @@ private fun ReadyContent(
 }
 
 @Composable
-private fun StudyModeCard(
-    modifier: Modifier = Modifier,
-    title: String,
-    description: String,
-    isSelected: Boolean,
-    onSelect: () -> Unit,
-) {
+private fun StudyModeCard(modifier: Modifier = Modifier, title: String, description: String, isSelected: Boolean, onSelect: () -> Unit) {
     OutlinedCard(
         modifier = modifier.selectable(
             selected = isSelected,
             onClick = onSelect,
-            role = Role.RadioButton,
+            role = Role.RadioButton
         ),
         border = if (isSelected) {
             BorderStroke(width = 2.dp, color = MaterialTheme.colorScheme.primary)
         } else {
             BorderStroke(width = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
-        },
+        }
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -326,7 +316,7 @@ private fun StudyModeCard(
                     text = title,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f)
                 )
                 RadioButton(selected = isSelected, onClick = null)
             }
@@ -334,49 +324,41 @@ private fun StudyModeCard(
             Text(
                 text = description,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
 }
 
 @Composable
-private fun SessionCardCountSlider(
-    modifier: Modifier = Modifier,
-    cardCount: Int,
-    onCardCountChange: (Int) -> Unit,
-) {
+private fun SessionCardCountSlider(modifier: Modifier = Modifier, cardCount: Int, onCardCountChange: (Int) -> Unit) {
     var draftCardCount by remember(cardCount) { mutableStateOf(cardCount.toFloat()) }
 
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
             text = "Session length",
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.Bold
         )
         Text(
             text = "${draftCardCount.roundToInt()} cards",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        val minCardCount = PreviewStudySessionScreenState.MIN_SESSION_CARD_COUNT
+        val maxCardCount = PreviewStudySessionScreenState.MAX_SESSION_CARD_COUNT
         Slider(
             value = draftCardCount,
             onValueChange = { draftCardCount = it },
             onValueChangeFinished = { onCardCountChange(draftCardCount.roundToInt()) },
-            valueRange = PreviewStudySessionScreenState.MIN_SESSION_CARD_COUNT.toFloat()..
-                PreviewStudySessionScreenState.MAX_SESSION_CARD_COUNT.toFloat(),
-            steps = PreviewStudySessionScreenState.MAX_SESSION_CARD_COUNT -
-                PreviewStudySessionScreenState.MIN_SESSION_CARD_COUNT - 1,
+            valueRange = minCardCount.toFloat()..maxCardCount.toFloat(),
+            steps = maxCardCount - minCardCount - 1
         )
     }
 }
 
 @Composable
-private fun DifficultyRangeSlider(
-    modifier: Modifier = Modifier,
-    difficultyRange: IntRange,
-    onDifficultyRangeChange: (IntRange) -> Unit,
-) {
+private fun DifficultyRangeSlider(modifier: Modifier = Modifier, difficultyRange: IntRange, onDifficultyRangeChange: (IntRange) -> Unit) {
     var draftRange by remember(difficultyRange) {
         mutableStateOf(difficultyRange.first.toFloat()..difficultyRange.last.toFloat())
     }
@@ -385,12 +367,12 @@ private fun DifficultyRangeSlider(
         Text(
             text = "Difficulty",
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.Bold
         )
         Text(
             text = "${draftRange.start.roundToInt()}–${draftRange.endInclusive.roundToInt()}",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         RangeSlider(
             value = draftRange,
@@ -398,10 +380,9 @@ private fun DifficultyRangeSlider(
             onValueChangeFinished = {
                 onDifficultyRangeChange(draftRange.start.roundToInt()..draftRange.endInclusive.roundToInt())
             },
-            valueRange = PreviewStudySessionScreenState.MIN_DIFFICULTY.toFloat()..
-                PreviewStudySessionScreenState.MAX_DIFFICULTY.toFloat(),
+            valueRange = PreviewStudySessionScreenState.MIN_DIFFICULTY.toFloat()..PreviewStudySessionScreenState.MAX_DIFFICULTY.toFloat(),
             steps = PreviewStudySessionScreenState.MAX_DIFFICULTY -
-                PreviewStudySessionScreenState.MIN_DIFFICULTY - 1,
+                PreviewStudySessionScreenState.MIN_DIFFICULTY - 1
         )
     }
 }
@@ -464,7 +445,7 @@ private fun PreviewStudySessionLoadingPreview() {
         state = PreviewStudySessionScreenState(
             categoryName = "Android",
             subcategoryNames = listOf("Compose"),
-            isLoading = true,
+            isLoading = true
         ),
         onNavigateBack = {},
         onRetry = {},
@@ -475,7 +456,7 @@ private fun PreviewStudySessionLoadingPreview() {
         onSortDialogShow = {},
         onSortDialogDismiss = {},
         onSortOrderSelect = {},
-        onStartSession = {},
+        onStartSession = {}
     )
 }
 
@@ -487,7 +468,7 @@ private fun PreviewStudySessionErrorPreview() {
             categoryName = "Android",
             subcategoryNames = listOf("Compose"),
             isLoading = false,
-            error = "Could not load flashcards",
+            error = "Could not load flashcards"
         ),
         onNavigateBack = {},
         onRetry = {},
@@ -498,7 +479,7 @@ private fun PreviewStudySessionErrorPreview() {
         onSortDialogShow = {},
         onSortDialogDismiss = {},
         onSortOrderSelect = {},
-        onStartSession = {},
+        onStartSession = {}
     )
 }
 
@@ -512,7 +493,7 @@ private fun PreviewStudySessionSingleTopicPreview() {
             filterTags = listOf("State Management", "Modifiers"),
             isLoading = false,
             selectedCardCount = 18,
-            estimatedMinutes = 12,
+            estimatedMinutes = 12
         ),
         onNavigateBack = {},
         onRetry = {},
@@ -523,7 +504,7 @@ private fun PreviewStudySessionSingleTopicPreview() {
         onSortDialogShow = {},
         onSortDialogDismiss = {},
         onSortOrderSelect = {},
-        onStartSession = {},
+        onStartSession = {}
     )
 }
 
@@ -537,7 +518,7 @@ private fun PreviewStudySessionQuickSessionPreview() {
             isQuickSession = true,
             isLoading = false,
             selectedCardCount = 20,
-            estimatedMinutes = 13,
+            estimatedMinutes = 13
         ),
         onNavigateBack = {},
         onRetry = {},
@@ -548,7 +529,7 @@ private fun PreviewStudySessionQuickSessionPreview() {
         onSortDialogShow = {},
         onSortDialogDismiss = {},
         onSortOrderSelect = {},
-        onStartSession = {},
+        onStartSession = {}
     )
 }
 
@@ -562,7 +543,7 @@ private fun PreviewStudySessionCustomSessionPreview() {
             isLoading = false,
             selectedCardCount = 12,
             estimatedMinutes = 8,
-            selectedStudyMode = StudyMode.FAST,
+            selectedStudyMode = StudyMode.FAST
         ),
         onNavigateBack = {},
         onRetry = {},
@@ -573,6 +554,6 @@ private fun PreviewStudySessionCustomSessionPreview() {
         onSortDialogShow = {},
         onSortDialogDismiss = {},
         onSortOrderSelect = {},
-        onStartSession = {},
+        onStartSession = {}
     )
 }

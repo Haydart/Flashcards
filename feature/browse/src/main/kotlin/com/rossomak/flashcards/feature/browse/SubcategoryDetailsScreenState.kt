@@ -7,5 +7,5 @@ data class SubcategoryDetailsScreenState(
     val subcategoryName: String = "",
     val isLoading: Boolean = false,
     val flashcards: List<Flashcard> = emptyList(),
-    val error: String? = null,
+    val error: String? = null
 )

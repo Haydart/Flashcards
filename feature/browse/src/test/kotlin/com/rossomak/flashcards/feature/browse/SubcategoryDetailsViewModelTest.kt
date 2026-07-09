@@ -32,7 +32,7 @@ class SubcategoryDetailsViewModelTest {
         categoryId = "cat-1",
         categoryName = "Android",
         subcategoryId = "sub-1",
-        subcategoryName = "Compose",
+        subcategoryName = "Compose"
     )
 
     @Before
@@ -46,21 +46,21 @@ class SubcategoryDetailsViewModelTest {
         unmockkObject(RouteDecoder)
     }
 
-    private fun createViewModel(): SubcategoryDetailsViewModel =
-        SubcategoryDetailsViewModel(savedStateHandle, getFlashcards)
+    private fun createViewModel(): SubcategoryDetailsViewModel = SubcategoryDetailsViewModel(savedStateHandle, getFlashcards)
 
     @Test
-    fun `onStartSession emits PreviewStudySession with category and subcategory ids and names`() = runTest(mainDispatcherRule.testDispatcher) {
-        val viewModel = createViewModel()
-        viewModel.onStartSession()
+    fun `onStartSession emits PreviewStudySession with category and subcategory ids and names`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val viewModel = createViewModel()
+            viewModel.onStartSession()
 
-        viewModel.events.test {
-            awaitItem() shouldBe SubcategoryDetailsDestination.PreviewStudySession(
-                categoryId = route.categoryId,
-                categoryName = route.categoryName,
-                subcategoryId = route.subcategoryId,
-                subcategoryName = route.subcategoryName,
-            )
+            viewModel.events.test {
+                awaitItem() shouldBe SubcategoryDetailsDestination.PreviewStudySession(
+                    categoryId = route.categoryId,
+                    categoryName = route.categoryName,
+                    subcategoryId = route.subcategoryId,
+                    subcategoryName = route.subcategoryName
+                )
+            }
         }
-    }
 }

@@ -14,7 +14,7 @@ data class VoicePlaybackState(
     val isInBetweenPause: Boolean = false,
     val isAwaitingSpokenAnswer: Boolean = false,
     val speechRate: Float = DEFAULT_SPEECH_RATE,
-    val error: String? = null,
+    val error: String? = null
 ) {
     companion object {
         const val DEFAULT_SPEECH_RATE = 1f

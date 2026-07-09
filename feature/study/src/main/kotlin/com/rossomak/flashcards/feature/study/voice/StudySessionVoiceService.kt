@@ -8,13 +8,13 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 /**
  * Media3 [MediaSessionService] that reads flashcards aloud, with background playback capabilities. It owns a
@@ -120,8 +120,7 @@ class StudySessionVoiceService : MediaSessionService() {
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo) = mediaSession
 
-    override fun onBind(intent: Intent?): IBinder? =
-        if (intent?.action == ACTION_BIND_LOCAL) binder else super.onBind(intent)
+    override fun onBind(intent: Intent?): IBinder? = if (intent?.action == ACTION_BIND_LOCAL) binder else super.onBind(intent)
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         // Voice is tied to the study screen; swiping the app away ends playback.
@@ -148,8 +147,10 @@ class StudySessionVoiceService : MediaSessionService() {
             ?.apply { flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP }
             ?: Intent().apply { setPackage(packageName) }
         return PendingIntent.getActivity(
-            this, 0, launchIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            this,
+            0,
+            launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
     }
 

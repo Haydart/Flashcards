@@ -22,8 +22,7 @@ class LoginViewModelTest {
 
     private val testUser = AuthUser("u1", "a@b.com", "Alex", null)
 
-    private fun createViewModel(): LoginViewModel =
-        LoginViewModel(SignInWithGoogleUseCase(authRepository))
+    private fun createViewModel(): LoginViewModel = LoginViewModel(SignInWithGoogleUseCase(authRepository))
 
     @Test
     fun `onGoogleIdTokenReceived with successful sign-in emits Main`() = runTest(mainDispatcherRule.testDispatcher) {

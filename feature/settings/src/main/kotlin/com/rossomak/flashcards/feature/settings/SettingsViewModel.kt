@@ -18,7 +18,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val signOutUseCase: SignOutUseCase,
-    private val voiceSettingsController: VoiceSettingsController,
+    private val voiceSettingsController: VoiceSettingsController
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SettingsScreenState())

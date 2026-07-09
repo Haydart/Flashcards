@@ -10,7 +10,6 @@ import android.os.Looper
 import android.os.SystemClock
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
-import com.rossomak.flashcards.core.data.voice.VoiceCuration
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
@@ -18,10 +17,11 @@ import androidx.media3.common.SimpleBasePlayer
 import androidx.media3.common.util.UnstableApi
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import com.rossomak.flashcards.core.data.voice.VoiceCuration
+import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.util.Locale
 
 /**
  * Media3 [SimpleBasePlayer] that reads flashcards aloud with the system [TextToSpeech] engine and
@@ -161,11 +161,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         return Futures.immediateVoidFuture()
     }
 
-    override fun handleSeek(
-        mediaItemIndex: Int,
-        positionMs: Long,
-        seekCommand: Int
-    ): ListenableFuture<*> {
+    override fun handleSeek(mediaItemIndex: Int, positionMs: Long, seekCommand: Int): ListenableFuture<*> {
         when (seekCommand) {
             COMMAND_SEEK_TO_NEXT, COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> moveToNextCard()
             COMMAND_SEEK_TO_PREVIOUS -> doSmartPrevious() // system back: rewind-or-previous
@@ -261,7 +257,10 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         }
     }
 
-    /** [voiceId] `null` means "no explicit choice yet" — resolves to a curated English voice, never the device's system default (which may not even be English). */
+    /**
+     * [voiceId] `null` means "no explicit choice yet" — resolves to a curated English voice,
+     * never the device's system default (which may not even be English).
+     */
     private fun applyVoice(voiceId: String?) {
         val resolved = voiceId?.let { id -> tts.voices?.firstOrNull { it.name == id } }
             ?: VoiceCuration.curate(tts.voices.orEmpty()).firstOrNull()
@@ -356,7 +355,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
             card.spokenQuestion.ifBlank { " " },
             TextToSpeech.QUEUE_FLUSH,
             null,
-            utteranceId(TAG_QUESTION, generationId),
+            utteranceId(TAG_QUESTION, generationId)
         )
     }
 
@@ -371,7 +370,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
             card.spokenAnswer.ifBlank { " " },
             TextToSpeech.QUEUE_FLUSH,
             null,
-            utteranceId(TAG_ANSWER, generationId),
+            utteranceId(TAG_ANSWER, generationId)
         )
     }
 
@@ -473,7 +472,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
             phase = phase,
             isInBetweenPause = isBetweenPause,
             isAwaitingSpokenAnswer = isAwaitingSpokenAnswer,
-            speechRate = speechRate,
+            speechRate = speechRate
         )
         invalidateState()
     }
@@ -500,7 +499,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
             audioManager.requestAudioFocus(
                 audioFocusListener,
                 AudioManager.STREAM_MUSIC,
-                AudioManager.AUDIOFOCUS_GAIN,
+                AudioManager.AUDIOFOCUS_GAIN
             )
         }
     }
@@ -541,7 +540,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
                 COMMAND_GET_CURRENT_MEDIA_ITEM,
                 COMMAND_GET_METADATA,
                 COMMAND_GET_TIMELINE,
-                COMMAND_RELEASE,
+                COMMAND_RELEASE
             )
             .build()
 

@@ -23,8 +23,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.ui.composables.VoiceSettingsDialog
-import com.rossomak.flashcards.core.ui.showcase.Showcase
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
+import com.rossomak.flashcards.core.ui.showcase.Showcase
 import leakcanary.AppWatcher
 
 /**
@@ -38,11 +38,7 @@ private object LeakCanaryTestSink {
 }
 
 @Composable
-fun SettingsScreen(
-    modifier: Modifier = Modifier,
-    viewModel: SettingsViewModel = hiltViewModel(),
-    onNavigateToLogin: () -> Unit,
-) {
+fun SettingsScreen(modifier: Modifier = Modifier, viewModel: SettingsViewModel = hiltViewModel(), onNavigateToLogin: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
@@ -60,7 +56,7 @@ fun SettingsScreen(
             onVoiceSelected = viewModel::onVoiceSettingsDraftVoiceChanged,
             onSpeedChanged = viewModel::onVoiceSettingsDraftSpeedChanged,
             onSave = viewModel::onVoiceSettingsSave,
-            onDismiss = viewModel::onVoiceSettingsDismiss,
+            onDismiss = viewModel::onVoiceSettingsDismiss
         )
     }
 
@@ -80,7 +76,7 @@ fun SettingsScreen(
             }
         } else {
             null
-        },
+        }
     )
 }
 
@@ -91,7 +87,7 @@ private fun SettingsContent(
     showcaseIntent: Intent?,
     onVoicePlaybackSettingsClick: () -> Unit,
     onSignOutClick: () -> Unit,
-    onTriggerMemoryLeakClick: (() -> Unit)?,
+    onTriggerMemoryLeakClick: (() -> Unit)?
 ) {
     val context = LocalContext.current
 

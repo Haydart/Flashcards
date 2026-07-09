@@ -7,5 +7,5 @@ data class VoiceCard(
     // the LLM grades the spoken answer against.
     val cardId: String = "",
     val questionText: String = "",
-    val answerText: String = "",
+    val answerText: String = ""
 )

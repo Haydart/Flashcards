@@ -45,7 +45,7 @@ class PreviewStudySessionViewModelTest {
         categoryId = categoryId,
         categoryName = categoryName,
         subcategoryIds = listOf(subcategoryId),
-        subcategoryNames = listOf(subcategoryName),
+        subcategoryNames = listOf(subcategoryName)
     )
 
     @Before
@@ -62,28 +62,26 @@ class PreviewStudySessionViewModelTest {
         every { RouteDecoder.decode(any<() -> PreviewStudySessionRoute>()) } returns route
     }
 
-    private fun createViewModel(): PreviewStudySessionViewModel =
-        PreviewStudySessionViewModel(savedStateHandle, getFlashcards)
+    private fun createViewModel(): PreviewStudySessionViewModel = PreviewStudySessionViewModel(savedStateHandle, getFlashcards)
 
     private fun flashcard(
         id: String,
         subcategoryId: String = this.subcategoryId,
         tags: List<String> = listOf("General"),
-        difficulty: Int = 5,
-    ): Flashcard =
-        Flashcard(
-            id = id,
-            subcategoryId = subcategoryId,
-            tags = tags,
-            question = "question-$id",
-            answer = "answer-$id",
-            difficulty = difficulty,
-            questionCode = null,
-            answerCode = null,
-            questionSpoken = null,
-            answerSpoken = null,
-            extendedContext = null,
-        )
+        difficulty: Int = 5
+    ): Flashcard = Flashcard(
+        id = id,
+        subcategoryId = subcategoryId,
+        tags = tags,
+        question = "question-$id",
+        answer = "answer-$id",
+        difficulty = difficulty,
+        questionCode = null,
+        answerCode = null,
+        questionSpoken = null,
+        answerSpoken = null,
+        extendedContext = null
+    )
 
     @Test
     fun `selection caps card count at session size`() = runTest(mainDispatcherRule.testDispatcher) {
@@ -117,7 +115,7 @@ class PreviewStudySessionViewModelTest {
             listOf(
                 flashcard(id = "card-1", tags = listOf("State")),
                 flashcard(id = "card-2", tags = listOf("Modifiers")),
-                flashcard(id = "card-3", tags = listOf("State", "Modifiers")),
+                flashcard(id = "card-3", tags = listOf("State", "Modifiers"))
             )
         )
 
@@ -132,7 +130,7 @@ class PreviewStudySessionViewModelTest {
         stubRoute(
             singleTopicRoute.copy(
                 subcategoryIds = listOf("android-compose", "android-coroutines"),
-                subcategoryNames = listOf("Compose", "Coroutines"),
+                subcategoryNames = listOf("Compose", "Coroutines")
             )
         )
         flashcardRepository.flashcardsBySubcategory["android-compose"] =
@@ -179,7 +177,7 @@ class PreviewStudySessionViewModelTest {
             listOf(
                 flashcard(id = "card-1", difficulty = 2),
                 flashcard(id = "card-2", difficulty = 5),
-                flashcard(id = "card-3", difficulty = 9),
+                flashcard(id = "card-3", difficulty = 9)
             )
         )
 
@@ -222,7 +220,7 @@ class PreviewStudySessionViewModelTest {
             listOf(
                 flashcard(id = "card-1", difficulty = 8),
                 flashcard(id = "card-2", difficulty = 2),
-                flashcard(id = "card-3", difficulty = 5),
+                flashcard(id = "card-3", difficulty = 5)
             )
         )
 
@@ -245,7 +243,7 @@ class PreviewStudySessionViewModelTest {
             listOf(
                 flashcard(id = "card-1", difficulty = 8),
                 flashcard(id = "card-2", difficulty = 2),
-                flashcard(id = "card-3", difficulty = 5),
+                flashcard(id = "card-3", difficulty = 5)
             )
         )
 
@@ -333,7 +331,7 @@ class PreviewStudySessionViewModelTest {
         stubRoute(
             singleTopicRoute.copy(
                 subcategoryIds = listOf("android-compose", "android-coroutines"),
-                subcategoryNames = listOf("Compose", "Coroutines"),
+                subcategoryNames = listOf("Compose", "Coroutines")
             )
         )
         flashcardRepository.flashcardsBySubcategory["android-compose"] =
@@ -379,7 +377,7 @@ class PreviewStudySessionViewModelTest {
         stubRoute(
             singleTopicRoute.copy(
                 subcategoryIds = listOf("android-compose", "android-coroutines"),
-                subcategoryNames = listOf("Compose", "Coroutines"),
+                subcategoryNames = listOf("Compose", "Coroutines")
             )
         )
         flashcardRepository.flashcardsBySubcategory["android-compose"] =
@@ -405,7 +403,7 @@ class PreviewStudySessionViewModelTest {
         stubRoute(
             singleTopicRoute.copy(
                 subcategoryIds = listOf("android-compose", "android-coroutines"),
-                subcategoryNames = listOf("Compose", "Coroutines"),
+                subcategoryNames = listOf("Compose", "Coroutines")
             )
         )
         createViewModel().state.value.canRerandomize.shouldBeTrue()

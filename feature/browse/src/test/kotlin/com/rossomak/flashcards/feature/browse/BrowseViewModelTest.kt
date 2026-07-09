@@ -22,8 +22,7 @@ class BrowseViewModelTest {
     private val categoryId = "cat-1"
     private val categoryName = "Android"
 
-    private fun createViewModel(): BrowseViewModel =
-        BrowseViewModel(getCategories)
+    private fun createViewModel(): BrowseViewModel = BrowseViewModel(getCategories)
 
     @Test
     fun `onCategorySelected emits CategoryDetails with id and name`() = runTest(mainDispatcherRule.testDispatcher) {

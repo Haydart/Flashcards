@@ -12,10 +12,11 @@ import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
 import com.rossomak.flashcards.core.domain.usecase.GradeSpokenAnswerUseCase
 import com.rossomak.flashcards.core.voice.AudioRouteManager
 import com.rossomak.flashcards.core.voice.CaptureRouteType
-import com.rossomak.flashcards.core.voice.VoiceCaptureEvent
 import com.rossomak.flashcards.core.voice.VoiceCaptureEngine
+import com.rossomak.flashcards.core.voice.VoiceCaptureEvent
 import com.rossomak.flashcards.feature.study.R
 import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -28,7 +29,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 enum class VoiceAnswerPhase { IDLE, WAITING_FOR_QUESTION, LISTENING, SPEECH_DETECTED, GRADING, SPEAKING_NOTICE }
 
@@ -38,7 +38,7 @@ data class VoiceAnswerState(
     val lastGrade: VoiceAnswerGrade? = null,
     val lastGradedCardId: String? = null,
     val captureRoute: CaptureRouteType = CaptureRouteType.NONE,
-    val error: String? = null,
+    val error: String? = null
 )
 
 /**
@@ -61,13 +61,16 @@ class VoiceAnswerController @Inject constructor(
     @ApplicationContext private val context: Context,
     private val gradeSpokenAnswer: GradeSpokenAnswerUseCase,
     private val voiceCaptureEngine: VoiceCaptureEngine,
-    private val audioRouteManager: AudioRouteManager,
+    private val audioRouteManager: AudioRouteManager
 ) {
 
     private val _state = MutableStateFlow(VoiceAnswerState())
     val state: StateFlow<VoiceAnswerState> = _state.asStateFlow()
 
-    /** Emitted once the grade/skip notice has finished speaking (plus [ADVANCE_DELAY_MS]) — tells the service to move the shared TTS engine to the next card. */
+    /**
+     * Emitted once the grade/skip notice has finished speaking (plus [ADVANCE_DELAY_MS]) — tells
+     * the service to move the shared TTS engine to the next card.
+     */
     private val _advanceRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val advanceRequests: SharedFlow<Unit> = _advanceRequests.asSharedFlow()
 
@@ -142,7 +145,7 @@ class VoiceAnswerController @Inject constructor(
             phase = VoiceAnswerPhase.LISTENING,
             lastGrade = null,
             lastGradedCardId = null,
-            error = null,
+            error = null
         )
         // Bluetooth-strict (ADR-0027): open the listening window only once the mic route has settled
         // to a capturable one. If a mic-capable BT device dropped, this suspends until it reconnects
@@ -199,26 +202,26 @@ class VoiceAnswerController @Inject constructor(
                 cardId = card.cardId,
                 question = card.questionText,
                 expectedAnswer = card.answerText,
-                obfuscatedAnswerWav = obfuscatedWav,
+                obfuscatedAnswerWav = obfuscatedWav
             )
         ).onSuccess { grade ->
             _state.value = _state.value.copy(
                 phase = VoiceAnswerPhase.SPEAKING_NOTICE,
                 lastGrade = grade,
                 lastGradedCardId = card.cardId,
-                error = null,
+                error = null
             )
             speakNotice(
                 context.getString(
                     R.string.study_session_voice_answer_grade_spoken_message,
                     grade.gradePercent,
-                    grade.feedback,
+                    grade.feedback
                 )
             )
         }.onFailure { error ->
             _state.value = _state.value.copy(
                 phase = VoiceAnswerPhase.SPEAKING_NOTICE,
-                error = error.message,
+                error = error.message
             )
             // No screen to look at in this UX — failure must be audible (design doc §Upload
             // failure handling; silent-drop was explicitly rejected).
@@ -273,9 +276,8 @@ class VoiceAnswerController @Inject constructor(
         noticeTts?.speak(text, TextToSpeech.QUEUE_ADD, null, NOTICE_UTTERANCE_ID)
     }
 
-    private fun hasRecordAudioPermission(): Boolean =
-        ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
-                PackageManager.PERMISSION_GRANTED
+    private fun hasRecordAudioPermission(): Boolean = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+        PackageManager.PERMISSION_GRANTED
 
     private fun acquireWakeLock() {
         if (wakeLock?.isHeld == true) return

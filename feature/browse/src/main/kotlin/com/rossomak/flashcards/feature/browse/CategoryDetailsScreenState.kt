@@ -7,5 +7,5 @@ data class CategoryDetailsScreenState(
     val categoryName: String = "",
     val isLoading: Boolean = false,
     val subcategories: List<Subcategory> = emptyList(),
-    val error: String? = null,
+    val error: String? = null
 )

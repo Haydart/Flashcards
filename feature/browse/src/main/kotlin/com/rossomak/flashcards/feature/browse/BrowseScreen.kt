@@ -25,7 +25,7 @@ import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 fun BrowseScreen(
     modifier: Modifier = Modifier,
     viewModel: BrowseViewModel = hiltViewModel(),
-    onNavigateToCategoryDetails: (String, String) -> Unit = { _, _ -> },
+    onNavigateToCategoryDetails: (String, String) -> Unit = { _, _ -> }
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
@@ -40,7 +40,7 @@ fun BrowseScreen(
         modifier = modifier,
         state = state,
         onRefresh = viewModel::onCategoriesRefresh,
-        onCategoryClick = viewModel::onCategorySelected,
+        onCategoryClick = viewModel::onCategorySelected
     )
 }
 
@@ -50,7 +50,7 @@ fun BrowseContent(
     modifier: Modifier = Modifier,
     state: BrowseScreenState,
     onRefresh: () -> Unit,
-    onCategoryClick: (String, String) -> Unit,
+    onCategoryClick: (String, String) -> Unit
 ) {
     PullToRefreshBox(
         isRefreshing = state.isLoading,
@@ -69,10 +69,7 @@ fun BrowseContent(
 }
 
 @Composable
-private fun CategoryList(
-    state: BrowseScreenState,
-    onCategoryClick: (String, String) -> Unit,
-) {
+private fun CategoryList(state: BrowseScreenState, onCategoryClick: (String, String) -> Unit) {
     if (state.categories.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(text = "No categories found")
