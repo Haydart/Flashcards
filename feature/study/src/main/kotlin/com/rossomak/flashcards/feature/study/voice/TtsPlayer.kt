@@ -194,6 +194,8 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
     /** Toggles between Fast's continuous auto-advance and Rated voice-answering's stop-after-question shape. */
     fun setVoiceAnsweringMode(enabled: Boolean) {
         isVoiceAnsweringMode = enabled
+        if (!enabled) isAwaitingSpokenAnswer = false
+        publishState()
     }
 
     /** Called once a spoken answer has been graded (or skipped after a silence timeout); moves on to the next question. */

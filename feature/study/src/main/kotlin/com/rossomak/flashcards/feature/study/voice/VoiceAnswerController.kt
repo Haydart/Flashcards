@@ -113,13 +113,15 @@ class VoiceAnswerController @Inject constructor(
     /** Called once the shared TTS engine finishes reading the current card's question — opens the listening window. */
     fun onQuestionFinishedSpeaking() {
         if (!_state.value.isEnabled) return
-        // Clear the previous card's grade before opening this round's listening window — otherwise
-        // it rides along on this phase-only update, gets picked up as "new" by the ViewModel, and
-        // re-shows a stale snackbar (e.g. over this round's own no-answer notice).
+        // Clear the previous card's grade/error before opening this round's listening window —
+        // otherwise it rides along on this phase-only update, gets picked up as "new" by the
+        // ViewModel, and re-shows a stale snackbar (e.g. over this round's own no-answer notice),
+        // or suppresses re-showing an identical error next round (LaunchedEffect keys on value).
         _state.value = _state.value.copy(
             phase = VoiceAnswerPhase.LISTENING,
             lastGrade = null,
             lastGradedCardId = null,
+            error = null,
         )
         voiceCaptureEngine.startListening()
         listenTimeoutJob?.cancel()
