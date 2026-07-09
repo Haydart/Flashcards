@@ -11,10 +11,12 @@ class PitchShiftVoiceObfuscatorTest {
 
     private val obfuscator = PitchShiftVoiceObfuscator()
 
-    private fun toneClip(durationSamples: Int = 16_000): ShortArray =
-        ShortArray(durationSamples) { index ->
-            (10_000 * sin(2 * PI * 220 * index / 16_000)).toInt().toShort()
+    private fun toneClip(durationSamples: Int = SileroVadSession.SAMPLE_RATE_HZ.toInt()): ShortArray {
+        val sampleRateHz = SileroVadSession.SAMPLE_RATE_HZ.toDouble()
+        return ShortArray(durationSamples) { index ->
+            (10_000 * sin(2 * PI * 220 * index / sampleRateHz)).toInt().toShort()
         }
+    }
 
     @Test
     fun `obfuscate keeps duration within ten percent of the input`() {
@@ -23,7 +25,7 @@ class PitchShiftVoiceObfuscatorTest {
         val output = obfuscator.obfuscate(input)
 
         val relativeLengthError = abs(output.size - input.size) / input.size.toDouble()
-        relativeLengthError shouldBeLessThan 0.1
+        relativeLengthError shouldBeLessThan 0.001
     }
 
     @Test
