@@ -10,8 +10,10 @@ import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
 interface VoiceAnswerGradingRepository {
 
     /**
-     * Full pipeline for one spoken answer: transcribe + sanitize + grade, then persist the
-     * resulting [VoiceAnswerGrade] for [cardId]. The audio itself is never persisted.
+     * Full pipeline for one spoken answer: transcribe + sanitize + grade. Returns the resulting
+     * [VoiceAnswerGrade] for [cardId] only — no persistence happens here (ADR-0014: no
+     * per-card Firestore writes during a session). The caller batches grades into the
+     * session-end write once that pipeline exists.
      */
     suspend fun gradeSpokenAnswer(
         cardId: String,

@@ -3,7 +3,6 @@ package com.rossomak.flashcards.core.data.repository
 import com.rossomak.flashcards.core.data.mapper.toDomain
 import com.rossomak.flashcards.core.data.model.SanitizeAndGradeRequestDto
 import com.rossomak.flashcards.core.data.network.VoiceGradingApi
-import com.rossomak.flashcards.core.data.source.VoiceAnswerRemoteDataSource
 import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
 import com.rossomak.flashcards.core.domain.repository.VoiceAnswerGradingRepository
 import kotlinx.coroutines.CancellationException
@@ -13,9 +12,13 @@ import kotlinx.coroutines.withContext
 import java.io.IOException
 import javax.inject.Inject
 
+/**
+ * Never writes to Firestore per answer (ADR-0014): grades are handed back to the caller only.
+ * Batch persistence at session end belongs to the not-yet-built Rating/Attempt/Terminal-State
+ * pipeline (ADR-0016/ADR-0026).
+ */
 class DefaultVoiceAnswerGradingRepository @Inject constructor(
     private val voiceGradingApi: VoiceGradingApi,
-    private val voiceAnswerRemoteDataSource: VoiceAnswerRemoteDataSource,
 ) : VoiceAnswerGradingRepository {
 
     override suspend fun gradeSpokenAnswer(
@@ -28,7 +31,6 @@ class DefaultVoiceAnswerGradingRepository @Inject constructor(
             val grade = retryWithBackoff {
                 voiceGradingApi.gradeVoiceAnswer(cardId, question, expectedAnswer, obfuscatedAnswerWav)
             }.toDomain()
-            voiceAnswerRemoteDataSource.saveVoiceAnswerGrade(cardId, grade)
             Result.success(grade)
         } catch (exception: CancellationException) {
             throw exception
