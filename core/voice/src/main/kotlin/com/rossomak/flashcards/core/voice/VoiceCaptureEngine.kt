@@ -186,6 +186,8 @@ class VoiceCaptureEngine @Inject constructor(
         } finally {
             runCatching { audioRecord.stop() }
             audioRecord.release()
+            stopBluetoothScoRouting()
+            _isListening.value = false
             _isSpeechDetected.value = false
         }
     }
