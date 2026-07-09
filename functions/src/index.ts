@@ -62,6 +62,9 @@ export const sanitizeAndGrade = onRequest(RUNTIME_OPTIONS, handle(async (req, re
   await requirePremiumEntitlement(uid);
 
   const { question, expected_answer: expectedAnswer, transcript } = req.body ?? {};
+  if (typeof question !== "string" || typeof expectedAnswer !== "string" || typeof transcript !== "string") {
+    throw new HttpError(400, "question, expected_answer, and transcript must be non-empty strings");
+  }
   if (!question || !expectedAnswer || !transcript) {
     throw new HttpError(400, "Missing question/expected_answer/transcript");
   }
