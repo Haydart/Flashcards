@@ -9,6 +9,7 @@ export interface ParsedMultipart {
 }
 
 const AUDIO_FIELD_NAME = "audio";
+const MAX_AUDIO_BYTES = 10 * 1024 * 1024; // 10 MB
 
 /**
  * Parses the multipart bodies `gradeVoiceAnswer`/`transcribe` send (see
@@ -24,10 +25,14 @@ export function parseMultipart(req: Request): Promise<ParsedMultipart> {
       return;
     }
 
-    const busboy = Busboy({ headers: { "content-type": contentType } });
+    const busboy = Busboy({
+      headers: { "content-type": contentType },
+      limits: { fileSize: MAX_AUDIO_BYTES },
+    });
     const fields: Record<string, string> = {};
     const audioChunks: Buffer[] = [];
     let audio: Buffer | null = null;
+    let audioTooLarge = false;
 
     busboy.on("field", (name, value) => {
       fields[name] = value;
@@ -39,13 +44,24 @@ export function parseMultipart(req: Request): Promise<ParsedMultipart> {
         return;
       }
       file.on("data", (chunk: Buffer) => audioChunks.push(chunk));
+      file.on("limit", () => {
+        audioTooLarge = true;
+      });
       file.on("end", () => {
         audio = Buffer.concat(audioChunks);
       });
     });
 
-    busboy.on("error", (error) => reject(error));
-    busboy.on("finish", () => resolve({ fields, audio }));
+    busboy.on("error", (error) => {
+      reject(new HttpError(400, `Multipart parse error: ${(error as Error).message}`));
+    });
+    busboy.on("finish", () => {
+      if (audioTooLarge) {
+        reject(new HttpError(413, "Audio exceeds maximum allowed size"));
+        return;
+      }
+      resolve({ fields, audio });
+    });
 
     Readable.from(req.rawBody).pipe(busboy);
   });
