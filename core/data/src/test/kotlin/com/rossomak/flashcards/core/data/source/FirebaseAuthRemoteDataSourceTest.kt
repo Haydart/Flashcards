@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.core.data.repository
+package com.rossomak.flashcards.core.data.source
 
 import android.net.Uri
 import com.google.android.gms.tasks.Tasks
@@ -19,11 +19,11 @@ import org.junit.After
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class DefaultAuthRepositoryTest {
+class FirebaseAuthRemoteDataSourceTest {
 
     private val firebaseAuth: FirebaseAuth = mockk(relaxed = true)
 
-    private fun createRepository(): DefaultAuthRepository = DefaultAuthRepository(firebaseAuth)
+    private fun createDataSource(): FirebaseAuthRemoteDataSource = FirebaseAuthRemoteDataSource(firebaseAuth)
 
     private fun firebaseUser(
         uid: String = "uid-1",
@@ -48,7 +48,7 @@ class DefaultAuthRepositoryTest {
         every { photoUri.toString() } returns "http://photo"
         every { firebaseAuth.currentUser } returns firebaseUser(photoUri = photoUri)
 
-        val user = createRepository().getCurrentUser()
+        val user = createDataSource().getCurrentUser()
 
         user?.uid shouldBe "uid-1"
         user?.email shouldBe "user@example.com"
@@ -61,7 +61,7 @@ class DefaultAuthRepositoryTest {
     fun `getCurrentUser returns null when there is no signed in user`() {
         every { firebaseAuth.currentUser } returns null
 
-        val user = createRepository().getCurrentUser()
+        val user = createDataSource().getCurrentUser()
 
         user shouldBe null
         verify(exactly = 1) { firebaseAuth.currentUser }
@@ -76,7 +76,7 @@ class DefaultAuthRepositoryTest {
         every { GoogleAuthProvider.getCredential(idToken, null) } returns credential
         every { firebaseAuth.signInWithCredential(credential) } returns Tasks.forResult(authResult)
 
-        val result = createRepository().signInWithGoogleIdToken(idToken)
+        val result = createDataSource().signInWithGoogleIdToken(idToken)
 
         result.isSuccess shouldBe true
         result.getOrThrow().uid shouldBe "uid-1"
@@ -92,7 +92,7 @@ class DefaultAuthRepositoryTest {
         every { GoogleAuthProvider.getCredential(idToken, null) } returns credential
         every { firebaseAuth.signInWithCredential(credential) } returns Tasks.forResult(authResult)
 
-        val result = createRepository().signInWithGoogleIdToken(idToken)
+        val result = createDataSource().signInWithGoogleIdToken(idToken)
 
         result.isFailure shouldBe true
         (result.exceptionOrNull() is IllegalStateException) shouldBe true
@@ -108,7 +108,7 @@ class DefaultAuthRepositoryTest {
         every { GoogleAuthProvider.getCredential(idToken, null) } returns credential
         every { firebaseAuth.signInWithCredential(credential) } returns Tasks.forException(error)
 
-        val result = createRepository().signInWithGoogleIdToken(idToken)
+        val result = createDataSource().signInWithGoogleIdToken(idToken)
 
         result.isFailure shouldBe true
         result.exceptionOrNull() shouldBe error
@@ -117,7 +117,7 @@ class DefaultAuthRepositoryTest {
 
     @Test
     fun `signOut delegates to firebase auth`() {
-        createRepository().signOut()
+        createDataSource().signOut()
 
         verify(exactly = 1) { firebaseAuth.signOut() }
     }
