@@ -1,13 +1,9 @@
 package com.rossomak.flashcards.core.voice
 
-import android.annotation.SuppressLint
 import android.content.Context
-import android.media.AudioDeviceInfo
 import android.media.AudioFormat
-import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.MediaRecorder
-import android.os.Build
 import androidx.annotation.RequiresPermission
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
@@ -41,22 +37,32 @@ sealed interface VoiceCaptureEvent {
 }
 
 /**
- * Continuous mic capture: AudioRecord (16kHz mono PCM) feeding 20ms
- * frames through the [VoiceActivityDetector]; VAD-bounded utterances are buffered, run through
- * the [VoiceObfuscator] on-device, WAV-wrapped and emitted via [events]. Raw (un-obfuscated)
- * buffers are zeroed as soon as the obfuscated copy exists.
+ * Continuous mic capture: AudioRecord (16kHz mono PCM) feeding 20ms frames through the
+ * [VoiceActivityDetector]; VAD-bounded utterances are buffered, run through the [VoiceObfuscator]
+ * on-device, WAV-wrapped and emitted via [events]. Raw (un-obfuscated) buffers are zeroed as soon
+ * as the obfuscated copy exists.
  *
- * Bluetooth earphone mics are routed via SCO ([AudioManager.startBluetoothSco] pre-S,
- * `setCommunicationDevice` on S+) — the only reliable path for BT Classic headsets.
+ * Microphone *routing* (BLE-first, SCO fallback, Bluetooth-strict — ADR-0027) is owned by
+ * [AudioRouteManager] at the session level, not here. This engine only reads the currently active
+ * [CaptureRoute]: it binds the input device via `AudioRecord.setPreferredDevice`, verifies the
+ * honored [AudioRecord.getRoutedDevice] after `startRecording()`, and — when a Bluetooth mic is
+ * required but unavailable ([CaptureRouteType.WAITING]) — strict-pauses rather than silently falling
+ * back to the pocketed phone mic. On a mid-session route change it rebuilds the [AudioRecord] at the
+ * next utterance boundary (an [AudioRecord] cannot change device live).
  *
- * Callers own the surrounding foreground-service + wake-lock lifecycle (feature:study).
+ * Callers own the surrounding foreground-service + wake-lock lifecycle and the session route
+ * (feature:study): they call [AudioRouteManager.acquireSessionRoute] before listening and
+ * [AudioRouteManager.releaseSessionRoute] at session end.
  */
 @Singleton
 class VoiceCaptureEngine @Inject constructor(
     @ApplicationContext private val context: Context,
     private val voiceActivityDetector: VoiceActivityDetector,
     private val voiceObfuscator: VoiceObfuscator,
+    private val audioRouteManager: AudioRouteManager,
 ) {
+
+    private enum class CaptureOutcome { STOPPED, FAILED, ROUTE_CHANGED }
 
     private val _events = MutableSharedFlow<VoiceCaptureEvent>(extraBufferCapacity = 16)
     val events: SharedFlow<VoiceCaptureEvent> = _events.asSharedFlow()
@@ -69,8 +75,6 @@ class VoiceCaptureEngine @Inject constructor(
 
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var captureJob: Job? = null
-    private val audioManager: AudioManager
-        get() = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
     /** Starts continuous VAD-driven capture. No-op when already listening. */
     @RequiresPermission(android.Manifest.permission.RECORD_AUDIO)
@@ -87,7 +91,6 @@ class VoiceCaptureEngine @Inject constructor(
         captureJob = null
         _isListening.value = false
         _isSpeechDetected.value = false
-        stopBluetoothScoRouting()
     }
 
     /**
@@ -100,8 +103,9 @@ class VoiceCaptureEngine @Inject constructor(
     suspend fun recordRawClip(durationMs: Long): ShortArray = withContext(Dispatchers.IO) {
         val totalSamples = (SAMPLE_RATE_HZ * durationMs / 1000).toInt()
         val clip = ShortArray(totalSamples)
-        val audioRecord = createAudioRecord() ?: return@withContext ShortArray(0)
-        startBluetoothScoRoutingIfNeeded()
+        // Debug capture: use whatever route is active (phone if no session route acquired); no
+        // strict-pause or verification here — this path is dev-only, never production capture.
+        val audioRecord = createAudioRecord(audioRouteManager.route.value) ?: return@withContext ShortArray(0)
         try {
             audioRecord.startRecording()
             var readSamples = 0
@@ -113,7 +117,6 @@ class VoiceCaptureEngine @Inject constructor(
         } finally {
             runCatching { audioRecord.stop() }
             audioRecord.release()
-            stopBluetoothScoRouting()
         }
         clip
     }
@@ -126,86 +129,132 @@ class VoiceCaptureEngine @Inject constructor(
 
     @RequiresPermission(android.Manifest.permission.RECORD_AUDIO)
     private suspend fun runCaptureLoop() {
-        val audioRecord = createAudioRecord() ?: run {
-            _events.emit(VoiceCaptureEvent.CaptureFailed("AudioRecord initialization failed"))
-            _isListening.value = false
-            return
+        // A route change (BT connect/disconnect mid-session) can't be applied to a live AudioRecord,
+        // so it's applied by rebuilding at the next utterance boundary. This flag is raised by the
+        // route-change collector and consumed at a safe point inside captureFrames().
+        var routeChangePending = false
+        val routeChangeJob = scope.launch {
+            audioRouteManager.routeChanges.collect { routeChangePending = true }
         }
-        startBluetoothScoRoutingIfNeeded()
+        try {
+            while (captureJob?.isActive == true) {
+                val route = audioRouteManager.route.value
+                if (!route.isCapturable) {
+                    // Bluetooth-strict (ADR-0027): a mic-capable BT device is connected but its link
+                    // isn't ready — never fall back to the pocketed phone mic. Strict-pause instead.
+                    _events.emit(VoiceCaptureEvent.CaptureFailed("Bluetooth microphone unavailable"))
+                    return
+                }
+                routeChangePending = false
+                val audioRecord = createAudioRecord(route) ?: run {
+                    _events.emit(VoiceCaptureEvent.CaptureFailed("AudioRecord initialization failed"))
+                    return
+                }
+                val outcome = try {
+                    audioRecord.startRecording()
+                    if (!isRouteHonored(audioRecord, route)) {
+                        _events.emit(VoiceCaptureEvent.CaptureFailed("Capture not routed to Bluetooth microphone"))
+                        CaptureOutcome.FAILED
+                    } else {
+                        captureFrames(audioRecord) { routeChangePending }
+                    }
+                } catch (exception: SecurityException) {
+                    _events.emit(VoiceCaptureEvent.CaptureFailed("Microphone permission missing: ${exception.message}"))
+                    CaptureOutcome.FAILED
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (exception: Exception) {
+                    // VAD inference or AudioRecord failures used to kill the loop silently, leaving
+                    // the UI stuck on "silence". Surface them so they show up in the debug event log.
+                    android.util.Log.e(TAG, "capture loop error", exception)
+                    _events.emit(VoiceCaptureEvent.CaptureFailed("Capture loop error: ${exception.message}"))
+                    CaptureOutcome.FAILED
+                } finally {
+                    runCatching { audioRecord.stop() }
+                    audioRecord.release()
+                }
+                when (outcome) {
+                    CaptureOutcome.STOPPED, CaptureOutcome.FAILED -> return
+                    CaptureOutcome.ROUTE_CHANGED -> Unit // loop and rebuild AudioRecord on the new route
+                }
+            }
+        } finally {
+            routeChangeJob.cancel()
+            _isListening.value = false
+            _isSpeechDetected.value = false
+        }
+    }
+
+    /**
+     * Reads VAD-bounded utterances off [audioRecord] until the job is cancelled ([CaptureOutcome.STOPPED])
+     * or [isRouteChangePending] flips. A pending route change is honored at an utterance boundary:
+     * an in-flight utterance is finished first, then [CaptureOutcome.ROUTE_CHANGED] is returned so the
+     * caller rebuilds on the new route (never a mid-clip device switch).
+     */
+    private suspend fun captureFrames(
+        audioRecord: AudioRecord,
+        isRouteChangePending: () -> Boolean,
+    ): CaptureOutcome {
         val frame = ShortArray(FRAME_SIZE_SAMPLES)
         val preRoll = ArrayDeque<ShortArray>(PRE_ROLL_FRAMES)
         val utterance = mutableListOf<ShortArray>()
         var isInUtterance = false
         var trailingSilenceFrames = 0
         var speechFrameCount = 0
-        try {
-            audioRecord.startRecording()
-            while (captureJob?.isActive == true) {
-                val read = audioRecord.read(frame, 0, frame.size)
-                if (read <= 0) continue
-                if (read < frame.size) frame.fill(0, read, frame.size)
-                val isSpeech = voiceActivityDetector.isSpeech(frame)
-                _isSpeechDetected.value = isSpeech
-                when {
-                    isSpeech && !isInUtterance -> {
-                        isInUtterance = true
-                        trailingSilenceFrames = 0
-                        speechFrameCount = 1
+        while (captureJob?.isActive == true) {
+            if (isRouteChangePending() && !isInUtterance) return CaptureOutcome.ROUTE_CHANGED
+            val read = audioRecord.read(frame, 0, frame.size)
+            if (read <= 0) continue
+            if (read < frame.size) frame.fill(0, read, frame.size)
+            val isSpeech = voiceActivityDetector.isSpeech(frame)
+            _isSpeechDetected.value = isSpeech
+            when {
+                isSpeech && !isInUtterance -> {
+                    isInUtterance = true
+                    trailingSilenceFrames = 0
+                    speechFrameCount = 1
+                    utterance.clear()
+                    utterance.addAll(preRoll)
+                    preRoll.clear()
+                    utterance.add(frame.copyOf())
+                    _events.emit(VoiceCaptureEvent.SpeechStarted)
+                }
+                isInUtterance && isSpeech -> {
+                    utterance.add(frame.copyOf())
+                    speechFrameCount++
+                    trailingSilenceFrames = 0
+                }
+                isInUtterance -> {
+                    // Only pad a short context window (leading-in for the next burst, or
+                    // trailing-out for this one) into the buffer; frames beyond GAP_PAD_FRAMES
+                    // are neither appended nor obfuscated/uploaded — dead air between
+                    // thinking-pauses never leaves the device. trailingSilenceFrames still
+                    // counts every silent frame so the END_SILENCE_FRAMES hangover timing is
+                    // unaffected.
+                    trailingSilenceFrames++
+                    if (trailingSilenceFrames <= GAP_PAD_FRAMES) {
+                        utterance.add(frame.copyOf())
+                    }
+                    val utteranceEnded = trailingSilenceFrames >= END_SILENCE_FRAMES
+                    val utteranceTooLong = utterance.size >= MAX_UTTERANCE_FRAMES
+                    if (utteranceEnded || utteranceTooLong) {
+                        isInUtterance = false
+                        _events.emit(VoiceCaptureEvent.SpeechEnded)
+                        finishUtterance(utterance, speechFrameCount)
                         utterance.clear()
-                        utterance.addAll(preRoll)
-                        preRoll.clear()
-                        utterance.add(frame.copyOf())
-                        _events.emit(VoiceCaptureEvent.SpeechStarted)
-                    }
-                    isInUtterance && isSpeech -> {
-                        utterance.add(frame.copyOf())
-                        speechFrameCount++
                         trailingSilenceFrames = 0
-                    }
-                    isInUtterance -> {
-                        // Only pad a short context window (leading-in for the next burst, or
-                        // trailing-out for this one) into the buffer; frames beyond GAP_PAD_FRAMES
-                        // are neither appended nor obfuscated/uploaded — dead air between
-                        // thinking-pauses never leaves the device. trailingSilenceFrames still
-                        // counts every silent frame so the END_SILENCE_FRAMES hangover timing is
-                        // unaffected.
-                        trailingSilenceFrames++
-                        if (trailingSilenceFrames <= GAP_PAD_FRAMES) {
-                            utterance.add(frame.copyOf())
-                        }
-                        val utteranceEnded = trailingSilenceFrames >= END_SILENCE_FRAMES
-                        val utteranceTooLong = utterance.size >= MAX_UTTERANCE_FRAMES
-                        if (utteranceEnded || utteranceTooLong) {
-                            isInUtterance = false
-                            _events.emit(VoiceCaptureEvent.SpeechEnded)
-                            finishUtterance(utterance, speechFrameCount)
-                            utterance.clear()
-                            trailingSilenceFrames = 0
-                            speechFrameCount = 0
-                        }
-                    }
-                    else -> {
-                        preRoll.addLast(frame.copyOf())
-                        if (preRoll.size > PRE_ROLL_FRAMES) preRoll.removeFirst()
+                        speechFrameCount = 0
+                        // Finished the in-flight utterance; now it's safe to switch devices.
+                        if (isRouteChangePending()) return CaptureOutcome.ROUTE_CHANGED
                     }
                 }
+                else -> {
+                    preRoll.addLast(frame.copyOf())
+                    if (preRoll.size > PRE_ROLL_FRAMES) preRoll.removeFirst()
+                }
             }
-        } catch (exception: SecurityException) {
-            _events.emit(VoiceCaptureEvent.CaptureFailed("Microphone permission missing: ${exception.message}"))
-        } catch (cancellation: CancellationException) {
-            throw cancellation
-        } catch (exception: Exception) {
-            // VAD inference or AudioRecord failures used to kill the loop silently, leaving the UI
-            // stuck on "silence". Surface them so they show up in the debug event log.
-            android.util.Log.e(TAG, "capture loop error", exception)
-            _events.emit(VoiceCaptureEvent.CaptureFailed("Capture loop error: ${exception.message}"))
-        } finally {
-            runCatching { audioRecord.stop() }
-            audioRecord.release()
-            stopBluetoothScoRouting()
-            _isListening.value = false
-            _isSpeechDetected.value = false
         }
+        return CaptureOutcome.STOPPED
     }
 
     private suspend fun finishUtterance(frames: List<ShortArray>, speechFrameCount: Int) {
@@ -228,7 +277,7 @@ class VoiceCaptureEngine @Inject constructor(
     }
 
     @RequiresPermission(android.Manifest.permission.RECORD_AUDIO)
-    private fun createAudioRecord(): AudioRecord? {
+    private fun createAudioRecord(route: CaptureRoute): AudioRecord? {
         val minBufferSize = AudioRecord.getMinBufferSize(
             SAMPLE_RATE_HZ,
             AudioFormat.CHANNEL_IN_MONO,
@@ -242,43 +291,33 @@ class VoiceCaptureEngine @Inject constructor(
             AudioFormat.ENCODING_PCM_16BIT,
             maxOf(minBufferSize, FRAME_SIZE_SAMPLES * Short.SIZE_BYTES * BUFFER_FRAMES),
         )
-        return if (audioRecord.state == AudioRecord.STATE_INITIALIZED) {
-            audioRecord
-        } else {
+        if (audioRecord.state != AudioRecord.STATE_INITIALIZED) {
             audioRecord.release()
-            null
+            return null
         }
+        // Bind the input to the Bluetooth mic before recording starts — OEMs latch the input route
+        // at startRecording(), so the preferred device must be set here, not after.
+        route.device?.let { audioRecord.setPreferredDevice(it) }
+        return audioRecord
     }
 
     /**
-     * VOICE_RECOGNITION routes through OEM noise-suppression/AGC that gutted the signal to near
-     * silence on some devices (e.g. Realme/MTK). Prefer UNPROCESSED — a raw, effect-free mic feed,
-     * ideal for our own VAD + cloud ASR — when the device advertises support, otherwise fall back to
-     * the plain MIC source, which still carries a usable level.
+     * After startRecording(), confirm a Bluetooth route actually landed on the Bluetooth mic. A
+     * mismatch means the OEM silently steered capture to the phone mic — which, phone-in-pocket, is
+     * the core failure this pipeline exists to prevent. Phone/none routes are trivially honored.
+     */
+    private fun isRouteHonored(audioRecord: AudioRecord, route: CaptureRoute): Boolean {
+        if (!route.isBluetooth) return true
+        val routedType = audioRecord.routedDevice?.type ?: return false
+        return routedType == route.device?.type
+    }
+
+    /**
+     * Single swappable audio-source line (ADR-0027 Q1), pending the on-device A/B test. Kept as MIC:
+     * VOICE_RECOGNITION routed through OEM noise-suppression/AGC that gutted the signal to near
+     * silence on some devices (e.g. Realme/MTK).
      */
     private fun preferredAudioSource(): Int = MediaRecorder.AudioSource.MIC
-
-    @SuppressLint("DEPRECATION") // startBluetoothSco is the only path below API 31.
-    private fun startBluetoothScoRoutingIfNeeded() {
-        val manager = audioManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val scoDevice = manager.availableCommunicationDevices
-                .firstOrNull { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO }
-            scoDevice?.let { manager.setCommunicationDevice(it) }
-        } else if (manager.isBluetoothScoAvailableOffCall) {
-            manager.startBluetoothSco()
-        }
-    }
-
-    @SuppressLint("DEPRECATION")
-    private fun stopBluetoothScoRouting() {
-        val manager = audioManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            manager.clearCommunicationDevice()
-        } else {
-            runCatching { manager.stopBluetoothSco() }
-        }
-    }
 
     companion object {
         private const val TAG = "VoiceCapture"
