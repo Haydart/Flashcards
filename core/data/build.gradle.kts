@@ -1,13 +1,32 @@
+import java.util.Properties
+
 plugins {
     id("android-core-data")
 }
 
+val localProperties = Properties().apply {
+    val localFile = rootProject.file("local.properties")
+    if (localFile.exists()) {
+        localFile.inputStream().use { load(it) }
+    }
+}
+val voiceGradingBaseUrl: String = localProperties.getProperty("VOICE_GRADING_BASE_URL", "")
+
 android {
     namespace = "com.rossomak.flashcards.core.data"
+    buildFeatures {
+        buildConfig = true
+    }
+    defaultConfig {
+        buildConfigField("String", "VOICE_GRADING_BASE_URL", "\"$voiceGradingBaseUrl\"")
+    }
 }
 
 dependencies {
     implementation(project(":core:domain"))
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.kotlinx.serialization)
+    implementation(libs.okhttp)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.firestore.ktx)

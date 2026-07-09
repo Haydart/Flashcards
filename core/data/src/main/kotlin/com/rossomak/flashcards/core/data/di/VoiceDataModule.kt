@@ -7,6 +7,8 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.rossomak.flashcards.core.data.preview.DefaultVoicePreviewGateway
 import com.rossomak.flashcards.core.data.repository.DefaultVoiceOptionsRepository
 import com.rossomak.flashcards.core.data.repository.DefaultVoiceSettingsRepository
+import com.rossomak.flashcards.core.data.source.DataStoreVoiceSettingsLocalDataSource
+import com.rossomak.flashcards.core.data.source.VoiceSettingsLocalDataSource
 import com.rossomak.flashcards.core.domain.repository.VoiceOptionsRepository
 import com.rossomak.flashcards.core.domain.repository.VoicePreviewGateway
 import com.rossomak.flashcards.core.domain.repository.VoiceSettingsRepository
@@ -29,6 +31,12 @@ abstract class VoiceDataModule {
     abstract fun bindVoiceSettingsRepository(
         impl: DefaultVoiceSettingsRepository,
     ): VoiceSettingsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindVoiceSettingsLocalDataSource(
+        impl: DataStoreVoiceSettingsLocalDataSource,
+    ): VoiceSettingsLocalDataSource
 
     @Binds
     @Singleton
