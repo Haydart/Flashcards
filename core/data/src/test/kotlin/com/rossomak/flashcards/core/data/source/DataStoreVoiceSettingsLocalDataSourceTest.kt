@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.core.data.repository
+package com.rossomak.flashcards.core.data.source
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
@@ -18,7 +18,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class DefaultVoiceSettingsRepositoryTest {
+class DataStoreVoiceSettingsLocalDataSourceTest {
 
     @get:Rule
     val temporaryFolder = TemporaryFolder()
@@ -31,8 +31,8 @@ class DefaultVoiceSettingsRepositoryTest {
         }
     }
 
-    private fun createRepository(): DefaultVoiceSettingsRepository =
-        DefaultVoiceSettingsRepository(dataStore)
+    private fun createLocalDataSource(): DataStoreVoiceSettingsLocalDataSource =
+        DataStoreVoiceSettingsLocalDataSource(dataStore)
 
     @After
     fun tearDown() {
@@ -41,30 +41,30 @@ class DefaultVoiceSettingsRepositoryTest {
 
     @Test
     fun `voiceSettings emits defaults when nothing is persisted`() = runTest {
-        val settings = createRepository().voiceSettings().first()
+        val settings = createLocalDataSource().voiceSettings().first()
 
         settings shouldBe VoiceSettings()
     }
 
     @Test
     fun `save then read round-trips speech rate and voice id`() = runTest {
-        val repository = createRepository()
+        val localDataSource = createLocalDataSource()
         val persisted = VoiceSettings(speechRate = 1.5f, voiceId = "en-us-x-1")
 
-        repository.save(persisted)
-        val settings = repository.voiceSettings().first()
+        localDataSource.save(persisted)
+        val settings = localDataSource.voiceSettings().first()
 
         settings shouldBe persisted
     }
 
     @Test
     fun `save with null voice id clears a previously stored voice id`() = runTest {
-        val repository = createRepository()
+        val localDataSource = createLocalDataSource()
         val speechRate = 1.25f
-        repository.save(VoiceSettings(speechRate = speechRate, voiceId = "en-us-x-1"))
+        localDataSource.save(VoiceSettings(speechRate = speechRate, voiceId = "en-us-x-1"))
 
-        repository.save(VoiceSettings(speechRate = speechRate, voiceId = null))
-        val settings = repository.voiceSettings().first()
+        localDataSource.save(VoiceSettings(speechRate = speechRate, voiceId = null))
+        val settings = localDataSource.voiceSettings().first()
 
         settings.voiceId shouldBe null
         settings.speechRate shouldBe speechRate
