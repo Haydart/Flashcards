@@ -1,0 +1,13 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>MaxLineLength:BrowseScreenState.kt$BrowseScreenState</ID>
+    <ID>MaxLineLength:CategoryDetailsViewModel.kt$CategoryDetailsViewModel$private val _state = MutableStateFlow(CategoryDetailsScreenState(categoryId = route.categoryId, categoryName = route.categoryName))</ID>
+    <ID>MaxLineLength:CategoryDetailsViewModelTest.kt$CategoryDetailsViewModelTest$private fun createViewModel(): CategoryDetailsViewModel</ID>
+    <ID>MaxLineLength:SubcategoryDetailsRoute.kt$SubcategoryDetailsRoute$data</ID>
+    <ID>MaxLineLength:SubcategoryDetailsScreen.kt$onNavigateToPreviewStudySession: (categoryId: String, categoryName: String, subcategoryId: String, subcategoryName: String) -&gt; Unit</ID>
+    <ID>MaxLineLength:SubcategoryDetailsViewModel.kt$SubcategoryDetailsViewModel$class</ID>
+    <ID>MaxLineLength:SubcategoryDetailsViewModelTest.kt$SubcategoryDetailsViewModelTest$private fun createViewModel(): SubcategoryDetailsViewModel</ID>
+  </CurrentIssues>
+</SmellBaseline>

@@ -1,0 +1,12 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>MagicNumber:LoginScreen.kt$0xFF1F1F1F</ID>
+    <ID>MaxLineLength:LoginScreen.kt$fun</ID>
+    <ID>MaxLineLength:LoginViewModelTest.kt$LoginViewModelTest$fun</ID>
+    <ID>UnusedPrivateMember:LoginScreen.kt$@Preview(showBackground = true, widthDp = 400, heightDp = 800) @Composable private fun LoginContentErrorPreview()</ID>
+    <ID>UnusedPrivateMember:LoginScreen.kt$@Preview(showBackground = true, widthDp = 400, heightDp = 800) @Composable private fun LoginContentPreview()</ID>
+    <ID>UnusedPrivateMember:LoginScreen.kt$@Preview(showBackground = true, widthDp = 400, heightDp = 800) @Composable private fun LoginContentSigningInPreview()</ID>
+  </CurrentIssues>
+</SmellBaseline>
