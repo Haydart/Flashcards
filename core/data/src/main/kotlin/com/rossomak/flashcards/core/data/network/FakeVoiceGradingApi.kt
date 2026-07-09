@@ -165,9 +165,9 @@ class FakeVoiceGradingApi @Inject constructor(
 
         val DISFLUENCIES = listOf("um", "uh", "erm", "like", "you know", "so")
         val PII_BLURTS = listOf(
-            "my name is Radek Makowiecki by the way",
-            "call me at +48 601 234 567",
-            "send it to radmack00@example.com",
+            "my name is Jane Doe by the way",
+            "call me at +1 555 123 4567",
+            "send it to jane.doe@example.com",
         )
         val SAMPLE_ANSWERS = listOf(
             "A foreground service keeps running with a persistent notification even when the app is backgrounded",
