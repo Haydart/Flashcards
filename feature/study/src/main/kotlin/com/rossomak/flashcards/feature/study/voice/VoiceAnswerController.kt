@@ -1,0 +1,271 @@
+package com.rossomak.flashcards.feature.study.voice
+
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.PowerManager
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
+import androidx.core.content.ContextCompat
+import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
+import com.rossomak.flashcards.core.domain.usecase.GradeSpokenAnswerUseCase
+import com.rossomak.flashcards.core.voice.VoiceCaptureEvent
+import com.rossomak.flashcards.core.voice.VoiceCaptureEngine
+import com.rossomak.flashcards.feature.study.R
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+enum class VoiceAnswerPhase { IDLE, WAITING_FOR_QUESTION, LISTENING, SPEECH_DETECTED, GRADING, SPEAKING_NOTICE }
+
+data class VoiceAnswerState(
+    val isEnabled: Boolean = false,
+    val phase: VoiceAnswerPhase = VoiceAnswerPhase.IDLE,
+    val lastGrade: VoiceAnswerGrade? = null,
+    val lastGradedCardId: String? = null,
+    val error: String? = null,
+)
+
+/**
+ * Session-scoped orchestration of the voice answering pipeline (Rated mode only, ADR-0025): waits
+ * for the shared [VoiceGateway]/[TtsPlayer] engine to finish reading the question, then runs the
+ * [VoiceCaptureEngine] (mic + VAD + on-device obfuscation) for a bounded listening window, grades
+ * the captured utterance, and reports outcomes *audibly* — this feature's UX is phone-in-pocket/
+ * screen-off, so both the grade feedback and the no-answer skip notice are spoken through a
+ * dedicated notice TTS channel, never a toast.
+ *
+ * Listening only ever runs between [onQuestionFinishedSpeaking] and either a captured utterance or
+ * the silence timeout — never while the question or a notice is being spoken, which is what closes
+ * the phone-speaker/VAD overlap this controller used to have.
+ *
+ * Lives inside [StudySessionVoiceService] so listening shares the study session's
+ * foreground-service lifecycle, and holds a PARTIAL_WAKE_LOCK across the listening window so
+ * OEM battery managers can't starve the 20ms frame loop (design doc §Wake lock).
+ */
+class VoiceAnswerController @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val gradeSpokenAnswer: GradeSpokenAnswerUseCase,
+    private val voiceCaptureEngine: VoiceCaptureEngine,
+) {
+
+    private val _state = MutableStateFlow(VoiceAnswerState())
+    val state: StateFlow<VoiceAnswerState> = _state.asStateFlow()
+
+    /** Emitted once the grade/skip notice has finished speaking (plus [ADVANCE_DELAY_MS]) — tells the service to move the shared TTS engine to the next card. */
+    private val _advanceRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val advanceRequests: SharedFlow<Unit> = _advanceRequests.asSharedFlow()
+
+    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private var captureEventsJob: Job? = null
+    private var listenTimeoutJob: Job? = null
+    private var wakeLock: PowerManager.WakeLock? = null
+
+    private var activeCard: VoiceCard? = null
+    private var noticeTts: TextToSpeech? = null
+
+    fun setActiveCard(card: VoiceCard?) {
+        activeCard = card
+    }
+
+    fun start() {
+        if (_state.value.isEnabled) return
+        if (!hasRecordAudioPermission()) {
+            _state.value = VoiceAnswerState(error = "Microphone permission not granted")
+            return
+        }
+        acquireWakeLock()
+        ensureNoticeTts()
+        _state.value = VoiceAnswerState(isEnabled = true, phase = VoiceAnswerPhase.WAITING_FOR_QUESTION)
+        captureEventsJob = scope.launch {
+            voiceCaptureEngine.events.collect { event -> handleCaptureEvent(event) }
+        }
+    }
+
+    fun stop() {
+        listenTimeoutJob?.cancel()
+        listenTimeoutJob = null
+        voiceCaptureEngine.stopListening()
+        captureEventsJob?.cancel()
+        captureEventsJob = null
+        releaseWakeLock()
+        activeCard = null
+        _state.value = VoiceAnswerState()
+    }
+
+    /** Full teardown when the owning service dies. */
+    fun release() {
+        stop()
+        noticeTts?.shutdown()
+        noticeTts = null
+    }
+
+    /** Called once the shared TTS engine finishes reading the current card's question — opens the listening window. */
+    fun onQuestionFinishedSpeaking() {
+        if (!_state.value.isEnabled) return
+        // Clear the previous card's grade/error before opening this round's listening window —
+        // otherwise it rides along on this phase-only update, gets picked up as "new" by the
+        // ViewModel, and re-shows a stale snackbar (e.g. over this round's own no-answer notice),
+        // or suppresses re-showing an identical error next round (LaunchedEffect keys on value).
+        _state.value = _state.value.copy(
+            phase = VoiceAnswerPhase.LISTENING,
+            lastGrade = null,
+            lastGradedCardId = null,
+            error = null,
+        )
+        voiceCaptureEngine.startListening()
+        listenTimeoutJob?.cancel()
+        listenTimeoutJob = scope.launch {
+            delay(SILENCE_TIMEOUT_MS)
+            onSilenceTimeout()
+        }
+    }
+
+    private suspend fun onSilenceTimeout() {
+        voiceCaptureEngine.stopListening()
+        _state.value = _state.value.copy(phase = VoiceAnswerPhase.SPEAKING_NOTICE)
+        speakNotice(context.getString(R.string.study_session_voice_answer_skip_spoken_message))
+    }
+
+    private suspend fun handleCaptureEvent(event: VoiceCaptureEvent) {
+        when (event) {
+            is VoiceCaptureEvent.SpeechStarted -> {
+                listenTimeoutJob?.cancel()
+                _state.value = _state.value.copy(phase = VoiceAnswerPhase.SPEECH_DETECTED)
+            }
+            is VoiceCaptureEvent.SpeechEnded ->
+                _state.value = _state.value.copy(phase = VoiceAnswerPhase.GRADING)
+            is VoiceCaptureEvent.UtteranceCaptured -> {
+                listenTimeoutJob?.cancel()
+                voiceCaptureEngine.stopListening()
+                gradeUtterance(event.utterance.wavBytes)
+            }
+            is VoiceCaptureEvent.CaptureFailed -> {
+                listenTimeoutJob?.cancel()
+                voiceCaptureEngine.stopListening()
+                _state.value = _state.value.copy(phase = VoiceAnswerPhase.WAITING_FOR_QUESTION, error = event.reason)
+            }
+        }
+    }
+
+    private suspend fun gradeUtterance(obfuscatedWav: ByteArray) {
+        val card = activeCard ?: run {
+            _state.value = _state.value.copy(phase = VoiceAnswerPhase.WAITING_FOR_QUESTION)
+            return
+        }
+        _state.value = _state.value.copy(phase = VoiceAnswerPhase.GRADING)
+        gradeSpokenAnswer(
+            GradeSpokenAnswerUseCase.Params(
+                cardId = card.cardId,
+                question = card.questionText,
+                expectedAnswer = card.answerText,
+                obfuscatedAnswerWav = obfuscatedWav,
+            )
+        ).onSuccess { grade ->
+            _state.value = _state.value.copy(
+                phase = VoiceAnswerPhase.SPEAKING_NOTICE,
+                lastGrade = grade,
+                lastGradedCardId = card.cardId,
+                error = null,
+            )
+            speakNotice(
+                context.getString(
+                    R.string.study_session_voice_answer_grade_spoken_message,
+                    grade.gradePercent,
+                    grade.feedback,
+                )
+            )
+        }.onFailure { error ->
+            _state.value = _state.value.copy(
+                phase = VoiceAnswerPhase.SPEAKING_NOTICE,
+                error = error.message,
+            )
+            // No screen to look at in this UX — failure must be audible (design doc §Upload
+            // failure handling; silent-drop was explicitly rejected).
+            speakNotice(context.getString(R.string.study_session_voice_answer_failure_spoken_message))
+        }
+    }
+
+    /**
+     * Dedicated TTS channel for grade/skip/failure notices, separate from [TtsPlayer]'s card
+     * playback so notices can't corrupt the Media3 player's utterance state machine.
+     */
+    private fun ensureNoticeTts() {
+        if (noticeTts != null) return
+        var tts: TextToSpeech? = null
+        tts = TextToSpeech(context) { status ->
+            if (status != TextToSpeech.SUCCESS) {
+                tts?.shutdown()
+                noticeTts = null
+            } else {
+                tts?.setOnUtteranceProgressListener(noticeUtteranceListener)
+            }
+        }
+        noticeTts = tts
+    }
+
+    private val noticeUtteranceListener = object : UtteranceProgressListener() {
+        override fun onStart(utteranceId: String?) = Unit
+
+        override fun onDone(utteranceId: String?) {
+            if (utteranceId != NOTICE_UTTERANCE_ID) return
+            scope.launch { onNoticeFinishedSpeaking() }
+        }
+
+        @Deprecated("Deprecated in Java")
+        override fun onError(utteranceId: String?) = Unit
+
+        override fun onError(utteranceId: String?, errorCode: Int) {
+            if (utteranceId != NOTICE_UTTERANCE_ID) return
+            scope.launch { onNoticeFinishedSpeaking() }
+        }
+    }
+
+    /** 1000ms after the grade/skip notice finishes speaking (ADR-0025), tell the service to advance to the next card. */
+    private suspend fun onNoticeFinishedSpeaking() {
+        delay(ADVANCE_DELAY_MS)
+        if (!_state.value.isEnabled) return
+        _state.value = _state.value.copy(phase = VoiceAnswerPhase.WAITING_FOR_QUESTION)
+        _advanceRequests.emit(Unit)
+    }
+
+    private fun speakNotice(text: String) {
+        noticeTts?.speak(text, TextToSpeech.QUEUE_ADD, null, NOTICE_UTTERANCE_ID)
+    }
+
+    private fun hasRecordAudioPermission(): Boolean =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+                PackageManager.PERMISSION_GRANTED
+
+    private fun acquireWakeLock() {
+        if (wakeLock?.isHeld == true) return
+        val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKE_LOCK_TAG).apply {
+            setReferenceCounted(false)
+            acquire(WAKE_LOCK_TIMEOUT_MS)
+        }
+    }
+
+    private fun releaseWakeLock() {
+        wakeLock?.takeIf { it.isHeld }?.release()
+        wakeLock = null
+    }
+
+    private companion object {
+        const val WAKE_LOCK_TAG = "flashcards:voiceAnswerCapture"
+        const val WAKE_LOCK_TIMEOUT_MS = 60L * 60L * 1000L // 1h safety cap per session
+        const val NOTICE_UTTERANCE_ID = "voice_answer_notice"
+        const val SILENCE_TIMEOUT_MS = 8_000L
+        const val ADVANCE_DELAY_MS = 1_000L
+    }
+}

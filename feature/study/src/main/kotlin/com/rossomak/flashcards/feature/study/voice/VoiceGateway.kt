@@ -12,6 +12,7 @@ data class VoicePlaybackState(
     val totalCards: Int = 0,
     val phase: VoicePhase = VoicePhase.QUESTION,
     val isInBetweenPause: Boolean = false,
+    val isAwaitingSpokenAnswer: Boolean = false,
     val speechRate: Float = DEFAULT_SPEECH_RATE,
     val error: String? = null,
 ) {
@@ -25,6 +26,7 @@ data class VoicePlaybackState(
 
 interface VoiceGateway {
     val state: StateFlow<VoicePlaybackState>
+    val voiceAnswerState: StateFlow<VoiceAnswerState>
     fun start(cards: List<Flashcard>, startIndex: Int, subcategoryName: String)
     fun stop()
     fun togglePlayPause()
@@ -34,4 +36,5 @@ interface VoiceGateway {
     fun showAnswer()
     fun setSpeechRate(rate: Float)
     fun setVoice(voiceId: String?)
+    fun setVoiceAnswering(enabled: Boolean)
 }
