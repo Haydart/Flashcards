@@ -11,25 +11,21 @@ import kotlinx.serialization.Serializable
 data class VoiceAnswerGradeDto(
     @SerialName("sanitized_transcript") val sanitizedTranscript: String,
     @SerialName("grade") val gradePercent: Int,
-    @SerialName("feedback") val feedback: String,
+    @SerialName("feedback") val feedback: String
 )
 
 /** Response of the transcription-only endpoint (debug screen's isolated STT test). */
 @Serializable
-data class TranscriptionDto(
-    @SerialName("transcript") val transcript: String,
-)
+data class TranscriptionDto(@SerialName("transcript") val transcript: String)
 
 /** Request body of the sanitize+grade-only endpoint (debug screen, bypasses audio). */
 @Serializable
 data class SanitizeAndGradeRequestDto(
     @SerialName("question") val question: String,
     @SerialName("expected_answer") val expectedAnswer: String,
-    @SerialName("transcript") val transcript: String,
+    @SerialName("transcript") val transcript: String
 )
 
 /** Response of the entitlement check endpoint. */
 @Serializable
-data class EntitlementDto(
-    @SerialName("is_premium") val isPremium: Boolean,
-)
+data class EntitlementDto(@SerialName("is_premium") val isPremium: Boolean)

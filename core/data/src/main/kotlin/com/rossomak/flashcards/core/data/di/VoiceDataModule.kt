@@ -28,33 +28,24 @@ abstract class VoiceDataModule {
 
     @Binds
     @Singleton
-    abstract fun bindVoiceSettingsRepository(
-        impl: DefaultVoiceSettingsRepository,
-    ): VoiceSettingsRepository
+    abstract fun bindVoiceSettingsRepository(impl: DefaultVoiceSettingsRepository): VoiceSettingsRepository
 
     @Binds
     @Singleton
-    abstract fun bindVoiceSettingsLocalDataSource(
-        impl: DataStoreVoiceSettingsLocalDataSource,
-    ): VoiceSettingsLocalDataSource
+    abstract fun bindVoiceSettingsLocalDataSource(impl: DataStoreVoiceSettingsLocalDataSource): VoiceSettingsLocalDataSource
 
     @Binds
     @Singleton
-    abstract fun bindVoiceOptionsRepository(
-        impl: DefaultVoiceOptionsRepository,
-    ): VoiceOptionsRepository
+    abstract fun bindVoiceOptionsRepository(impl: DefaultVoiceOptionsRepository): VoiceOptionsRepository
 
     @Binds
     @Singleton
-    abstract fun bindVoicePreviewGateway(
-        impl: DefaultVoicePreviewGateway,
-    ): VoicePreviewGateway
+    abstract fun bindVoicePreviewGateway(impl: DefaultVoicePreviewGateway): VoicePreviewGateway
 
     companion object {
 
         @Provides
         @Singleton
-        fun provideVoiceDataStore(@ApplicationContext context: Context): DataStore<Preferences> =
-            context.voiceDataStore
+        fun provideVoiceDataStore(@ApplicationContext context: Context): DataStore<Preferences> = context.voiceDataStore
     }
 }

@@ -12,6 +12,8 @@ import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
 import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,8 +30,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
-import javax.inject.Inject
-import javax.inject.Singleton
 
 enum class CaptureRouteType { PHONE, BLUETOOTH_LE, BLUETOOTH_SCO, WAITING, NONE }
 
@@ -40,10 +40,7 @@ enum class CaptureRouteType { PHONE, BLUETOOTH_LE, BLUETOOTH_SCO, WAITING, NONE 
  * `setPreferredDevice`. It is non-null only for the Bluetooth route types; PHONE uses the default
  * mic (null device) and WAITING/NONE carry no capturable device.
  */
-data class CaptureRoute(
-    val type: CaptureRouteType,
-    val device: AudioDeviceInfo? = null,
-) {
+data class CaptureRoute(val type: CaptureRouteType, val device: AudioDeviceInfo? = null) {
     val isBluetooth: Boolean
         get() = type == CaptureRouteType.BLUETOOTH_LE || type == CaptureRouteType.BLUETOOTH_SCO
 
@@ -72,9 +69,7 @@ data class CaptureRoute(
  * not.
  */
 @Singleton
-class AudioRouteManager @Inject constructor(
-    @ApplicationContext private val context: Context,
-) {
+class AudioRouteManager @Inject constructor(@ApplicationContext private val context: Context) {
 
     private val _route = MutableStateFlow(CaptureRoute(CaptureRouteType.NONE))
     val route: StateFlow<CaptureRoute> = _route.asStateFlow()
@@ -121,8 +116,11 @@ class AudioRouteManager @Inject constructor(
 
     private suspend fun resolveAndActivate(): CaptureRoute = resolveMutex.withLock {
         val resolved =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) resolveCommunicationRoute()
-            else resolveLegacyScoRoute()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                resolveCommunicationRoute()
+            } else {
+                resolveLegacyScoRoute()
+            }
         Log.i(TAG, "route resolved -> ${resolved.type} (device=${resolved.device?.type})")
         _route.value = resolved
         resolved
@@ -142,8 +140,11 @@ class AudioRouteManager @Inject constructor(
         val ready = requestCommunicationDevice(target)
         if (!ready) return CaptureRoute(CaptureRouteType.WAITING)
         val routeType =
-            if (target.type == AudioDeviceInfo.TYPE_BLE_HEADSET) CaptureRouteType.BLUETOOTH_LE
-            else CaptureRouteType.BLUETOOTH_SCO
+            if (target.type == AudioDeviceInfo.TYPE_BLE_HEADSET) {
+                CaptureRouteType.BLUETOOTH_LE
+            } else {
+                CaptureRouteType.BLUETOOTH_SCO
+            }
         return CaptureRoute(routeType, matchingInputDevice(target.type))
     }
 
@@ -199,10 +200,9 @@ class AudioRouteManager @Inject constructor(
         }
     }
 
-    private fun isBluetoothAudioConnected(): Boolean =
-        audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any {
-            it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO || it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
-        }
+    private fun isBluetoothAudioConnected(): Boolean = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any {
+        it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO || it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
+    }
 
     private fun matchingInputDevice(type: Int): AudioDeviceInfo? =
         audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS).firstOrNull { it.type == type }

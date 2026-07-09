@@ -18,7 +18,7 @@ data class VoiceSettingsDraftState(
     val isVisible: Boolean = false,
     val availableVoices: List<VoiceOption> = emptyList(),
     val draftVoiceId: String? = null,
-    val draftSpeed: Float = 1f,
+    val draftSpeed: Float = 1f
 )
 
 /**
@@ -30,7 +30,7 @@ class VoiceSettingsController @Inject constructor(
     private val observeVoiceSettings: ObserveVoiceSettingsUseCase,
     private val saveVoiceSettings: SaveVoiceSettingsUseCase,
     private val getAvailableVoices: GetAvailableVoicesUseCase,
-    private val previewGateway: VoicePreviewGateway,
+    private val previewGateway: VoicePreviewGateway
 ) {
 
     private val _draftState = MutableStateFlow(VoiceSettingsDraftState())
@@ -52,7 +52,7 @@ class VoiceSettingsController @Inject constructor(
             it.copy(
                 isVisible = true,
                 draftVoiceId = savedSettings.voiceId ?: cachedVoices?.firstOrNull()?.id,
-                draftSpeed = savedSettings.speechRate,
+                draftSpeed = savedSettings.speechRate
             )
         }
         val cached = cachedVoices
@@ -65,7 +65,7 @@ class VoiceSettingsController @Inject constructor(
                 _draftState.update {
                     it.copy(
                         availableVoices = voices,
-                        draftVoiceId = it.draftVoiceId ?: voices.firstOrNull()?.id,
+                        draftVoiceId = it.draftVoiceId ?: voices.firstOrNull()?.id
                     )
                 }
             }
@@ -85,7 +85,7 @@ class VoiceSettingsController @Inject constructor(
     fun save(scope: CoroutineScope): VoiceSettings {
         val settings = VoiceSettings(
             speechRate = _draftState.value.draftSpeed,
-            voiceId = _draftState.value.draftVoiceId,
+            voiceId = _draftState.value.draftVoiceId
         )
         scope.launch { runCatching { saveVoiceSettings(settings) } }
         previewGateway.stop()

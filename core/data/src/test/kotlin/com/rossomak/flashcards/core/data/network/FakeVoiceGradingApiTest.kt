@@ -25,7 +25,7 @@ class FakeVoiceGradingApiTest {
             SanitizeAndGradeRequestDto(
                 question = question,
                 expectedAnswer = expectedAnswer,
-                transcript = "send it to someone@example.com please",
+                transcript = "send it to someone@example.com please"
             )
         )
 
@@ -39,7 +39,7 @@ class FakeVoiceGradingApiTest {
             SanitizeAndGradeRequestDto(
                 question = question,
                 expectedAnswer = expectedAnswer,
-                transcript = "my name is John Smith call +48 601 234 567",
+                transcript = "my name is John Smith call +48 601 234 567"
             )
         )
 
@@ -53,7 +53,7 @@ class FakeVoiceGradingApiTest {
             SanitizeAndGradeRequestDto(
                 question = question,
                 expectedAnswer = expectedAnswer,
-                transcript = "um a persistent persistent notification uh visible",
+                transcript = "um a persistent persistent notification uh visible"
             )
         )
 
@@ -68,7 +68,7 @@ class FakeVoiceGradingApiTest {
             SanitizeAndGradeRequestDto(
                 question = question,
                 expectedAnswer = expectedAnswer,
-                transcript = "a persistent notification visible to the user",
+                transcript = "a persistent notification visible to the user"
             )
         )
 
@@ -99,13 +99,13 @@ class FakeVoiceGradingApiTest {
     @Test
     fun `gradeVoiceAnswer produces a transcript derived from the expected answer`() = runTest {
         val longExpectedAnswer = "a foreground service keeps running with a persistent notification " +
-                "shown to the user even when the app itself is no longer visible on screen"
+            "shown to the user even when the app itself is no longer visible on screen"
 
         val response = fakeApi.gradeVoiceAnswer(
             "card-1",
             question,
             longExpectedAnswer,
-            ByteArray(64_000),
+            ByteArray(64_000)
         )
 
         response.gradePercent shouldBeInRange 0..100

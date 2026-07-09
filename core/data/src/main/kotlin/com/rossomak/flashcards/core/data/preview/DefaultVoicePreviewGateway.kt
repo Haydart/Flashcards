@@ -11,14 +11,16 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class DefaultVoicePreviewGateway @Inject constructor(
-    @ApplicationContext private val context: Context,
-) : VoicePreviewGateway {
+class DefaultVoicePreviewGateway @Inject constructor(@ApplicationContext private val context: Context) : VoicePreviewGateway {
 
     @Volatile private var tts: TextToSpeech? = null
+
     @Volatile private var ttsReady = false
+
     @Volatile private var ttsInitFailed = false
+
     @Volatile private var pendingPreviewVoiceId: String? = null
+
     @Volatile private var pendingPreviewRate: Float = 1f
 
     @Synchronized

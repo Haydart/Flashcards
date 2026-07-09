@@ -8,8 +8,7 @@ class FakeAuthRepository : AuthRepository {
 
     override fun getCurrentUser(): AuthUser? = userToReturn
 
-    override suspend fun signInWithGoogleIdToken(idToken: String): Result<AuthUser> =
-        signInResult.onSuccess { userToReturn = it }
+    override suspend fun signInWithGoogleIdToken(idToken: String): Result<AuthUser> = signInResult.onSuccess { userToReturn = it }
 
     override fun signOut() {
         userToReturn = null

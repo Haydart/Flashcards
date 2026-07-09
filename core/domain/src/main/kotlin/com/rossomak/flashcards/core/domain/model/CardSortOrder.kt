@@ -6,5 +6,5 @@ import kotlinx.serialization.Serializable
 enum class CardSortOrder {
     DEFAULT,
     EASIEST_FIRST,
-    HARDEST_FIRST,
+    HARDEST_FIRST
 }

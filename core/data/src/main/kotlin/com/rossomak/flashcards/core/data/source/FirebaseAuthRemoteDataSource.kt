@@ -7,9 +7,7 @@ import com.rossomak.flashcards.core.domain.model.AuthUser
 import javax.inject.Inject
 import kotlinx.coroutines.tasks.await
 
-class FirebaseAuthRemoteDataSource @Inject constructor(
-    private val firebaseAuth: FirebaseAuth,
-) : AuthRemoteDataSource {
+class FirebaseAuthRemoteDataSource @Inject constructor(private val firebaseAuth: FirebaseAuth) : AuthRemoteDataSource {
 
     override fun getCurrentUser(): AuthUser? = firebaseAuth.currentUser?.toAuthUser()
 
@@ -33,6 +31,6 @@ class FirebaseAuthRemoteDataSource @Inject constructor(
         uid = uid,
         email = email,
         displayName = displayName,
-        photoUrl = photoUrl?.toString(),
+        photoUrl = photoUrl?.toString()
     )
 }

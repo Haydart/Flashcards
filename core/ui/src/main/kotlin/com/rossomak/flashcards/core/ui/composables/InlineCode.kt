@@ -35,7 +35,7 @@ fun String.withInlineCode(): AnnotatedString {
                         fontFamily = FontFamily.Monospace,
                         fontSize = 13.sp,
                         background = codeBackground,
-                        color = codeColor,
+                        color = codeColor
                     )
                 )
                 append(" $codeText ")

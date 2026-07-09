@@ -9,9 +9,7 @@ import javax.inject.Inject
 import kotlin.coroutines.resume
 import kotlinx.coroutines.suspendCancellableCoroutine
 
-class VoiceOptionsDataSource @Inject constructor(
-    @ApplicationContext private val context: Context,
-) {
+class VoiceOptionsDataSource @Inject constructor(@ApplicationContext private val context: Context) {
     suspend fun getAvailableVoices(): List<VoiceOption> = suspendCancellableCoroutine { continuation ->
         var tts: TextToSpeech? = null
         continuation.invokeOnCancellation { tts?.shutdown() }
@@ -23,7 +21,7 @@ class VoiceOptionsDataSource @Inject constructor(
                     val shortName = voice.name.substringAfterLast(":")
                     VoiceOption(
                         id = voice.name,
-                        displayName = "English ($countryLabel) · $shortName",
+                        displayName = "English ($countryLabel) · $shortName"
                     )
                 }
             } else {

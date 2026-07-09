@@ -21,7 +21,7 @@ interface VoiceGradingRetrofitService {
         @Part audio: MultipartBody.Part,
         @Part("card_id") cardId: RequestBody,
         @Part("question") question: RequestBody,
-        @Part("expected_answer") expectedAnswer: RequestBody,
+        @Part("expected_answer") expectedAnswer: RequestBody
     ): VoiceAnswerGradeDto
 
     @Multipart

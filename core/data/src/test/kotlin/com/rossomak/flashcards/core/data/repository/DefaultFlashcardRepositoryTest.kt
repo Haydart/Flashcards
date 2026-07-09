@@ -18,8 +18,7 @@ class DefaultFlashcardRepositoryTest {
 
     private val remoteDataSource: FlashcardRemoteDataSource = mockk()
 
-    private fun createRepository(): DefaultFlashcardRepository =
-        DefaultFlashcardRepository(remoteDataSource)
+    private fun createRepository(): DefaultFlashcardRepository = DefaultFlashcardRepository(remoteDataSource)
 
     @Test
     fun `fetchCategories maps dtos to domain in order`() = runTest {
@@ -69,7 +68,7 @@ class DefaultFlashcardRepositoryTest {
             categoryId = categoryId,
             categoryName = "Android",
             order = 1,
-            cardCount = 12,
+            cardCount = 12
         )
         coEvery { remoteDataSource.getSubcategoriesByCategoryId(categoryId) } returns listOf(subcategoryDto)
 

@@ -19,18 +19,14 @@ interface VoiceAnswerGradingRepository {
         cardId: String,
         question: String,
         expectedAnswer: String,
-        obfuscatedAnswerWav: ByteArray,
+        obfuscatedAnswerWav: ByteArray
     ): Result<VoiceAnswerGrade>
 
     /** STT step in isolation (debug screen): obfuscated WAV in, raw transcript out. */
     suspend fun transcribe(obfuscatedAnswerWav: ByteArray): Result<String>
 
     /** Sanitize+grade LLM step in isolation (debug screen): typed transcript, no audio. */
-    suspend fun sanitizeAndGrade(
-        question: String,
-        expectedAnswer: String,
-        rawTranscript: String,
-    ): Result<VoiceAnswerGrade>
+    suspend fun sanitizeAndGrade(question: String, expectedAnswer: String, rawTranscript: String): Result<VoiceAnswerGrade>
 
     /**
      * Asks the backend whether the current user holds a premium entitlement. The check itself

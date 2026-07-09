@@ -17,9 +17,7 @@ import java.nio.LongBuffer
  *
  * Not thread-safe: it is driven from the single [VoiceCaptureEngine] capture loop.
  */
-class OnnxSileroVadSession(
-    private val modelBytes: ByteArray,
-) : SileroVadSession {
+class OnnxSileroVadSession(private val modelBytes: ByteArray) : SileroVadSession {
 
     private val environment: OrtEnvironment by lazy { OrtEnvironment.getEnvironment() }
     private var session: OrtSession? = null
@@ -53,11 +51,12 @@ class OnnxSileroVadSession(
                     val inputs = mapOf(
                         "input" to input,
                         "state" to previousState,
-                        "sr" to sampleRate,
+                        "sr" to sampleRate
                     )
                     ortSession.run(inputs).use { result ->
                         @Suppress("UNCHECKED_CAST")
                         val probability = (result[0].value as Array<FloatArray>)[0][0]
+
                         @Suppress("UNCHECKED_CAST")
                         val nextState = result[1].value as Array<Array<FloatArray>>
                         copyNextStateIn(nextState)
@@ -74,19 +73,17 @@ class OnnxSileroVadSession(
     }
 
     /** Current recurrent state reshaped to the model's [2, 1, 128] input layout. */
-    private fun stateAsBatchedArray(): Array<Array<FloatArray>> =
-        Array(STATE_LAYERS) { layer ->
-            arrayOf(FloatArray(STATE_HIDDEN) { unit -> state[layer * STATE_HIDDEN + unit] })
-        }
+    private fun stateAsBatchedArray(): Array<Array<FloatArray>> = Array(STATE_LAYERS) { layer ->
+        arrayOf(FloatArray(STATE_HIDDEN) { unit -> state[layer * STATE_HIDDEN + unit] })
+    }
 
-    private fun directSampleRateBuffer(): LongBuffer =
-        ByteBuffer.allocateDirect(java.lang.Long.BYTES)
-            .order(ByteOrder.nativeOrder())
-            .asLongBuffer()
-            .apply {
-                put(SAMPLE_RATE_HZ)
-                rewind()
-            }
+    private fun directSampleRateBuffer(): LongBuffer = ByteBuffer.allocateDirect(java.lang.Long.BYTES)
+        .order(ByteOrder.nativeOrder())
+        .asLongBuffer()
+        .apply {
+            put(SAMPLE_RATE_HZ)
+            rewind()
+        }
 
     private fun copyNextStateIn(nextState: Array<Array<FloatArray>>) {
         var index = 0

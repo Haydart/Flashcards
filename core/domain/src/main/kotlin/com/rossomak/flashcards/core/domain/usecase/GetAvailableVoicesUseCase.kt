@@ -4,8 +4,6 @@ import com.rossomak.flashcards.core.domain.model.VoiceOption
 import com.rossomak.flashcards.core.domain.repository.VoiceOptionsRepository
 import javax.inject.Inject
 
-class GetAvailableVoicesUseCase @Inject constructor(
-    private val repository: VoiceOptionsRepository,
-) {
+class GetAvailableVoicesUseCase @Inject constructor(private val repository: VoiceOptionsRepository) {
     suspend operator fun invoke(): List<VoiceOption> = repository.getAvailableVoices()
 }

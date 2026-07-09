@@ -5,8 +5,4 @@ package com.rossomak.flashcards.core.domain.model
  * the LLM's completeness grade and feedback. This is the only artifact of a spoken answer that
  * is ever persisted — never audio, never an un-sanitized transcript.
  */
-data class VoiceAnswerGrade(
-    val sanitizedTranscript: String,
-    val gradePercent: Int,
-    val feedback: String,
-)
+data class VoiceAnswerGrade(val sanitizedTranscript: String, val gradePercent: Int, val feedback: String)

@@ -16,8 +16,7 @@ import androidx.navigation.toRoute
  * (`mockkObject(RouteDecoder)`) to return a fake route — so the android `Bundle` that
  * [toRoute] requires off-device is never touched.
  */
-inline fun <reified T : Any> SavedStateHandle.decodeRoute(): T =
-    RouteDecoder.decode { toRoute<T>() }
+inline fun <reified T : Any> SavedStateHandle.decodeRoute(): T = RouteDecoder.decode { toRoute<T>() }
 
 /**
  * Single indirection point behind [decodeRoute]. Kept as a non-inline object method so tests

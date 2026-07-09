@@ -4,11 +4,11 @@ import com.rossomak.flashcards.core.data.model.EntitlementDto
 import com.rossomak.flashcards.core.data.model.SanitizeAndGradeRequestDto
 import com.rossomak.flashcards.core.data.model.TranscriptionDto
 import com.rossomak.flashcards.core.data.model.VoiceAnswerGradeDto
-import kotlinx.coroutines.delay
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.random.Random
+import kotlinx.coroutines.delay
 
 /**
  * Simulated Cloud Function proxy, used while the real deployment / ElevenLabs / grading LLM
@@ -23,9 +23,7 @@ import kotlin.random.Random
  * on a local premium flag.
  */
 @Singleton
-class FakeVoiceGradingApi @Inject constructor(
-    private val debugSettings: VoicePipelineDebugSettings,
-) : VoiceGradingApi {
+class FakeVoiceGradingApi @Inject constructor(private val debugSettings: VoicePipelineDebugSettings) : VoiceGradingApi {
 
     // Unit tests disable failure/latency injection so assertions on response shape stay
     // deterministic; production DI always leaves both on.
@@ -36,7 +34,7 @@ class FakeVoiceGradingApi @Inject constructor(
         cardId: String,
         question: String,
         expectedAnswer: String,
-        wavBytes: ByteArray,
+        wavBytes: ByteArray
     ): VoiceAnswerGradeDto {
         simulateNetworkCall()
         enforceSimulatedEntitlement()
@@ -104,7 +102,7 @@ class FakeVoiceGradingApi @Inject constructor(
         return VoiceAnswerGradeDto(
             sanitizedTranscript = sanitizedTranscript,
             gradePercent = gradePercent,
-            feedback = feedbackFor(gradePercent),
+            feedback = feedbackFor(gradePercent)
         )
     }
 
@@ -141,8 +139,7 @@ class FakeVoiceGradingApi @Inject constructor(
         else -> MISS_FEEDBACK.random()
     }
 
-    private fun String.tokens(): List<String> =
-        lowercase().split(NON_WORD_REGEX).filter { it.length > 2 }
+    private fun String.tokens(): List<String> = lowercase().split(NON_WORD_REGEX).filter { it.length > 2 }
 
     private companion object {
         const val MIN_LATENCY_MS = 400L
@@ -167,31 +164,31 @@ class FakeVoiceGradingApi @Inject constructor(
         val PII_BLURTS = listOf(
             "my name is Jane Doe by the way",
             "call me at +1 555 123 4567",
-            "send it to jane.doe@example.com",
+            "send it to jane.doe@example.com"
         )
         val SAMPLE_ANSWERS = listOf(
             "A foreground service keeps running with a persistent notification even when the app is backgrounded",
             "StateFlow holds a single value and replays it to new collectors while SharedFlow does not retain state by default",
-            "Bluetooth SCO routes the microphone through the hands-free profile at narrowband sample rates",
+            "Bluetooth SCO routes the microphone through the hands-free profile at narrowband sample rates"
         )
         val HIGH_GRADE_FEEDBACK = listOf(
             "Excellent — you covered all the key points of the expected answer.",
             "Complete answer; terminology and reasoning both accurate.",
-            "Spot on. Minor phrasing differences only.",
+            "Spot on. Minor phrasing differences only."
         )
         val MID_GRADE_FEEDBACK = listOf(
             "Good core understanding, but you missed one or two supporting details.",
             "Mostly right — the main concept landed, though the answer lacked precision.",
-            "Partial credit: correct direction, but an important qualifier was missing.",
+            "Partial credit: correct direction, but an important qualifier was missing."
         )
         val LOW_GRADE_FEEDBACK = listOf(
             "You touched the topic but missed the main point of the expected answer.",
             "Only fragments matched — revisit the core definition.",
-            "The answer drifted; key terms from the expected answer never came up.",
+            "The answer drifted; key terms from the expected answer never came up."
         )
         val MISS_FEEDBACK = listOf(
             "That did not match the expected answer — worth re-reading this card.",
-            "No substantive overlap with the expected answer detected.",
+            "No substantive overlap with the expected answer detected."
         )
     }
 }

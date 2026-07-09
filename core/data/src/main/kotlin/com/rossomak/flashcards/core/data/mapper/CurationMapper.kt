@@ -13,6 +13,6 @@ fun CurationRequestDto.toDomain(cardId: String): CurationRequest {
     return CurationRequest(
         cardId = cardId,
         subcategoryId = subcategoryId,
-        actions = domainActions,
+        actions = domainActions
     )
 }

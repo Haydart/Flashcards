@@ -1,9 +1,9 @@
 package com.rossomak.flashcards.core.voice
 
 import io.kotest.matchers.shouldBe
-import org.junit.Test
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import org.junit.Test
 
 class WavEncoderTest {
 

@@ -5,9 +5,8 @@ import com.rossomak.flashcards.core.domain.repository.VoiceAnswerConsentReposito
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 
-class DefaultVoiceAnswerConsentRepository @Inject constructor(
-    private val localDataSource: VoiceAnswerConsentLocalDataSource,
-) : VoiceAnswerConsentRepository {
+class DefaultVoiceAnswerConsentRepository @Inject constructor(private val localDataSource: VoiceAnswerConsentLocalDataSource) :
+    VoiceAnswerConsentRepository {
 
     override fun observeConsent(): Flow<Boolean> = localDataSource.observeConsent()
 

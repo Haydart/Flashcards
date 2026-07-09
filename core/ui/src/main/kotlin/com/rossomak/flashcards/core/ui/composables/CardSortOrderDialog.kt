@@ -33,7 +33,7 @@ fun CardSortOrderDialog(
     selectedSortOrder: CardSortOrder,
     showKeepAsDefaultOption: Boolean = false,
     onSortOrderSelect: (CardSortOrder) -> Unit,
-    onDismiss: () -> Unit,
+    onDismiss: () -> Unit
 ) {
     var keepAsDefault by remember { mutableStateOf(false) }
 
@@ -46,7 +46,7 @@ fun CardSortOrderDialog(
                     SortOrderRow(
                         label = sortOrder.label(),
                         isSelected = sortOrder == selectedSortOrder,
-                        onSelect = { onSortOrderSelect(sortOrder) },
+                        onSelect = { onSortOrderSelect(sortOrder) }
                     )
                 }
                 if (showKeepAsDefaultOption) {
@@ -57,9 +57,9 @@ fun CardSortOrderDialog(
                             .toggleable(
                                 value = keepAsDefault,
                                 onValueChange = { keepAsDefault = it },
-                                role = Role.Checkbox,
+                                role = Role.Checkbox
                             ),
-                        verticalAlignment = Alignment.CenterVertically,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Checkbox(checked = keepAsDefault, onCheckedChange = null)
                         Spacer(modifier = Modifier.width(8.dp))
@@ -70,28 +70,24 @@ fun CardSortOrderDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) { Text(text = "Done") }
-        },
+        }
     )
 }
 
 @Composable
-private fun SortOrderRow(
-    label: String,
-    isSelected: Boolean,
-    onSelect: () -> Unit,
-) {
+private fun SortOrderRow(label: String, isSelected: Boolean, onSelect: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .selectable(selected = isSelected, onClick = onSelect, role = Role.RadioButton),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         RadioButton(selected = isSelected, onClick = null)
         Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
         )
     }
 }
@@ -109,7 +105,7 @@ private fun CardSortOrderDialogSessionPreview() {
         selectedSortOrder = CardSortOrder.HARDEST_FIRST,
         showKeepAsDefaultOption = true,
         onSortOrderSelect = {},
-        onDismiss = {},
+        onDismiss = {}
     )
 }
 
@@ -120,6 +116,6 @@ private fun CardSortOrderDialogSettingsPreview() {
         selectedSortOrder = CardSortOrder.DEFAULT,
         showKeepAsDefaultOption = false,
         onSortOrderSelect = {},
-        onDismiss = {},
+        onDismiss = {}
     )
 }

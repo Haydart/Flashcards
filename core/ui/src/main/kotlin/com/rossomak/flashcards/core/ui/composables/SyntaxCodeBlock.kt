@@ -17,30 +17,25 @@ import com.gallatinapps.syntaxmp.compose.rememberSyntaxAnnotatedString
 import com.gallatinapps.syntaxmp.tokenizer.SyntaxTokenizer
 
 @Composable
-fun SyntaxCodeBlock(
-    code: String,
-    language: String,
-    engine: SyntaxTokenizer,
-    modifier: Modifier = Modifier,
-) {
+fun SyntaxCodeBlock(code: String, language: String, engine: SyntaxTokenizer, modifier: Modifier = Modifier) {
     BasicText(
         text = rememberSyntaxAnnotatedString(
             code = code,
             languageLabel = language,
             engine = engine,
-            theme = SyntaxTheme.DefaultDark,
+            theme = SyntaxTheme.DefaultDark
         ),
         style = TextStyle(
             fontFamily = FontFamily.Monospace,
             fontSize = 13.sp,
-            color = Color.White,
+            color = Color.White
         ),
         modifier = modifier
             .fillMaxWidth()
             .background(
                 color = Color(0xFF1E1E1E),
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(8.dp)
             )
-            .padding(12.dp),
+            .padding(12.dp)
     )
 }

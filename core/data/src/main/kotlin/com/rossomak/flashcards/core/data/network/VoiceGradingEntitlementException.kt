@@ -6,5 +6,4 @@ package com.rossomak.flashcards.core.data.network
  * HTTP 403. Deliberately a distinct type so callers can voice a specific message instead of a
  * generic network error.
  */
-class VoiceGradingEntitlementException :
-    Exception("Voice grading rejected: no active premium entitlement")
+class VoiceGradingEntitlementException : Exception("Voice grading rejected: no active premium entitlement")

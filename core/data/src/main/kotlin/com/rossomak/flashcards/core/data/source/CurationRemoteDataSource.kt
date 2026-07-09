@@ -9,15 +9,12 @@ import com.google.firebase.firestore.SetOptions
 import com.rossomak.flashcards.core.data.model.CurationActionEntryDto
 import com.rossomak.flashcards.core.data.model.CurationRequestDto
 import com.rossomak.flashcards.core.domain.model.CurationAction
-import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
+import kotlinx.coroutines.tasks.await
 
 private const val WHEREIN_BATCH_SIZE = 30
 
-class CurationRemoteDataSource @Inject constructor(
-    private val firestore: FirebaseFirestore,
-    private val firebaseAuth: FirebaseAuth,
-) {
+class CurationRemoteDataSource @Inject constructor(private val firestore: FirebaseFirestore, private val firebaseAuth: FirebaseAuth) {
 
     private val uid: String
         get() = requireNotNull(firebaseAuth.currentUser?.uid) { "No authenticated user" }
@@ -36,6 +33,7 @@ class CurationRemoteDataSource @Inject constructor(
                     .documents
                     .mapNotNull { document ->
                         val subcategoryId = document.getString("subcategoryId") ?: return@mapNotNull null
+
                         @Suppress("UNCHECKED_CAST")
                         val actionsRaw = document.get("actions") as? Map<String, Any> ?: emptyMap()
                         val actions = actionsRaw.mapNotNull { (key, value) ->
@@ -54,7 +52,7 @@ class CurationRemoteDataSource @Inject constructor(
         val docRef = collection().document(cardId)
         val updates = mutableMapOf<String, Any>(
             "subcategoryId" to subcategoryId,
-            "actions.${action.name}" to mapOf("flaggedAt" to FieldValue.serverTimestamp()),
+            "actions.${action.name}" to mapOf("flaggedAt" to FieldValue.serverTimestamp())
         )
         action.difficultyOpposite()?.let { opposite ->
             updates["actions.${opposite.name}"] = FieldValue.delete()

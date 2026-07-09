@@ -18,7 +18,7 @@ import javax.inject.Singleton
 class VoiceGradingApiRouter @Inject constructor(
     private val fakeApi: FakeVoiceGradingApi,
     private val retrofitApi: RetrofitVoiceGradingApi,
-    private val debugSettings: VoicePipelineDebugSettings,
+    private val debugSettings: VoicePipelineDebugSettings
 ) : VoiceGradingApi {
 
     val isRealBackendConfigured: Boolean
@@ -28,7 +28,7 @@ class VoiceGradingApiRouter @Inject constructor(
         cardId: String,
         question: String,
         expectedAnswer: String,
-        wavBytes: ByteArray,
+        wavBytes: ByteArray
     ): VoiceAnswerGradeDto = apiFor(debugSettings.toggles.value.useRealGrading)
         .gradeVoiceAnswer(cardId, question, expectedAnswer, wavBytes)
 
@@ -38,9 +38,7 @@ class VoiceGradingApiRouter @Inject constructor(
     override suspend fun sanitizeAndGrade(request: SanitizeAndGradeRequestDto): VoiceAnswerGradeDto =
         apiFor(debugSettings.toggles.value.useRealGrading).sanitizeAndGrade(request)
 
-    override suspend fun checkEntitlement(): EntitlementDto =
-        apiFor(debugSettings.toggles.value.useRealEntitlement).checkEntitlement()
+    override suspend fun checkEntitlement(): EntitlementDto = apiFor(debugSettings.toggles.value.useRealEntitlement).checkEntitlement()
 
-    private fun apiFor(useReal: Boolean): VoiceGradingApi =
-        if (useReal && isRealBackendConfigured) retrofitApi else fakeApi
+    private fun apiFor(useReal: Boolean): VoiceGradingApi = if (useReal && isRealBackendConfigured) retrofitApi else fakeApi
 }

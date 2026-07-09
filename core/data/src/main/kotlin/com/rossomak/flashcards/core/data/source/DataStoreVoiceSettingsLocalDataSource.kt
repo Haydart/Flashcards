@@ -13,9 +13,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 
-class DataStoreVoiceSettingsLocalDataSource @Inject constructor(
-    private val dataStore: DataStore<Preferences>,
-) : VoiceSettingsLocalDataSource {
+class DataStoreVoiceSettingsLocalDataSource @Inject constructor(private val dataStore: DataStore<Preferences>) :
+    VoiceSettingsLocalDataSource {
 
     override fun voiceSettings(): Flow<VoiceSettings> = dataStore.data
         .catch { error ->
@@ -24,7 +23,7 @@ class DataStoreVoiceSettingsLocalDataSource @Inject constructor(
         .map { prefs ->
             VoiceSettings(
                 speechRate = prefs[SPEECH_RATE_KEY] ?: DEFAULT_SPEECH_RATE,
-                voiceId = prefs[VOICE_ID_KEY],
+                voiceId = prefs[VOICE_ID_KEY]
             )
         }
 

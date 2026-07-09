@@ -40,7 +40,7 @@ fun VoiceSettingsDialog(
     onVoiceSelected: (String?) -> Unit,
     onSpeedChanged: (Float) -> Unit,
     onSave: () -> Unit,
-    onDismiss: () -> Unit,
+    onDismiss: () -> Unit
 ) {
     var dropdownExpanded by remember { mutableStateOf(false) }
     val selectedVoice = availableVoices.firstOrNull { it.id == selectedVoiceId }
@@ -53,12 +53,12 @@ fun VoiceSettingsDialog(
                 Text(
                     text = "VOICE",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 ExposedDropdownMenuBox(
                     expanded = dropdownExpanded,
-                    onExpandedChange = { dropdownExpanded = it },
+                    onExpandedChange = { dropdownExpanded = it }
                 ) {
                     OutlinedTextField(
                         value = selectedVoice?.displayName ?: "Select voice",
@@ -68,11 +68,11 @@ fun VoiceSettingsDialog(
                         modifier = Modifier
                             .menuAnchor(MenuAnchorType.PrimaryNotEditable)
                             .fillMaxWidth(),
-                        singleLine = true,
+                        singleLine = true
                     )
                     ExposedDropdownMenu(
                         expanded = dropdownExpanded,
-                        onDismissRequest = { dropdownExpanded = false },
+                        onDismissRequest = { dropdownExpanded = false }
                     ) {
                         availableVoices.forEach { voice ->
                             DropdownMenuItem(
@@ -80,7 +80,7 @@ fun VoiceSettingsDialog(
                                 onClick = {
                                     dropdownExpanded = false
                                     onVoiceSelected(voice.id)
-                                },
+                                }
                             )
                         }
                     }
@@ -88,49 +88,49 @@ fun VoiceSettingsDialog(
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = "SPEED",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f)
                     )
                     Text(
                         text = "${String.format(Locale.US, "%.2f", speechRate)}×",
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.labelMedium
                     )
                 }
                 Slider(
                     value = speechRate,
                     onValueChange = onSpeedChanged,
                     valueRange = 0.5f..2f,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth()
                 )
                 Row(modifier = Modifier.fillMaxWidth()) {
                     Text(
                         text = "0.5×",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f)
                     )
                     Text(
                         text = "2.0×",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     shape = MaterialTheme.shapes.small,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
                         text = "Changes apply permanently to user preferences, not just the current session.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(8.dp),
+                        modifier = Modifier.padding(8.dp)
                     )
                 }
             }
@@ -140,7 +140,7 @@ fun VoiceSettingsDialog(
         },
         dismissButton = {
             OutlinedButton(onClick = onDismiss) { Text("Cancel") }
-        },
+        }
     )
 }
 
@@ -150,14 +150,14 @@ private fun VoiceSettingsDialogNoSelectionPreview() {
     VoiceSettingsDialog(
         availableVoices = listOf(
             VoiceOption(id = "en-us-x-1", displayName = "English (United States) · Voice 1"),
-            VoiceOption(id = "en-gb-x-1", displayName = "English (United Kingdom) · Voice 1"),
+            VoiceOption(id = "en-gb-x-1", displayName = "English (United Kingdom) · Voice 1")
         ),
         selectedVoiceId = null,
         speechRate = 1f,
         onVoiceSelected = {},
         onSpeedChanged = {},
         onSave = {},
-        onDismiss = {},
+        onDismiss = {}
     )
 }
 
@@ -167,14 +167,14 @@ private fun VoiceSettingsDialogVoiceSelectedPreview() {
     VoiceSettingsDialog(
         availableVoices = listOf(
             VoiceOption(id = "en-us-x-1", displayName = "English (United States) · Voice 1"),
-            VoiceOption(id = "en-gb-x-1", displayName = "English (United Kingdom) · Voice 1"),
+            VoiceOption(id = "en-gb-x-1", displayName = "English (United Kingdom) · Voice 1")
         ),
         selectedVoiceId = "en-gb-x-1",
         speechRate = 1.5f,
         onVoiceSelected = {},
         onSpeedChanged = {},
         onSave = {},
-        onDismiss = {},
+        onDismiss = {}
     )
 }
 
@@ -188,6 +188,6 @@ private fun VoiceSettingsDialogEmptyVoicesPreview() {
         onVoiceSelected = {},
         onSpeedChanged = {},
         onSave = {},
-        onDismiss = {},
+        onDismiss = {}
     )
 }

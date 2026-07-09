@@ -6,6 +6,8 @@ import android.media.AudioRecord
 import android.media.MediaRecorder
 import androidx.annotation.RequiresPermission
 import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,15 +21,9 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /** A single VAD-bounded utterance. Only obfuscated audio ever leaves the engine in this form. */
-data class CapturedUtterance(
-    val obfuscatedPcm: ShortArray,
-    val wavBytes: ByteArray,
-    val durationMs: Long,
-)
+data class CapturedUtterance(val obfuscatedPcm: ShortArray, val wavBytes: ByteArray, val durationMs: Long)
 
 sealed interface VoiceCaptureEvent {
     data object SpeechStarted : VoiceCaptureEvent
@@ -59,7 +55,7 @@ class VoiceCaptureEngine @Inject constructor(
     @ApplicationContext private val context: Context,
     private val voiceActivityDetector: VoiceActivityDetector,
     private val voiceObfuscator: VoiceObfuscator,
-    private val audioRouteManager: AudioRouteManager,
+    private val audioRouteManager: AudioRouteManager
 ) {
 
     private enum class CaptureOutcome { STOPPED, FAILED, ROUTE_CHANGED }
@@ -191,10 +187,7 @@ class VoiceCaptureEngine @Inject constructor(
      * an in-flight utterance is finished first, then [CaptureOutcome.ROUTE_CHANGED] is returned so the
      * caller rebuilds on the new route (never a mid-clip device switch).
      */
-    private suspend fun captureFrames(
-        audioRecord: AudioRecord,
-        isRouteChangePending: () -> Boolean,
-    ): CaptureOutcome {
+    private suspend fun captureFrames(audioRecord: AudioRecord, isRouteChangePending: () -> Boolean): CaptureOutcome {
         val frame = ShortArray(FRAME_SIZE_SAMPLES)
         val preRoll = ArrayDeque<ShortArray>(PRE_ROLL_FRAMES)
         val utterance = mutableListOf<ShortArray>()
@@ -270,7 +263,7 @@ class VoiceCaptureEngine @Inject constructor(
                 CapturedUtterance(
                     obfuscatedPcm = obfuscated,
                     wavBytes = WavEncoder.encode(obfuscated, SAMPLE_RATE_HZ),
-                    durationMs = durationMs,
+                    durationMs = durationMs
                 )
             )
         )
@@ -281,7 +274,7 @@ class VoiceCaptureEngine @Inject constructor(
         val minBufferSize = AudioRecord.getMinBufferSize(
             SAMPLE_RATE_HZ,
             AudioFormat.CHANNEL_IN_MONO,
-            AudioFormat.ENCODING_PCM_16BIT,
+            AudioFormat.ENCODING_PCM_16BIT
         )
         if (minBufferSize <= 0) return null
         val audioRecord = AudioRecord(
@@ -289,7 +282,7 @@ class VoiceCaptureEngine @Inject constructor(
             SAMPLE_RATE_HZ,
             AudioFormat.CHANNEL_IN_MONO,
             AudioFormat.ENCODING_PCM_16BIT,
-            maxOf(minBufferSize, FRAME_SIZE_SAMPLES * Short.SIZE_BYTES * BUFFER_FRAMES),
+            maxOf(minBufferSize, FRAME_SIZE_SAMPLES * Short.SIZE_BYTES * BUFFER_FRAMES)
         )
         if (audioRecord.state != AudioRecord.STATE_INITIALIZED) {
             audioRecord.release()
@@ -327,10 +320,12 @@ class VoiceCaptureEngine @Inject constructor(
         private const val BUFFER_FRAMES = 8
 
         private const val PRE_ROLL_FRAMES = 10 // 200ms of audio kept before speech onset
+
         // 2.5s silence closes the utterance. Deliberately generous: spoken answers contain
         // thinking-pauses, and a shorter window cut recordings off mid-answer. Silero's accurate
         // soft-speech detection keeps these pauses from being padded with false-positive frames.
         private const val END_SILENCE_FRAMES = 125
+
         // Only this much silence is kept around each speech burst (leading-in for the next one,
         // trailing-out for this one) before ElevenLabs upload; the rest of a thinking-pause is
         // trimmed at capture time. Silence carries no ASR signal, so cutting it is safe and keeps
