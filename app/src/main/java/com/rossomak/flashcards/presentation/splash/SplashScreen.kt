@@ -21,7 +21,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -35,6 +34,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.rossomak.flashcards.R
+import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -44,7 +44,7 @@ private val SplashPurple = Color(0xFF6B2FA0)
 private val splashGradient = Brush.linearGradient(
     colorStops = arrayOf(
         0.25f to SplashBlue,
-        0.99f to SplashPurple,
+        0.99f to SplashPurple
     ),
     start = Offset.Zero,
     end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
@@ -63,7 +63,7 @@ fun SplashScreen(
     modifier: Modifier = Modifier,
     viewModel: SplashViewModel = hiltViewModel(),
     onNavigateToMain: () -> Unit,
-    onNavigateToLogin: () -> Unit,
+    onNavigateToLogin: () -> Unit
 ) {
     observeAsEvents(viewModel.events) { destination ->
         when (destination) {
@@ -77,10 +77,7 @@ fun SplashScreen(
 
 @OptIn(ExperimentalAnimationGraphicsApi::class)
 @Composable
-fun SplashContent(
-    modifier: Modifier = Modifier,
-    onAnimationCompleted: () -> Unit,
-) {
+fun SplashContent(modifier: Modifier = Modifier, onAnimationCompleted: () -> Unit) {
     val gradientSlide = remember { Animatable(0f) }
     val textReveal = remember { Animatable(0f) }
     var logoAtEnd by remember { mutableStateOf(false) }

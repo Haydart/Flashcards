@@ -20,23 +20,27 @@ import com.rossomak.flashcards.presentation.splash.SplashScreen
 import kotlinx.serialization.Serializable
 
 @Serializable object Splash
+
 @Serializable object Main
 
 @Serializable object HomeGraph
+
 @Serializable object StudyGraph
+
 @Serializable object SettingsGraph
+
 @Serializable object VoiceDebugGraph
 
 @Serializable object HomeRoot
+
 @Serializable object StudyRoot
+
 @Serializable object SettingsRoot
+
 @Serializable object VoiceDebugRoot
 
 @Composable
-fun FlashcardsNavGraph(
-    navController: NavHostController,
-    modifier: Modifier = Modifier
-) {
+fun FlashcardsNavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
     NavHost(
         navController = navController,
         startDestination = Splash,
@@ -96,7 +100,7 @@ fun FlashcardsNavGraph(
                             categoryId = categoryId,
                             categoryName = categoryName,
                             subcategoryIds = listOf(subcategoryId),
-                            subcategoryNames = listOf(subcategoryName),
+                            subcategoryNames = listOf(subcategoryName)
                         )
                     )
                 }

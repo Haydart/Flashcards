@@ -18,7 +18,7 @@ class SanitizeAndGradeTranscriptUseCaseTest {
     private val params = SanitizeAndGradeTranscriptUseCase.Params(
         question = "What is a wake lock?",
         expectedAnswer = "A mechanism keeping the CPU awake",
-        rawTranscript = "um a mechanism keeping the cpu awake",
+        rawTranscript = "um a mechanism keeping the cpu awake"
     )
 
     @Test
@@ -28,7 +28,7 @@ class SanitizeAndGradeTranscriptUseCaseTest {
             voiceAnswerGradingRepository.sanitizeAndGrade(
                 params.question,
                 params.expectedAnswer,
-                params.rawTranscript,
+                params.rawTranscript
             )
         } returns Result.success(grade)
 
@@ -39,7 +39,7 @@ class SanitizeAndGradeTranscriptUseCaseTest {
             voiceAnswerGradingRepository.sanitizeAndGrade(
                 params.question,
                 params.expectedAnswer,
-                params.rawTranscript,
+                params.rawTranscript
             )
         }
     }

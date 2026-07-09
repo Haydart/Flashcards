@@ -15,9 +15,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
 @HiltViewModel
-class SplashViewModel @Inject constructor(
-    private val getCurrentAuthUser: GetCurrentAuthUserUseCase
-) : ViewModel() {
+class SplashViewModel @Inject constructor(private val getCurrentAuthUser: GetCurrentAuthUserUseCase) : ViewModel() {
 
     private val _animationCompleted = MutableStateFlow(false)
     private val _authenticated = MutableStateFlow<Boolean?>(null)

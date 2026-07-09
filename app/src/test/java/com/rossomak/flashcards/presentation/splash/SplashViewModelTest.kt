@@ -23,8 +23,7 @@ class SplashViewModelTest {
 
     private val testUser = AuthUser("u1", "a@b.com", "Alex", null)
 
-    private fun createViewModel(): SplashViewModel =
-        SplashViewModel(getCurrentAuthUserUseCase)
+    private fun createViewModel(): SplashViewModel = SplashViewModel(getCurrentAuthUserUseCase)
 
     @Test
     fun `animation completed before timeout with user emits Main`() = runTest(mainDispatcherRule.testDispatcher) {
@@ -68,18 +67,19 @@ class SplashViewModelTest {
     }
 
     @Test
-    fun `navigation event resolves without extra delay when animation and auth both complete`() = runTest(mainDispatcherRule.testDispatcher) {
-        coEvery { getCurrentAuthUserUseCase() } returns testUser
+    fun `navigation event resolves without extra delay when animation and auth both complete`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            coEvery { getCurrentAuthUserUseCase() } returns testUser
 
-        val viewModel = createViewModel()
-        viewModel.onAnimationCompleted()
+            val viewModel = createViewModel()
+            viewModel.onAnimationCompleted()
 
-        viewModel.events.test {
-            awaitItem() shouldBe SplashDestination.Main
+            viewModel.events.test {
+                awaitItem() shouldBe SplashDestination.Main
+            }
+            // No post-animation delay in current implementation - destination emitted immediately.
+            testScheduler.currentTime shouldBeLessThan 2_000L
         }
-        // No post-animation delay in current implementation - destination emitted immediately.
-        testScheduler.currentTime shouldBeLessThan 2_000L
-    }
 
     @Test
     fun `onAnimationCompleted called multiple times still emits expected destination once`() = runTest(mainDispatcherRule.testDispatcher) {

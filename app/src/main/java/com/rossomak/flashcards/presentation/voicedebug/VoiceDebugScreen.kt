@@ -46,17 +46,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.R
 
 @Composable
-fun VoiceDebugScreen(
-    modifier: Modifier = Modifier,
-    viewModel: VoiceDebugViewModel = hiltViewModel(),
-) {
+fun VoiceDebugScreen(modifier: Modifier = Modifier, viewModel: VoiceDebugViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     var pendingMicAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     val micPermissionDeniedMessage = stringResource(R.string.voice_debug_mic_permission_message)
     val micPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
+        contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
             pendingMicAction?.invoke()
@@ -69,7 +66,7 @@ fun VoiceDebugScreen(
     fun withMicPermission(action: () -> Unit) {
         val isGranted = ContextCompat.checkSelfPermission(
             context,
-            Manifest.permission.RECORD_AUDIO,
+            Manifest.permission.RECORD_AUDIO
         ) == PackageManager.PERMISSION_GRANTED
         if (isGranted) {
             action()
@@ -97,7 +94,7 @@ fun VoiceDebugScreen(
         onSimulatePremiumToggle = viewModel::onSimulatePremiumToggle,
         onUseRealTranscriptionToggle = viewModel::onUseRealTranscriptionToggle,
         onUseRealGradingToggle = viewModel::onUseRealGradingToggle,
-        onUseRealEntitlementToggle = viewModel::onUseRealEntitlementToggle,
+        onUseRealEntitlementToggle = viewModel::onUseRealEntitlementToggle
     )
 }
 
@@ -120,18 +117,18 @@ fun VoiceDebugContent(
     onSimulatePremiumToggle: (Boolean) -> Unit,
     onUseRealTranscriptionToggle: (Boolean) -> Unit,
     onUseRealGradingToggle: (Boolean) -> Unit,
-    onUseRealEntitlementToggle: (Boolean) -> Unit,
+    onUseRealEntitlementToggle: (Boolean) -> Unit
 ) {
     Column(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(
             text = stringResource(R.string.voice_debug_title),
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.titleLarge
         )
 
         DebugBlock(title = stringResource(R.string.voice_debug_vad_title)) {
@@ -139,8 +136,11 @@ fun VoiceDebugContent(
                 Button(onClick = onVadToggle) {
                     Text(
                         stringResource(
-                            if (state.isVadListening) R.string.voice_debug_vad_stop_button
-                            else R.string.voice_debug_vad_start_button
+                            if (state.isVadListening) {
+                                R.string.voice_debug_vad_stop_button
+                            } else {
+                                R.string.voice_debug_vad_start_button
+                            }
                         )
                     )
                 }
@@ -148,21 +148,24 @@ fun VoiceDebugContent(
                 Surface(
                     modifier = Modifier.size(16.dp),
                     shape = CircleShape,
-                    color = if (state.isSpeechDetected) Color(0xFF2E7D32) else MaterialTheme.colorScheme.outlineVariant,
+                    color = if (state.isSpeechDetected) Color(0xFF2E7D32) else MaterialTheme.colorScheme.outlineVariant
                 ) {}
                 Spacer(modifier = Modifier.size(8.dp))
                 Text(
                     text = stringResource(
-                        if (state.isSpeechDetected) R.string.voice_debug_vad_speech_label
-                        else R.string.voice_debug_vad_silence_label
+                        if (state.isSpeechDetected) {
+                            R.string.voice_debug_vad_speech_label
+                        } else {
+                            R.string.voice_debug_vad_silence_label
+                        }
                     ),
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.labelMedium
                 )
             }
             Text(
                 text = stringResource(R.string.voice_debug_vad_probability_label, state.vadSpeechProbability),
                 style = MaterialTheme.typography.labelMedium,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = FontFamily.Monospace
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedButton(onClick = onPlayCapturedUtterance, enabled = state.hasCapturedUtterance) {
@@ -173,9 +176,9 @@ fun VoiceDebugContent(
                     Text(
                         text = stringResource(
                             R.string.voice_debug_vad_utterance_ready_label,
-                            state.capturedUtteranceDurationMs,
+                            state.capturedUtteranceDurationMs
                         ),
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.labelMedium
                     )
                 }
             }
@@ -187,8 +190,11 @@ fun VoiceDebugContent(
                 Button(onClick = onRecordClip, enabled = !state.isRecordingClip) {
                     Text(
                         stringResource(
-                            if (state.isRecordingClip) R.string.voice_debug_capture_recording_label
-                            else R.string.voice_debug_capture_record_button
+                            if (state.isRecordingClip) {
+                                R.string.voice_debug_capture_recording_label
+                            } else {
+                                R.string.voice_debug_capture_record_button
+                            }
                         )
                     )
                 }
@@ -199,7 +205,7 @@ fun VoiceDebugContent(
             if (state.hasRawClip) {
                 Text(
                     text = stringResource(R.string.voice_debug_capture_clip_ready_label, state.rawClipDurationMs),
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.labelMedium
                 )
             }
         }
@@ -220,7 +226,7 @@ fun VoiceDebugContent(
                 Text(
                     text = stringResource(R.string.voice_debug_obfuscation_no_clip_label),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline,
+                    color = MaterialTheme.colorScheme.outline
                 )
             }
         }
@@ -229,8 +235,11 @@ fun VoiceDebugContent(
             Button(onClick = onTranscribeClip, enabled = state.hasRawClip && !state.isTranscribing) {
                 Text(
                     stringResource(
-                        if (state.isTranscribing) R.string.voice_debug_transcription_running_label
-                        else R.string.voice_debug_transcription_send_button
+                        if (state.isTranscribing) {
+                            R.string.voice_debug_transcription_running_label
+                        } else {
+                            R.string.voice_debug_transcription_send_button
+                        }
                     )
                 )
             }
@@ -242,25 +251,28 @@ fun VoiceDebugContent(
                 value = state.gradeQuestion,
                 onValueChange = onGradeQuestionChange,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.voice_debug_grade_question_label)) },
+                label = { Text(stringResource(R.string.voice_debug_grade_question_label)) }
             )
             OutlinedTextField(
                 value = state.gradeExpectedAnswer,
                 onValueChange = onGradeExpectedAnswerChange,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.voice_debug_grade_expected_answer_label)) },
+                label = { Text(stringResource(R.string.voice_debug_grade_expected_answer_label)) }
             )
             OutlinedTextField(
                 value = state.gradeTranscript,
                 onValueChange = onGradeTranscriptChange,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.voice_debug_grade_transcript_label)) },
+                label = { Text(stringResource(R.string.voice_debug_grade_transcript_label)) }
             )
             Button(onClick = onSanitizeAndGrade, enabled = !state.isGrading) {
                 Text(
                     stringResource(
-                        if (state.isGrading) R.string.voice_debug_grade_running_label
-                        else R.string.voice_debug_grade_send_button
+                        if (state.isGrading) {
+                            R.string.voice_debug_grade_running_label
+                        } else {
+                            R.string.voice_debug_grade_send_button
+                        }
                     )
                 )
             }
@@ -271,13 +283,16 @@ fun VoiceDebugContent(
             LabeledSwitch(
                 label = stringResource(R.string.voice_debug_entitlement_simulate_premium_label),
                 checked = state.toggles.simulatePremiumEntitlement,
-                onCheckedChange = onSimulatePremiumToggle,
+                onCheckedChange = onSimulatePremiumToggle
             )
             Button(onClick = onCheckEntitlement, enabled = !state.isCheckingEntitlement) {
                 Text(
                     stringResource(
-                        if (state.isCheckingEntitlement) R.string.voice_debug_entitlement_checking_label
-                        else R.string.voice_debug_entitlement_check_button
+                        if (state.isCheckingEntitlement) {
+                            R.string.voice_debug_entitlement_checking_label
+                        } else {
+                            R.string.voice_debug_entitlement_check_button
+                        }
                     )
                 )
             }
@@ -289,40 +304,37 @@ fun VoiceDebugContent(
                 Text(
                     text = stringResource(R.string.voice_debug_toggles_backend_unconfigured_label),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.error,
+                    color = MaterialTheme.colorScheme.error
                 )
             }
             LabeledSwitch(
                 label = stringResource(R.string.voice_debug_toggle_transcription_label),
                 checked = state.toggles.useRealTranscription,
                 enabled = state.isRealBackendConfigured,
-                onCheckedChange = onUseRealTranscriptionToggle,
+                onCheckedChange = onUseRealTranscriptionToggle
             )
             LabeledSwitch(
                 label = stringResource(R.string.voice_debug_toggle_grading_label),
                 checked = state.toggles.useRealGrading,
                 enabled = state.isRealBackendConfigured,
-                onCheckedChange = onUseRealGradingToggle,
+                onCheckedChange = onUseRealGradingToggle
             )
             LabeledSwitch(
                 label = stringResource(R.string.voice_debug_toggle_entitlement_label),
                 checked = state.toggles.useRealEntitlement,
                 enabled = state.isRealBackendConfigured,
-                onCheckedChange = onUseRealEntitlementToggle,
+                onCheckedChange = onUseRealEntitlementToggle
             )
         }
     }
 }
 
 @Composable
-private fun DebugBlock(
-    title: String,
-    content: @Composable () -> Unit,
-) {
+private fun DebugBlock(title: String, content: @Composable () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(text = title, style = MaterialTheme.typography.titleSmall)
             HorizontalDivider()
@@ -341,25 +353,20 @@ private fun RawDataText(text: String) {
             .padding(8.dp)
             .horizontalScroll(rememberScrollState()),
         style = MaterialTheme.typography.bodySmall,
-        fontFamily = FontFamily.Monospace,
+        fontFamily = FontFamily.Monospace
     )
 }
 
 @Composable
-private fun LabeledSwitch(
-    label: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    enabled: Boolean = true,
-) {
+private fun LabeledSwitch(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit, enabled: Boolean = true) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = label,
             modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodySmall
         )
         Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
     }
