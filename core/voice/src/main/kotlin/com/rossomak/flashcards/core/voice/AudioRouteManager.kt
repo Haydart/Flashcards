@@ -70,6 +70,11 @@ data class CaptureRoute(
  * `setCommunicationDevice`/`clearCommunicationDevice`/`communicationDevice` are API 31+; below that
  * (minSdk 26) only Classic SCO via `startBluetoothSco`/`stopBluetoothSco` is reachable — LE Audio is
  * not.
+ *
+ * Both paths also drive [AudioManager.setMode] to `MODE_IN_COMMUNICATION` while a BT route is
+ * active, restoring `MODE_NORMAL` on release. Without it, OEM audio HALs commonly apply the default
+ * (non-communication) audio policy's onset gating/AGC to the BT link — swallowing the first syllable
+ * of every utterance, not just at session start.
  */
 @Singleton
 class AudioRouteManager @Inject constructor(
@@ -137,8 +142,13 @@ class AudioRouteManager @Inject constructor(
         val target = bleDevice ?: scoDevice ?: run {
             // No mic-capable BT communication device (A2DP-only or nothing) -> phone mic allowed.
             audioManager.clearCommunicationDevice()
+            audioManager.mode = AudioManager.MODE_NORMAL
             return CaptureRoute(CaptureRouteType.PHONE)
         }
+        // setCommunicationDevice() is documented to require MODE_IN_COMMUNICATION/MODE_IN_CALL to
+        // behave correctly; without it OEM audio HALs commonly apply inconsistent onset gating/AGC
+        // on the BT link — swallowed first syllable on every utterance, not just at session start.
+        audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
         val ready = requestCommunicationDevice(target)
         if (!ready) return CaptureRoute(CaptureRouteType.WAITING)
         val routeType =
@@ -168,8 +178,12 @@ class AudioRouteManager @Inject constructor(
     private suspend fun resolveLegacyScoRoute(): CaptureRoute {
         if (!isBluetoothAudioConnected() || !audioManager.isBluetoothScoAvailableOffCall) {
             runCatching { audioManager.stopBluetoothSco() }
+            audioManager.mode = AudioManager.MODE_NORMAL
             return CaptureRoute(CaptureRouteType.PHONE)
         }
+        // See resolveCommunicationRoute(): SCO needs MODE_IN_COMMUNICATION for the onset of capture
+        // not to be gated/AGC-chewed by the platform's default (non-communication) audio policy.
+        audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
         val connected = awaitScoConnected()
         if (!connected) {
             runCatching { audioManager.stopBluetoothSco() }
@@ -214,6 +228,7 @@ class AudioRouteManager @Inject constructor(
         } else {
             runCatching { audioManager.stopBluetoothSco() }
         }
+        audioManager.mode = AudioManager.MODE_NORMAL
     }
 
     private fun registerDeviceCallback() {

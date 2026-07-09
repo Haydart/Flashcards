@@ -285,7 +285,7 @@ class VoiceCaptureEngine @Inject constructor(
         )
         if (minBufferSize <= 0) return null
         val audioRecord = AudioRecord(
-            preferredAudioSource(),
+            preferredAudioSource(route),
             SAMPLE_RATE_HZ,
             AudioFormat.CHANNEL_IN_MONO,
             AudioFormat.ENCODING_PCM_16BIT,
@@ -313,11 +313,16 @@ class VoiceCaptureEngine @Inject constructor(
     }
 
     /**
-     * Single swappable audio-source line (ADR-0027 Q1), pending the on-device A/B test. Kept as MIC:
-     * VOICE_RECOGNITION routed through OEM noise-suppression/AGC that gutted the signal to near
-     * silence on some devices (e.g. Realme/MTK).
+     * Route-dependent audio source (ADR-0027 Q1). Phone mic stays MIC: VOICE_RECOGNITION routed
+     * through OEM noise-suppression/AGC that gutted the signal to near silence on some devices (e.g.
+     * Realme/MTK). Bluetooth routes use VOICE_COMMUNICATION — the source semantically paired with
+     * [AudioManager.MODE_IN_COMMUNICATION] (set by [AudioRouteManager] for BT routes); Android's
+     * audio policy wires SCO/LE-Audio input most consistently for this source across OEMs, whereas
+     * MIC over a BT communication device is a comparatively under-tested combination.
      */
-    private fun preferredAudioSource(): Int = MediaRecorder.AudioSource.MIC
+    private fun preferredAudioSource(route: CaptureRoute): Int =
+        if (route.isBluetooth) MediaRecorder.AudioSource.VOICE_COMMUNICATION
+        else MediaRecorder.AudioSource.MIC
 
     companion object {
         private const val TAG = "VoiceCapture"
