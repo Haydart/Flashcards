@@ -19,6 +19,7 @@ export async function requireAuthenticatedUid(req: Request): Promise<string> {
     const decoded = await admin.auth().verifyIdToken(idToken);
     return decoded.uid;
   } catch (error) {
-    throw new HttpError(401, `Invalid ID token: ${(error as Error).message}`);
+    console.error("ID token verification failed:", error);
+    throw new HttpError(401, "Invalid or expired authentication token");
   }
 }
