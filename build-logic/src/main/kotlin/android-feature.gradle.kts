@@ -8,6 +8,7 @@ pluginManager.apply("org.jetbrains.kotlin.plugin.compose")
 pluginManager.apply("com.google.devtools.ksp")
 pluginManager.apply("com.google.dagger.hilt.android")
 pluginManager.apply("org.jetbrains.kotlin.plugin.serialization")
+pluginManager.apply("android-quality")
 
 android {
     compileSdk = 37

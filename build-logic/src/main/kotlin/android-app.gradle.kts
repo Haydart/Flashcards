@@ -10,6 +10,7 @@ pluginManager.apply("com.google.devtools.ksp")
 pluginManager.apply("com.google.dagger.hilt.android")
 pluginManager.apply("org.jetbrains.kotlin.plugin.serialization")
 pluginManager.apply("com.google.gms.google-services")
+pluginManager.apply("android-quality")
 
 android {
     compileSdk = 37

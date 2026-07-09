@@ -1,0 +1,26 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{kt,kts}]
+max_line_length = 140
+# Official Android Kotlin style; drives ktlint rules run by Spotless.
+ktlint_code_style = android_studio
+# @Composable functions are PascalCase — don't flag them as bad function names.
+ktlint_function_naming_ignore_when_annotated_with = Composable, Preview
+# Wildcard imports are disallowed by the project style.
+ij_kotlin_packages_to_use_import_on_demand = unset
+# ViewModels use the `_prefix` idiom for private MutableStateFlow with no public mirror.
+ktlint_standard_backing-property-naming = disabled
+
+[*.{yml,yaml,xml,json,toml}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
