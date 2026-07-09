@@ -137,6 +137,7 @@ class VoiceCaptureEngine @Inject constructor(
         val utterance = mutableListOf<ShortArray>()
         var isInUtterance = false
         var trailingSilenceFrames = 0
+        var speechFrameCount = 0
         try {
             audioRecord.startRecording()
             while (captureJob?.isActive == true) {
@@ -149,23 +150,38 @@ class VoiceCaptureEngine @Inject constructor(
                     isSpeech && !isInUtterance -> {
                         isInUtterance = true
                         trailingSilenceFrames = 0
+                        speechFrameCount = 1
                         utterance.clear()
                         utterance.addAll(preRoll)
                         preRoll.clear()
                         utterance.add(frame.copyOf())
                         _events.emit(VoiceCaptureEvent.SpeechStarted)
                     }
-                    isInUtterance -> {
+                    isInUtterance && isSpeech -> {
                         utterance.add(frame.copyOf())
-                        trailingSilenceFrames = if (isSpeech) 0 else trailingSilenceFrames + 1
+                        speechFrameCount++
+                        trailingSilenceFrames = 0
+                    }
+                    isInUtterance -> {
+                        // Only pad a short context window (leading-in for the next burst, or
+                        // trailing-out for this one) into the buffer; frames beyond GAP_PAD_FRAMES
+                        // are neither appended nor obfuscated/uploaded — dead air between
+                        // thinking-pauses never leaves the device. trailingSilenceFrames still
+                        // counts every silent frame so the END_SILENCE_FRAMES hangover timing is
+                        // unaffected.
+                        trailingSilenceFrames++
+                        if (trailingSilenceFrames <= GAP_PAD_FRAMES) {
+                            utterance.add(frame.copyOf())
+                        }
                         val utteranceEnded = trailingSilenceFrames >= END_SILENCE_FRAMES
                         val utteranceTooLong = utterance.size >= MAX_UTTERANCE_FRAMES
                         if (utteranceEnded || utteranceTooLong) {
                             isInUtterance = false
                             _events.emit(VoiceCaptureEvent.SpeechEnded)
-                            finishUtterance(utterance, trailingSilenceFrames)
+                            finishUtterance(utterance, speechFrameCount)
                             utterance.clear()
                             trailingSilenceFrames = 0
+                            speechFrameCount = 0
                         }
                     }
                     else -> {
@@ -192,11 +208,11 @@ class VoiceCaptureEngine @Inject constructor(
         }
     }
 
-    private suspend fun finishUtterance(frames: List<ShortArray>, trailingSilenceFrames: Int) {
-        val speechFrameCount = frames.size - trailingSilenceFrames
+    private suspend fun finishUtterance(frames: List<ShortArray>, speechFrameCount: Int) {
         if (speechFrameCount < MIN_UTTERANCE_FRAMES) return
         val raw = ShortArray(frames.size * FRAME_SIZE_SAMPLES)
         frames.forEachIndexed { index, chunk -> chunk.copyInto(raw, index * FRAME_SIZE_SAMPLES) }
+        frames.forEach { it.fill(0) } // Per-frame copies are scrubbed once folded into raw.
         val obfuscated = voiceObfuscator.obfuscate(raw)
         raw.fill(0) // Raw voiceprint is dropped the moment the obfuscated copy exists.
         val durationMs = obfuscated.size * 1000L / SAMPLE_RATE_HZ
@@ -276,6 +292,11 @@ class VoiceCaptureEngine @Inject constructor(
         // thinking-pauses, and a shorter window cut recordings off mid-answer. Silero's accurate
         // soft-speech detection keeps these pauses from being padded with false-positive frames.
         private const val END_SILENCE_FRAMES = 75
+        // Only this much silence is kept around each speech burst (leading-in for the next one,
+        // trailing-out for this one) before ElevenLabs upload; the rest of a thinking-pause is
+        // trimmed at capture time. Silence carries no ASR signal, so cutting it is safe and keeps
+        // payload/latency down — the pad is just insurance against clipping a boundary word.
+        private const val GAP_PAD_FRAMES = 8 // 160ms
         private const val MIN_UTTERANCE_FRAMES = 15 // <300ms of speech is discarded as noise
         private const val MAX_UTTERANCE_FRAMES = 1500 // 30s hard cap per utterance
     }
