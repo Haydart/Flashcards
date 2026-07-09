@@ -134,7 +134,7 @@ class VoiceAnswerController @Inject constructor(
     private suspend fun onSilenceTimeout() {
         voiceCaptureEngine.stopListening()
         _state.value = _state.value.copy(phase = VoiceAnswerPhase.SPEAKING_NOTICE)
-        speakNotice(context.getString(R.string.voice_answer_skip_spoken_message))
+        speakNotice(context.getString(R.string.study_session_voice_answer_skip_spoken_message))
     }
 
     private suspend fun handleCaptureEvent(event: VoiceCaptureEvent) {
@@ -180,7 +180,7 @@ class VoiceAnswerController @Inject constructor(
             )
             speakNotice(
                 context.getString(
-                    R.string.voice_answer_grade_spoken_message,
+                    R.string.study_session_voice_answer_grade_spoken_message,
                     grade.gradePercent,
                     grade.feedback,
                 )
@@ -192,7 +192,7 @@ class VoiceAnswerController @Inject constructor(
             )
             // No screen to look at in this UX — failure must be audible (design doc §Upload
             // failure handling; silent-drop was explicitly rejected).
-            speakNotice(context.getString(R.string.voice_answer_failure_spoken_message))
+            speakNotice(context.getString(R.string.study_session_voice_answer_failure_spoken_message))
         }
     }
 

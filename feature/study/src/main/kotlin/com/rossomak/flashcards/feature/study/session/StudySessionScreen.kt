@@ -509,21 +509,21 @@ private fun VoiceAnswerConsentDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDecline,
-        title = { Text(stringResource(R.string.voice_answer_consent_title)) },
+        title = { Text(stringResource(R.string.study_session_voice_answer_consent_title)) },
         text = {
             Text(
-                text = stringResource(R.string.voice_answer_consent_message),
+                text = stringResource(R.string.study_session_voice_answer_consent_message),
                 style = MaterialTheme.typography.bodyMedium,
             )
         },
         confirmButton = {
             TextButton(onClick = onAccept) {
-                Text(stringResource(R.string.voice_answer_consent_accept_button))
+                Text(stringResource(R.string.study_session_voice_answer_consent_accept_button))
             }
         },
         dismissButton = {
             TextButton(onClick = onDecline) {
-                Text(stringResource(R.string.voice_answer_consent_decline_button))
+                Text(stringResource(R.string.study_session_voice_answer_consent_decline_button))
             }
         },
     )
@@ -727,11 +727,13 @@ private fun StudySessionSheetContent(
                     ) {
                         Icon(
                             imageVector = Icons.Default.SkipNext,
-                            contentDescription = if (state.isVoiceAnswerEnabled || state.isAnswerRevealed) {
-                                "Next card"
-                            } else {
-                                "Show answer"
-                            },
+                            contentDescription = stringResource(
+                                if (state.isVoiceAnswerEnabled || state.isAnswerRevealed) {
+                                    R.string.study_session_next_card_cd
+                                } else {
+                                    R.string.study_session_show_answer_cd
+                                }
+                            ),
                         )
                     }
                 }
