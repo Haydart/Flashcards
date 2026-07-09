@@ -6,9 +6,12 @@ import android.content.pm.PackageManager
 import android.os.PowerManager
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.util.Log
 import androidx.core.content.ContextCompat
 import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
 import com.rossomak.flashcards.core.domain.usecase.GradeSpokenAnswerUseCase
+import com.rossomak.flashcards.core.voice.AudioRouteManager
+import com.rossomak.flashcards.core.voice.CaptureRouteType
 import com.rossomak.flashcards.core.voice.VoiceCaptureEvent
 import com.rossomak.flashcards.core.voice.VoiceCaptureEngine
 import com.rossomak.flashcards.feature.study.R
@@ -34,6 +37,7 @@ data class VoiceAnswerState(
     val phase: VoiceAnswerPhase = VoiceAnswerPhase.IDLE,
     val lastGrade: VoiceAnswerGrade? = null,
     val lastGradedCardId: String? = null,
+    val captureRoute: CaptureRouteType = CaptureRouteType.NONE,
     val error: String? = null,
 )
 
@@ -57,6 +61,7 @@ class VoiceAnswerController @Inject constructor(
     @ApplicationContext private val context: Context,
     private val gradeSpokenAnswer: GradeSpokenAnswerUseCase,
     private val voiceCaptureEngine: VoiceCaptureEngine,
+    private val audioRouteManager: AudioRouteManager,
 ) {
 
     private val _state = MutableStateFlow(VoiceAnswerState())
@@ -68,6 +73,8 @@ class VoiceAnswerController @Inject constructor(
 
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var captureEventsJob: Job? = null
+    private var routeObserverJob: Job? = null
+    private var listenStartJob: Job? = null
     private var listenTimeoutJob: Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
 
@@ -90,12 +97,26 @@ class VoiceAnswerController @Inject constructor(
         captureEventsJob = scope.launch {
             voiceCaptureEngine.events.collect { event -> handleCaptureEvent(event) }
         }
+        // Establish the session mic route once (BLE-first / SCO / phone), then keep the surfaced
+        // CaptureRoute in state for the debug screen. v1 logs route changes only (ADR-0027 Q11).
+        routeObserverJob = scope.launch {
+            audioRouteManager.route.collect { route ->
+                Log.i(TAG, "capture route -> ${route.type}")
+                _state.value = _state.value.copy(captureRoute = route.type)
+            }
+        }
+        scope.launch { audioRouteManager.acquireSessionRoute() }
     }
 
     fun stop() {
+        listenStartJob?.cancel()
+        listenStartJob = null
         listenTimeoutJob?.cancel()
         listenTimeoutJob = null
         voiceCaptureEngine.stopListening()
+        audioRouteManager.releaseSessionRoute()
+        routeObserverJob?.cancel()
+        routeObserverJob = null
         captureEventsJob?.cancel()
         captureEventsJob = null
         releaseWakeLock()
@@ -123,11 +144,20 @@ class VoiceAnswerController @Inject constructor(
             lastGradedCardId = null,
             error = null,
         )
-        voiceCaptureEngine.startListening()
-        listenTimeoutJob?.cancel()
-        listenTimeoutJob = scope.launch {
-            delay(SILENCE_TIMEOUT_MS)
-            onSilenceTimeout()
+        // Bluetooth-strict (ADR-0027): open the listening window only once the mic route has settled
+        // to a capturable one. If a mic-capable BT device dropped, this suspends until it reconnects
+        // (auto-reacquire) rather than capturing on the pocketed phone mic. Phone-only sessions
+        // settle immediately, so this adds no latency when no BT is involved.
+        listenStartJob?.cancel()
+        listenStartJob = scope.launch {
+            audioRouteManager.awaitRouteReady()
+            if (!_state.value.isEnabled) return@launch
+            voiceCaptureEngine.startListening()
+            listenTimeoutJob?.cancel()
+            listenTimeoutJob = scope.launch {
+                delay(SILENCE_TIMEOUT_MS)
+                onSilenceTimeout()
+            }
         }
     }
 
@@ -262,6 +292,7 @@ class VoiceAnswerController @Inject constructor(
     }
 
     private companion object {
+        const val TAG = "VoiceAnswerController"
         const val WAKE_LOCK_TAG = "flashcards:voiceAnswerCapture"
         const val WAKE_LOCK_TIMEOUT_MS = 60L * 60L * 1000L // 1h safety cap per session
         const val NOTICE_UTTERANCE_ID = "voice_answer_notice"
