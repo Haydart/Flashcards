@@ -142,6 +142,7 @@ class VoiceCaptureEngine @Inject constructor(
             while (captureJob?.isActive == true) {
                 val read = audioRecord.read(frame, 0, frame.size)
                 if (read <= 0) continue
+                if (read < frame.size) frame.fill(0, read, frame.size)
                 val isSpeech = voiceActivityDetector.isSpeech(frame)
                 _isSpeechDetected.value = isSpeech
                 when {
