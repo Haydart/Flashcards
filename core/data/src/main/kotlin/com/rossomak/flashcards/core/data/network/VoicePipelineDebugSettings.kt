@@ -3,6 +3,7 @@ package com.rossomak.flashcards.core.data.network
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -26,18 +27,18 @@ class VoicePipelineDebugSettings @Inject constructor() {
     val toggles: StateFlow<StageToggles> = _toggles.asStateFlow()
 
     fun setUseRealTranscription(useReal: Boolean) {
-        _toggles.value = _toggles.value.copy(useRealTranscription = useReal)
+        _toggles.update { it.copy(useRealTranscription = useReal) }
     }
 
     fun setUseRealGrading(useReal: Boolean) {
-        _toggles.value = _toggles.value.copy(useRealGrading = useReal)
+        _toggles.update { it.copy(useRealGrading = useReal) }
     }
 
     fun setUseRealEntitlement(useReal: Boolean) {
-        _toggles.value = _toggles.value.copy(useRealEntitlement = useReal)
+        _toggles.update { it.copy(useRealEntitlement = useReal) }
     }
 
     fun setSimulatePremiumEntitlement(isPremium: Boolean) {
-        _toggles.value = _toggles.value.copy(simulatePremiumEntitlement = isPremium)
+        _toggles.update { it.copy(simulatePremiumEntitlement = isPremium) }
     }
 }
