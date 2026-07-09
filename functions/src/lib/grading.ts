@@ -83,10 +83,20 @@ export async function gradeWithGemini(
     throw new HttpError(502, "Grading LLM returned no content");
   }
 
-  const parsed = JSON.parse(text) as GeminiGradeJson;
+  let parsed: GeminiGradeJson;
+  try {
+    parsed = JSON.parse(text) as GeminiGradeJson;
+  } catch {
+    throw new HttpError(502, "Grading LLM returned malformed JSON");
+  }
+
+  if (typeof parsed.grade !== "number" || !Number.isFinite(parsed.grade)) {
+    throw new HttpError(502, "Grading LLM returned an invalid grade");
+  }
+
   return {
     sanitizedTranscript: parsed.sanitized_transcript,
-    gradePercent: parsed.grade,
+    gradePercent: Math.max(0, Math.min(100, Math.round(parsed.grade))),
     feedback: parsed.feedback,
   };
 }
