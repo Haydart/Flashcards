@@ -17,6 +17,9 @@ complexity:
     thresholdInFiles: 20
 
 style:
+  MaxLineLength:
+    maxLineLength: 180
+    excludeCommentStatements: true # comments are never wrapped/broken to fit a length limit
   MagicNumber:
     ignorePropertyDeclaration: true
     ignoreCompanionObjectPropertyDeclaration: true

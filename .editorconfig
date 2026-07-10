@@ -9,7 +9,7 @@ indent_style = space
 indent_size = 4
 
 [*.{kt,kts}]
-max_line_length = 140
+max_line_length = 180
 # Official Android Kotlin style; drives ktlint rules run by Spotless.
 ktlint_code_style = android_studio
 # @Composable functions are PascalCase — don't flag them as bad function names.
@@ -25,6 +25,9 @@ ktlint_standard_function-signature = disabled
 # commas exactly as the author wrote them.
 ktlint_standard_trailing-comma-on-declaration-site = disabled
 ktlint_standard_trailing-comma-on-call-site = disabled
+# Never auto-break a long line (e.g. backticked test names with `= runTest(...) {` on the
+# same line) — line-wrapping is an author decision; violations are flagged, not auto-fixed.
+ktlint_standard_wrapping = disabled
 
 [*.{yml,yaml,xml,json,toml}]
 indent_size = 2
