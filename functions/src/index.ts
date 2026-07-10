@@ -15,6 +15,11 @@ const RUNTIME_OPTIONS = {
   memory: "512MiB" as const,
 };
 
+// Guard against oversized uploads before allocating a decode buffer or paying for downstream STT.
+// A base64 string is ~4/3 the byte size it decodes to, so this caps decoded audio at ~10 MiB —
+// comfortably above any legitimate short spoken answer.
+const MAX_AUDIO_BASE64_LENGTH = 14_000_000;
+
 interface EntitlementResult {
   is_premium: boolean;
 }
@@ -82,6 +87,9 @@ export const transcribeAndGradeSpokenAnswer = onCall<
     if (typeof audioBase64 !== "string" || audioBase64.length === 0) {
       throw new HttpsError("invalid-argument", "Missing or invalid audio_base64");
     }
+    if (audioBase64.length > MAX_AUDIO_BASE64_LENGTH) {
+      throw new HttpsError("invalid-argument", "audio_base64 exceeds the maximum allowed size");
+    }
     // Mode is inferred from field presence, not truthiness: a field sent as an empty (or
     // non-string) value is a malformed request, not a signal to skip grading (ADR-0029 §3).
     const hasQuestion = question !== undefined;
@@ -102,6 +110,9 @@ export const transcribeAndGradeSpokenAnswer = onCall<
     }
 
     const wavBuffer = Buffer.from(audioBase64, "base64");
+    if (wavBuffer.length === 0) {
+      throw new HttpsError("invalid-argument", "audio_base64 did not decode to any audio");
+    }
     const rawTranscript = await transcribeWithElevenLabsScribe(wavBuffer, elevenLabsApiKey.value());
     const sanitizedTranscript = await sanitizeTranscript(rawTranscript);
     await response?.sendChunk({ sanitized_transcript: sanitizedTranscript });
