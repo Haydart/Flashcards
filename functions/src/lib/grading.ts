@@ -108,6 +108,9 @@ export async function sanitizeTranscript(rawTranscript: string): Promise<string>
     buildSanitizePrompt(rawTranscript),
     SANITIZE_RESPONSE_SCHEMA,
   );
+  if (typeof parsed.sanitized_transcript !== "string" || parsed.sanitized_transcript.length === 0) {
+    throw new HttpError(502, "Sanitize LLM returned an empty transcript");
+  }
   return parsed.sanitized_transcript;
 }
 
@@ -127,6 +130,9 @@ export async function gradeSanitizedTranscript(
   );
   if (typeof parsed.grade !== "number" || !Number.isFinite(parsed.grade)) {
     throw new HttpError(502, "Grading LLM returned an invalid grade");
+  }
+  if (typeof parsed.feedback !== "string" || parsed.feedback.length === 0) {
+    throw new HttpError(502, "Grading LLM returned empty feedback");
   }
   return {
     gradePercent: Math.max(0, Math.min(100, Math.round(parsed.grade))),

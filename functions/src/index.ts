@@ -79,16 +79,26 @@ export const transcribeAndGradeSpokenAnswer = onCall<
     }
 
     const { question, expected_answer: expectedAnswer, audio_base64: audioBase64 } = request.data;
-    if (!audioBase64) {
-      throw new HttpsError("invalid-argument", "Missing audio_base64");
+    if (typeof audioBase64 !== "string" || audioBase64.length === 0) {
+      throw new HttpsError("invalid-argument", "Missing or invalid audio_base64");
     }
-    const hasQuestion = Boolean(question);
-    const hasExpectedAnswer = Boolean(expectedAnswer);
+    // Mode is inferred from field presence, not truthiness: a field sent as an empty (or
+    // non-string) value is a malformed request, not a signal to skip grading (ADR-0029 §3).
+    const hasQuestion = question !== undefined;
+    const hasExpectedAnswer = expectedAnswer !== undefined;
     if (hasQuestion !== hasExpectedAnswer) {
       throw new HttpsError(
         "invalid-argument",
         "question and expected_answer are both-or-neither",
       );
+    }
+    if (hasQuestion) {
+      if (typeof question !== "string" || question.trim().length === 0) {
+        throw new HttpsError("invalid-argument", "question must be a non-empty string");
+      }
+      if (typeof expectedAnswer !== "string" || expectedAnswer.trim().length === 0) {
+        throw new HttpsError("invalid-argument", "expected_answer must be a non-empty string");
+      }
     }
 
     const wavBuffer = Buffer.from(audioBase64, "base64");
