@@ -1,5 +1,6 @@
 package com.rossomak.flashcards.core.data.network
 
+import com.google.firebase.functions.FirebaseFunctions
 import com.rossomak.flashcards.core.data.model.EntitlementDto
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
@@ -11,11 +12,12 @@ import org.junit.Test
 import retrofit2.HttpException
 import retrofit2.Response
 
-class RetrofitVoiceGradingApiTest {
+class RealVoiceGradingApiTest {
 
     private val service: VoiceGradingRetrofitService = mockk()
+    private val functions: FirebaseFunctions = mockk()
 
-    private fun createApi(): RetrofitVoiceGradingApi = RetrofitVoiceGradingApi(service)
+    private fun createApi(): RealVoiceGradingApi = RealVoiceGradingApi(service, functions)
 
     private fun httpException(code: Int): HttpException =
         HttpException(Response.error<Any>(code, "".toResponseBody("text/plain".toMediaType())))

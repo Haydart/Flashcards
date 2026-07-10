@@ -1,6 +1,8 @@
 package com.rossomak.flashcards.core.data.network
 
+import app.cash.turbine.test
 import com.rossomak.flashcards.core.data.model.SanitizeAndGradeRequestDto
+import com.rossomak.flashcards.core.data.model.VoiceGradingStreamEventDto
 import io.kotest.matchers.ints.shouldBeInRange
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
@@ -80,11 +82,9 @@ class FakeVoiceGradingApiTest {
     fun `gradeVoiceAnswer throws entitlement exception when premium simulation is off`() = runTest {
         debugSettings.setSimulatePremiumEntitlement(false)
 
-        val thrown = runCatching {
-            fakeApi.gradeVoiceAnswer("card-1", question, expectedAnswer, ByteArray(64))
-        }.exceptionOrNull()
-
-        (thrown is VoiceGradingEntitlementException) shouldBe true
+        fakeApi.gradeVoiceAnswer("card-1", question, expectedAnswer, ByteArray(64)).test {
+            (awaitError() is VoiceGradingEntitlementException) shouldBe true
+        }
     }
 
     @Test
@@ -97,18 +97,18 @@ class FakeVoiceGradingApiTest {
     }
 
     @Test
-    fun `gradeVoiceAnswer produces a transcript derived from the expected answer`() = runTest {
+    fun `gradeVoiceAnswer streams a transcript chunk derived from the expected answer, then a grade`() = runTest {
         val longExpectedAnswer = "a foreground service keeps running with a persistent notification " +
                 "shown to the user even when the app itself is no longer visible on screen"
 
-        val response = fakeApi.gradeVoiceAnswer(
-            "card-1",
-            question,
-            longExpectedAnswer,
-            ByteArray(64_000),
-        )
+        fakeApi.gradeVoiceAnswer("card-1", question, longExpectedAnswer, ByteArray(64_000)).test {
+            val chunk = awaitItem() as VoiceGradingStreamEventDto.TranscriptChunk
+            chunk.sanitizedTranscript.isNotBlank() shouldBe true
 
-        response.gradePercent shouldBeInRange 0..100
-        response.sanitizedTranscript.isNotBlank() shouldBe true
+            val graded = awaitItem() as VoiceGradingStreamEventDto.Graded
+            graded.gradePercent shouldBeInRange 0..100
+
+            awaitComplete()
+        }
     }
 }

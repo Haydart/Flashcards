@@ -1,18 +1,22 @@
 package com.rossomak.flashcards.core.data.repository
 
-import com.rossomak.flashcards.core.data.model.SanitizeAndGradeRequestDto
+import app.cash.turbine.test
 import com.rossomak.flashcards.core.data.model.EntitlementDto
+import com.rossomak.flashcards.core.data.model.SanitizeAndGradeRequestDto
 import com.rossomak.flashcards.core.data.model.TranscriptionDto
 import com.rossomak.flashcards.core.data.model.VoiceAnswerGradeDto
+import com.rossomak.flashcards.core.data.model.VoiceGradingStreamEventDto
 import com.rossomak.flashcards.core.data.network.VoiceGradingApi
 import com.rossomak.flashcards.core.data.network.VoiceGradingEntitlementException
 import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
+import com.rossomak.flashcards.core.domain.model.VoiceAnswerGradingEvent
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import java.io.IOException
-import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
@@ -24,79 +28,71 @@ class DefaultVoiceAnswerGradingRepositoryTest {
     private val question = "What is a foreground service?"
     private val expectedAnswer = "A service with a persistent notification"
     private val wavBytes = byteArrayOf(1, 2, 3)
-    private val gradeDto = VoiceAnswerGradeDto(
-        sanitizedTranscript = "A service with a notification",
+    private val sanitizedTranscript = "A service with a notification"
+    private val expectedGrade = VoiceAnswerGrade(
+        sanitizedTranscript = sanitizedTranscript,
         gradePercent = 80,
         feedback = "Mostly right",
-    )
-    private val expectedGrade = VoiceAnswerGrade(
-        sanitizedTranscript = gradeDto.sanitizedTranscript,
-        gradePercent = gradeDto.gradePercent,
-        feedback = gradeDto.feedback,
     )
 
     private fun createRepository(): DefaultVoiceAnswerGradingRepository =
         DefaultVoiceAnswerGradingRepository(voiceGradingApi)
 
-    @Test
-    fun `gradeSpokenAnswer maps dto to domain without persisting`() = runTest {
-        coEvery { voiceGradingApi.gradeVoiceAnswer(cardId, question, expectedAnswer, wavBytes) } returns gradeDto
-
-        val result = createRepository().gradeSpokenAnswer(cardId, question, expectedAnswer, wavBytes)
-
-        result.isSuccess shouldBe true
-        result.getOrThrow() shouldBe expectedGrade
-        coVerify(exactly = 1) { voiceGradingApi.gradeVoiceAnswer(cardId, question, expectedAnswer, wavBytes) }
+    private fun successfulStream() = flow {
+        emit(VoiceGradingStreamEventDto.TranscriptChunk(sanitizedTranscript))
+        emit(VoiceGradingStreamEventDto.Graded(expectedGrade.gradePercent, expectedGrade.feedback))
     }
 
     @Test
-    fun `gradeSpokenAnswer retries transient io failures with backoff before succeeding`() = runTest {
-        coEvery {
+    fun `gradeSpokenAnswer streams transcript then grade`() = runTest {
+        every { voiceGradingApi.gradeVoiceAnswer(cardId, question, expectedAnswer, wavBytes) } returns successfulStream()
+
+        createRepository().gradeSpokenAnswer(cardId, question, expectedAnswer, wavBytes).test {
+            awaitItem() shouldBe VoiceAnswerGradingEvent.TranscriptReady(sanitizedTranscript)
+            awaitItem() shouldBe VoiceAnswerGradingEvent.Graded(expectedGrade)
+            awaitComplete()
+        }
+    }
+
+    @Test
+    fun `gradeSpokenAnswer retries the whole call on transient io failures before succeeding`() = runTest {
+        every {
             voiceGradingApi.gradeVoiceAnswer(cardId, question, expectedAnswer, wavBytes)
-        } throws IOException("flaky") andThenThrows IOException("flaky again") andThen gradeDto
+        } returns flow<VoiceGradingStreamEventDto> {
+            throw IOException("flaky")
+        } andThen flow<VoiceGradingStreamEventDto> {
+            throw IOException("flaky again")
+        } andThen successfulStream()
 
-        val result = createRepository().gradeSpokenAnswer(cardId, question, expectedAnswer, wavBytes)
-
-        result.isSuccess shouldBe true
-        coVerify(exactly = 3) { voiceGradingApi.gradeVoiceAnswer(cardId, question, expectedAnswer, wavBytes) }
+        createRepository().gradeSpokenAnswer(cardId, question, expectedAnswer, wavBytes).test {
+            awaitItem() shouldBe VoiceAnswerGradingEvent.TranscriptReady(sanitizedTranscript)
+            awaitItem() shouldBe VoiceAnswerGradingEvent.Graded(expectedGrade)
+            awaitComplete()
+        }
     }
 
     @Test
-    fun `gradeSpokenAnswer gives up after exhausting retries and wraps the failure`() = runTest {
+    fun `gradeSpokenAnswer gives up after exhausting retries and surfaces the failure`() = runTest {
         val error = IOException("network down")
-        coEvery { voiceGradingApi.gradeVoiceAnswer(cardId, question, expectedAnswer, wavBytes) } throws error
+        every {
+            voiceGradingApi.gradeVoiceAnswer(cardId, question, expectedAnswer, wavBytes)
+        } returns flow<VoiceGradingStreamEventDto> { throw error }
 
-        val result = createRepository().gradeSpokenAnswer(cardId, question, expectedAnswer, wavBytes)
-
-        result.isFailure shouldBe true
-        result.exceptionOrNull() shouldBe error
-        coVerify(exactly = 3) { voiceGradingApi.gradeVoiceAnswer(cardId, question, expectedAnswer, wavBytes) }
+        createRepository().gradeSpokenAnswer(cardId, question, expectedAnswer, wavBytes).test {
+            awaitError() shouldBe error
+        }
     }
 
     @Test
     fun `gradeSpokenAnswer surfaces entitlement rejection without retrying`() = runTest {
         val error = VoiceGradingEntitlementException()
-        coEvery { voiceGradingApi.gradeVoiceAnswer(cardId, question, expectedAnswer, wavBytes) } throws error
-
-        val result = createRepository().gradeSpokenAnswer(cardId, question, expectedAnswer, wavBytes)
-
-        result.isFailure shouldBe true
-        result.exceptionOrNull() shouldBe error
-        coVerify(exactly = 1) { voiceGradingApi.gradeVoiceAnswer(cardId, question, expectedAnswer, wavBytes) }
-    }
-
-    @Test
-    fun `gradeSpokenAnswer rethrows cancellation instead of wrapping it`() = runTest {
-        coEvery {
+        every {
             voiceGradingApi.gradeVoiceAnswer(cardId, question, expectedAnswer, wavBytes)
-        } throws CancellationException("cancelled")
+        } returns flow<VoiceGradingStreamEventDto> { throw error }
 
-        val thrown = runCatching {
-            createRepository().gradeSpokenAnswer(cardId, question, expectedAnswer, wavBytes)
-        }.exceptionOrNull()
-
-        (thrown is CancellationException) shouldBe true
-        coVerify(exactly = 1) { voiceGradingApi.gradeVoiceAnswer(cardId, question, expectedAnswer, wavBytes) }
+        createRepository().gradeSpokenAnswer(cardId, question, expectedAnswer, wavBytes).test {
+            awaitError() shouldBe error
+        }
     }
 
     @Test
@@ -129,6 +125,11 @@ class DefaultVoiceAnswerGradingRepositoryTest {
             question = question,
             expectedAnswer = expectedAnswer,
             transcript = rawTranscript,
+        )
+        val gradeDto = VoiceAnswerGradeDto(
+            sanitizedTranscript = expectedGrade.sanitizedTranscript,
+            gradePercent = expectedGrade.gradePercent,
+            feedback = expectedGrade.feedback,
         )
         coEvery { voiceGradingApi.sanitizeAndGrade(request) } returns gradeDto
 

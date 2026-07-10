@@ -1,12 +1,15 @@
 package com.rossomak.flashcards.domain.usecase
 
+import app.cash.turbine.test
 import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
+import com.rossomak.flashcards.core.domain.model.VoiceAnswerGradingEvent
 import com.rossomak.flashcards.core.domain.repository.VoiceAnswerGradingRepository
 import com.rossomak.flashcards.core.domain.usecase.GradeSpokenAnswerUseCase
 import io.kotest.matchers.shouldBe
-import io.mockk.coEvery
-import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
@@ -23,21 +26,26 @@ class GradeSpokenAnswerUseCaseTest {
     )
 
     @Test
-    fun `forwards params to repository and returns the grade`() = runTest {
+    fun `forwards params to repository and streams both events`() = runTest {
         val grade = VoiceAnswerGrade(sanitizedTranscript = "clean", gradePercent = 90, feedback = "great")
-        coEvery {
+        every {
             voiceAnswerGradingRepository.gradeSpokenAnswer(
                 params.cardId,
                 params.question,
                 params.expectedAnswer,
                 params.obfuscatedAnswerWav,
             )
-        } returns Result.success(grade)
+        } returns flow {
+            emit(VoiceAnswerGradingEvent.TranscriptReady(grade.sanitizedTranscript))
+            emit(VoiceAnswerGradingEvent.Graded(grade))
+        }
 
-        val result = useCase(params)
-
-        result.getOrNull() shouldBe grade
-        coVerify(exactly = 1) {
+        useCase(params).test {
+            awaitItem() shouldBe VoiceAnswerGradingEvent.TranscriptReady(grade.sanitizedTranscript)
+            awaitItem() shouldBe VoiceAnswerGradingEvent.Graded(grade)
+            awaitComplete()
+        }
+        verify(exactly = 1) {
             voiceAnswerGradingRepository.gradeSpokenAnswer(
                 params.cardId,
                 params.question,
@@ -48,18 +56,14 @@ class GradeSpokenAnswerUseCaseTest {
     }
 
     @Test
-    fun `forwards failure result unchanged`() = runTest {
+    fun `propagates repository failure as a flow exception`() = runTest {
         val error = IllegalStateException("backend down")
-        coEvery {
+        every {
             voiceAnswerGradingRepository.gradeSpokenAnswer(any(), any(), any(), any())
-        } returns Result.failure(error)
+        } returns flow { throw error }
 
-        val result = useCase(params)
-
-        result.isFailure shouldBe true
-        result.exceptionOrNull() shouldBe error
-        coVerify(exactly = 1) {
-            voiceAnswerGradingRepository.gradeSpokenAnswer(any(), any(), any(), any())
+        useCase(params).test {
+            awaitError() shouldBe error
         }
     }
 }
