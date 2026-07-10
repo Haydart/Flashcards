@@ -33,3 +33,14 @@ data class SanitizeAndGradeRequestDto(
 data class EntitlementDto(
     @SerialName("is_premium") val isPremium: Boolean,
 )
+
+/**
+ * Ordered wire events for the streamed `gradeVoiceAnswer` callable (ADR-0028). Not
+ * `@Serializable`/kotlinx.serialization-backed like the DTOs above — the Firebase Functions
+ * callable SDK decodes `StreamResponse.Message`/`StreamResponse.Result` payloads into raw
+ * `Map<String, Any?>` itself, so [RealVoiceGradingApi] builds these by hand from that map.
+ */
+sealed interface VoiceGradingStreamEventDto {
+    data class TranscriptChunk(val sanitizedTranscript: String) : VoiceGradingStreamEventDto
+    data class Graded(val gradePercent: Int, val feedback: String) : VoiceGradingStreamEventDto
+}

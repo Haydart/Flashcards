@@ -5,8 +5,10 @@ import com.rossomak.flashcards.core.data.model.EntitlementDto
 import com.rossomak.flashcards.core.data.model.SanitizeAndGradeRequestDto
 import com.rossomak.flashcards.core.data.model.TranscriptionDto
 import com.rossomak.flashcards.core.data.model.VoiceAnswerGradeDto
+import com.rossomak.flashcards.core.data.model.VoiceGradingStreamEventDto
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.flow.Flow
 
 /**
  * Routes each pipeline stage to the fake or the real Cloud Function client, per the debug
@@ -17,19 +19,19 @@ import javax.inject.Singleton
 @Singleton
 class VoiceGradingApiRouter @Inject constructor(
     private val fakeApi: FakeVoiceGradingApi,
-    private val retrofitApi: RetrofitVoiceGradingApi,
+    private val realApi: RealVoiceGradingApi,
     private val debugSettings: VoicePipelineDebugSettings,
 ) : VoiceGradingApi {
 
     val isRealBackendConfigured: Boolean
         get() = BuildConfig.VOICE_GRADING_BASE_URL.isNotBlank()
 
-    override suspend fun gradeVoiceAnswer(
+    override fun gradeVoiceAnswer(
         cardId: String,
         question: String,
         expectedAnswer: String,
         wavBytes: ByteArray,
-    ): VoiceAnswerGradeDto = apiFor(debugSettings.toggles.value.useRealGrading)
+    ): Flow<VoiceGradingStreamEventDto> = apiFor(debugSettings.toggles.value.useRealGrading)
         .gradeVoiceAnswer(cardId, question, expectedAnswer, wavBytes)
 
     override suspend fun transcribe(wavBytes: ByteArray): TranscriptionDto =
@@ -42,5 +44,5 @@ class VoiceGradingApiRouter @Inject constructor(
         apiFor(debugSettings.toggles.value.useRealEntitlement).checkEntitlement()
 
     private fun apiFor(useReal: Boolean): VoiceGradingApi =
-        if (useReal && isRealBackendConfigured) retrofitApi else fakeApi
+        if (useReal && isRealBackendConfigured) realApi else fakeApi
 }

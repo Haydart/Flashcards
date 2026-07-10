@@ -5,24 +5,19 @@ import com.rossomak.flashcards.core.data.model.SanitizeAndGradeRequestDto
 import com.rossomak.flashcards.core.data.model.TranscriptionDto
 import com.rossomak.flashcards.core.data.model.VoiceAnswerGradeDto
 import okhttp3.MultipartBody
-import okhttp3.RequestBody
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Multipart
 import retrofit2.http.POST
 import retrofit2.http.Part
 
-/** Retrofit binding for the Cloud Function proxy endpoints. */
+/**
+ * Retrofit binding for the Cloud Function proxy's plain-REST endpoints (debug-only
+ * transcribe/sanitizeAndGrade, plus entitlement). `gradeVoiceAnswer` migrated to a Firebase
+ * Callable streaming function (ADR-0028) and is no longer part of this Retrofit service —
+ * see [RealVoiceGradingApi].
+ */
 interface VoiceGradingRetrofitService {
-
-    @Multipart
-    @POST("gradeVoiceAnswer")
-    suspend fun gradeVoiceAnswer(
-        @Part audio: MultipartBody.Part,
-        @Part("card_id") cardId: RequestBody,
-        @Part("question") question: RequestBody,
-        @Part("expected_answer") expectedAnswer: RequestBody,
-    ): VoiceAnswerGradeDto
 
     @Multipart
     @POST("transcribe")
