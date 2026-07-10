@@ -24,5 +24,5 @@ data class VoiceDebugScreenState(
     val isCheckingEntitlement: Boolean = false,
     val entitlementResult: String? = null,
     val toggles: VoicePipelineDebugSettings.StageToggles = VoicePipelineDebugSettings.StageToggles(),
-    val isRealBackendConfigured: Boolean = false
+    val isRealBackendConfigured: Boolean = false,
 )

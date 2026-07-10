@@ -14,7 +14,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 @HiltViewModel
-class BrowseViewModel @Inject constructor(private val getCategories: GetCategoriesUseCase) : ViewModel() {
+class BrowseViewModel @Inject constructor(
+    private val getCategories: GetCategoriesUseCase
+) : ViewModel() {
 
     private val _state = MutableStateFlow(BrowseScreenState())
     val state: StateFlow<BrowseScreenState> = _state.asStateFlow()

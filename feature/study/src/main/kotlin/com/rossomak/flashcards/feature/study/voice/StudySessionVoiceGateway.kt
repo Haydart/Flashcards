@@ -22,7 +22,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 @UnstableApi
-class StudySessionVoiceGateway @Inject constructor(@ApplicationContext private val context: Context) : VoiceGateway {
+class StudySessionVoiceGateway @Inject constructor(
+    @ApplicationContext private val context: Context,
+) : VoiceGateway {
 
     private val _state = MutableStateFlow(VoicePlaybackState())
     override val state: StateFlow<VoicePlaybackState> = _state.asStateFlow()
@@ -73,7 +75,11 @@ class StudySessionVoiceGateway @Inject constructor(@ApplicationContext private v
         }
     }
 
-    override fun start(cards: List<Flashcard>, startIndex: Int, subcategoryName: String) {
+    override fun start(
+        cards: List<Flashcard>,
+        startIndex: Int,
+        subcategoryName: String,
+    ) {
         pendingCards = cards.toVoiceCards()
         pendingStartIndex = startIndex
         pendingSubcategoryName = subcategoryName
@@ -187,7 +193,7 @@ class StudySessionVoiceGateway @Inject constructor(@ApplicationContext private v
                 ).forSpeech(),
             cardId = card.id,
             questionText = card.question,
-            answerText = card.answer
+            answerText = card.answer,
         )
     }
 

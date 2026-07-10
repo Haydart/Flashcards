@@ -4,8 +4,10 @@ import com.rossomak.flashcards.core.domain.repository.VoiceAnswerGradingReposito
 import com.rossomak.flashcards.core.domain.usecase.base.NoParamUseCase
 import javax.inject.Inject
 
-class CheckVoiceGradingEntitlementUseCase @Inject constructor(private val voiceAnswerGradingRepository: VoiceAnswerGradingRepository) :
-    NoParamUseCase<Result<Boolean>> {
+class CheckVoiceGradingEntitlementUseCase @Inject constructor(
+    private val voiceAnswerGradingRepository: VoiceAnswerGradingRepository,
+) : NoParamUseCase<Result<Boolean>> {
 
-    override suspend fun invoke(): Result<Boolean> = voiceAnswerGradingRepository.checkEntitlement()
+    override suspend fun invoke(): Result<Boolean> =
+        voiceAnswerGradingRepository.checkEntitlement()
 }

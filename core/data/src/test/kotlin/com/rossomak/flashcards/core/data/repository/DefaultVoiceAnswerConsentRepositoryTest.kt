@@ -17,7 +17,8 @@ class DefaultVoiceAnswerConsentRepositoryTest {
 
     private val localDataSource: VoiceAnswerConsentLocalDataSource = mockk()
 
-    private fun createRepository(): DefaultVoiceAnswerConsentRepository = DefaultVoiceAnswerConsentRepository(localDataSource)
+    private fun createRepository(): DefaultVoiceAnswerConsentRepository =
+        DefaultVoiceAnswerConsentRepository(localDataSource)
 
     @Test
     fun `observeConsent delegates to the local data source`() = runTest {

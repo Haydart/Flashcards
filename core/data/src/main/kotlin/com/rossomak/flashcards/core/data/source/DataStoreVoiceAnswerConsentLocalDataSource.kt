@@ -11,8 +11,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 
-class DataStoreVoiceAnswerConsentLocalDataSource @Inject constructor(private val dataStore: DataStore<Preferences>) :
-    VoiceAnswerConsentLocalDataSource {
+class DataStoreVoiceAnswerConsentLocalDataSource @Inject constructor(
+    private val dataStore: DataStore<Preferences>,
+) : VoiceAnswerConsentLocalDataSource {
 
     override fun observeConsent(): Flow<Boolean> = dataStore.data
         .catch { error ->

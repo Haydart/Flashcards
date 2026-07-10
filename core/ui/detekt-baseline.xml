@@ -2,12 +2,11 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>LongMethod:VoiceSettingsDialog.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun VoiceSettingsDialog( availableVoices: List&lt;VoiceOption&gt;, selectedVoiceId: String?, speechRate: Float, onVoiceSelected: (String?) -&gt; Unit, onSpeedChanged: (Float) -&gt; Unit, onSave: () -&gt; Unit, onDismiss: () -&gt; Unit )</ID>
+    <ID>LongMethod:VoiceSettingsDialog.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun VoiceSettingsDialog( availableVoices: List&lt;VoiceOption&gt;, selectedVoiceId: String?, speechRate: Float, onVoiceSelected: (String?) -&gt; Unit, onSpeedChanged: (Float) -&gt; Unit, onSave: () -&gt; Unit, onDismiss: () -&gt; Unit, )</ID>
     <ID>LoopWithTooManyJumpStatements:InlineCode.kt$while</ID>
     <ID>MagicNumber:SyntaxCodeBlock.kt$0xFF1E1E1E</ID>
     <ID>MatchingDeclarationName:CornerRadius.kt$AppCornerRadius</ID>
     <ID>MatchingDeclarationName:Spacing.kt$AppSpacing</ID>
-    <ID>MaxLineLength:Theme.kt$fun</ID>
     <ID>UnusedPrivateMember:CardSortOrderDialog.kt$@Preview @Composable private fun CardSortOrderDialogSessionPreview()</ID>
     <ID>UnusedPrivateMember:CardSortOrderDialog.kt$@Preview @Composable private fun CardSortOrderDialogSettingsPreview()</ID>
     <ID>UnusedPrivateMember:VoiceSettingsDialog.kt$@Preview @Composable private fun VoiceSettingsDialogEmptyVoicesPreview()</ID>

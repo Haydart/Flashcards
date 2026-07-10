@@ -18,7 +18,8 @@ class DefaultVoiceSettingsRepositoryTest {
 
     private val localDataSource: VoiceSettingsLocalDataSource = mockk()
 
-    private fun createRepository(): DefaultVoiceSettingsRepository = DefaultVoiceSettingsRepository(localDataSource)
+    private fun createRepository(): DefaultVoiceSettingsRepository =
+        DefaultVoiceSettingsRepository(localDataSource)
 
     @Test
     fun `voiceSettings delegates to the local data source`() = runTest {

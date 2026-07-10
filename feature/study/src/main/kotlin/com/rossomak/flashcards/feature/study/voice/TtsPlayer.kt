@@ -161,7 +161,11 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         return Futures.immediateVoidFuture()
     }
 
-    override fun handleSeek(mediaItemIndex: Int, positionMs: Long, seekCommand: Int): ListenableFuture<*> {
+    override fun handleSeek(
+        mediaItemIndex: Int,
+        positionMs: Long,
+        seekCommand: Int
+    ): ListenableFuture<*> {
         when (seekCommand) {
             COMMAND_SEEK_TO_NEXT, COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> moveToNextCard()
             COMMAND_SEEK_TO_PREVIOUS -> doSmartPrevious() // system back: rewind-or-previous
@@ -355,7 +359,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
             card.spokenQuestion.ifBlank { " " },
             TextToSpeech.QUEUE_FLUSH,
             null,
-            utteranceId(TAG_QUESTION, generationId)
+            utteranceId(TAG_QUESTION, generationId),
         )
     }
 
@@ -370,7 +374,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
             card.spokenAnswer.ifBlank { " " },
             TextToSpeech.QUEUE_FLUSH,
             null,
-            utteranceId(TAG_ANSWER, generationId)
+            utteranceId(TAG_ANSWER, generationId),
         )
     }
 
@@ -472,7 +476,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
             phase = phase,
             isInBetweenPause = isBetweenPause,
             isAwaitingSpokenAnswer = isAwaitingSpokenAnswer,
-            speechRate = speechRate
+            speechRate = speechRate,
         )
         invalidateState()
     }
@@ -499,7 +503,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
             audioManager.requestAudioFocus(
                 audioFocusListener,
                 AudioManager.STREAM_MUSIC,
-                AudioManager.AUDIOFOCUS_GAIN
+                AudioManager.AUDIOFOCUS_GAIN,
             )
         }
     }
@@ -540,7 +544,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
                 COMMAND_GET_CURRENT_MEDIA_ITEM,
                 COMMAND_GET_METADATA,
                 COMMAND_GET_TIMELINE,
-                COMMAND_RELEASE
+                COMMAND_RELEASE,
             )
             .build()
 

@@ -17,7 +17,9 @@ import java.nio.LongBuffer
  *
  * Not thread-safe: it is driven from the single [VoiceCaptureEngine] capture loop.
  */
-class OnnxSileroVadSession(private val modelBytes: ByteArray) : SileroVadSession {
+class OnnxSileroVadSession(
+    private val modelBytes: ByteArray,
+) : SileroVadSession {
 
     private val environment: OrtEnvironment by lazy { OrtEnvironment.getEnvironment() }
     private var session: OrtSession? = null
@@ -51,7 +53,7 @@ class OnnxSileroVadSession(private val modelBytes: ByteArray) : SileroVadSession
                     val inputs = mapOf(
                         "input" to input,
                         "state" to previousState,
-                        "sr" to sampleRate
+                        "sr" to sampleRate,
                     )
                     ortSession.run(inputs).use { result ->
                         @Suppress("UNCHECKED_CAST")

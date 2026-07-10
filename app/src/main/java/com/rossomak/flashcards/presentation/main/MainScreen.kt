@@ -47,7 +47,11 @@ private val SelectedIndicatorColor = Color(0xFFEDE7FF)
 private val SelectedItemColor = Color(0xFF6B2FA0)
 private val UnselectedItemColor = Color(0xFF7E7E9A)
 
-private data class TabItem(val label: String, val icon: ImageVector, val route: Any)
+private data class TabItem(
+    val label: String,
+    val icon: ImageVector,
+    val route: Any
+)
 
 @Composable
 private fun mainTabs(): List<TabItem> = buildList {
@@ -61,7 +65,11 @@ private fun mainTabs(): List<TabItem> = buildList {
 }
 
 @Composable
-fun MainScreen(modifier: Modifier = Modifier, onNavigateToCategoryDetails: (String, String) -> Unit, onNavigateToLogin: () -> Unit) {
+fun MainScreen(
+    modifier: Modifier = Modifier,
+    onNavigateToCategoryDetails: (String, String) -> Unit,
+    onNavigateToLogin: () -> Unit,
+) {
     val tabs = mainTabs()
     val tabNavController = rememberNavController()
     val navBackStackEntry by tabNavController.currentBackStackEntryAsState()
@@ -109,14 +117,14 @@ fun MainScreen(modifier: Modifier = Modifier, onNavigateToCategoryDetails: (Stri
             navigation<HomeGraph>(startDestination = HomeRoot) {
                 composable<HomeRoot> {
                     HomeScreen(
-                        onNavigateToCategoryDetails = onNavigateToCategoryDetails
+                        onNavigateToCategoryDetails = onNavigateToCategoryDetails,
                     )
                 }
             }
             navigation<StudyGraph>(startDestination = StudyRoot) {
                 composable<StudyRoot> {
                     BrowseScreen(
-                        onNavigateToCategoryDetails = onNavigateToCategoryDetails
+                        onNavigateToCategoryDetails = onNavigateToCategoryDetails,
                     )
                 }
             }

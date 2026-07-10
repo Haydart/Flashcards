@@ -23,7 +23,8 @@ class AppStartViewModelTest {
 
     private val testUser = AuthUser("u1", "a@b.com", "Alex", null)
 
-    private fun createViewModel(): AppStartViewModel = AppStartViewModel(getCurrentAuthUserUseCase)
+    private fun createViewModel(): AppStartViewModel =
+        AppStartViewModel(getCurrentAuthUserUseCase)
 
     @Test
     fun `startupState initial value is Loading`() = runTest(mainDispatcherRule.testDispatcher) {

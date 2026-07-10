@@ -16,8 +16,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 @HiltViewModel
-class SubcategoryDetailsViewModel @Inject constructor(savedStateHandle: SavedStateHandle, private val getFlashcards: GetFlashcardsUseCase) :
-    ViewModel() {
+class SubcategoryDetailsViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
+    private val getFlashcards: GetFlashcardsUseCase
+) : ViewModel() {
 
     private val route = savedStateHandle.decodeRoute<SubcategoryDetailsRoute>()
 
@@ -56,7 +58,7 @@ class SubcategoryDetailsViewModel @Inject constructor(savedStateHandle: SavedSta
                     categoryId = route.categoryId,
                     categoryName = route.categoryName,
                     subcategoryId = route.subcategoryId,
-                    subcategoryName = route.subcategoryName
+                    subcategoryName = route.subcategoryName,
                 )
             )
         }

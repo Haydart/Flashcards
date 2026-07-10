@@ -17,19 +17,21 @@ import retrofit2.HttpException
  * function URL is configured via `VOICE_GRADING_BASE_URL` in `local.properties` — until then
  * [VoiceGradingApiRouter] routes every stage to [FakeVoiceGradingApi].
  */
-class RetrofitVoiceGradingApi @Inject constructor(private val service: VoiceGradingRetrofitService) : VoiceGradingApi {
+class RetrofitVoiceGradingApi @Inject constructor(
+    private val service: VoiceGradingRetrofitService,
+) : VoiceGradingApi {
 
     override suspend fun gradeVoiceAnswer(
         cardId: String,
         question: String,
         expectedAnswer: String,
-        wavBytes: ByteArray
+        wavBytes: ByteArray,
     ): VoiceAnswerGradeDto = mappingEntitlementRejection {
         service.gradeVoiceAnswer(
             audio = wavBytes.toAudioPart(),
             cardId = cardId.toTextPart(),
             question = question.toTextPart(),
-            expectedAnswer = expectedAnswer.toTextPart()
+            expectedAnswer = expectedAnswer.toTextPart(),
         )
     }
 
@@ -39,7 +41,8 @@ class RetrofitVoiceGradingApi @Inject constructor(private val service: VoiceGrad
     override suspend fun sanitizeAndGrade(request: SanitizeAndGradeRequestDto): VoiceAnswerGradeDto =
         mappingEntitlementRejection { service.sanitizeAndGrade(request) }
 
-    override suspend fun checkEntitlement(): EntitlementDto = mappingEntitlementRejection { service.checkEntitlement() }
+    override suspend fun checkEntitlement(): EntitlementDto =
+        mappingEntitlementRejection { service.checkEntitlement() }
 
     /** Mirrors [FakeVoiceGradingApi]'s contract: a server-side 403 surfaces as [VoiceGradingEntitlementException]. */
     private inline fun <T> mappingEntitlementRejection(block: () -> T): T = try {

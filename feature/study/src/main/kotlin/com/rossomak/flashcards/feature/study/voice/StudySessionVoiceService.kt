@@ -120,7 +120,8 @@ class StudySessionVoiceService : MediaSessionService() {
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo) = mediaSession
 
-    override fun onBind(intent: Intent?): IBinder? = if (intent?.action == ACTION_BIND_LOCAL) binder else super.onBind(intent)
+    override fun onBind(intent: Intent?): IBinder? =
+        if (intent?.action == ACTION_BIND_LOCAL) binder else super.onBind(intent)
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         // Voice is tied to the study screen; swiping the app away ends playback.

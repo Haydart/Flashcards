@@ -2,24 +2,7 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>MaxLineLength:CheckVoiceGradingEntitlementUseCase.kt$CheckVoiceGradingEntitlementUseCase$class</ID>
-    <ID>MaxLineLength:GetCategoriesUseCase.kt$GetCategoriesUseCase$class</ID>
-    <ID>MaxLineLength:GetCurationRequestsUseCase.kt$GetCurationRequestsUseCase$override suspend fun invoke(params: List&lt;String&gt;): Result&lt;Map&lt;String, CurationRequest&gt;&gt;</ID>
-    <ID>MaxLineLength:GetCurrentAuthUserUseCase.kt$GetCurrentAuthUserUseCase$class</ID>
-    <ID>MaxLineLength:GetFlashcardsUseCase.kt$GetFlashcardsUseCase$class</ID>
-    <ID>MaxLineLength:GetFlashcardsUseCase.kt$GetFlashcardsUseCase$override suspend operator fun invoke(params: String): Result&lt;List&lt;Flashcard&gt;&gt;</ID>
-    <ID>MaxLineLength:GetSubcategoriesUseCase.kt$GetSubcategoriesUseCase$override suspend operator fun invoke(params: String): Result&lt;List&lt;Subcategory&gt;&gt;</ID>
-    <ID>MaxLineLength:GradeSpokenAnswerUseCase.kt$GradeSpokenAnswerUseCase$Params</ID>
-    <ID>MaxLineLength:GradeSpokenAnswerUseCase.kt$GradeSpokenAnswerUseCase$class</ID>
     <ID>MaxLineLength:GradeSpokenAnswerUseCase.kt$GradeSpokenAnswerUseCase$override suspend</ID>
-    <ID>MaxLineLength:ObserveVoiceAnswerConsentUseCase.kt$ObserveVoiceAnswerConsentUseCase$class</ID>
-    <ID>MaxLineLength:SanitizeAndGradeTranscriptUseCase.kt$SanitizeAndGradeTranscriptUseCase$class</ID>
     <ID>MaxLineLength:SanitizeAndGradeTranscriptUseCase.kt$SanitizeAndGradeTranscriptUseCase$override suspend</ID>
-    <ID>MaxLineLength:SetVoiceAnswerConsentUseCase.kt$SetVoiceAnswerConsentUseCase$class</ID>
-    <ID>MaxLineLength:SignInWithGoogleUseCase.kt$SignInWithGoogleUseCase$class</ID>
-    <ID>MaxLineLength:SignInWithGoogleUseCase.kt$SignInWithGoogleUseCase$override suspend operator fun invoke(params: String): Result&lt;AuthUser&gt;</ID>
-    <ID>MaxLineLength:ToggleCurationActionUseCase.kt$ToggleCurationActionUseCase$Params</ID>
-    <ID>MaxLineLength:TranscribeVoiceClipUseCase.kt$TranscribeVoiceClipUseCase$class</ID>
-    <ID>MaxLineLength:VoiceAnswerGradingRepository.kt$VoiceAnswerGradingRepository$suspend</ID>
   </CurrentIssues>
 </SmellBaseline>

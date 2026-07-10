@@ -37,7 +37,7 @@ fun CategoryDetailsScreen(
     modifier: Modifier = Modifier,
     viewModel: CategoryDetailsViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
-    onNavigateToSubcategoryDetails: (String, String, String, String) -> Unit
+    onNavigateToSubcategoryDetails: (String, String, String, String) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
@@ -45,7 +45,7 @@ fun CategoryDetailsScreen(
         modifier = modifier,
         state = state,
         onNavigateBack = onNavigateBack,
-        onNavigateToSubcategoryDetails = onNavigateToSubcategoryDetails
+        onNavigateToSubcategoryDetails = onNavigateToSubcategoryDetails,
     )
 }
 
@@ -55,7 +55,7 @@ fun CategoryDetailsContent(
     modifier: Modifier = Modifier,
     state: CategoryDetailsScreenState,
     onNavigateBack: () -> Unit,
-    onNavigateToSubcategoryDetails: (String, String, String, String) -> Unit
+    onNavigateToSubcategoryDetails: (String, String, String, String) -> Unit,
 ) {
     val scrollBehavior =
         TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
@@ -69,11 +69,11 @@ fun CategoryDetailsContent(
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = "Back",
                         )
                     }
                 },
-                scrollBehavior = scrollBehavior
+                scrollBehavior = scrollBehavior,
             )
         }
     ) { innerPadding ->
@@ -82,7 +82,7 @@ fun CategoryDetailsContent(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 CircularProgressIndicator()
             }
@@ -90,7 +90,7 @@ fun CategoryDetailsContent(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Text(text = state.error)
             }
@@ -99,7 +99,7 @@ fun CategoryDetailsContent(
                 categoryName = state.categoryName,
                 onNavigateToSubcategoryDetails = onNavigateToSubcategoryDetails,
                 subcategories = state.subcategories,
-                modifier = Modifier.padding(innerPadding)
+                modifier = Modifier.padding(innerPadding),
             )
         }
     }
@@ -111,7 +111,7 @@ private fun SubcategoryList(
     categoryName: String,
     onNavigateToSubcategoryDetails: (String, String, String, String) -> Unit,
     subcategories: List<Subcategory>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     LazyColumn(modifier = modifier.fillMaxSize()) {
         items(subcategories, key = { it.id }) { subcategory ->
@@ -119,7 +119,7 @@ private fun SubcategoryList(
                 categoryId = categoryId,
                 categoryName = categoryName,
                 subcategory = subcategory,
-                onNavigateToSubcategoryDetails = onNavigateToSubcategoryDetails
+                onNavigateToSubcategoryDetails = onNavigateToSubcategoryDetails,
             )
             HorizontalDivider()
         }
@@ -131,7 +131,7 @@ private fun SubcategoryRow(
     categoryId: String,
     categoryName: String,
     subcategory: Subcategory,
-    onNavigateToSubcategoryDetails: (String, String, String, String) -> Unit
+    onNavigateToSubcategoryDetails: (String, String, String, String) -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -145,18 +145,18 @@ private fun SubcategoryRow(
                 )
             }
             .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = subcategory.name,
-                style = MaterialTheme.typography.bodyLarge
+                style = MaterialTheme.typography.bodyLarge,
             )
             Text(
                 text = "${subcategory.cardCount} cards",
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
             )
         }
     }

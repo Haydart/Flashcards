@@ -48,7 +48,7 @@ fun SubcategoryDetailsScreen(
     modifier: Modifier = Modifier,
     viewModel: SubcategoryDetailsViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
-    onNavigateToPreviewStudySession: (categoryId: String, categoryName: String, subcategoryId: String, subcategoryName: String) -> Unit
+    onNavigateToPreviewStudySession: (categoryId: String, categoryName: String, subcategoryId: String, subcategoryName: String) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
@@ -59,7 +59,7 @@ fun SubcategoryDetailsScreen(
                     destination.categoryId,
                     destination.categoryName,
                     destination.subcategoryId,
-                    destination.subcategoryName
+                    destination.subcategoryName,
                 )
         }
     }
@@ -68,7 +68,7 @@ fun SubcategoryDetailsScreen(
         modifier = modifier,
         state = state,
         onNavigateBack = onNavigateBack,
-        onStartSession = viewModel::onStartSession
+        onStartSession = viewModel::onStartSession,
     )
 }
 
@@ -78,7 +78,7 @@ fun SubcategoryDetailsContent(
     modifier: Modifier = Modifier,
     state: SubcategoryDetailsScreenState,
     onNavigateBack: () -> Unit,
-    onStartSession: () -> Unit
+    onStartSession: () -> Unit,
 ) {
     val scrollBehavior =
         TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
@@ -92,7 +92,7 @@ fun SubcategoryDetailsContent(
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = "Back",
                         )
                     }
                 },
@@ -109,7 +109,7 @@ fun SubcategoryDetailsContent(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 CircularProgressIndicator()
             }
@@ -117,7 +117,7 @@ fun SubcategoryDetailsContent(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Text(text = state.error)
             }
@@ -126,13 +126,13 @@ fun SubcategoryDetailsContent(
                     onClick = onStartSession,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                 ) {
                     Text("Start Session")
                 }
                 FlashcardList(
                     flashcards = state.flashcards,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 )
             }
         }
@@ -140,7 +140,10 @@ fun SubcategoryDetailsContent(
 }
 
 @Composable
-private fun FlashcardList(flashcards: List<Flashcard>, modifier: Modifier = Modifier) {
+private fun FlashcardList(
+    flashcards: List<Flashcard>,
+    modifier: Modifier = Modifier,
+) {
     val expandedStates = remember { mutableStateMapOf<String, Boolean>() }
 
     LazyColumn(modifier = modifier.fillMaxSize()) {
@@ -157,7 +160,12 @@ private fun FlashcardList(flashcards: List<Flashcard>, modifier: Modifier = Modi
 }
 
 @Composable
-private fun FlashcardItem(index: Int, flashcard: Flashcard, isExpanded: Boolean, onToggleExpanded: () -> Unit) {
+private fun FlashcardItem(
+    index: Int,
+    flashcard: Flashcard,
+    isExpanded: Boolean,
+    onToggleExpanded: () -> Unit,
+) {
     Surface(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier
@@ -174,18 +182,18 @@ private fun FlashcardItem(index: Int, flashcard: Flashcard, isExpanded: Boolean,
                         Surface(
                             modifier = Modifier.padding(end = 12.dp),
                             shape = MaterialTheme.shapes.small,
-                            color = MaterialTheme.colorScheme.primaryContainer
+                            color = MaterialTheme.colorScheme.primaryContainer,
                         ) {
                             Text(
                                 text = index.toString(),
                                 modifier = Modifier.padding(6.dp, 4.dp),
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
                             )
                         }
                         Text(
                             text = flashcard.question.withInlineCode(),
-                            style = MaterialTheme.typography.bodyLarge
+                            style = MaterialTheme.typography.bodyLarge,
                         )
                     }
                     if (flashcard.tags.isNotEmpty()) {
@@ -198,13 +206,13 @@ private fun FlashcardItem(index: Int, flashcard: Flashcard, isExpanded: Boolean,
                                 Surface(
                                     modifier = Modifier.padding(end = 6.dp),
                                     shape = MaterialTheme.shapes.extraSmall,
-                                    color = MaterialTheme.colorScheme.secondaryContainer
+                                    color = MaterialTheme.colorScheme.secondaryContainer,
                                 ) {
                                     Text(
                                         text = tag,
                                         modifier = Modifier.padding(6.dp, 3.dp),
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
                                     )
                                 }
                             }
@@ -220,7 +228,7 @@ private fun FlashcardItem(index: Int, flashcard: Flashcard, isExpanded: Boolean,
             AnimatedVisibility(
                 visible = isExpanded,
                 enter = expandVertically(),
-                exit = shrinkVertically()
+                exit = shrinkVertically(),
             ) {
                 Column(modifier = Modifier.padding(top = 12.dp)) {
                     Text(

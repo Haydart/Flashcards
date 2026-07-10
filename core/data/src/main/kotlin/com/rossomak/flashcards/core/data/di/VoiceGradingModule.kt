@@ -24,13 +24,19 @@ abstract class VoiceGradingModule {
 
     @Binds
     @Singleton
-    abstract fun bindVoiceAnswerGradingRepository(impl: DefaultVoiceAnswerGradingRepository): VoiceAnswerGradingRepository
+    abstract fun bindVoiceAnswerGradingRepository(
+        impl: DefaultVoiceAnswerGradingRepository,
+    ): VoiceAnswerGradingRepository
 
     @Binds
     @Singleton
-    abstract fun bindVoiceAnswerConsentRepository(impl: DefaultVoiceAnswerConsentRepository): VoiceAnswerConsentRepository
+    abstract fun bindVoiceAnswerConsentRepository(
+        impl: DefaultVoiceAnswerConsentRepository,
+    ): VoiceAnswerConsentRepository
 
     @Binds
     @Singleton
-    abstract fun bindVoiceAnswerConsentLocalDataSource(impl: DataStoreVoiceAnswerConsentLocalDataSource): VoiceAnswerConsentLocalDataSource
+    abstract fun bindVoiceAnswerConsentLocalDataSource(
+        impl: DataStoreVoiceAnswerConsentLocalDataSource,
+    ): VoiceAnswerConsentLocalDataSource
 }

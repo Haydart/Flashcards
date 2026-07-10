@@ -100,7 +100,11 @@ import java.time.Instant
 import kotlinx.coroutines.launch
 
 @Composable
-fun StudySessionScreen(modifier: Modifier = Modifier, viewModel: StudySessionViewModel = hiltViewModel(), onNavigateBack: () -> Unit) {
+fun StudySessionScreen(
+    modifier: Modifier = Modifier,
+    viewModel: StudySessionViewModel = hiltViewModel(),
+    onNavigateBack: () -> Unit,
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val view = LocalView.current
@@ -111,7 +115,7 @@ fun StudySessionScreen(modifier: Modifier = Modifier, viewModel: StudySessionVie
     }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
+        contract = ActivityResultContracts.RequestPermission(),
     ) { isGranted ->
         if (isGranted) viewModel.onVoiceAutoStart() else viewModel.onVoiceAutoStartDeclined()
     }
@@ -134,14 +138,14 @@ fun StudySessionScreen(modifier: Modifier = Modifier, viewModel: StudySessionVie
     val snackbarHostState = remember { SnackbarHostState() }
 
     val micPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
+        contract = ActivityResultContracts.RequestPermission(),
     ) { isGranted -> viewModel.onMicPermissionResult(isGranted) }
 
     LaunchedEffect(state.isMicPermissionRequestPending) {
         if (!state.isMicPermissionRequestPending) return@LaunchedEffect
         val isAlreadyGranted = ContextCompat.checkSelfPermission(
             context,
-            Manifest.permission.RECORD_AUDIO
+            Manifest.permission.RECORD_AUDIO,
         ) == android.content.pm.PackageManager.PERMISSION_GRANTED
         if (isAlreadyGranted) {
             viewModel.onMicPermissionResult(true)
@@ -156,9 +160,9 @@ fun StudySessionScreen(modifier: Modifier = Modifier, viewModel: StudySessionVie
             message = context.getString(
                 R.string.study_session_voice_answer_grade_message,
                 grade.gradePercent,
-                grade.feedback
+                grade.feedback,
             ),
-            duration = SnackbarDuration.Short
+            duration = SnackbarDuration.Short,
         )
         viewModel.onVoiceAnswerGradeDismissed()
     }
@@ -167,7 +171,7 @@ fun StudySessionScreen(modifier: Modifier = Modifier, viewModel: StudySessionVie
         if (state.voiceAnswerError == null) return@LaunchedEffect
         snackbarHostState.showSnackbar(
             message = context.getString(R.string.study_session_voice_answer_error_message),
-            duration = SnackbarDuration.Short
+            duration = SnackbarDuration.Short,
         )
     }
 
@@ -181,7 +185,7 @@ fun StudySessionScreen(modifier: Modifier = Modifier, viewModel: StudySessionVie
             val result = snackbarHostState.showSnackbar(
                 message = "Voice playback unavailable on this device",
                 actionLabel = "Open Settings",
-                duration = SnackbarDuration.Long
+                duration = SnackbarDuration.Long,
             )
             if (result == SnackbarResult.ActionPerformed) {
                 context.startActivity(
@@ -223,7 +227,7 @@ fun StudySessionScreen(modifier: Modifier = Modifier, viewModel: StudySessionVie
         onCurationActionToggle = viewModel::onCurationActionToggle,
         onCurationDialogDismiss = viewModel::onCurationDialogDismiss,
         onExtendedContextDialogOpen = viewModel::onExtendedContextDialogOpen,
-        onExtendedContextDialogDismissed = viewModel::onExtendedContextDialogDismissed
+        onExtendedContextDialogDismissed = viewModel::onExtendedContextDialogDismissed,
     )
 }
 
@@ -252,10 +256,10 @@ fun StudySessionContent(
     onCurationActionToggle: (CurationAction) -> Unit,
     onCurationDialogDismiss: () -> Unit,
     onExtendedContextDialogOpen: () -> Unit,
-    onExtendedContextDialogDismissed: () -> Unit
+    onExtendedContextDialogDismissed: () -> Unit,
 ) {
     val scaffoldState = rememberBottomSheetScaffoldState(
-        bottomSheetState = rememberStandardBottomSheetState(skipHiddenState = true)
+        bottomSheetState = rememberStandardBottomSheetState(skipHiddenState = true),
     )
 
     BottomSheetScaffold(
@@ -278,7 +282,7 @@ fun StudySessionContent(
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Exit session"
+                            contentDescription = "Exit session",
                         )
                     }
                 },
@@ -287,7 +291,7 @@ fun StudySessionContent(
                         Text(
                             text = "${state.currentCardIndex + 1} / ${state.flashcards.size}",
                             modifier = Modifier.padding(end = 16.dp),
-                            style = MaterialTheme.typography.labelLarge
+                            style = MaterialTheme.typography.labelLarge,
                         )
                     }
                 }
@@ -302,7 +306,7 @@ fun StudySessionContent(
                 onVoiceNext = onVoiceNext,
                 onVoicePrevious = onVoicePrevious,
                 onVoiceSettingsCogClick = onVoiceSettingsCogClick,
-                onVoiceAnswerToggle = onVoiceAnswerToggle
+                onVoiceAnswerToggle = onVoiceAnswerToggle,
             )
             if (state.voiceSettingsState.isVisible) {
                 VoiceSettingsDialog(
@@ -312,10 +316,10 @@ fun StudySessionContent(
                     onVoiceSelected = onVoiceSettingsDraftVoiceChanged,
                     onSpeedChanged = onVoiceSettingsDraftSpeedChanged,
                     onSave = onVoiceSettingsSave,
-                    onDismiss = onVoiceSettingsDismiss
+                    onDismiss = onVoiceSettingsDismiss,
                 )
             }
-        }
+        },
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize()) {
             when {
@@ -383,13 +387,13 @@ fun StudySessionContent(
                         }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
                                 text = "Question",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
                             )
                             Text(
                                 text = "Difficulty ${card.difficulty}",
@@ -427,7 +431,7 @@ fun StudySessionContent(
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
                                     text = card.answer.withInlineCode(),
-                                    style = MaterialTheme.typography.bodyMedium
+                                    style = MaterialTheme.typography.bodyMedium,
                                 )
                                 card.answerCode?.forEach { codeBlock ->
                                     Spacer(modifier = Modifier.height(8.dp))
@@ -480,7 +484,7 @@ fun StudySessionContent(
         if (state.isVoiceAnswerConsentDialogVisible) {
             VoiceAnswerConsentDialog(
                 onAccept = onVoiceAnswerConsentAccept,
-                onDecline = onVoiceAnswerConsentDecline
+                onDecline = onVoiceAnswerConsentDecline,
             )
         }
 
@@ -490,7 +494,7 @@ fun StudySessionContent(
                 CurationDialog(
                     currentActions = state.curationRequests[currentCard.id]?.actions ?: emptyMap(),
                     onActionToggle = onCurationActionToggle,
-                    onDismiss = onCurationDialogDismiss
+                    onDismiss = onCurationDialogDismiss,
                 )
             }
         }
@@ -498,14 +502,17 @@ fun StudySessionContent(
 }
 
 @Composable
-private fun VoiceAnswerConsentDialog(onAccept: () -> Unit, onDecline: () -> Unit) {
+private fun VoiceAnswerConsentDialog(
+    onAccept: () -> Unit,
+    onDecline: () -> Unit,
+) {
     AlertDialog(
         onDismissRequest = onDecline,
         title = { Text(stringResource(R.string.study_session_voice_answer_consent_title)) },
         text = {
             Text(
                 text = stringResource(R.string.study_session_voice_answer_consent_message),
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium,
             )
         },
         confirmButton = {
@@ -517,12 +524,16 @@ private fun VoiceAnswerConsentDialog(onAccept: () -> Unit, onDecline: () -> Unit
             TextButton(onClick = onDecline) {
                 Text(stringResource(R.string.study_session_voice_answer_consent_decline_button))
             }
-        }
+        },
     )
 }
 
 @Composable
-private fun CurationDialog(currentActions: Map<CurationAction, Instant>, onActionToggle: (CurationAction) -> Unit, onDismiss: () -> Unit) {
+private fun CurationDialog(
+    currentActions: Map<CurationAction, Instant>,
+    onActionToggle: (CurationAction) -> Unit,
+    onDismiss: () -> Unit,
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Curate Card") },
@@ -535,24 +546,24 @@ private fun CurationDialog(currentActions: Map<CurationAction, Instant>, onActio
                             .fillMaxWidth()
                             .clickable { onActionToggle(action) }
                             .padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(
                             imageVector = action.dialogIcon(),
                             contentDescription = null,
-                            tint = if (isActive) MaterialTheme.colorScheme.primary else LocalContentColor.current
+                            tint = if (isActive) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
                             text = action.dialogLabel(),
                             modifier = Modifier.weight(1f),
-                            color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                            color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                         )
                         if (isActive) {
                             Icon(
                                 imageVector = Icons.Default.Check,
                                 contentDescription = "Active",
-                                tint = MaterialTheme.colorScheme.primary
+                                tint = MaterialTheme.colorScheme.primary,
                             )
                         }
                     }
@@ -561,7 +572,7 @@ private fun CurationDialog(currentActions: Map<CurationAction, Instant>, onActio
         },
         confirmButton = {
             TextButton(onClick = onDismiss) { Text("Done") }
-        }
+        },
     )
 }
 
@@ -592,18 +603,18 @@ private fun StudySessionSheetContent(
     onVoiceNext: () -> Unit,
     onVoicePrevious: () -> Unit,
     onVoiceSettingsCogClick: () -> Unit,
-    onVoiceAnswerToggle: () -> Unit
+    onVoiceAnswerToggle: () -> Unit,
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .padding(top = 8.dp, bottom = 24.dp)
+            .padding(top = 8.dp, bottom = 24.dp),
     ) {
         if (state.isVoiceActive) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (state.studyMode == StudyMode.RATED && state.isVoiceAnswerEnabled) {
                     Text(
@@ -620,7 +631,7 @@ private fun StudySessionSheetContent(
                             MaterialTheme.colorScheme.primary
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
-                        }
+                        },
                     )
                 }
                 Spacer(modifier = Modifier.weight(1f))
@@ -639,7 +650,7 @@ private fun StudySessionSheetContent(
                                 MaterialTheme.colorScheme.primary
                             } else {
                                 MaterialTheme.colorScheme.onSurfaceVariant
-                            }
+                            },
                         )
                     }
                 }
@@ -647,14 +658,14 @@ private fun StudySessionSheetContent(
                     Icon(
                         imageVector = Icons.Default.Settings,
                         contentDescription = "Voice settings",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(96.dp)
+                    .height(96.dp),
             ) {
                 // While voice-answering is actively listening/grading/speaking feedback, manual
                 // skip controls must stay disabled: skipping to the answer here would start
@@ -681,26 +692,26 @@ private fun StudySessionSheetContent(
                 Row(
                     modifier = Modifier.align(Alignment.Center),
                     horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     IconButton(
                         onClick = onVoicePrevious,
-                        enabled = state.currentCardIndex > 0 && !isVoiceAnswerBusy
+                        enabled = state.currentCardIndex > 0 && !isVoiceAnswerBusy,
                     ) {
                         Icon(
                             imageVector = Icons.Default.SkipPrevious,
-                            contentDescription = "Previous card"
+                            contentDescription = "Previous card",
                         )
                     }
                     Spacer(modifier = Modifier.size(16.dp))
                     FilledIconButton(
                         onClick = onVoicePlayPause,
                         modifier = Modifier.size(56.dp),
-                        enabled = !isVoiceAnswerListening
+                        enabled = !isVoiceAnswerListening,
                     ) {
                         Icon(
                             imageVector = if (state.isVoicePlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = if (state.isVoicePlaying) "Pause" else "Play"
+                            contentDescription = if (state.isVoicePlaying) "Pause" else "Play",
                         )
                     }
                     Spacer(modifier = Modifier.size(16.dp))
@@ -713,7 +724,7 @@ private fun StudySessionSheetContent(
                         } else {
                             onShowAnswer
                         },
-                        enabled = !isVoiceAnswerBusy
+                        enabled = !isVoiceAnswerBusy,
                     ) {
                         Icon(
                             imageVector = Icons.Default.SkipNext,
@@ -723,7 +734,7 @@ private fun StudySessionSheetContent(
                                 } else {
                                     R.string.study_session_show_answer_cd
                                 }
-                            )
+                            ),
                         )
                     }
                 }
@@ -732,19 +743,19 @@ private fun StudySessionSheetContent(
             if (state.studyMode == StudyMode.RATED) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         text = stringResource(R.string.study_session_voice_answer_label),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
                     )
                     IconButton(onClick = onVoiceAnswerToggle) {
                         Icon(
                             imageVector = Icons.Default.MicOff,
                             contentDescription = stringResource(R.string.study_session_voice_answer_enable_cd),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -753,7 +764,7 @@ private fun StudySessionSheetContent(
             if (!state.isAnswerRevealed) {
                 Button(
                     onClick = onShowAnswer,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text("Show Answer")
                 }
@@ -765,54 +776,62 @@ private fun StudySessionSheetContent(
 }
 
 @Composable
-private fun RatingButtons(onRating: (FlashcardRating) -> Unit) {
+private fun RatingButtons(
+    onRating: (FlashcardRating) -> Unit,
+) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = "How well did you answer it?",
             modifier = Modifier.fillMaxWidth(),
             style = MaterialTheme.typography.titleSmall,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
         )
         Spacer(modifier = Modifier.height(16.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
+            horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
             RatingOption(
                 label = "Not at all",
                 icon = Icons.Default.Close,
                 containerColor = Color(0xFFF6D9DA),
                 contentColor = Color(0xFFC94F4F),
-                onClick = { onRating(FlashcardRating.FAILED) }
+                onClick = { onRating(FlashcardRating.FAILED) },
             )
             RatingOption(
                 label = "Somewhat",
                 icon = Icons.Default.Remove,
                 containerColor = Color(0xFFF6E8C8),
                 contentColor = Color(0xFFC98F2B),
-                onClick = { onRating(FlashcardRating.PARTIALLY_CORRECT) }
+                onClick = { onRating(FlashcardRating.PARTIALLY_CORRECT) },
             )
             RatingOption(
                 label = "Very well",
                 icon = Icons.Default.Check,
                 containerColor = Color(0xFFD3EBD6),
                 contentColor = Color(0xFF3E9556),
-                onClick = { onRating(FlashcardRating.CORRECT) }
+                onClick = { onRating(FlashcardRating.CORRECT) },
             )
         }
     }
 }
 
 @Composable
-private fun RatingOption(label: String, icon: ImageVector, containerColor: Color, contentColor: Color, onClick: () -> Unit) {
+private fun RatingOption(
+    label: String,
+    icon: ImageVector,
+    containerColor: Color,
+    contentColor: Color,
+    onClick: () -> Unit,
+) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         FilledIconButton(
             onClick = onClick,
             modifier = Modifier.size(56.dp),
             colors = IconButtonDefaults.filledIconButtonColors(
                 containerColor = containerColor,
-                contentColor = contentColor
-            )
+                contentColor = contentColor,
+            ),
         ) {
             Icon(imageVector = icon, contentDescription = label)
         }
@@ -822,12 +841,15 @@ private fun RatingOption(label: String, icon: ImageVector, containerColor: Color
 }
 
 @Composable
-private fun CenteredBox(innerPadding: androidx.compose.foundation.layout.PaddingValues, content: @Composable () -> Unit) {
+private fun CenteredBox(
+    innerPadding: androidx.compose.foundation.layout.PaddingValues,
+    content: @Composable () -> Unit,
+) {
     Box(
         modifier = Modifier
             .fillMaxSize()
             .padding(innerPadding),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         content()
     }
@@ -843,7 +865,7 @@ private fun StudySessionVoiceActivePreview() {
             flashcards = emptyList(),
             isVoiceActive = true,
             isVoicePlaying = true,
-            speechRate = 1.25f
+            speechRate = 1.25f,
         ),
         snackbarHostState = remember { SnackbarHostState() },
         onNavigateBack = {},
@@ -865,7 +887,7 @@ private fun StudySessionVoiceActivePreview() {
         onCurationActionToggle = {},
         onCurationDialogDismiss = {},
         onExtendedContextDialogOpen = {},
-        onExtendedContextDialogDismissed = {}
+        onExtendedContextDialogDismissed = {},
     )
 }
 
@@ -889,10 +911,10 @@ private fun StudySessionRatedManualPreview() {
                     answerCode = null,
                     questionSpoken = null,
                     answerSpoken = null,
-                    extendedContext = null
-                )
+                    extendedContext = null,
+                ),
             ),
-            isAnswerRevealed = true
+            isAnswerRevealed = true,
         ),
         snackbarHostState = remember { SnackbarHostState() },
         onNavigateBack = {},
@@ -914,6 +936,6 @@ private fun StudySessionRatedManualPreview() {
         onCurationActionToggle = {},
         onCurationDialogDismiss = {},
         onExtendedContextDialogOpen = {},
-        onExtendedContextDialogDismissed = {}
+        onExtendedContextDialogDismissed = {},
     )
 }

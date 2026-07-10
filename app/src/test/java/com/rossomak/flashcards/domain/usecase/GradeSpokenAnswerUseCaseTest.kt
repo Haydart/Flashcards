@@ -19,7 +19,7 @@ class GradeSpokenAnswerUseCaseTest {
         cardId = "card-1",
         question = "What is a wake lock?",
         expectedAnswer = "A mechanism keeping the CPU awake",
-        obfuscatedAnswerWav = byteArrayOf(1, 2, 3)
+        obfuscatedAnswerWav = byteArrayOf(1, 2, 3),
     )
 
     @Test
@@ -30,7 +30,7 @@ class GradeSpokenAnswerUseCaseTest {
                 params.cardId,
                 params.question,
                 params.expectedAnswer,
-                params.obfuscatedAnswerWav
+                params.obfuscatedAnswerWav,
             )
         } returns Result.success(grade)
 
@@ -42,7 +42,7 @@ class GradeSpokenAnswerUseCaseTest {
                 params.cardId,
                 params.question,
                 params.expectedAnswer,
-                params.obfuscatedAnswerWav
+                params.obfuscatedAnswerWav,
             )
         }
     }

@@ -20,7 +20,7 @@ class VoicePipelineDebugSettings @Inject constructor() {
         val useRealGrading: Boolean = false,
         val useRealEntitlement: Boolean = false,
         /** What the *simulated* server-side entitlement record says for this user. */
-        val simulatePremiumEntitlement: Boolean = true
+        val simulatePremiumEntitlement: Boolean = true,
     )
 
     private val _toggles = MutableStateFlow(StageToggles())

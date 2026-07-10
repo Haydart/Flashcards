@@ -17,7 +17,12 @@ import com.rossomak.flashcards.core.data.model.VoiceAnswerGradeDto
 interface VoiceGradingApi {
 
     /** Full pipeline call: obfuscated WAV in, `{sanitized_transcript, grade, feedback}` out. */
-    suspend fun gradeVoiceAnswer(cardId: String, question: String, expectedAnswer: String, wavBytes: ByteArray): VoiceAnswerGradeDto
+    suspend fun gradeVoiceAnswer(
+        cardId: String,
+        question: String,
+        expectedAnswer: String,
+        wavBytes: ByteArray,
+    ): VoiceAnswerGradeDto
 
     /** STT step only. */
     suspend fun transcribe(wavBytes: ByteArray): TranscriptionDto

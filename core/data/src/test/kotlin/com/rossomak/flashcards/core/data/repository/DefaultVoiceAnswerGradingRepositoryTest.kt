@@ -27,15 +27,16 @@ class DefaultVoiceAnswerGradingRepositoryTest {
     private val gradeDto = VoiceAnswerGradeDto(
         sanitizedTranscript = "A service with a notification",
         gradePercent = 80,
-        feedback = "Mostly right"
+        feedback = "Mostly right",
     )
     private val expectedGrade = VoiceAnswerGrade(
         sanitizedTranscript = gradeDto.sanitizedTranscript,
         gradePercent = gradeDto.gradePercent,
-        feedback = gradeDto.feedback
+        feedback = gradeDto.feedback,
     )
 
-    private fun createRepository(): DefaultVoiceAnswerGradingRepository = DefaultVoiceAnswerGradingRepository(voiceGradingApi)
+    private fun createRepository(): DefaultVoiceAnswerGradingRepository =
+        DefaultVoiceAnswerGradingRepository(voiceGradingApi)
 
     @Test
     fun `gradeSpokenAnswer maps dto to domain without persisting`() = runTest {
@@ -127,7 +128,7 @@ class DefaultVoiceAnswerGradingRepositoryTest {
         val request = SanitizeAndGradeRequestDto(
             question = question,
             expectedAnswer = expectedAnswer,
-            transcript = rawTranscript
+            transcript = rawTranscript,
         )
         coEvery { voiceGradingApi.sanitizeAndGrade(request) } returns gradeDto
 

@@ -7,6 +7,6 @@ sealed interface SubcategoryDetailsDestination : NavigationEvent {
         val categoryId: String,
         val categoryName: String,
         val subcategoryId: String,
-        val subcategoryName: String
+        val subcategoryName: String,
     ) : SubcategoryDetailsDestination
 }

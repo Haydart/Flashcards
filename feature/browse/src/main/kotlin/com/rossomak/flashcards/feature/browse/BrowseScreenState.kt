@@ -7,4 +7,8 @@ sealed interface BrowseNavigationDestination : NavigationEvent {
     data class CategoryDetails(val categoryId: String, val categoryName: String) : BrowseNavigationDestination
 }
 
-data class BrowseScreenState(val isLoading: Boolean = false, val categories: List<Category> = emptyList(), val error: String? = null)
+data class BrowseScreenState(
+    val isLoading: Boolean = false,
+    val categories: List<Category> = emptyList(),
+    val error: String? = null,
+)

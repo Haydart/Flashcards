@@ -22,7 +22,8 @@ class DefaultCurationRepositoryTest {
 
     private val remoteDataSource: CurationRemoteDataSource = mockk()
 
-    private fun createRepository(): DefaultCurationRepository = DefaultCurationRepository(remoteDataSource)
+    private fun createRepository(): DefaultCurationRepository =
+        DefaultCurationRepository(remoteDataSource)
 
     @Test
     fun `getCurationRequests maps dtos to domain keyed by card id`() = runTest {
@@ -31,7 +32,7 @@ class DefaultCurationRepositoryTest {
         val flaggedAt = Timestamp(Date(1_000L))
         val dto = CurationRequestDto(
             subcategoryId = "sub-1",
-            actions = mapOf(CurationAction.DELETE.name to CurationActionEntryDto(flaggedAt = flaggedAt))
+            actions = mapOf(CurationAction.DELETE.name to CurationActionEntryDto(flaggedAt = flaggedAt)),
         )
         coEvery { remoteDataSource.getCurationRequests(cardIds) } returns mapOf(cardId to dto)
 

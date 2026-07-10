@@ -6,8 +6,9 @@ import com.rossomak.flashcards.core.domain.repository.VoiceSettingsRepository
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 
-class DefaultVoiceSettingsRepository @Inject constructor(private val localDataSource: VoiceSettingsLocalDataSource) :
-    VoiceSettingsRepository {
+class DefaultVoiceSettingsRepository @Inject constructor(
+    private val localDataSource: VoiceSettingsLocalDataSource,
+) : VoiceSettingsRepository {
 
     override fun voiceSettings(): Flow<VoiceSettings> = localDataSource.voiceSettings()
 

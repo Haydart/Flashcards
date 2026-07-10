@@ -8,9 +8,14 @@ class FakeCurationRepository : CurationRepository {
     val upsertedActions: MutableList<Triple<String, String, CurationAction>> = mutableListOf()
     val removedActions: MutableList<Pair<String, CurationAction>> = mutableListOf()
 
-    override suspend fun getCurationRequests(cardIds: List<String>): Result<Map<String, CurationRequest>> = curationRequestsToReturn
+    override suspend fun getCurationRequests(cardIds: List<String>): Result<Map<String, CurationRequest>> =
+        curationRequestsToReturn
 
-    override suspend fun upsertCurationAction(cardId: String, subcategoryId: String, action: CurationAction): Result<Unit> {
+    override suspend fun upsertCurationAction(
+        cardId: String,
+        subcategoryId: String,
+        action: CurationAction
+    ): Result<Unit> {
         upsertedActions.add(Triple(cardId, subcategoryId, action))
         return Result.success(Unit)
     }

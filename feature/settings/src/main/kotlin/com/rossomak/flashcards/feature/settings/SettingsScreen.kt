@@ -38,7 +38,11 @@ private object LeakCanaryTestSink {
 }
 
 @Composable
-fun SettingsScreen(modifier: Modifier = Modifier, viewModel: SettingsViewModel = hiltViewModel(), onNavigateToLogin: () -> Unit) {
+fun SettingsScreen(
+    modifier: Modifier = Modifier,
+    viewModel: SettingsViewModel = hiltViewModel(),
+    onNavigateToLogin: () -> Unit,
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
@@ -56,7 +60,7 @@ fun SettingsScreen(modifier: Modifier = Modifier, viewModel: SettingsViewModel =
             onVoiceSelected = viewModel::onVoiceSettingsDraftVoiceChanged,
             onSpeedChanged = viewModel::onVoiceSettingsDraftSpeedChanged,
             onSave = viewModel::onVoiceSettingsSave,
-            onDismiss = viewModel::onVoiceSettingsDismiss
+            onDismiss = viewModel::onVoiceSettingsDismiss,
         )
     }
 
@@ -76,7 +80,7 @@ fun SettingsScreen(modifier: Modifier = Modifier, viewModel: SettingsViewModel =
             }
         } else {
             null
-        }
+        },
     )
 }
 
@@ -87,7 +91,7 @@ private fun SettingsContent(
     showcaseIntent: Intent?,
     onVoicePlaybackSettingsClick: () -> Unit,
     onSignOutClick: () -> Unit,
-    onTriggerMemoryLeakClick: (() -> Unit)?
+    onTriggerMemoryLeakClick: (() -> Unit)?,
 ) {
     val context = LocalContext.current
 

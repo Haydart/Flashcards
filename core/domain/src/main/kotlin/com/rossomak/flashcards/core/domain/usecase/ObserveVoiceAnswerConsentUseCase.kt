@@ -4,7 +4,9 @@ import com.rossomak.flashcards.core.domain.repository.VoiceAnswerConsentReposito
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 
-class ObserveVoiceAnswerConsentUseCase @Inject constructor(private val voiceAnswerConsentRepository: VoiceAnswerConsentRepository) {
+class ObserveVoiceAnswerConsentUseCase @Inject constructor(
+    private val voiceAnswerConsentRepository: VoiceAnswerConsentRepository,
+) {
 
     operator fun invoke(): Flow<Boolean> = voiceAnswerConsentRepository.observeConsent()
 }

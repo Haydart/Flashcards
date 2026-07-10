@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class CategoryDetailsViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val getSubcategories: GetSubcategoriesUseCase
+    private val getSubcategories: GetSubcategoriesUseCase,
 ) : ViewModel() {
 
     private val route = savedStateHandle.decodeRoute<CategoryDetailsRoute>()

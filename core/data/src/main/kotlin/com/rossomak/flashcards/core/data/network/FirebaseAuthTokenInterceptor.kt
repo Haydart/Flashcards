@@ -11,7 +11,9 @@ import okhttp3.Response
  * verifies it server-side before touching ElevenLabs or the grading LLM. Runs on OkHttp's
  * worker thread, so the blocking token fetch is safe here.
  */
-class FirebaseAuthTokenInterceptor @Inject constructor(private val firebaseAuth: FirebaseAuth) : Interceptor {
+class FirebaseAuthTokenInterceptor @Inject constructor(
+    private val firebaseAuth: FirebaseAuth,
+) : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val currentUser = firebaseAuth.currentUser ?: return chain.proceed(chain.request())

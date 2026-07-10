@@ -17,14 +17,15 @@ import kotlinx.coroutines.withContext
  * Batch persistence at session end belongs to the not-yet-built Rating/Attempt/Terminal-State
  * pipeline (ADR-0016/ADR-0026).
  */
-class DefaultVoiceAnswerGradingRepository @Inject constructor(private val voiceGradingApi: VoiceGradingApi) :
-    VoiceAnswerGradingRepository {
+class DefaultVoiceAnswerGradingRepository @Inject constructor(
+    private val voiceGradingApi: VoiceGradingApi,
+) : VoiceAnswerGradingRepository {
 
     override suspend fun gradeSpokenAnswer(
         cardId: String,
         question: String,
         expectedAnswer: String,
-        obfuscatedAnswerWav: ByteArray
+        obfuscatedAnswerWav: ByteArray,
     ): Result<VoiceAnswerGrade> = withContext(Dispatchers.IO) {
         try {
             val grade = retryWithBackoff {

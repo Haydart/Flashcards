@@ -31,7 +31,8 @@ class DataStoreVoiceSettingsLocalDataSourceTest {
         }
     }
 
-    private fun createLocalDataSource(): DataStoreVoiceSettingsLocalDataSource = DataStoreVoiceSettingsLocalDataSource(dataStore)
+    private fun createLocalDataSource(): DataStoreVoiceSettingsLocalDataSource =
+        DataStoreVoiceSettingsLocalDataSource(dataStore)
 
     @After
     fun tearDown() {

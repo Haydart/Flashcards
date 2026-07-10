@@ -31,5 +31,5 @@ data class StudySessionScreenState(
     val lastVoiceAnswerGrade: VoiceAnswerGrade? = null,
     val voiceAnswerError: String? = null,
     val isVoiceAnswerConsentDialogVisible: Boolean = false,
-    val isMicPermissionRequestPending: Boolean = false
+    val isMicPermissionRequestPending: Boolean = false,
 )

@@ -26,7 +26,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class PreviewStudySessionViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val getFlashcards: GetFlashcardsUseCase
+    private val getFlashcards: GetFlashcardsUseCase,
 ) : ViewModel() {
 
     private val route = savedStateHandle.decodeRoute<PreviewStudySessionRoute>()
@@ -36,7 +36,7 @@ class PreviewStudySessionViewModel @Inject constructor(
             categoryName = route.categoryName,
             subcategoryNames = route.subcategoryNames,
             isQuickSession = route.isQuickSession,
-            filterTags = route.filterTagIds
+            filterTags = route.filterTagIds,
         )
     )
     val state: StateFlow<PreviewStudySessionScreenState> = _state.asStateFlow()
@@ -100,7 +100,7 @@ class PreviewStudySessionViewModel @Inject constructor(
                         sessionTitle = sessionTitle(),
                         subcategoryIds = route.subcategoryIds,
                         cardIds = selectedCards.map { it.id },
-                        studyMode = _state.value.selectedStudyMode
+                        studyMode = _state.value.selectedStudyMode,
                     )
                 )
             )
@@ -142,14 +142,16 @@ class PreviewStudySessionViewModel @Inject constructor(
         _state.update {
             it.copy(
                 selectedCardCount = selectedCards.size,
-                estimatedMinutes = estimateMinutes(selectedCards.size)
+                estimatedMinutes = estimateMinutes(selectedCards.size),
             )
         }
     }
 
-    private fun sessionTitle(): String = if (_state.value.isSingleTopic) route.subcategoryNames.first() else route.categoryName
+    private fun sessionTitle(): String =
+        if (_state.value.isSingleTopic) route.subcategoryNames.first() else route.categoryName
 
-    private fun estimateMinutes(cardCount: Int): Int = ((cardCount * SECONDS_PER_CARD) + SECONDS_PER_MINUTE - 1) / SECONDS_PER_MINUTE
+    private fun estimateMinutes(cardCount: Int): Int =
+        ((cardCount * SECONDS_PER_CARD) + SECONDS_PER_MINUTE - 1) / SECONDS_PER_MINUTE
 
     private companion object {
         const val SECONDS_PER_CARD = 40

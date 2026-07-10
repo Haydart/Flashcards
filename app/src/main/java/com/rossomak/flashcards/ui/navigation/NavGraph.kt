@@ -40,7 +40,10 @@ import kotlinx.serialization.Serializable
 @Serializable object VoiceDebugRoot
 
 @Composable
-fun FlashcardsNavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
+fun FlashcardsNavGraph(
+    navController: NavHostController,
+    modifier: Modifier = Modifier
+) {
     NavHost(
         navController = navController,
         startDestination = Splash,
@@ -100,7 +103,7 @@ fun FlashcardsNavGraph(navController: NavHostController, modifier: Modifier = Mo
                             categoryId = categoryId,
                             categoryName = categoryName,
                             subcategoryIds = listOf(subcategoryId),
-                            subcategoryNames = listOf(subcategoryName)
+                            subcategoryNames = listOf(subcategoryName),
                         )
                     )
                 }

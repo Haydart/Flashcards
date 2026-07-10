@@ -48,7 +48,7 @@ import com.rossomak.flashcards.feature.home.R
 fun HomeScreen(
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
-    onNavigateToCategoryDetails: (String, String) -> Unit = { _, _ -> }
+    onNavigateToCategoryDetails: (String, String) -> Unit = { _, _ -> },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
@@ -69,7 +69,7 @@ private fun HomeTopBar() {
                     painter = painterResource(R.drawable.flashcards_white),
                     contentDescription = "Flashcards",
                     tint = Color.Unspecified,
-                    modifier = Modifier.height(64.dp)
+                    modifier = Modifier.height(64.dp),
                 )
             },
             actions = {
@@ -78,15 +78,15 @@ private fun HomeTopBar() {
                         Box(
                             modifier = Modifier
                                 .size(8.dp)
-                                .background(MaterialTheme.colorScheme.tertiary, CircleShape)
+                                .background(MaterialTheme.colorScheme.tertiary, CircleShape),
                         )
-                    }
+                    },
                 ) {
                     IconButton(onClick = {}) {
                         Icon(
                             imageVector = Icons.Filled.Notifications,
                             contentDescription = "Notifications",
-                            modifier = Modifier.size(26.dp)
+                            modifier = Modifier.size(26.dp),
                         )
                     }
                 }
@@ -94,8 +94,8 @@ private fun HomeTopBar() {
             colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                 containerColor = Color.Transparent,
                 titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-            )
+                actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            ),
         )
     }
 }
@@ -108,36 +108,36 @@ private fun UserGreetingSection(userName: String) {
             .background(MaterialTheme.colorScheme.surface)
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center
+        horizontalArrangement = Arrangement.Center,
     ) {
         Box(
             modifier = Modifier
                 .size(56.dp)
                 .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
                 .padding(12.dp),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = userName.first().uppercase(),
                 style = MaterialTheme.typography.titleLarge.copy(
                     color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.SemiBold
-                )
+                    fontWeight = FontWeight.SemiBold,
+                ),
             )
         }
         Column {
             Text(
                 text = "Good morning,",
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
             )
             Text(
                 text = "$userName 👋",
                 style = MaterialTheme.typography.titleMedium.copy(
                     color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Bold
-                )
+                    fontWeight = FontWeight.Bold,
+                ),
             )
         }
     }
@@ -151,7 +151,7 @@ private fun HomeEmptyState(modifier: Modifier = Modifier) {
             .background(MaterialTheme.colorScheme.surfaceContainer)
             .padding(horizontal = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Center,
     ) {
         EmptyStateIllustration()
 
@@ -161,9 +161,9 @@ private fun HomeEmptyState(modifier: Modifier = Modifier) {
             text = "Ready to start learning?",
             style = MaterialTheme.typography.titleLarge.copy(
                 color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
             ),
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
         )
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -171,9 +171,9 @@ private fun HomeEmptyState(modifier: Modifier = Modifier) {
         Text(
             text = "Pick a category and run your first study session — your recents and favorites will appear here.",
             style = MaterialTheme.typography.bodyMedium.copy(
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             ),
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
         )
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -183,22 +183,22 @@ private fun HomeEmptyState(modifier: Modifier = Modifier) {
             shape = RoundedCornerShape(50.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.secondary,
-                contentColor = MaterialTheme.colorScheme.onSecondary
+                contentColor = MaterialTheme.colorScheme.onSecondary,
             ),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp)
+                .height(52.dp),
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.MenuBook,
                 contentDescription = null,
                 modifier = Modifier
                     .padding(end = 8.dp)
-                    .size(20.dp)
+                    .size(20.dp),
             )
             Text(
                 text = "Start your first session",
-                style = MaterialTheme.typography.labelLarge.copy(fontSize = 16.sp)
+                style = MaterialTheme.typography.labelLarge.copy(fontSize = 16.sp),
             )
         }
     }
@@ -211,9 +211,9 @@ private fun EmptyStateIllustration() {
             .size(160.dp)
             .background(
                 color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                shape = RoundedCornerShape(80.dp)
+                shape = RoundedCornerShape(80.dp),
             ),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         Box(
             modifier = Modifier
@@ -221,7 +221,7 @@ private fun EmptyStateIllustration() {
                 .offset(x = (-18).dp, y = 10.dp)
                 .rotate(-15f)
                 .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.primary)
+                .background(MaterialTheme.colorScheme.primary),
         )
         Box(
             modifier = Modifier
@@ -229,15 +229,15 @@ private fun EmptyStateIllustration() {
                 .offset(x = 12.dp, y = (-6).dp)
                 .background(
                     color = MaterialTheme.colorScheme.surfaceContainerLow,
-                    shape = CircleShape
+                    shape = CircleShape,
                 ),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.MenuBook,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(36.dp),
             )
         }
     }

@@ -39,7 +39,7 @@ data class VoiceAnswerState(
     val lastGrade: VoiceAnswerGrade? = null,
     val lastGradedCardId: String? = null,
     val captureRoute: CaptureRouteType = CaptureRouteType.NONE,
-    val error: String? = null
+    val error: String? = null,
 )
 
 /**
@@ -62,7 +62,7 @@ class VoiceAnswerController @Inject constructor(
     @ApplicationContext private val context: Context,
     private val gradeSpokenAnswer: GradeSpokenAnswerUseCase,
     private val voiceCaptureEngine: VoiceCaptureEngine,
-    private val audioRouteManager: AudioRouteManager
+    private val audioRouteManager: AudioRouteManager,
 ) {
 
     private val _state = MutableStateFlow(VoiceAnswerState())
@@ -210,7 +210,7 @@ class VoiceAnswerController @Inject constructor(
                 cardId = card.cardId,
                 question = card.questionText,
                 expectedAnswer = card.answerText,
-                obfuscatedAnswerWav = obfuscatedWav
+                obfuscatedAnswerWav = obfuscatedWav,
             )
         ).onSuccess { grade ->
             _state.update {
@@ -225,7 +225,7 @@ class VoiceAnswerController @Inject constructor(
                 context.getString(
                     R.string.study_session_voice_answer_grade_spoken_message,
                     grade.gradePercent,
-                    grade.feedback
+                    grade.feedback,
                 )
             )
         }.onFailure { error ->
@@ -288,8 +288,9 @@ class VoiceAnswerController @Inject constructor(
         noticeTts?.speak(text, TextToSpeech.QUEUE_ADD, null, NOTICE_UTTERANCE_ID)
     }
 
-    private fun hasRecordAudioPermission(): Boolean = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
-        PackageManager.PERMISSION_GRANTED
+    private fun hasRecordAudioPermission(): Boolean =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+                PackageManager.PERMISSION_GRANTED
 
     private fun acquireWakeLock() {
         if (wakeLock?.isHeld == true) return

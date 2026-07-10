@@ -2,7 +2,6 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>MaxLineLength:SettingsScreen.kt$fun</ID>
     <ID>MaxLineLength:SettingsViewModelTest.kt$SettingsViewModelTest$fun</ID>
   </CurrentIssues>
 </SmellBaseline>

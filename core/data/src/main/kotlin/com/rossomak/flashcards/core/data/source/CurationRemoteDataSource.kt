@@ -14,7 +14,10 @@ import kotlinx.coroutines.tasks.await
 
 private const val WHEREIN_BATCH_SIZE = 30
 
-class CurationRemoteDataSource @Inject constructor(private val firestore: FirebaseFirestore, private val firebaseAuth: FirebaseAuth) {
+class CurationRemoteDataSource @Inject constructor(
+    private val firestore: FirebaseFirestore,
+    private val firebaseAuth: FirebaseAuth,
+) {
 
     private val uid: String
         get() = requireNotNull(firebaseAuth.currentUser?.uid) { "No authenticated user" }
@@ -52,7 +55,7 @@ class CurationRemoteDataSource @Inject constructor(private val firestore: Fireba
         val docRef = collection().document(cardId)
         val updates = mutableMapOf<String, Any>(
             "subcategoryId" to subcategoryId,
-            "actions.${action.name}" to mapOf("flaggedAt" to FieldValue.serverTimestamp())
+            "actions.${action.name}" to mapOf("flaggedAt" to FieldValue.serverTimestamp()),
         )
         action.difficultyOpposite()?.let { opposite ->
             updates["actions.${opposite.name}"] = FieldValue.delete()

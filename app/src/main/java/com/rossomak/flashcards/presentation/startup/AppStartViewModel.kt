@@ -12,7 +12,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withTimeoutOrNull
 
 @HiltViewModel
-class AppStartViewModel @Inject constructor(private val getCurrentAuthUser: GetCurrentAuthUserUseCase) : ViewModel() {
+class AppStartViewModel @Inject constructor(
+    private val getCurrentAuthUser: GetCurrentAuthUserUseCase
+) : ViewModel() {
 
     val startupState: StateFlow<AppStartupState> =
         flow {

@@ -46,7 +46,7 @@ private val lightScheme = lightColorScheme(
     surfaceContainerLow = surfaceContainerLowLight,
     surfaceContainer = surfaceContainerLight,
     surfaceContainerHigh = surfaceContainerHighLight,
-    surfaceContainerHighest = surfaceContainerHighestLight
+    surfaceContainerHighest = surfaceContainerHighestLight,
 )
 
 private val darkScheme = darkColorScheme(
@@ -84,11 +84,15 @@ private val darkScheme = darkColorScheme(
     surfaceContainerLow = surfaceContainerLowDark,
     surfaceContainer = surfaceContainerDark,
     surfaceContainerHigh = surfaceContainerHighDark,
-    surfaceContainerHighest = surfaceContainerHighestDark
+    surfaceContainerHighest = surfaceContainerHighestDark,
 )
 
 @Composable
-fun FlashcardsTheme(darkTheme: Boolean = isSystemInDarkTheme(), dynamicColor: Boolean = false, content: @Composable () -> Unit) {
+fun FlashcardsTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    dynamicColor: Boolean = false,
+    content: @Composable () -> Unit,
+) {
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
@@ -103,12 +107,12 @@ fun FlashcardsTheme(darkTheme: Boolean = isSystemInDarkTheme(), dynamicColor: Bo
     CompositionLocalProvider(
         LocalBrandColors provides brandColors,
         LocalSpacing provides AppSpacing,
-        LocalCornerRadius provides AppCornerRadius
+        LocalCornerRadius provides AppCornerRadius,
     ) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = AppTypography,
-            content = content
+            content = content,
         )
     }
 }

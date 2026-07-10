@@ -23,7 +23,8 @@ class SplashViewModelTest {
 
     private val testUser = AuthUser("u1", "a@b.com", "Alex", null)
 
-    private fun createViewModel(): SplashViewModel = SplashViewModel(getCurrentAuthUserUseCase)
+    private fun createViewModel(): SplashViewModel =
+        SplashViewModel(getCurrentAuthUserUseCase)
 
     @Test
     fun `animation completed before timeout with user emits Main`() = runTest(mainDispatcherRule.testDispatcher) {

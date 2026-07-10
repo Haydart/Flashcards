@@ -7,7 +7,9 @@ import com.rossomak.flashcards.core.data.model.SubcategoryDto
 import javax.inject.Inject
 import kotlinx.coroutines.tasks.await
 
-class FlashcardRemoteDataSource @Inject constructor(private val firestore: FirebaseFirestore) {
+class FlashcardRemoteDataSource @Inject constructor(
+    private val firestore: FirebaseFirestore
+) {
 
     suspend fun getCategories(): List<CategoryDto> = firestore.collection(COLLECTION_CATEGORIES)
         .orderBy(FIELD_ORDER)

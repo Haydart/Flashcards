@@ -10,7 +10,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class DefaultCurationRepository @Inject constructor(private val remoteDataSource: CurationRemoteDataSource) : CurationRepository {
+class DefaultCurationRepository @Inject constructor(
+    private val remoteDataSource: CurationRemoteDataSource,
+) : CurationRepository {
 
     override suspend fun getCurationRequests(cardIds: List<String>): Result<Map<String, CurationRequest>> = withContext(Dispatchers.IO) {
         try {

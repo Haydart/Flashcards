@@ -22,7 +22,9 @@ import kotlinx.coroutines.flow.asStateFlow
  * engine's job.
  */
 @Singleton
-class SileroVoiceActivityDetector @Inject constructor(private val session: SileroVadSession) : VoiceActivityDetector {
+class SileroVoiceActivityDetector @Inject constructor(
+    private val session: SileroVadSession,
+) : VoiceActivityDetector {
 
     private var carry = ShortArray(0)
     private var lastSpeechProbability = 0f

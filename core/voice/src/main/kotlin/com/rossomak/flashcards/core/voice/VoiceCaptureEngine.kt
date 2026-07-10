@@ -26,7 +26,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** A single VAD-bounded utterance. Only obfuscated audio ever leaves the engine in this form. */
-data class CapturedUtterance(val obfuscatedPcm: ShortArray, val wavBytes: ByteArray, val durationMs: Long)
+data class CapturedUtterance(
+    val obfuscatedPcm: ShortArray,
+    val wavBytes: ByteArray,
+    val durationMs: Long,
+)
 
 sealed interface VoiceCaptureEvent {
     data object SpeechStarted : VoiceCaptureEvent
@@ -58,7 +62,7 @@ class VoiceCaptureEngine @Inject constructor(
     @ApplicationContext private val context: Context,
     private val voiceActivityDetector: VoiceActivityDetector,
     private val voiceObfuscator: VoiceObfuscator,
-    private val audioRouteManager: AudioRouteManager
+    private val audioRouteManager: AudioRouteManager,
 ) {
 
     private enum class CaptureOutcome { STOPPED, FAILED, ROUTE_CHANGED }
@@ -204,7 +208,10 @@ class VoiceCaptureEngine @Inject constructor(
      * an in-flight utterance is finished first, then [CaptureOutcome.ROUTE_CHANGED] is returned so the
      * caller rebuilds on the new route (never a mid-clip device switch).
      */
-    private suspend fun captureFrames(audioRecord: AudioRecord, isRouteChangePending: () -> Boolean): CaptureOutcome {
+    private suspend fun captureFrames(
+        audioRecord: AudioRecord,
+        isRouteChangePending: () -> Boolean,
+    ): CaptureOutcome {
         val frame = ShortArray(FRAME_SIZE_SAMPLES)
         val preRoll = ArrayDeque<ShortArray>(PRE_ROLL_FRAMES)
         val utterance = mutableListOf<ShortArray>()
@@ -281,7 +288,7 @@ class VoiceCaptureEngine @Inject constructor(
                 CapturedUtterance(
                     obfuscatedPcm = obfuscated,
                     wavBytes = WavEncoder.encode(obfuscated, SAMPLE_RATE_HZ),
-                    durationMs = durationMs
+                    durationMs = durationMs,
                 )
             )
         )
@@ -292,7 +299,7 @@ class VoiceCaptureEngine @Inject constructor(
         val minBufferSize = AudioRecord.getMinBufferSize(
             SAMPLE_RATE_HZ,
             AudioFormat.CHANNEL_IN_MONO,
-            AudioFormat.ENCODING_PCM_16BIT
+            AudioFormat.ENCODING_PCM_16BIT,
         )
         if (minBufferSize <= 0) return null
         val audioRecord = AudioRecord(
@@ -300,7 +307,7 @@ class VoiceCaptureEngine @Inject constructor(
             SAMPLE_RATE_HZ,
             AudioFormat.CHANNEL_IN_MONO,
             AudioFormat.ENCODING_PCM_16BIT,
-            maxOf(minBufferSize, FRAME_SIZE_SAMPLES * Short.SIZE_BYTES * BUFFER_FRAMES)
+            maxOf(minBufferSize, FRAME_SIZE_SAMPLES * Short.SIZE_BYTES * BUFFER_FRAMES),
         )
         if (audioRecord.state != AudioRecord.STATE_INITIALIZED) {
             audioRecord.release()

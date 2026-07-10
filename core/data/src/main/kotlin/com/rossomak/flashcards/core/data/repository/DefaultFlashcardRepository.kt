@@ -11,7 +11,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class DefaultFlashcardRepository @Inject constructor(private val remoteDataSource: FlashcardRemoteDataSource) : FlashcardRepository {
+class DefaultFlashcardRepository @Inject constructor(
+    private val remoteDataSource: FlashcardRemoteDataSource
+) : FlashcardRepository {
 
     override suspend fun fetchCategories(): Result<List<Category>> = withContext(Dispatchers.IO) {
         try {

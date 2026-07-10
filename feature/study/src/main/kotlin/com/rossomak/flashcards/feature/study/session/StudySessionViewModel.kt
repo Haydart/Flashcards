@@ -42,7 +42,7 @@ class StudySessionViewModel @Inject constructor(
     private val observeVoiceAnswerConsent: ObserveVoiceAnswerConsentUseCase,
     private val setVoiceAnswerConsent: SetVoiceAnswerConsentUseCase,
     private val voiceGateway: VoiceGateway,
-    private val voiceSettingsController: VoiceSettingsController
+    private val voiceSettingsController: VoiceSettingsController,
 ) : ViewModel() {
 
     private val route = savedStateHandle.decodeRoute<StudySessionRoute>()
@@ -109,7 +109,7 @@ class StudySessionViewModel @Inject constructor(
                 it.copy(
                     isLoading = false,
                     flashcards = sessionCards,
-                    isVoiceAutoStartPending = route.studyMode == StudyMode.FAST && sessionCards.isNotEmpty()
+                    isVoiceAutoStartPending = route.studyMode == StudyMode.FAST && sessionCards.isNotEmpty(),
                 )
             }
         }
@@ -138,7 +138,7 @@ class StudySessionViewModel @Inject constructor(
                                 it.voiceAnswerPhase == VoiceAnswerPhase.SPEAKING_NOTICE
                         } else {
                             it.isAnswerRevealed
-                        }
+                        },
                     )
                 }
                 if (voice.isActive && voice.currentIndex != lastObservedCardIndex) {
@@ -175,7 +175,7 @@ class StudySessionViewModel @Inject constructor(
                         // engine's own phase would flip to ANSWER — reveal the card now so the
                         // user can check what they missed while grading/feedback plays out.
                         isAnswerRevealed = it.isAnswerRevealed ||
-                            voiceAnswer.phase == VoiceAnswerPhase.GRADING
+                            voiceAnswer.phase == VoiceAnswerPhase.GRADING,
                     )
                 }
             }
@@ -213,7 +213,7 @@ class StudySessionViewModel @Inject constructor(
             _state.update {
                 it.copy(
                     isVoiceAnswerConsentDialogVisible = false,
-                    isMicPermissionRequestPending = true
+                    isMicPermissionRequestPending = true,
                 )
             }
         }
@@ -252,7 +252,7 @@ class StudySessionViewModel @Inject constructor(
             _state.update {
                 it.copy(
                     currentCardIndex = it.currentCardIndex + 1,
-                    isAnswerRevealed = false
+                    isAnswerRevealed = false,
                 )
             }
         }
@@ -279,7 +279,7 @@ class StudySessionViewModel @Inject constructor(
             voiceGateway.start(
                 cards = flashcards,
                 startIndex = currentCardIndex,
-                subcategoryName = sessionTitle
+                subcategoryName = sessionTitle,
             )
         }
         voiceGateway.setSpeechRate(voiceSettingsController.currentSettings.speechRate)
@@ -409,7 +409,7 @@ class StudySessionViewModel @Inject constructor(
                     _state.update {
                         it.copy(
                             curationRequests = requests,
-                            isCurationDialogVisible = it.isCurationDialogVisible || showDialogOnSuccess
+                            isCurationDialogVisible = it.isCurationDialogVisible || showDialogOnSuccess,
                         )
                     }
                 }
@@ -439,7 +439,7 @@ class StudySessionViewModel @Inject constructor(
             CurationRequest(
                 cardId = currentCard.id,
                 subcategoryId = currentCard.subcategoryId,
-                actions = updatedActions
+                actions = updatedActions,
             )
         }
 
@@ -454,7 +454,7 @@ class StudySessionViewModel @Inject constructor(
                     cardId = currentCard.id,
                     subcategoryId = currentCard.subcategoryId,
                     action = action,
-                    isCurrentlyActive = isCurrentlyActive
+                    isCurrentlyActive = isCurrentlyActive,
                 )
             ).onFailure {
                 val revertedRequests = _state.value.curationRequests.toMutableMap().apply {
@@ -463,7 +463,7 @@ class StudySessionViewModel @Inject constructor(
                 _state.update {
                     it.copy(
                         curationRequests = revertedRequests,
-                        curationError = "Failed to save curation request"
+                        curationError = "Failed to save curation request",
                     )
                 }
             }

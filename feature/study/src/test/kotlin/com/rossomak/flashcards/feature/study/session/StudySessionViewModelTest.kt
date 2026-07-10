@@ -63,7 +63,7 @@ class StudySessionViewModelTest {
         sessionTitle = sessionTitle,
         subcategoryIds = listOf(subcategoryId),
         cardIds = listOf("card-1", "card-2", "card-3"),
-        studyMode = StudyMode.RATED
+        studyMode = StudyMode.RATED,
     )
 
     @Before
@@ -92,7 +92,7 @@ class StudySessionViewModelTest {
             ObserveVoiceAnswerConsentUseCase(voiceAnswerConsentRepository),
             SetVoiceAnswerConsentUseCase(voiceAnswerConsentRepository),
             voiceGateway,
-            voiceSettingsController
+            voiceSettingsController,
         )
 
     private fun flashcard(id: String, subcategoryId: String = this.subcategoryId): Flashcard = Flashcard(
@@ -106,19 +106,19 @@ class StudySessionViewModelTest {
         answerCode = null,
         questionSpoken = null,
         answerSpoken = null,
-        extendedContext = null
+        extendedContext = null,
     )
 
     private fun loadThreeCards() {
         flashcardRepository.flashcardsBySubcategory[subcategoryId] = Result.success(
-            listOf(flashcard("card-1"), flashcard("card-2"), flashcard("card-3"))
+            listOf(flashcard("card-1"), flashcard("card-2"), flashcard("card-3")),
         )
     }
 
     @Test
     fun `loadFlashcards resolves routed card ids preserving order`() = runTest(mainDispatcherRule.testDispatcher) {
         flashcardRepository.flashcardsBySubcategory[subcategoryId] = Result.success(
-            listOf(flashcard("card-3"), flashcard("card-1"), flashcard("card-2"))
+            listOf(flashcard("card-3"), flashcard("card-1"), flashcard("card-2")),
         )
 
         val viewModel = createViewModel()

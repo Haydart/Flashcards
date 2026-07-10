@@ -41,7 +41,10 @@ enum class CaptureRouteType { PHONE, BLUETOOTH_LE, BLUETOOTH_SCO, WAITING, NONE 
  * `setPreferredDevice`. It is non-null only for the Bluetooth route types; PHONE uses the default
  * mic (null device) and WAITING/NONE carry no capturable device.
  */
-data class CaptureRoute(val type: CaptureRouteType, val device: AudioDeviceInfo? = null) {
+data class CaptureRoute(
+    val type: CaptureRouteType,
+    val device: AudioDeviceInfo? = null,
+) {
     val isBluetooth: Boolean
         get() = type == CaptureRouteType.BLUETOOTH_LE || type == CaptureRouteType.BLUETOOTH_SCO
 
@@ -75,7 +78,9 @@ data class CaptureRoute(val type: CaptureRouteType, val device: AudioDeviceInfo?
  * of every utterance, not just at session start.
  */
 @Singleton
-class AudioRouteManager @Inject constructor(@ApplicationContext private val context: Context) {
+class AudioRouteManager @Inject constructor(
+    @ApplicationContext private val context: Context,
+) {
 
     private val _route = MutableStateFlow(CaptureRoute(CaptureRouteType.NONE))
     val route: StateFlow<CaptureRoute> = _route.asStateFlow()

@@ -8,27 +8,11 @@
     <ID>MagicNumber:FakeVoiceGradingApi.kt$FakeVoiceGradingApi$25</ID>
     <ID>MagicNumber:FakeVoiceGradingApi.kt$FakeVoiceGradingApi$55</ID>
     <ID>MagicNumber:FakeVoiceGradingApi.kt$FakeVoiceGradingApi$85</ID>
-    <ID>MaxLineLength:CurationRemoteDataSource.kt$CurationRemoteDataSource$class</ID>
-    <ID>MaxLineLength:CurationRequestDto.kt$CurationRequestDto</ID>
-    <ID>MaxLineLength:DataStoreVoiceSettingsLocalDataSourceTest.kt$DataStoreVoiceSettingsLocalDataSourceTest$private fun createLocalDataSource(): DataStoreVoiceSettingsLocalDataSource</ID>
-    <ID>MaxLineLength:DefaultAuthRepository.kt$DefaultAuthRepository$override suspend fun signInWithGoogleIdToken(idToken: String): Result&lt;AuthUser&gt;</ID>
-    <ID>MaxLineLength:DefaultCurationRepository.kt$DefaultCurationRepository$class</ID>
     <ID>MaxLineLength:DefaultCurationRepository.kt$DefaultCurationRepository$override suspend</ID>
-    <ID>MaxLineLength:DefaultFlashcardRepository.kt$DefaultFlashcardRepository$class</ID>
     <ID>MaxLineLength:DefaultFlashcardRepository.kt$DefaultFlashcardRepository$override suspend</ID>
-    <ID>MaxLineLength:DefaultVoiceAnswerConsentRepository.kt$DefaultVoiceAnswerConsentRepository$class</ID>
-    <ID>MaxLineLength:DefaultVoiceAnswerConsentRepositoryTest.kt$DefaultVoiceAnswerConsentRepositoryTest$private fun createRepository(): DefaultVoiceAnswerConsentRepository</ID>
     <ID>MaxLineLength:DefaultVoiceAnswerGradingRepository.kt$DefaultVoiceAnswerGradingRepository$override suspend</ID>
-    <ID>MaxLineLength:DefaultVoiceAnswerGradingRepositoryTest.kt$DefaultVoiceAnswerGradingRepositoryTest$private fun createRepository(): DefaultVoiceAnswerGradingRepository</ID>
-    <ID>MaxLineLength:DefaultVoiceOptionsRepository.kt$DefaultVoiceOptionsRepository$class</ID>
-    <ID>MaxLineLength:DefaultVoicePreviewGateway.kt$DefaultVoicePreviewGateway$class</ID>
     <ID>MaxLineLength:FakeVoiceGradingApi.kt$FakeVoiceGradingApi.Companion$"StateFlow holds a single value and replays it to new collectors while SharedFlow does not retain state by default"</ID>
     <ID>MaxLineLength:FlashcardRemoteDataSource.kt$FlashcardRemoteDataSource$suspend</ID>
-    <ID>MaxLineLength:VoiceDataModule.kt$VoiceDataModule$abstract</ID>
-    <ID>MaxLineLength:VoiceGradingApi.kt$VoiceGradingApi$suspend</ID>
-    <ID>MaxLineLength:VoiceGradingApiRouter.kt$VoiceGradingApiRouter$override suspend fun checkEntitlement(): EntitlementDto</ID>
-    <ID>MaxLineLength:VoiceGradingApiRouter.kt$VoiceGradingApiRouter$private fun apiFor(useReal: Boolean): VoiceGradingApi</ID>
-    <ID>MaxLineLength:VoiceGradingModule.kt$VoiceGradingModule$abstract</ID>
     <ID>TooGenericExceptionCaught:DefaultCurationRepository.kt$DefaultCurationRepository$exception: Exception</ID>
     <ID>TooGenericExceptionCaught:DefaultFlashcardRepository.kt$DefaultFlashcardRepository$exception: Exception</ID>
     <ID>TooGenericExceptionCaught:DefaultVoiceAnswerGradingRepository.kt$DefaultVoiceAnswerGradingRepository$exception: Exception</ID>

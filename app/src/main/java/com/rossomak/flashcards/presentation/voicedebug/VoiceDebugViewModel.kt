@@ -42,7 +42,7 @@ class VoiceDebugViewModel @Inject constructor(
     private val voiceActivityDetector: SileroVoiceActivityDetector,
     private val pcmPlayer: PcmPlayer,
     private val debugSettings: VoicePipelineDebugSettings,
-    voiceGradingApiRouter: VoiceGradingApiRouter
+    voiceGradingApiRouter: VoiceGradingApiRouter,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(
@@ -100,7 +100,7 @@ class VoiceDebugViewModel @Inject constructor(
                     _state.update {
                         it.copy(
                             hasCapturedUtterance = true,
-                            capturedUtteranceDurationMs = event.utterance.durationMs
+                            capturedUtteranceDurationMs = event.utterance.durationMs,
                         )
                     }
                 }
@@ -138,7 +138,7 @@ class VoiceDebugViewModel @Inject constructor(
                     it.copy(
                         hasRawClip = rawClip.isNotEmpty(),
                         rawClipDurationMs = rawClip.size * 1000L / VoiceCaptureEngine.SAMPLE_RATE_HZ,
-                        transcriptionResult = null
+                        transcriptionResult = null,
                     )
                 }
             } finally {
@@ -189,7 +189,8 @@ class VoiceDebugViewModel @Inject constructor(
 
     fun onGradeQuestionChange(value: String) = _state.update { it.copy(gradeQuestion = value) }
 
-    fun onGradeExpectedAnswerChange(value: String) = _state.update { it.copy(gradeExpectedAnswer = value) }
+    fun onGradeExpectedAnswerChange(value: String) =
+        _state.update { it.copy(gradeExpectedAnswer = value) }
 
     fun onGradeTranscriptChange(value: String) = _state.update { it.copy(gradeTranscript = value) }
 
@@ -203,7 +204,7 @@ class VoiceDebugViewModel @Inject constructor(
                         SanitizeAndGradeTranscriptUseCase.Params(
                             question = gradeQuestion,
                             expectedAnswer = gradeExpectedAnswer,
-                            rawTranscript = gradeTranscript
+                            rawTranscript = gradeTranscript,
                         )
                     )
                 }.onSuccess { grade ->
@@ -242,9 +243,11 @@ class VoiceDebugViewModel @Inject constructor(
         }
     }
 
-    fun onSimulatePremiumToggle(isPremium: Boolean) = debugSettings.setSimulatePremiumEntitlement(isPremium)
+    fun onSimulatePremiumToggle(isPremium: Boolean) =
+        debugSettings.setSimulatePremiumEntitlement(isPremium)
 
-    fun onUseRealTranscriptionToggle(useReal: Boolean) = debugSettings.setUseRealTranscription(useReal)
+    fun onUseRealTranscriptionToggle(useReal: Boolean) =
+        debugSettings.setUseRealTranscription(useReal)
 
     fun onUseRealGradingToggle(useReal: Boolean) = debugSettings.setUseRealGrading(useReal)
 

@@ -30,7 +30,8 @@ class SettingsViewModelTest {
         every { voiceSettingsController.draftState } returns MutableStateFlow(VoiceSettingsDraftState())
     }
 
-    private fun createViewModel(): SettingsViewModel = SettingsViewModel(signOutUseCase, voiceSettingsController)
+    private fun createViewModel(): SettingsViewModel =
+        SettingsViewModel(signOutUseCase, voiceSettingsController)
 
     @Test
     fun `onSignOutClick with successful sign-out emits Login`() = runTest(mainDispatcherRule.testDispatcher) {
