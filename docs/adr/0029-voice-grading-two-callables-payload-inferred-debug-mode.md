@@ -25,8 +25,8 @@ Renaming the deployed function is a `functions:delete gradeVoiceAnswer` + create
 
 `transcribeAndGradeSpokenAnswer` decides what to do from the *presence of grading inputs*, not a debug switch:
 
-- `audio_base64` is **always** required.
-- `question` + `expected_answer` are **both-or-neither**. Passing exactly one is a malformed request → `invalid-argument`.
+- `audio_base64` is **always** required (non-empty string).
+- `question` + `expected_answer` are **both-or-neither**, keyed on field *presence* (`undefined`), not truthiness. Passing exactly one is a malformed request → `invalid-argument`. When present, each must be a **non-empty** string: an empty or whitespace-only value is rejected as `invalid-argument`, never silently coerced into debug mode. Debug mode is entered only by *omitting* both fields.
 - **Full mode** (both present): `sendChunk({ sanitized_transcript })` as soon as STT + sanitize finish, then return `{ grade, feedback }` as the terminal `StreamResponse.Result`.
 - **Debug mode** (both absent): `sendChunk({ sanitized_transcript })`, then return an **empty** `Result` (`{}`). The grade LLM never runs — there is structurally nothing to grade.
 
