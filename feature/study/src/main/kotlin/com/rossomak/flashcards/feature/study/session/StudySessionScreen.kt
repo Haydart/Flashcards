@@ -325,7 +325,9 @@ fun StudySessionContent(
             when {
                 state.isLoading -> CenteredBox(innerPadding) { CircularProgressIndicator() }
                 state.error != null -> CenteredBox(innerPadding) { Text(text = state.error) }
-                state.flashcards.isEmpty() -> CenteredBox(innerPadding) { Text(text = "No cards available") }
+                state.flashcards.isEmpty() -> CenteredBox(innerPadding) {
+                    Text(text = stringResource(R.string.study_session_no_cards_message))
+                }
                 else -> {
                     val card = state.flashcards[state.currentCardIndex]
                     var isExtendedContextDialogOpen by remember(card.id) { mutableStateOf(false) }
@@ -476,7 +478,10 @@ fun StudySessionContent(
                             bottom = innerPadding.calculateBottomPadding() + 16.dp
                         )
                 ) {
-                    Icon(imageVector = Icons.Default.Build, contentDescription = "Curate card")
+                    Icon(
+                        imageVector = Icons.Default.Build,
+                        contentDescription = stringResource(R.string.study_session_curate_card_cd),
+                    )
                 }
             }
         } // end Box
