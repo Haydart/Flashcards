@@ -12,6 +12,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -142,10 +144,12 @@ class VoiceCaptureEngine @Inject constructor(
     private suspend fun runCaptureLoop() {
         // A route change (BT connect/disconnect mid-session) can't be applied to a live AudioRecord,
         // so it's applied by rebuilding at the next utterance boundary. This flag is raised by the
-        // route-change collector and consumed at a safe point inside captureFrames().
-        var routeChangePending = false
+        // route-change collector and consumed at a safe point inside captureFrames(). AtomicBoolean
+        // because the collector and the capture loop run as separate coroutines on Dispatchers.Default
+        // and can land on different threads — a plain var risks a stale read delaying the rebuild.
+        val routeChangePending = AtomicBoolean(false)
         val routeChangeJob = scope.launch {
-            audioRouteManager.routeChanges.collect { routeChangePending = true }
+            audioRouteManager.routeChanges.collect { routeChangePending.set(true) }
         }
         try {
             while (captureJob?.isActive == true) {
@@ -156,7 +160,7 @@ class VoiceCaptureEngine @Inject constructor(
                     _events.emit(VoiceCaptureEvent.CaptureFailed("Bluetooth microphone unavailable"))
                     return
                 }
-                routeChangePending = false
+                routeChangePending.set(false)
                 val audioRecord = createAudioRecord(route) ?: run {
                     _events.emit(VoiceCaptureEvent.CaptureFailed("AudioRecord initialization failed"))
                     return
@@ -168,7 +172,7 @@ class VoiceCaptureEngine @Inject constructor(
                         CaptureOutcome.FAILED
                     } else {
                         warmUpBluetoothRoute(audioRecord, route)
-                        captureFrames(audioRecord) { routeChangePending }
+                        captureFrames(audioRecord) { routeChangePending.get() }
                     }
                 } catch (exception: SecurityException) {
                     _events.emit(VoiceCaptureEvent.CaptureFailed("Microphone permission missing: ${exception.message}"))
@@ -353,11 +357,22 @@ class VoiceCaptureEngine @Inject constructor(
      * After startRecording(), confirm a Bluetooth route actually landed on the Bluetooth mic. A
      * mismatch means the OEM silently steered capture to the phone mic — which, phone-in-pocket, is
      * the core failure this pipeline exists to prevent. Phone/none routes are trivially honored.
+     *
+     * `routedDevice` is frequently still null for a few ms right after `startRecording()` — the
+     * stream's routing settles asynchronously even though the BT link itself was already confirmed
+     * up by [AudioRouteManager]'s session handshake. A short poll avoids treating that transient
+     * null as a real steer-to-phone-mic failure; a non-null mismatch fails immediately since that is
+     * an actual wrong-device signal, not a timing gap.
      */
-    private fun isRouteHonored(audioRecord: AudioRecord, route: CaptureRoute): Boolean {
+    private suspend fun isRouteHonored(audioRecord: AudioRecord, route: CaptureRoute): Boolean {
         if (!route.isBluetooth) return true
-        val routedType = audioRecord.routedDevice?.type ?: return false
-        return routedType == route.device?.type
+        val deadlineNanos = System.nanoTime() + ROUTE_HONORED_TIMEOUT_MS * 1_000_000
+        while (true) {
+            val routedDevice = audioRecord.routedDevice
+            if (routedDevice != null) return routedDevice.type == route.device?.type
+            if (System.nanoTime() >= deadlineNanos) return false
+            delay(ROUTE_HONORED_POLL_MS)
+        }
     }
 
     /** Debug-screen route indicator: publish [audioRecord]'s actual routed device on change only. */
@@ -391,6 +406,11 @@ class VoiceCaptureEngine @Inject constructor(
         // Hard cap on how long warmUpBluetoothRoute() waits for real signal before giving up and
         // starting VAD capture anyway — never block the loop indefinitely on a stuck link.
         private const val BT_WARMUP_TIMEOUT_MS = 600L
+
+        // isRouteHonored() poll: bridges the async gap between startRecording() and routedDevice
+        // reporting a non-null value, distinct from BT_WARMUP_*'s later real-signal settle check.
+        private const val ROUTE_HONORED_TIMEOUT_MS = 200L
+        private const val ROUTE_HONORED_POLL_MS = 20L
 
         private const val PRE_ROLL_FRAMES = 10 // 200ms of audio kept before speech onset
         // 2.5s silence closes the utterance. Deliberately generous: spoken answers contain
