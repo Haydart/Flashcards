@@ -1,6 +1,8 @@
 package com.rossomak.flashcards.core.domain.repository
 
 import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
+import com.rossomak.flashcards.core.domain.model.VoiceAnswerGradingEvent
+import kotlinx.coroutines.flow.Flow
 
 /**
  * Boundary to the voice grading backend (Cloud Function proxy → ElevenLabs Scribe + grading
@@ -10,17 +12,20 @@ import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
 interface VoiceAnswerGradingRepository {
 
     /**
-     * Full pipeline for one spoken answer: transcribe + sanitize + grade. Returns the resulting
-     * [VoiceAnswerGrade] for [cardId] only — no persistence happens here (ADR-0014: no
-     * per-card Firestore writes during a session). The caller batches grades into the
-     * session-end write once that pipeline exists.
+     * Full pipeline for one spoken answer, streamed over a single connection (ADR-0028):
+     * [VoiceAnswerGradingEvent.TranscriptReady] as soon as STT + sanitize finish, then
+     * [VoiceAnswerGradingEvent.Graded] once grading finishes. No persistence happens here
+     * (ADR-0014: no per-card Firestore writes during a session) — the caller batches grades
+     * into the session-end write once that pipeline exists. Failures propagate as flow
+     * exceptions (collect with `.catch()`), not a wrapped [Result], per this project's Flow
+     * error convention.
      */
-    suspend fun gradeSpokenAnswer(
+    fun gradeSpokenAnswer(
         cardId: String,
         question: String,
         expectedAnswer: String,
         obfuscatedAnswerWav: ByteArray,
-    ): Result<VoiceAnswerGrade>
+    ): Flow<VoiceAnswerGradingEvent>
 
     /** STT step in isolation (debug screen): obfuscated WAV in, raw transcript out. */
     suspend fun transcribe(obfuscatedAnswerWav: ByteArray): Result<String>
