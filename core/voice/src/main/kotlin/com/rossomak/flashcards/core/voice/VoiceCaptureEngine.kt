@@ -1,6 +1,7 @@
 package com.rossomak.flashcards.core.voice
 
 import android.content.Context
+import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
@@ -73,6 +74,14 @@ class VoiceCaptureEngine @Inject constructor(
     private val _isListening = MutableStateFlow(false)
     val isListening: StateFlow<Boolean> = _isListening.asStateFlow()
 
+    /**
+     * The mic device actually carrying audio right now, confirmed via [AudioRecord.getRoutedDevice]
+     * — `null` whenever nothing is recording (debug-screen route indicator; see [isRouteHonored] for
+     * the boolean form production capture already relies on).
+     */
+    private val _actualMicDevice = MutableStateFlow<AudioDeviceInfo?>(null)
+    val actualMicDevice: StateFlow<AudioDeviceInfo?> = _actualMicDevice.asStateFlow()
+
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var captureJob: Job? = null
 
@@ -113,10 +122,12 @@ class VoiceCaptureEngine @Inject constructor(
                 val read = audioRecord.read(clip, readSamples, totalSamples - readSamples)
                 if (read <= 0) break
                 readSamples += read
+                updateActualMicDevice(audioRecord)
             }
         } finally {
             runCatching { audioRecord.stop() }
             audioRecord.release()
+            _actualMicDevice.value = null
         }
         clip
     }
@@ -183,6 +194,7 @@ class VoiceCaptureEngine @Inject constructor(
             routeChangeJob.cancel()
             _isListening.value = false
             _isSpeechDetected.value = false
+            _actualMicDevice.value = null
         }
     }
 
@@ -206,6 +218,7 @@ class VoiceCaptureEngine @Inject constructor(
             if (isRouteChangePending() && !isInUtterance) return CaptureOutcome.ROUTE_CHANGED
             val read = audioRecord.read(frame, 0, frame.size)
             if (read <= 0) continue
+            updateActualMicDevice(audioRecord)
             if (read < frame.size) frame.fill(0, read, frame.size)
             val isSpeech = voiceActivityDetector.isSpeech(frame)
             _isSpeechDetected.value = isSpeech
@@ -345,6 +358,12 @@ class VoiceCaptureEngine @Inject constructor(
         if (!route.isBluetooth) return true
         val routedType = audioRecord.routedDevice?.type ?: return false
         return routedType == route.device?.type
+    }
+
+    /** Debug-screen route indicator: publish [audioRecord]'s actual routed device on change only. */
+    private fun updateActualMicDevice(audioRecord: AudioRecord) {
+        val routedDevice = audioRecord.routedDevice
+        if (routedDevice?.id != _actualMicDevice.value?.id) _actualMicDevice.value = routedDevice
     }
 
     /**

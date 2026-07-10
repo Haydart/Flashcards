@@ -9,6 +9,8 @@
 
     <string name="voice_debug_title">🛠️ Voice Debug</string>
     <string name="voice_debug_mic_permission_message">Microphone permission required for capture tests</string>
+    <string name="voice_debug_mic_route_label">Mic: %1$s</string>
+    <string name="voice_debug_playback_route_label">Playback: %1$s</string>
 
     <string name="voice_debug_vad_title">1. VAD trigger test</string>
     <string name="voice_debug_vad_start_button">Start listening</string>

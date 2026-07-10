@@ -1,8 +1,15 @@
 package com.rossomak.flashcards.core.voice
 
 import android.media.AudioAttributes
+import android.media.AudioDeviceInfo
 import android.media.AudioFormat
+import android.media.AudioRouting
 import android.media.AudioTrack
+import android.os.Handler
+import android.os.Looper
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -15,6 +22,15 @@ import javax.inject.Singleton
 class PcmPlayer @Inject constructor() {
 
     private var audioTrack: AudioTrack? = null
+    private val handler = Handler(Looper.getMainLooper())
+
+    /** Debug-screen route indicator: the device actually carrying playback, `null` when idle. */
+    private val _actualDevice = MutableStateFlow<AudioDeviceInfo?>(null)
+    val actualDevice: StateFlow<AudioDeviceInfo?> = _actualDevice.asStateFlow()
+
+    private val routingListener = AudioRouting.OnRoutingChangedListener { router ->
+        _actualDevice.value = (router as? AudioTrack)?.routedDevice
+    }
 
     fun play(pcm: ShortArray, sampleRateHz: Int = VoiceCaptureEngine.SAMPLE_RATE_HZ) {
         stop()
@@ -38,14 +54,18 @@ class PcmPlayer @Inject constructor() {
             .build()
         track.write(pcm, 0, pcm.size)
         track.play()
+        track.addOnRoutingChangedListener(routingListener, handler)
+        _actualDevice.value = track.routedDevice
         audioTrack = track
     }
 
     fun stop() {
         audioTrack?.let { track ->
+            track.removeOnRoutingChangedListener(routingListener)
             runCatching { track.stop() }
             track.release()
         }
         audioTrack = null
+        _actualDevice.value = null
     }
 }
