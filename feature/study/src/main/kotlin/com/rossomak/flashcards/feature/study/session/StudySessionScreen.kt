@@ -663,6 +663,24 @@ private fun StudySessionSheetContent(
                     )
                 }
             }
+            // Shown as soon as the sanitized transcript streams in (ADR-0028) — screen-on is a
+            // first-class case, not just a background/audio-only fallback, so the transcript
+            // should be readable the moment it arrives rather than waiting for the grade.
+            if (state.studyMode == StudyMode.RATED &&
+                state.isVoiceAnswerEnabled &&
+                !state.voiceAnswerSanitizedTranscript.isNullOrBlank() &&
+                (state.voiceAnswerPhase == VoiceAnswerPhase.GRADING ||
+                    state.voiceAnswerPhase == VoiceAnswerPhase.SPEAKING_NOTICE)
+            ) {
+                Text(
+                    text = state.voiceAnswerSanitizedTranscript,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
             Box(
                 modifier = Modifier
                     .fillMaxWidth()

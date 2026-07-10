@@ -28,6 +28,7 @@ data class StudySessionScreenState(
     val voiceSettingsState: VoiceSettingsDraftState = VoiceSettingsDraftState(),
     val isVoiceAnswerEnabled: Boolean = false,
     val voiceAnswerPhase: VoiceAnswerPhase = VoiceAnswerPhase.IDLE,
+    val voiceAnswerSanitizedTranscript: String? = null,
     val lastVoiceAnswerGrade: VoiceAnswerGrade? = null,
     val voiceAnswerError: String? = null,
     val isVoiceAnswerConsentDialogVisible: Boolean = false,
