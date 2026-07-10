@@ -222,7 +222,7 @@ Four tools, one job each, wired via the `android-quality` convention plugin (app
 | **Android Lint** | Android correctness | Frozen in per-module `lint-baseline.xml` |
 
 Commands (local only — CI wiring is a later PR):
-```
+```shell
 ./gradlew staticAnalysis   # spotlessCheck + detekt + :konsist:test + lint (the gate)
 ./gradlew formatCode       # spotlessApply — autofix formatting
 ```
