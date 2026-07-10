@@ -10,7 +10,7 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
 import com.rossomak.flashcards.core.domain.model.VoiceAnswerGradingEvent
-import com.rossomak.flashcards.core.domain.usecase.GradeSpokenAnswerUseCase
+import com.rossomak.flashcards.core.domain.usecase.TranscribeAndGradeSpokenAnswerUseCase
 import com.rossomak.flashcards.core.voice.AudioRouteManager
 import com.rossomak.flashcards.core.voice.CaptureRouteType
 import com.rossomak.flashcards.core.voice.VoiceCaptureEvent
@@ -66,7 +66,7 @@ data class VoiceAnswerState(
  */
 class VoiceAnswerController @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val gradeSpokenAnswer: GradeSpokenAnswerUseCase,
+    private val transcribeAndGradeSpokenAnswer: TranscribeAndGradeSpokenAnswerUseCase,
     private val voiceCaptureEngine: VoiceCaptureEngine,
     private val audioRouteManager: AudioRouteManager,
 ) {
@@ -214,8 +214,8 @@ class VoiceAnswerController @Inject constructor(
             return
         }
         _state.update { it.copy(phase = VoiceAnswerPhase.GRADING) }
-        gradeSpokenAnswer(
-            GradeSpokenAnswerUseCase.Params(
+        transcribeAndGradeSpokenAnswer(
+            TranscribeAndGradeSpokenAnswerUseCase.Params(
                 cardId = card.cardId,
                 question = card.questionText,
                 expectedAnswer = card.answerText,

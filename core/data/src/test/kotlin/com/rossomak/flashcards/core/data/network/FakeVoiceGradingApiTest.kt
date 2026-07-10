@@ -1,19 +1,15 @@
 package com.rossomak.flashcards.core.data.network
 
 import app.cash.turbine.test
-import com.rossomak.flashcards.core.data.model.SanitizeAndGradeRequestDto
 import com.rossomak.flashcards.core.data.model.VoiceGradingStreamEventDto
 import io.kotest.matchers.ints.shouldBeInRange
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.string.shouldContain
-import io.kotest.matchers.string.shouldNotContain
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
 class FakeVoiceGradingApiTest {
 
-    private val debugSettings = VoicePipelineDebugSettings()
-    private val fakeApi = FakeVoiceGradingApi(debugSettings).apply {
+    private val fakeApi = FakeVoiceGradingApi().apply {
         isTransientFailureInjectionEnabled = false
         isLatencySimulationEnabled = false
     }
@@ -22,86 +18,45 @@ class FakeVoiceGradingApiTest {
     private val expectedAnswer = "A persistent notification visible to the user"
 
     @Test
-    fun `sanitizeAndGrade strips emails from the transcript`() = runTest {
-        val response = fakeApi.sanitizeAndGrade(
-            SanitizeAndGradeRequestDto(
-                question = question,
-                expectedAnswer = expectedAnswer,
-                transcript = "send it to someone@example.com please",
-            )
-        )
+    fun `transcribeAndSanitize returns a non-blank sanitized transcript`() = runTest {
+        val result = fakeApi.transcribeAndSanitize(ByteArray(64_000))
 
-        response.sanitizedTranscript shouldNotContain "someone@example.com"
-        response.sanitizedTranscript shouldContain "[redacted]"
+        result.getOrThrow().isNotBlank() shouldBe true
     }
 
     @Test
-    fun `sanitizeAndGrade strips blurted names and phone numbers`() = runTest {
-        val response = fakeApi.sanitizeAndGrade(
-            SanitizeAndGradeRequestDto(
-                question = question,
-                expectedAnswer = expectedAnswer,
-                transcript = "my name is John Smith call +48 601 234 567",
-            )
-        )
+    fun `transcribeAndSanitize fails with entitlement exception when premium simulation is off`() = runTest {
+        fakeApi.simulatePremiumEntitlement = false
 
-        response.sanitizedTranscript shouldNotContain "John"
-        response.sanitizedTranscript shouldNotContain "601"
+        val result = fakeApi.transcribeAndSanitize(ByteArray(64))
+
+        (result.exceptionOrNull() is VoiceGradingEntitlementException) shouldBe true
     }
 
     @Test
-    fun `sanitizeAndGrade removes disfluencies and immediate word repeats`() = runTest {
-        val response = fakeApi.sanitizeAndGrade(
-            SanitizeAndGradeRequestDto(
-                question = question,
-                expectedAnswer = expectedAnswer,
-                transcript = "um a persistent persistent notification uh visible",
-            )
-        )
+    fun `transcribeAndGradeSpokenAnswer throws entitlement exception when premium simulation is off`() = runTest {
+        fakeApi.simulatePremiumEntitlement = false
 
-        response.sanitizedTranscript.lowercase() shouldNotContain "um"
-        response.sanitizedTranscript.lowercase() shouldNotContain "uh"
-        response.sanitizedTranscript.lowercase() shouldBe "a persistent notification visible"
-    }
-
-    @Test
-    fun `sanitizeAndGrade returns a grade within the valid range`() = runTest {
-        val response = fakeApi.sanitizeAndGrade(
-            SanitizeAndGradeRequestDto(
-                question = question,
-                expectedAnswer = expectedAnswer,
-                transcript = "a persistent notification visible to the user",
-            )
-        )
-
-        response.gradePercent shouldBeInRange 0..100
-        response.feedback.isNotBlank() shouldBe true
-    }
-
-    @Test
-    fun `gradeVoiceAnswer throws entitlement exception when premium simulation is off`() = runTest {
-        debugSettings.setSimulatePremiumEntitlement(false)
-
-        fakeApi.gradeVoiceAnswer("card-1", question, expectedAnswer, ByteArray(64)).test {
+        fakeApi.transcribeAndGradeSpokenAnswer("card-1", question, expectedAnswer, ByteArray(64)).test {
             (awaitError() is VoiceGradingEntitlementException) shouldBe true
         }
     }
 
     @Test
     fun `checkEntitlement reflects the simulated premium record`() = runTest {
-        debugSettings.setSimulatePremiumEntitlement(false)
+        fakeApi.simulatePremiumEntitlement = false
         fakeApi.checkEntitlement().isPremium shouldBe false
 
-        debugSettings.setSimulatePremiumEntitlement(true)
+        fakeApi.simulatePremiumEntitlement = true
         fakeApi.checkEntitlement().isPremium shouldBe true
     }
 
     @Test
-    fun `gradeVoiceAnswer streams a transcript chunk derived from the expected answer, then a grade`() = runTest {
+    fun `transcribeAndGradeSpokenAnswer streams a transcript chunk derived from the expected answer, then a grade`() = runTest {
         val longExpectedAnswer = "a foreground service keeps running with a persistent notification " +
                 "shown to the user even when the app itself is no longer visible on screen"
 
-        fakeApi.gradeVoiceAnswer("card-1", question, longExpectedAnswer, ByteArray(64_000)).test {
+        fakeApi.transcribeAndGradeSpokenAnswer("card-1", question, longExpectedAnswer, ByteArray(64_000)).test {
             val chunk = awaitItem() as VoiceGradingStreamEventDto.TranscriptChunk
             chunk.sanitizedTranscript.isNotBlank() shouldBe true
 

@@ -1,7 +1,7 @@
 package com.rossomak.flashcards.core.data.di
 
+import com.rossomak.flashcards.core.data.network.RealVoiceGradingApi
 import com.rossomak.flashcards.core.data.network.VoiceGradingApi
-import com.rossomak.flashcards.core.data.network.VoiceGradingApiRouter
 import com.rossomak.flashcards.core.data.repository.DefaultVoiceAnswerConsentRepository
 import com.rossomak.flashcards.core.data.repository.DefaultVoiceAnswerGradingRepository
 import com.rossomak.flashcards.core.data.source.DataStoreVoiceAnswerConsentLocalDataSource
@@ -20,7 +20,7 @@ abstract class VoiceGradingModule {
 
     @Binds
     @Singleton
-    abstract fun bindVoiceGradingApi(impl: VoiceGradingApiRouter): VoiceGradingApi
+    abstract fun bindVoiceGradingApi(impl: RealVoiceGradingApi): VoiceGradingApi
 
     @Binds
     @Singleton

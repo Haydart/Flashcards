@@ -4,7 +4,7 @@ import app.cash.turbine.test
 import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
 import com.rossomak.flashcards.core.domain.model.VoiceAnswerGradingEvent
 import com.rossomak.flashcards.core.domain.repository.VoiceAnswerGradingRepository
-import com.rossomak.flashcards.core.domain.usecase.GradeSpokenAnswerUseCase
+import com.rossomak.flashcards.core.domain.usecase.TranscribeAndGradeSpokenAnswerUseCase
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
@@ -13,12 +13,12 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
-class GradeSpokenAnswerUseCaseTest {
+class TranscribeAndGradeSpokenAnswerUseCaseTest {
 
     private val voiceAnswerGradingRepository: VoiceAnswerGradingRepository = mockk()
-    private val useCase = GradeSpokenAnswerUseCase(voiceAnswerGradingRepository)
+    private val useCase = TranscribeAndGradeSpokenAnswerUseCase(voiceAnswerGradingRepository)
 
-    private val params = GradeSpokenAnswerUseCase.Params(
+    private val params = TranscribeAndGradeSpokenAnswerUseCase.Params(
         cardId = "card-1",
         question = "What is a wake lock?",
         expectedAnswer = "A mechanism keeping the CPU awake",
@@ -29,7 +29,7 @@ class GradeSpokenAnswerUseCaseTest {
     fun `forwards params to repository and streams both events`() = runTest {
         val grade = VoiceAnswerGrade(sanitizedTranscript = "clean", gradePercent = 90, feedback = "great")
         every {
-            voiceAnswerGradingRepository.gradeSpokenAnswer(
+            voiceAnswerGradingRepository.transcribeAndGradeSpokenAnswer(
                 params.cardId,
                 params.question,
                 params.expectedAnswer,
@@ -46,7 +46,7 @@ class GradeSpokenAnswerUseCaseTest {
             awaitComplete()
         }
         verify(exactly = 1) {
-            voiceAnswerGradingRepository.gradeSpokenAnswer(
+            voiceAnswerGradingRepository.transcribeAndGradeSpokenAnswer(
                 params.cardId,
                 params.question,
                 params.expectedAnswer,
@@ -59,7 +59,7 @@ class GradeSpokenAnswerUseCaseTest {
     fun `propagates repository failure as a flow exception`() = runTest {
         val error = IllegalStateException("backend down")
         every {
-            voiceAnswerGradingRepository.gradeSpokenAnswer(any(), any(), any(), any())
+            voiceAnswerGradingRepository.transcribeAndGradeSpokenAnswer(any(), any(), any(), any())
         } returns flow { throw error }
 
         useCase(params).test {

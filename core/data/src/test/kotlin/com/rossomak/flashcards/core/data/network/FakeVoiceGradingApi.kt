@@ -1,48 +1,41 @@
 package com.rossomak.flashcards.core.data.network
 
 import com.rossomak.flashcards.core.data.model.EntitlementDto
-import com.rossomak.flashcards.core.data.model.SanitizeAndGradeRequestDto
-import com.rossomak.flashcards.core.data.model.TranscriptionDto
-import com.rossomak.flashcards.core.data.model.VoiceAnswerGradeDto
 import com.rossomak.flashcards.core.data.model.VoiceGradingStreamEventDto
 import java.io.IOException
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlin.random.Random
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
 /**
- * Simulated Cloud Function proxy, used while the real deployment / ElevenLabs / grading LLM
- * credentials are unavailable (see the blocked-items checklist in
- * docs/temp/voice-answering-implementation-progress.md).
+ * Test-only [VoiceGradingApi] double (ADR-0029 §7): the runtime fake/real router is gone, so this
+ * survives purely as a DI stand-in in unit tests. Offline / no-cost manual iteration is now the
+ * Firebase emulator's job (deferred), not an in-app fake.
  *
- * Mimics realistic behavior rather than a canned success: transcripts contain disfluencies
- * and occasional blurted PII (which the sanitize step then strips), grades vary across the
- * full range including partial credit and misses, latency is simulated, and a small share of
- * calls fail with an [IOException] so retry/error paths get exercised. Entitlement rejection
- * mirrors the server-side 403 via [VoiceGradingEntitlementException] — the client never gates
- * on a local premium flag.
+ * Mimics realistic behavior rather than a canned success: transcripts contain disfluencies and
+ * occasional blurted PII (which the sanitize step then strips), grades vary across the full range,
+ * latency is simulated, and a small share of calls fail with an [IOException] so retry/error paths
+ * get exercised. Entitlement rejection mirrors the server-side PERMISSION_DENIED via
+ * [VoiceGradingEntitlementException] — the client never gates on a local premium flag.
  */
-@Singleton
-class FakeVoiceGradingApi @Inject constructor(
-    private val debugSettings: VoicePipelineDebugSettings,
-) : VoiceGradingApi {
+class FakeVoiceGradingApi : VoiceGradingApi {
 
     // Unit tests disable failure/latency injection so assertions on response shape stay
-    // deterministic; production DI always leaves both on.
-    internal var isTransientFailureInjectionEnabled = true
-    internal var isLatencySimulationEnabled = true
+    // deterministic.
+    var isTransientFailureInjectionEnabled = true
+    var isLatencySimulationEnabled = true
+
+    /** What the *simulated* server-side entitlement record says for this user. */
+    var simulatePremiumEntitlement = true
 
     /**
-     * Mimics the streamed callable (ADR-0028): an upload+STT+sanitize delay before the
-     * transcript chunk, then an independent grading-LLM delay before the final grade — two
-     * separate [simulateNetworkCall] windows so a transient failure can land either before any
-     * chunk is sent or after the transcript already arrived, exercising both retry paths a real
-     * mid-stream failure could hit.
+     * Mimics the streamed callable (ADR-0028): an upload+STT+sanitize delay before the transcript
+     * chunk, then an independent grading-LLM delay before the final grade — two separate
+     * [simulateNetworkCall] windows so a transient failure can land either before any chunk is sent
+     * or after the transcript already arrived.
      */
-    override fun gradeVoiceAnswer(
+    override fun transcribeAndGradeSpokenAnswer(
         cardId: String,
         question: String,
         expectedAnswer: String,
@@ -59,22 +52,20 @@ class FakeVoiceGradingApi @Inject constructor(
         emit(VoiceGradingStreamEventDto.Graded(gradePercent, feedbackFor(gradePercent)))
     }
 
-    override suspend fun transcribe(wavBytes: ByteArray): TranscriptionDto {
+    override suspend fun transcribeAndSanitize(wavBytes: ByteArray): Result<String> = try {
         simulateNetworkCall()
         enforceSimulatedEntitlement()
         val sampleAnswer = SAMPLE_ANSWERS.random()
-        return TranscriptionDto(transcript = plausibleSpokenAnswer(sampleAnswer, wavBytes.size))
-    }
-
-    override suspend fun sanitizeAndGrade(request: SanitizeAndGradeRequestDto): VoiceAnswerGradeDto {
-        simulateNetworkCall()
-        enforceSimulatedEntitlement()
-        return sanitizeAndGradeInternal(request.expectedAnswer, request.transcript)
+        Result.success(sanitize(plausibleSpokenAnswer(sampleAnswer, wavBytes.size)))
+    } catch (exception: VoiceGradingEntitlementException) {
+        Result.failure(exception)
+    } catch (exception: IOException) {
+        Result.failure(exception)
     }
 
     override suspend fun checkEntitlement(): EntitlementDto {
         simulateNetworkCall()
-        return EntitlementDto(isPremium = debugSettings.toggles.value.simulatePremiumEntitlement)
+        return EntitlementDto(isPremium = simulatePremiumEntitlement)
     }
 
     private suspend fun simulateNetworkCall() {
@@ -85,15 +76,15 @@ class FakeVoiceGradingApi @Inject constructor(
     }
 
     private fun enforceSimulatedEntitlement() {
-        if (!debugSettings.toggles.value.simulatePremiumEntitlement) {
+        if (!simulatePremiumEntitlement) {
             throw VoiceGradingEntitlementException()
         }
     }
 
     /**
-     * Builds what a real STT transcript of a spoken attempt at [expectedAnswer] would look
-     * like: a subset of the expected answer's words (recall varies per call), sprinkled with
-     * disfluencies and — occasionally — blurted PII. Longer recordings keep more words.
+     * Builds what a real STT transcript of a spoken attempt at [expectedAnswer] would look like: a
+     * subset of the expected answer's words (recall varies per call), sprinkled with disfluencies
+     * and — occasionally — blurted PII. Longer recordings keep more words.
      */
     private fun plausibleSpokenAnswer(expectedAnswer: String, wavSizeBytes: Int): String {
         val words = expectedAnswer.split(WHITESPACE_REGEX).filter { it.isNotBlank() }
@@ -111,16 +102,6 @@ class FakeVoiceGradingApi @Inject constructor(
         }
         if (Random.nextDouble() < PII_BLURT_PROBABILITY) spoken += PII_BLURTS.random()
         return spoken.joinToString(" ").ifBlank { DISFLUENCIES.random() }
-    }
-
-    private fun sanitizeAndGradeInternal(expectedAnswer: String, rawTranscript: String): VoiceAnswerGradeDto {
-        val sanitizedTranscript = sanitize(rawTranscript)
-        val gradePercent = grade(expectedAnswer, sanitizedTranscript)
-        return VoiceAnswerGradeDto(
-            sanitizedTranscript = sanitizedTranscript,
-            gradePercent = gradePercent,
-            feedback = feedbackFor(gradePercent),
-        )
     }
 
     /** PII stripped, disfluencies and immediate word repeats normalized. */

@@ -4,11 +4,8 @@ import android.annotation.SuppressLint
 import android.media.AudioDeviceInfo
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.rossomak.flashcards.core.data.network.VoiceGradingApiRouter
-import com.rossomak.flashcards.core.data.network.VoicePipelineDebugSettings
 import com.rossomak.flashcards.core.domain.usecase.CheckVoiceGradingEntitlementUseCase
-import com.rossomak.flashcards.core.domain.usecase.SanitizeAndGradeTranscriptUseCase
-import com.rossomak.flashcards.core.domain.usecase.TranscribeVoiceClipUseCase
+import com.rossomak.flashcards.core.domain.usecase.TranscribeAndSanitizeUseCase
 import com.rossomak.flashcards.core.voice.AudioRouteManager
 import com.rossomak.flashcards.core.voice.CaptureRouteType
 import com.rossomak.flashcards.core.voice.PcmPlayer
@@ -34,20 +31,15 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class VoiceDebugViewModel @Inject constructor(
-    private val transcribeVoiceClip: TranscribeVoiceClipUseCase,
-    private val sanitizeAndGradeTranscript: SanitizeAndGradeTranscriptUseCase,
+    private val transcribeAndSanitize: TranscribeAndSanitizeUseCase,
     private val checkVoiceGradingEntitlement: CheckVoiceGradingEntitlementUseCase,
     private val voiceCaptureEngine: VoiceCaptureEngine,
     private val audioRouteManager: AudioRouteManager,
     private val voiceActivityDetector: SileroVoiceActivityDetector,
     private val pcmPlayer: PcmPlayer,
-    private val debugSettings: VoicePipelineDebugSettings,
-    voiceGradingApiRouter: VoiceGradingApiRouter,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(
-        VoiceDebugScreenState(isRealBackendConfigured = voiceGradingApiRouter.isRealBackendConfigured)
-    )
+    private val _state = MutableStateFlow(VoiceDebugScreenState())
     val state: StateFlow<VoiceDebugScreenState> = _state.asStateFlow()
 
     private var rawClip: ShortArray = ShortArray(0)
@@ -107,11 +99,6 @@ class VoiceDebugViewModel @Inject constructor(
                 logVadEvent(event)
             }
         }
-        viewModelScope.launch {
-            debugSettings.toggles.collect { toggles ->
-                _state.update { it.copy(toggles = toggles) }
-            }
-        }
     }
 
     // Mic permission is checked by the screen before invoking any capture action.
@@ -167,6 +154,7 @@ class VoiceDebugViewModel @Inject constructor(
         obfuscatedClip = ShortArray(0)
     }
 
+    /** Debug transcribe + sanitize: obfuscated clip in, sanitized transcript out (ADR-0029 §4). */
     fun onTranscribeClip() {
         if (rawClip.isEmpty() || _state.value.isTranscribing) return
         _state.update { it.copy(isTranscribing = true) }
@@ -174,7 +162,7 @@ class VoiceDebugViewModel @Inject constructor(
             try {
                 if (obfuscatedClip.isEmpty()) obfuscatedClip = voiceCaptureEngine.obfuscate(rawClip)
                 val wavBytes = voiceCaptureEngine.encodeWav(obfuscatedClip)
-                transcribeVoiceClip(wavBytes)
+                transcribeAndSanitize(wavBytes)
                     .onSuccess { transcript ->
                         _state.update { it.copy(transcriptionResult = transcript) }
                     }
@@ -183,42 +171,6 @@ class VoiceDebugViewModel @Inject constructor(
                     }
             } finally {
                 _state.update { it.copy(isTranscribing = false) }
-            }
-        }
-    }
-
-    fun onGradeQuestionChange(value: String) = _state.update { it.copy(gradeQuestion = value) }
-
-    fun onGradeExpectedAnswerChange(value: String) =
-        _state.update { it.copy(gradeExpectedAnswer = value) }
-
-    fun onGradeTranscriptChange(value: String) = _state.update { it.copy(gradeTranscript = value) }
-
-    fun onSanitizeAndGrade() {
-        if (_state.value.isGrading) return
-        _state.update { it.copy(isGrading = true) }
-        viewModelScope.launch {
-            try {
-                with(_state.value) {
-                    sanitizeAndGradeTranscript(
-                        SanitizeAndGradeTranscriptUseCase.Params(
-                            question = gradeQuestion,
-                            expectedAnswer = gradeExpectedAnswer,
-                            rawTranscript = gradeTranscript,
-                        )
-                    )
-                }.onSuccess { grade ->
-                    val resultJson = JSONObject()
-                        .put("sanitized_transcript", grade.sanitizedTranscript)
-                        .put("grade", grade.gradePercent)
-                        .put("feedback", grade.feedback)
-                        .toString(JSON_INDENT_SPACES)
-                    _state.update { it.copy(gradeResultJson = resultJson) }
-                }.onFailure { error ->
-                    _state.update { it.copy(gradeResultJson = "ERROR: ${error.message}") }
-                }
-            } finally {
-                _state.update { it.copy(isGrading = false) }
             }
         }
     }
@@ -242,16 +194,6 @@ class VoiceDebugViewModel @Inject constructor(
             }
         }
     }
-
-    fun onSimulatePremiumToggle(isPremium: Boolean) =
-        debugSettings.setSimulatePremiumEntitlement(isPremium)
-
-    fun onUseRealTranscriptionToggle(useReal: Boolean) =
-        debugSettings.setUseRealTranscription(useReal)
-
-    fun onUseRealGradingToggle(useReal: Boolean) = debugSettings.setUseRealGrading(useReal)
-
-    fun onUseRealEntitlementToggle(useReal: Boolean) = debugSettings.setUseRealEntitlement(useReal)
 
     private fun logVadEvent(event: VoiceCaptureEvent) {
         val label = when (event) {
@@ -309,7 +251,6 @@ class VoiceDebugViewModel @Inject constructor(
     private companion object {
         const val RAW_CLIP_DURATION_MS = 3_000L
         const val MAX_LOG_LINES = 12
-        const val JSON_INDENT_SPACES = 2
         const val IDLE_ROUTE_LABEL = "Idle"
     }
 }

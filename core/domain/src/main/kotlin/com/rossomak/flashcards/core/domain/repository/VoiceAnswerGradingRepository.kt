@@ -1,6 +1,5 @@
 package com.rossomak.flashcards.core.domain.repository
 
-import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
 import com.rossomak.flashcards.core.domain.model.VoiceAnswerGradingEvent
 import kotlinx.coroutines.flow.Flow
 
@@ -20,22 +19,19 @@ interface VoiceAnswerGradingRepository {
      * exceptions (collect with `.catch()`), not a wrapped [Result], per this project's Flow
      * error convention.
      */
-    fun gradeSpokenAnswer(
+    fun transcribeAndGradeSpokenAnswer(
         cardId: String,
         question: String,
         expectedAnswer: String,
         obfuscatedAnswerWav: ByteArray,
     ): Flow<VoiceAnswerGradingEvent>
 
-    /** STT step in isolation (debug screen): obfuscated WAV in, raw transcript out. */
-    suspend fun transcribe(obfuscatedAnswerWav: ByteArray): Result<String>
-
-    /** Sanitize+grade LLM step in isolation (debug screen): typed transcript, no audio. */
-    suspend fun sanitizeAndGrade(
-        question: String,
-        expectedAnswer: String,
-        rawTranscript: String,
-    ): Result<VoiceAnswerGrade>
+    /**
+     * Transcribe + sanitize in isolation (debug screen): obfuscated WAV in, sanitized transcript
+     * out. Rides the same backend call as [transcribeAndGradeSpokenAnswer] with no question/answer,
+     * so the grade step is skipped server-side (ADR-0029 §3–4).
+     */
+    suspend fun transcribeAndSanitize(obfuscatedAnswerWav: ByteArray): Result<String>
 
     /**
      * Asks the backend whether the current user holds a premium entitlement. The check itself

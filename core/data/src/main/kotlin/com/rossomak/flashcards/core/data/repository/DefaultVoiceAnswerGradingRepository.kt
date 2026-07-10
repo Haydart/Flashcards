@@ -1,7 +1,5 @@
 package com.rossomak.flashcards.core.data.repository
 
-import com.rossomak.flashcards.core.data.mapper.toDomain
-import com.rossomak.flashcards.core.data.model.SanitizeAndGradeRequestDto
 import com.rossomak.flashcards.core.data.model.VoiceGradingStreamEventDto
 import com.rossomak.flashcards.core.data.network.VoiceGradingApi
 import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
@@ -35,7 +33,7 @@ class DefaultVoiceAnswerGradingRepository @Inject constructor(
      * entitlement rejections) propagate immediately as a flow exception, per this project's
      * Flow error convention — callers collect with `.catch()`.
      */
-    override fun gradeSpokenAnswer(
+    override fun transcribeAndGradeSpokenAnswer(
         cardId: String,
         question: String,
         expectedAnswer: String,
@@ -45,7 +43,7 @@ class DefaultVoiceAnswerGradingRepository @Inject constructor(
         while (true) {
             var sanitizedTranscript: String? = null
             try {
-                voiceGradingApi.gradeVoiceAnswer(cardId, question, expectedAnswer, obfuscatedAnswerWav)
+                voiceGradingApi.transcribeAndGradeSpokenAnswer(cardId, question, expectedAnswer, obfuscatedAnswerWav)
                     .collect { event ->
                         when (event) {
                             is VoiceGradingStreamEventDto.TranscriptChunk -> {
@@ -73,35 +71,16 @@ class DefaultVoiceAnswerGradingRepository @Inject constructor(
         }
     }.flowOn(Dispatchers.IO)
 
-    override suspend fun transcribe(obfuscatedAnswerWav: ByteArray): Result<String> =
+    override suspend fun transcribeAndSanitize(obfuscatedAnswerWav: ByteArray): Result<String> =
         withContext(Dispatchers.IO) {
             try {
-                Result.success(voiceGradingApi.transcribe(obfuscatedAnswerWav).transcript)
+                voiceGradingApi.transcribeAndSanitize(obfuscatedAnswerWav)
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Exception) {
                 Result.failure(exception)
             }
         }
-
-    override suspend fun sanitizeAndGrade(
-        question: String,
-        expectedAnswer: String,
-        rawTranscript: String,
-    ): Result<VoiceAnswerGrade> = withContext(Dispatchers.IO) {
-        try {
-            val request = SanitizeAndGradeRequestDto(
-                question = question,
-                expectedAnswer = expectedAnswer,
-                transcript = rawTranscript,
-            )
-            Result.success(voiceGradingApi.sanitizeAndGrade(request).toDomain())
-        } catch (exception: CancellationException) {
-            throw exception
-        } catch (exception: Exception) {
-            Result.failure(exception)
-        }
-    }
 
     override suspend fun checkEntitlement(): Result<Boolean> = withContext(Dispatchers.IO) {
         try {

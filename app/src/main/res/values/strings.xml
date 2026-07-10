@@ -32,25 +32,11 @@
     <string name="voice_debug_obfuscation_rerandomize_button">Re-randomize shift</string>
     <string name="voice_debug_obfuscation_no_clip_label">Record a clip in block 2 first</string>
 
-    <string name="voice_debug_transcription_title">4. Transcription test (STT)</string>
+    <string name="voice_debug_transcription_title">4. Transcribe + sanitize test</string>
     <string name="voice_debug_transcription_send_button">Transcribe captured clip</string>
     <string name="voice_debug_transcription_running_label">Transcribing…</string>
 
-    <string name="voice_debug_grade_title">5. Sanitize + grade test (LLM)</string>
-    <string name="voice_debug_grade_question_label">Question</string>
-    <string name="voice_debug_grade_expected_answer_label">Expected answer</string>
-    <string name="voice_debug_grade_transcript_label">Raw transcript (typed, bypasses audio)</string>
-    <string name="voice_debug_grade_send_button">Sanitize + grade</string>
-    <string name="voice_debug_grade_running_label">Grading…</string>
-
-    <string name="voice_debug_entitlement_title">6. Entitlement check test</string>
-    <string name="voice_debug_entitlement_simulate_premium_label">Simulate premium account (fake backend)</string>
+    <string name="voice_debug_entitlement_title">5. Entitlement check test</string>
     <string name="voice_debug_entitlement_check_button">Check entitlement</string>
     <string name="voice_debug_entitlement_checking_label">Checking…</string>
-
-    <string name="voice_debug_toggles_title">Fake / real routing per stage</string>
-    <string name="voice_debug_toggles_backend_unconfigured_label">VOICE_GRADING_BASE_URL not set in local.properties — all stages forced to fake</string>
-    <string name="voice_debug_toggle_transcription_label">Real transcription (ElevenLabs via Cloud Function)</string>
-    <string name="voice_debug_toggle_grading_label">Real sanitize+grade (LLM via Cloud Function)</string>
-    <string name="voice_debug_toggle_entitlement_label">Real entitlement check</string>
 </resources>

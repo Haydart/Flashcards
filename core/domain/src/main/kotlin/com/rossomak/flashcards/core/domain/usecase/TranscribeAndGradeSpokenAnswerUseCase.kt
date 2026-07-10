@@ -6,9 +6,9 @@ import com.rossomak.flashcards.core.domain.usecase.base.UseCase
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 
-class GradeSpokenAnswerUseCase @Inject constructor(
+class TranscribeAndGradeSpokenAnswerUseCase @Inject constructor(
     private val voiceAnswerGradingRepository: VoiceAnswerGradingRepository,
-) : UseCase<GradeSpokenAnswerUseCase.Params, Flow<VoiceAnswerGradingEvent>> {
+) : UseCase<TranscribeAndGradeSpokenAnswerUseCase.Params, Flow<VoiceAnswerGradingEvent>> {
 
     data class Params(
         val cardId: String,
@@ -18,7 +18,7 @@ class GradeSpokenAnswerUseCase @Inject constructor(
     )
 
     override suspend fun invoke(params: Params): Flow<VoiceAnswerGradingEvent> =
-        voiceAnswerGradingRepository.gradeSpokenAnswer(
+        voiceAnswerGradingRepository.transcribeAndGradeSpokenAnswer(
             cardId = params.cardId,
             question = params.question,
             expectedAnswer = params.expectedAnswer,
