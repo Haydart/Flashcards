@@ -4,11 +4,14 @@ import com.rossomak.flashcards.core.data.model.EntitlementDto
 import com.rossomak.flashcards.core.data.model.SanitizeAndGradeRequestDto
 import com.rossomak.flashcards.core.data.model.TranscriptionDto
 import com.rossomak.flashcards.core.data.model.VoiceAnswerGradeDto
-import kotlinx.coroutines.delay
+import com.rossomak.flashcards.core.data.model.VoiceGradingStreamEventDto
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.random.Random
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 
 /**
  * Simulated Cloud Function proxy, used while the real deployment / ElevenLabs / grading LLM
@@ -32,16 +35,28 @@ class FakeVoiceGradingApi @Inject constructor(
     internal var isTransientFailureInjectionEnabled = true
     internal var isLatencySimulationEnabled = true
 
-    override suspend fun gradeVoiceAnswer(
+    /**
+     * Mimics the streamed callable (ADR-0028): an upload+STT+sanitize delay before the
+     * transcript chunk, then an independent grading-LLM delay before the final grade — two
+     * separate [simulateNetworkCall] windows so a transient failure can land either before any
+     * chunk is sent or after the transcript already arrived, exercising both retry paths a real
+     * mid-stream failure could hit.
+     */
+    override fun gradeVoiceAnswer(
         cardId: String,
         question: String,
         expectedAnswer: String,
         wavBytes: ByteArray,
-    ): VoiceAnswerGradeDto {
+    ): Flow<VoiceGradingStreamEventDto> = flow {
         simulateNetworkCall()
         enforceSimulatedEntitlement()
         val spokenTranscript = plausibleSpokenAnswer(expectedAnswer, wavBytes.size)
-        return sanitizeAndGradeInternal(expectedAnswer, spokenTranscript)
+        val sanitizedTranscript = sanitize(spokenTranscript)
+        emit(VoiceGradingStreamEventDto.TranscriptChunk(sanitizedTranscript))
+
+        simulateNetworkCall()
+        val gradePercent = grade(expectedAnswer, sanitizedTranscript)
+        emit(VoiceGradingStreamEventDto.Graded(gradePercent, feedbackFor(gradePercent)))
     }
 
     override suspend fun transcribe(wavBytes: ByteArray): TranscriptionDto {
