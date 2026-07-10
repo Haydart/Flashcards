@@ -103,14 +103,15 @@ spoken, not toasted.
   `0` is silence, `±32767` is full scale. In Kotlin the buffer is a `ShortArray`; on the wire (WAV)
   it is 2 little-endian bytes per sample.
 
-**Source: `MediaRecorder.AudioSource.MIC`** — see `preferredAudioSource()`. This is deliberate and
-non-obvious: `VOICE_RECOGNITION` (the "natural" choice) routes through OEM
-noise-suppression/AGC/beamforming that, on some HALs (verified: Realme/MediaTek), attenuates the
-primary mic to near silence — you get a coherent-but-inaudible stream (peak amplitude ~8–480 out of
-32767 while speaking normally). `UNPROCESSED` was also low on that device. `MIC` (primary mic with
-standard processing) gives a usable level (peak ~9000–17000 for normal speech). The
-`AudioChannelLayout{layoutMask: 16}` warning in logcat is the tell that the mono capture path is
-being remapped by the OEM.
+**Source is route-dependent** — see `preferredAudioSource()`. Phone mic uses
+`MediaRecorder.AudioSource.MIC`, deliberately and non-obviously: `VOICE_RECOGNITION` (the "natural"
+choice) routes through OEM noise-suppression/AGC/beamforming that, on some HALs (verified:
+Realme/MediaTek), attenuates the primary mic to near silence — you get a coherent-but-inaudible
+stream (peak amplitude ~8–480 out of 32767 while speaking normally). `UNPROCESSED` was also low on
+that device. `MIC` (primary mic with standard processing) gives a usable level (peak ~9000–17000 for
+normal speech). The `AudioChannelLayout{layoutMask: 16}` warning in logcat is the tell that the mono
+capture path is being remapped by the OEM. Bluetooth routes use `VOICE_COMMUNICATION` instead — see
+[BLUETOOTH_ROUTING.md](BLUETOOTH_ROUTING.md) for why.
 
 ### Frames & buffers
 
@@ -140,10 +141,11 @@ hiccup on the `Dispatchers.Default` thread doesn't drop audio before the next `r
 minimum is used if it is larger. If `getMinBufferSize` returns ≤ 0 (unsupported config) or the
 `AudioRecord` doesn't reach `STATE_INITIALIZED`, capture returns `null` → `CaptureFailed`.
 
-**Bluetooth earphones.** BT Classic headset mics only work over the SCO/HFP profile.
-`startBluetoothScoRoutingIfNeeded()` uses `setCommunicationDevice(TYPE_BLUETOOTH_SCO)` on API 31+
-and the deprecated `startBluetoothSco()` below it. `stopBluetoothScoRouting()` clears it on stop.
-*(BT SCO routing on a real headset is not yet hardware-verified — see Caveats.)*
+**Bluetooth earphones.** Routing (which device, when it's ready, mid-session switching) is owned by
+`AudioRouteManager`, not this engine — the engine only binds `AudioRecord.setPreferredDevice(route.device)`
+to whatever route it resolved. See **[BLUETOOTH_ROUTING.md](BLUETOOTH_ROUTING.md)** for the full
+LE-Audio-first/SCO-fallback/BT-strict policy, the `MODE_IN_COMMUNICATION` requirement, and the bug
+trail that got the onset-clipping fixed.
 
 **Threading.** Capture runs as a single coroutine on `Dispatchers.Default`. Everything downstream
 (VAD, obfuscation) is single-threaded per session as a result — the `SileroVadSession` is **not**

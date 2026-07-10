@@ -1,6 +1,7 @@
 package com.rossomak.flashcards.core.voice
 
 import android.content.Context
+import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
@@ -69,6 +70,14 @@ class VoiceCaptureEngine @Inject constructor(
     private val _isListening = MutableStateFlow(false)
     val isListening: StateFlow<Boolean> = _isListening.asStateFlow()
 
+    /**
+     * The mic device actually carrying audio right now, confirmed via [AudioRecord.getRoutedDevice]
+     * — `null` whenever nothing is recording (debug-screen route indicator; see [isRouteHonored] for
+     * the boolean form production capture already relies on).
+     */
+    private val _actualMicDevice = MutableStateFlow<AudioDeviceInfo?>(null)
+    val actualMicDevice: StateFlow<AudioDeviceInfo?> = _actualMicDevice.asStateFlow()
+
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var captureJob: Job? = null
 
@@ -109,10 +118,12 @@ class VoiceCaptureEngine @Inject constructor(
                 val read = audioRecord.read(clip, readSamples, totalSamples - readSamples)
                 if (read <= 0) break
                 readSamples += read
+                updateActualMicDevice(audioRecord)
             }
         } finally {
             runCatching { audioRecord.stop() }
             audioRecord.release()
+            _actualMicDevice.value = null
         }
         clip
     }
@@ -152,6 +163,7 @@ class VoiceCaptureEngine @Inject constructor(
                         _events.emit(VoiceCaptureEvent.CaptureFailed("Capture not routed to Bluetooth microphone"))
                         CaptureOutcome.FAILED
                     } else {
+                        warmUpBluetoothRoute(audioRecord, route)
                         captureFrames(audioRecord) { routeChangePending }
                     }
                 } catch (exception: SecurityException) {
@@ -178,6 +190,7 @@ class VoiceCaptureEngine @Inject constructor(
             routeChangeJob.cancel()
             _isListening.value = false
             _isSpeechDetected.value = false
+            _actualMicDevice.value = null
         }
     }
 
@@ -198,6 +211,7 @@ class VoiceCaptureEngine @Inject constructor(
             if (isRouteChangePending() && !isInUtterance) return CaptureOutcome.ROUTE_CHANGED
             val read = audioRecord.read(frame, 0, frame.size)
             if (read <= 0) continue
+            updateActualMicDevice(audioRecord)
             if (read < frame.size) frame.fill(0, read, frame.size)
             val isSpeech = voiceActivityDetector.isSpeech(frame)
             _isSpeechDetected.value = isSpeech
@@ -278,7 +292,7 @@ class VoiceCaptureEngine @Inject constructor(
         )
         if (minBufferSize <= 0) return null
         val audioRecord = AudioRecord(
-            preferredAudioSource(),
+            preferredAudioSource(route),
             SAMPLE_RATE_HZ,
             AudioFormat.CHANNEL_IN_MONO,
             AudioFormat.ENCODING_PCM_16BIT,
@@ -295,6 +309,40 @@ class VoiceCaptureEngine @Inject constructor(
     }
 
     /**
+     * Drains frames off a freshly-opened Bluetooth [audioRecord] until real signal is observed or
+     * [BT_WARMUP_TIMEOUT_MS] elapses, before [captureFrames] starts feeding the VAD. BT SCO/LE-Audio
+     * streams have a HAL-level ramp-up right after `startRecording()` — the first stretch of reads
+     * can be silence or garbage while the codec and jitter buffer settle — so words spoken into that
+     * window are genuinely never captured; no amount of pre-roll buffering recovers audio that was
+     * never delivered. Phone-mic routes have no such ramp-up and are skipped entirely. Logs the
+     * observed settle time per route type so [BT_WARMUP_ENERGY_THRESHOLD]/[BT_WARMUP_TIMEOUT_MS] can
+     * be tuned from real-device numbers instead of guessed.
+     */
+    private fun warmUpBluetoothRoute(audioRecord: AudioRecord, route: CaptureRoute) {
+        if (!route.isBluetooth) return
+        val frame = ShortArray(FRAME_SIZE_SAMPLES)
+        val startNanos = System.nanoTime()
+        val deadlineNanos = startNanos + BT_WARMUP_TIMEOUT_MS * 1_000_000
+        while (System.nanoTime() < deadlineNanos) {
+            val read = audioRecord.read(frame, 0, frame.size)
+            if (read <= 0) continue
+            if (frameEnergy(frame, read) >= BT_WARMUP_ENERGY_THRESHOLD) {
+                val elapsedMs = (System.nanoTime() - startNanos) / 1_000_000
+                android.util.Log.i(TAG, "BT warm-up settled in ${elapsedMs}ms (route=${route.type})")
+                return
+            }
+        }
+        val elapsedMs = (System.nanoTime() - startNanos) / 1_000_000
+        android.util.Log.i(TAG, "BT warm-up timed out after ${elapsedMs}ms (route=${route.type}) — proceeding anyway")
+    }
+
+    private fun frameEnergy(frame: ShortArray, sampleCount: Int): Long {
+        var sum = 0L
+        for (index in 0 until sampleCount) sum += kotlin.math.abs(frame[index].toInt())
+        return sum / sampleCount
+    }
+
+    /**
      * After startRecording(), confirm a Bluetooth route actually landed on the Bluetooth mic. A
      * mismatch means the OEM silently steered capture to the phone mic — which, phone-in-pocket, is
      * the core failure this pipeline exists to prevent. Phone/none routes are trivially honored.
@@ -305,12 +353,23 @@ class VoiceCaptureEngine @Inject constructor(
         return routedType == route.device?.type
     }
 
+    /** Debug-screen route indicator: publish [audioRecord]'s actual routed device on change only. */
+    private fun updateActualMicDevice(audioRecord: AudioRecord) {
+        val routedDevice = audioRecord.routedDevice
+        if (routedDevice?.id != _actualMicDevice.value?.id) _actualMicDevice.value = routedDevice
+    }
+
     /**
-     * Single swappable audio-source line (ADR-0027 Q1), pending the on-device A/B test. Kept as MIC:
-     * VOICE_RECOGNITION routed through OEM noise-suppression/AGC that gutted the signal to near
-     * silence on some devices (e.g. Realme/MTK).
+     * Route-dependent audio source (ADR-0027 Q1). Phone mic stays MIC: VOICE_RECOGNITION routed
+     * through OEM noise-suppression/AGC that gutted the signal to near silence on some devices (e.g.
+     * Realme/MTK). Bluetooth routes use VOICE_COMMUNICATION — the source semantically paired with
+     * [AudioManager.MODE_IN_COMMUNICATION] (set by [AudioRouteManager] for BT routes); Android's
+     * audio policy wires SCO/LE-Audio input most consistently for this source across OEMs, whereas
+     * MIC over a BT communication device is a comparatively under-tested combination.
      */
-    private fun preferredAudioSource(): Int = MediaRecorder.AudioSource.MIC
+    private fun preferredAudioSource(route: CaptureRoute): Int =
+        if (route.isBluetooth) MediaRecorder.AudioSource.VOICE_COMMUNICATION
+        else MediaRecorder.AudioSource.MIC
 
     companion object {
         private const val TAG = "VoiceCapture"
@@ -318,6 +377,13 @@ class VoiceCaptureEngine @Inject constructor(
         const val FRAME_DURATION_MS = 20
         const val FRAME_SIZE_SAMPLES = SAMPLE_RATE_HZ * FRAME_DURATION_MS / 1000
         private const val BUFFER_FRAMES = 8
+
+        // Heuristic mean-abs-amplitude floor for "real signal, not BT ramp-up silence/garbage"
+        // (int16 PCM). Tune from the settle-time numbers this logs on real BT hardware.
+        private const val BT_WARMUP_ENERGY_THRESHOLD = 250L
+        // Hard cap on how long warmUpBluetoothRoute() waits for real signal before giving up and
+        // starting VAD capture anyway — never block the loop indefinitely on a stuck link.
+        private const val BT_WARMUP_TIMEOUT_MS = 600L
 
         private const val PRE_ROLL_FRAMES = 10 // 200ms of audio kept before speech onset
 
