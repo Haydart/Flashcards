@@ -12,19 +12,21 @@ import org.junit.Test
  */
 class ArchitectureKonsistTest {
 
+    private val projectScope = Konsist.scopeFromProject()
+
     @Test
     fun `domain module has no Android framework imports`() {
-        Konsist.scopeFromProject()
+        projectScope
             .files
             .filter { it.path.contains("/core/domain/src/") }
             .assertTrue { file ->
-                file.imports.none { import -> import.name.startsWith("android.") }
+                file.imports.none { import -> import.name.startsWith("android.") || import.name.startsWith("androidx.") }
             }
     }
 
     @Test
     fun `no class uses the Impl suffix`() {
-        Konsist.scopeFromProject()
+        projectScope
             .classes()
             .assertFalse { it.name.endsWith("Impl") }
     }
@@ -33,7 +35,7 @@ class ArchitectureKonsistTest {
     fun `DTO classes reside in a data-layer package`() {
         // Firestore DTOs use reflection-based mapping, not kotlinx @Serializable, so we
         // enforce location (data layer) rather than a serialization annotation here.
-        Konsist.scopeFromProject()
+        projectScope
             .classes()
             .filter { it.name.endsWith("Dto") }
             .assertTrue { koClass -> koClass.resideInPackage("..data..") }
@@ -41,7 +43,7 @@ class ArchitectureKonsistTest {
 
     @Test
     fun `HiltViewModel classes have the ViewModel suffix`() {
-        Konsist.scopeFromProject()
+        projectScope
             .classes()
             .filter { koClass -> koClass.annotations.any { it.name == "HiltViewModel" } }
             .assertTrue { it.name.endsWith("ViewModel") }
