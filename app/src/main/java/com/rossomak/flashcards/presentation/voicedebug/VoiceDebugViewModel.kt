@@ -1,6 +1,7 @@
 package com.rossomak.flashcards.presentation.voicedebug
 
 import android.annotation.SuppressLint
+import android.media.AudioDeviceInfo
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rossomak.flashcards.core.data.network.VoiceGradingApiRouter
@@ -8,6 +9,8 @@ import com.rossomak.flashcards.core.data.network.VoicePipelineDebugSettings
 import com.rossomak.flashcards.core.domain.usecase.CheckVoiceGradingEntitlementUseCase
 import com.rossomak.flashcards.core.domain.usecase.SanitizeAndGradeTranscriptUseCase
 import com.rossomak.flashcards.core.domain.usecase.TranscribeVoiceClipUseCase
+import com.rossomak.flashcards.core.voice.AudioRouteManager
+import com.rossomak.flashcards.core.voice.CaptureRouteType
 import com.rossomak.flashcards.core.voice.PcmPlayer
 import com.rossomak.flashcards.core.voice.SileroVoiceActivityDetector
 import com.rossomak.flashcards.core.voice.VoiceCaptureEngine
@@ -17,6 +20,7 @@ import org.json.JSONObject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalTime
@@ -34,6 +38,7 @@ class VoiceDebugViewModel @Inject constructor(
     private val sanitizeAndGradeTranscript: SanitizeAndGradeTranscriptUseCase,
     private val checkVoiceGradingEntitlement: CheckVoiceGradingEntitlementUseCase,
     private val voiceCaptureEngine: VoiceCaptureEngine,
+    private val audioRouteManager: AudioRouteManager,
     private val voiceActivityDetector: SileroVoiceActivityDetector,
     private val pcmPlayer: PcmPlayer,
     private val debugSettings: VoicePipelineDebugSettings,
@@ -49,10 +54,38 @@ class VoiceDebugViewModel @Inject constructor(
     private var obfuscatedClip: ShortArray = ShortArray(0)
     private var capturedUtterance: ShortArray = ShortArray(0)
 
+    private var lastLoggedMicRouteLabel: String? = null
+    private var lastLoggedPlaybackRouteLabel: String? = null
+
     init {
+        // Capture (startListening/recordRawClip) reads AudioRouteManager.route, which defaults to
+        // NONE (not capturable) until a session route is acquired — without this the debug screen's
+        // capture loop fails immediately with "Bluetooth microphone unavailable", BT state aside.
+        viewModelScope.launch { audioRouteManager.acquireSessionRoute() }
         viewModelScope.launch {
             voiceCaptureEngine.isSpeechDetected.collect { isSpeech ->
                 _state.update { it.copy(isSpeechDetected = isSpeech) }
+            }
+        }
+        // Mic route indicator: the confirmed device wins while actively recording; falls back to
+        // the resolved target route (AudioRouteManager) while idle. Transitions get logged so
+        // intermittent BT drops mid-session leave a trail instead of just flashing past.
+        viewModelScope.launch {
+            combine(
+                audioRouteManager.route,
+                voiceCaptureEngine.actualMicDevice,
+            ) { target, actual -> actual?.toRouteLabel() ?: target.type.toRouteLabel() }
+                .collect { label ->
+                    _state.update { it.copy(micRouteLabel = label) }
+                    logRouteChange("mic", ::lastLoggedMicRouteLabel, label)
+                }
+        }
+        // Playback route indicator: PcmPlayer.actualDevice is null whenever nothing is playing.
+        viewModelScope.launch {
+            pcmPlayer.actualDevice.collect { device ->
+                val label = device?.toRouteLabel() ?: IDLE_ROUTE_LABEL
+                _state.update { it.copy(playbackRouteLabel = label) }
+                logRouteChange("playback", ::lastLoggedPlaybackRouteLabel, label)
             }
         }
         viewModelScope.launch {
@@ -228,21 +261,55 @@ class VoiceDebugViewModel @Inject constructor(
                 "utterance captured (${event.utterance.durationMs} ms)"
             is VoiceCaptureEvent.CaptureFailed -> "capture failed: ${event.reason}"
         }
+        appendLog(label)
+    }
+
+    /** Appends a route-label transition to the event log, skipping the initial emission. */
+    private fun logRouteChange(kind: String, lastLabel: kotlin.reflect.KMutableProperty0<String?>, newLabel: String) {
+        val previous = lastLabel.get()
+        if (previous != null && previous != newLabel) appendLog("$kind route -> $newLabel")
+        lastLabel.set(newLabel)
+    }
+
+    private fun appendLog(line: String) {
         val timestamp = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"))
         _state.update {
-            it.copy(vadEventLog = (listOf("$timestamp  $label") + it.vadEventLog).take(MAX_LOG_LINES))
+            it.copy(vadEventLog = (listOf("$timestamp  $line") + it.vadEventLog).take(MAX_LOG_LINES))
         }
     }
 
     override fun onCleared() {
         voiceCaptureEngine.stopListening()
         pcmPlayer.stop()
+        audioRouteManager.releaseSessionRoute()
         super.onCleared()
+    }
+
+    private fun CaptureRouteType.toRouteLabel(): String = when (this) {
+        CaptureRouteType.PHONE -> "Phone mic"
+        CaptureRouteType.BLUETOOTH_LE -> "Bluetooth (LE Audio)"
+        CaptureRouteType.BLUETOOTH_SCO -> "Bluetooth (SCO)"
+        CaptureRouteType.WAITING -> "Waiting for Bluetooth link"
+        CaptureRouteType.NONE -> "No capturable mic"
+    }
+
+    private fun AudioDeviceInfo.toRouteLabel(): String {
+        val typeLabel = when (type) {
+            AudioDeviceInfo.TYPE_BUILTIN_MIC, AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> "Phone"
+            AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> "Bluetooth (SCO)"
+            AudioDeviceInfo.TYPE_BLE_HEADSET -> "Bluetooth (LE Audio)"
+            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP -> "Bluetooth (A2DP)"
+            AudioDeviceInfo.TYPE_WIRED_HEADSET, AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> "Wired headset"
+            AudioDeviceInfo.TYPE_USB_HEADSET, AudioDeviceInfo.TYPE_USB_DEVICE -> "USB"
+            else -> "Unknown ($type)"
+        }
+        return productName?.toString()?.takeIf { it.isNotBlank() }?.let { "$typeLabel — $it" } ?: typeLabel
     }
 
     private companion object {
         const val RAW_CLIP_DURATION_MS = 3_000L
         const val MAX_LOG_LINES = 12
         const val JSON_INDENT_SPACES = 2
+        const val IDLE_ROUTE_LABEL = "Idle"
     }
 }

@@ -134,6 +134,11 @@ fun VoiceDebugContent(
             style = MaterialTheme.typography.titleLarge,
         )
 
+        AudioRouteBanner(
+            micLabel = state.micRouteLabel,
+            playbackLabel = state.playbackRouteLabel,
+        )
+
         DebugBlock(title = stringResource(R.string.voice_debug_vad_title)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Button(onClick = onVadToggle) {
@@ -309,6 +314,29 @@ fun VoiceDebugContent(
                 checked = state.toggles.useRealEntitlement,
                 enabled = state.isRealBackendConfigured,
                 onCheckedChange = onUseRealEntitlementToggle,
+            )
+        }
+    }
+}
+
+/** Persistent mic/playback route indicator — visible above every block, independent of which one is active. */
+@Composable
+private fun AudioRouteBanner(micLabel: String, playbackLabel: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        tonalElevation = 2.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.voice_debug_mic_route_label, micLabel),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
+                text = stringResource(R.string.voice_debug_playback_route_label, playbackLabel),
+                style = MaterialTheme.typography.bodyMedium,
             )
         }
     }

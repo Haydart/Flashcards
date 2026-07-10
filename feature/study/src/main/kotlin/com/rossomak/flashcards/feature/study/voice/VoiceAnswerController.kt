@@ -6,9 +6,12 @@ import android.content.pm.PackageManager
 import android.os.PowerManager
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.util.Log
 import androidx.core.content.ContextCompat
 import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
 import com.rossomak.flashcards.core.domain.usecase.GradeSpokenAnswerUseCase
+import com.rossomak.flashcards.core.voice.AudioRouteManager
+import com.rossomak.flashcards.core.voice.CaptureRouteType
 import com.rossomak.flashcards.core.voice.VoiceCaptureEvent
 import com.rossomak.flashcards.core.voice.VoiceCaptureEngine
 import com.rossomak.flashcards.feature.study.R
@@ -24,6 +27,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -34,6 +38,7 @@ data class VoiceAnswerState(
     val phase: VoiceAnswerPhase = VoiceAnswerPhase.IDLE,
     val lastGrade: VoiceAnswerGrade? = null,
     val lastGradedCardId: String? = null,
+    val captureRoute: CaptureRouteType = CaptureRouteType.NONE,
     val error: String? = null,
 )
 
@@ -57,6 +62,7 @@ class VoiceAnswerController @Inject constructor(
     @ApplicationContext private val context: Context,
     private val gradeSpokenAnswer: GradeSpokenAnswerUseCase,
     private val voiceCaptureEngine: VoiceCaptureEngine,
+    private val audioRouteManager: AudioRouteManager,
 ) {
 
     private val _state = MutableStateFlow(VoiceAnswerState())
@@ -68,6 +74,9 @@ class VoiceAnswerController @Inject constructor(
 
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var captureEventsJob: Job? = null
+    private var routeObserverJob: Job? = null
+    private var sessionRouteJob: Job? = null
+    private var listenStartJob: Job? = null
     private var listenTimeoutJob: Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
 
@@ -90,12 +99,30 @@ class VoiceAnswerController @Inject constructor(
         captureEventsJob = scope.launch {
             voiceCaptureEngine.events.collect { event -> handleCaptureEvent(event) }
         }
+        // Establish the session mic route once (BLE-first / SCO / phone), then keep the surfaced
+        // CaptureRoute in state for the debug screen. v1 logs route changes only (ADR-0027 Q11).
+        routeObserverJob = scope.launch {
+            audioRouteManager.route.collect { route ->
+                Log.i(TAG, "capture route -> ${route.type}")
+                _state.update { it.copy(captureRoute = route.type) }
+            }
+        }
+        sessionRouteJob = scope.launch { audioRouteManager.acquireSessionRoute() }
     }
 
     fun stop() {
+        listenStartJob?.cancel()
+        listenStartJob = null
         listenTimeoutJob?.cancel()
         listenTimeoutJob = null
         voiceCaptureEngine.stopListening()
+        // Cancel before releasing: acquireSessionRoute() can still be mid-handshake here, and a
+        // stale resume after releaseSessionRoute() would re-apply BT routing on a dead session.
+        sessionRouteJob?.cancel()
+        sessionRouteJob = null
+        audioRouteManager.releaseSessionRoute()
+        routeObserverJob?.cancel()
+        routeObserverJob = null
         captureEventsJob?.cancel()
         captureEventsJob = null
         releaseWakeLock()
@@ -117,23 +144,34 @@ class VoiceAnswerController @Inject constructor(
         // otherwise it rides along on this phase-only update, gets picked up as "new" by the
         // ViewModel, and re-shows a stale snackbar (e.g. over this round's own no-answer notice),
         // or suppresses re-showing an identical error next round (LaunchedEffect keys on value).
-        _state.value = _state.value.copy(
-            phase = VoiceAnswerPhase.LISTENING,
-            lastGrade = null,
-            lastGradedCardId = null,
-            error = null,
-        )
-        voiceCaptureEngine.startListening()
-        listenTimeoutJob?.cancel()
-        listenTimeoutJob = scope.launch {
-            delay(SILENCE_TIMEOUT_MS)
-            onSilenceTimeout()
+        _state.update {
+            it.copy(
+                phase = VoiceAnswerPhase.LISTENING,
+                lastGrade = null,
+                lastGradedCardId = null,
+                error = null,
+            )
+        }
+        // Bluetooth-strict (ADR-0027): open the listening window only once the mic route has settled
+        // to a capturable one. If a mic-capable BT device dropped, this suspends until it reconnects
+        // (auto-reacquire) rather than capturing on the pocketed phone mic. Phone-only sessions
+        // settle immediately, so this adds no latency when no BT is involved.
+        listenStartJob?.cancel()
+        listenStartJob = scope.launch {
+            audioRouteManager.awaitRouteReady()
+            if (!_state.value.isEnabled) return@launch
+            voiceCaptureEngine.startListening()
+            listenTimeoutJob?.cancel()
+            listenTimeoutJob = scope.launch {
+                delay(SILENCE_TIMEOUT_MS)
+                onSilenceTimeout()
+            }
         }
     }
 
     private suspend fun onSilenceTimeout() {
         voiceCaptureEngine.stopListening()
-        _state.value = _state.value.copy(phase = VoiceAnswerPhase.SPEAKING_NOTICE)
+        _state.update { it.copy(phase = VoiceAnswerPhase.SPEAKING_NOTICE) }
         speakNotice(context.getString(R.string.study_session_voice_answer_skip_spoken_message))
     }
 
@@ -141,10 +179,10 @@ class VoiceAnswerController @Inject constructor(
         when (event) {
             is VoiceCaptureEvent.SpeechStarted -> {
                 listenTimeoutJob?.cancel()
-                _state.value = _state.value.copy(phase = VoiceAnswerPhase.SPEECH_DETECTED)
+                _state.update { it.copy(phase = VoiceAnswerPhase.SPEECH_DETECTED) }
             }
             is VoiceCaptureEvent.SpeechEnded ->
-                _state.value = _state.value.copy(phase = VoiceAnswerPhase.GRADING)
+                _state.update { it.copy(phase = VoiceAnswerPhase.GRADING) }
             is VoiceCaptureEvent.UtteranceCaptured -> {
                 listenTimeoutJob?.cancel()
                 voiceCaptureEngine.stopListening()
@@ -153,17 +191,17 @@ class VoiceAnswerController @Inject constructor(
             is VoiceCaptureEvent.CaptureFailed -> {
                 listenTimeoutJob?.cancel()
                 voiceCaptureEngine.stopListening()
-                _state.value = _state.value.copy(phase = VoiceAnswerPhase.WAITING_FOR_QUESTION, error = event.reason)
+                _state.update { it.copy(phase = VoiceAnswerPhase.WAITING_FOR_QUESTION, error = event.reason) }
             }
         }
     }
 
     private suspend fun gradeUtterance(obfuscatedWav: ByteArray) {
         val card = activeCard ?: run {
-            _state.value = _state.value.copy(phase = VoiceAnswerPhase.WAITING_FOR_QUESTION)
+            _state.update { it.copy(phase = VoiceAnswerPhase.WAITING_FOR_QUESTION) }
             return
         }
-        _state.value = _state.value.copy(phase = VoiceAnswerPhase.GRADING)
+        _state.update { it.copy(phase = VoiceAnswerPhase.GRADING) }
         gradeSpokenAnswer(
             GradeSpokenAnswerUseCase.Params(
                 cardId = card.cardId,
@@ -172,12 +210,14 @@ class VoiceAnswerController @Inject constructor(
                 obfuscatedAnswerWav = obfuscatedWav,
             )
         ).onSuccess { grade ->
-            _state.value = _state.value.copy(
-                phase = VoiceAnswerPhase.SPEAKING_NOTICE,
-                lastGrade = grade,
-                lastGradedCardId = card.cardId,
-                error = null,
-            )
+            _state.update {
+                it.copy(
+                    phase = VoiceAnswerPhase.SPEAKING_NOTICE,
+                    lastGrade = grade,
+                    lastGradedCardId = card.cardId,
+                    error = null,
+                )
+            }
             speakNotice(
                 context.getString(
                     R.string.study_session_voice_answer_grade_spoken_message,
@@ -186,10 +226,12 @@ class VoiceAnswerController @Inject constructor(
                 )
             )
         }.onFailure { error ->
-            _state.value = _state.value.copy(
-                phase = VoiceAnswerPhase.SPEAKING_NOTICE,
-                error = error.message,
-            )
+            _state.update {
+                it.copy(
+                    phase = VoiceAnswerPhase.SPEAKING_NOTICE,
+                    error = error.message,
+                )
+            }
             // No screen to look at in this UX — failure must be audible (design doc §Upload
             // failure handling; silent-drop was explicitly rejected).
             speakNotice(context.getString(R.string.study_session_voice_answer_failure_spoken_message))
@@ -235,7 +277,7 @@ class VoiceAnswerController @Inject constructor(
     private suspend fun onNoticeFinishedSpeaking() {
         delay(ADVANCE_DELAY_MS)
         if (!_state.value.isEnabled) return
-        _state.value = _state.value.copy(phase = VoiceAnswerPhase.WAITING_FOR_QUESTION)
+        _state.update { it.copy(phase = VoiceAnswerPhase.WAITING_FOR_QUESTION) }
         _advanceRequests.emit(Unit)
     }
 
@@ -262,6 +304,7 @@ class VoiceAnswerController @Inject constructor(
     }
 
     private companion object {
+        const val TAG = "VoiceAnswerController"
         const val WAKE_LOCK_TAG = "flashcards:voiceAnswerCapture"
         const val WAKE_LOCK_TIMEOUT_MS = 60L * 60L * 1000L // 1h safety cap per session
         const val NOTICE_UTTERANCE_ID = "voice_answer_notice"

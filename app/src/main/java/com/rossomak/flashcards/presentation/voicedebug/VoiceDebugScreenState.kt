@@ -3,6 +3,8 @@ package com.rossomak.flashcards.presentation.voicedebug
 import com.rossomak.flashcards.core.data.network.VoicePipelineDebugSettings
 
 data class VoiceDebugScreenState(
+    val micRouteLabel: String = "",
+    val playbackRouteLabel: String = "Idle",
     val isVadListening: Boolean = false,
     val isSpeechDetected: Boolean = false,
     val vadSpeechProbability: Float = 0f,
