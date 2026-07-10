@@ -20,7 +20,7 @@ that skips `acquireSessionRoute()` gets a dead route** — see Bug 1.
 
 ## Route resolution
 
-```
+```text
 CaptureRouteType: PHONE | BLUETOOTH_LE | BLUETOOTH_SCO | WAITING | NONE
 ```
 

@@ -11,6 +11,7 @@ import android.media.AudioManager
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
+import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -91,6 +92,7 @@ class AudioRouteManager @Inject constructor(@ApplicationContext private val cont
 
     private var deviceCallback: AudioDeviceCallback? = null
     private var scoStateReceiver: BroadcastReceiver? = null
+    private var communicationDeviceListener: AudioManager.OnCommunicationDeviceChangedListener? = null
     private var isSessionActive = false
 
     /**
@@ -103,6 +105,7 @@ class AudioRouteManager @Inject constructor(@ApplicationContext private val cont
             isSessionActive = true
             registerDeviceCallback()
             registerScoStateReceiver()
+            registerCommunicationDeviceListener()
         }
         return resolveAndActivate()
     }
@@ -115,6 +118,7 @@ class AudioRouteManager @Inject constructor(@ApplicationContext private val cont
         isSessionActive = false
         unregisterDeviceCallback()
         unregisterScoStateReceiver()
+        unregisterCommunicationDeviceListener()
         deactivateRoute()
         _route.value = CaptureRoute(CaptureRouteType.NONE)
     }
@@ -214,9 +218,14 @@ class AudioRouteManager @Inject constructor(@ApplicationContext private val cont
         }
     }
 
-    private fun isBluetoothAudioConnected(): Boolean = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any {
-        it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO || it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
-    }
+    // SCO only, per the class KDoc: A2DP is output-only and never mic-capable, so an A2DP-only
+    // headphone must fall through to the phone mic rather than get stuck awaiting a SCO link that
+    // isBluetoothScoAvailableOffCall() (a system-wide capability flag, not per-device) would
+    // otherwise make this method wait on indefinitely.
+    private fun isBluetoothAudioConnected(): Boolean =
+        audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any {
+            it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+        }
 
     private fun matchingInputDevice(type: Int): AudioDeviceInfo? =
         audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS).firstOrNull { it.type == type }
@@ -265,14 +274,38 @@ class AudioRouteManager @Inject constructor(@ApplicationContext private val cont
         scoStateReceiver = null
     }
 
+    /**
+     * API 31+ recovery path for a stuck [CaptureRouteType.WAITING]: [requestCommunicationDevice]'s
+     * handshake can time out before `setCommunicationDevice()` actually settles, and
+     * [AudioDeviceCallback] alone won't re-trigger since no device was added/removed — only the
+     * active communication device changed. This listener re-resolves whenever that settles late.
+     */
+    private fun registerCommunicationDeviceListener() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || communicationDeviceListener != null) return
+        val listener = AudioManager.OnCommunicationDeviceChangedListener { onDevicesChanged() }
+        audioManager.addOnCommunicationDeviceChangedListener(ContextCompat.getMainExecutor(context), listener)
+        communicationDeviceListener = listener
+    }
+
+    private fun unregisterCommunicationDeviceListener() {
+        val listener = communicationDeviceListener ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            audioManager.removeOnCommunicationDeviceChangedListener(listener)
+        }
+        communicationDeviceListener = null
+    }
+
     /** A device connect/disconnect happened — re-resolve the route and signal a switch if it changed. */
     private fun onDevicesChanged() {
         if (!isSessionActive) return
         scope.launch {
-            val previousType = _route.value.type
+            val previous = _route.value
             val resolved = resolveAndActivate()
-            if (resolved.type != previousType) {
-                Log.i(TAG, "route changed $previousType -> ${resolved.type}")
+            // Compare device id too, not just type: switching between two SCO headsets (or two BLE
+            // sets) keeps the same CaptureRouteType but is still a real device change the engine
+            // must rebuild its AudioRecord for.
+            if (resolved.type != previous.type || resolved.device?.id != previous.device?.id) {
+                Log.i(TAG, "route changed $previous -> $resolved")
                 _routeChanges.emit(Unit)
             }
         }

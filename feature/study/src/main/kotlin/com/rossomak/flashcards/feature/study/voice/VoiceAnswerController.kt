@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 enum class VoiceAnswerPhase { IDLE, WAITING_FOR_QUESTION, LISTENING, SPEECH_DETECTED, GRADING, SPEAKING_NOTICE }
@@ -77,6 +78,7 @@ class VoiceAnswerController @Inject constructor(
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var captureEventsJob: Job? = null
     private var routeObserverJob: Job? = null
+    private var sessionRouteJob: Job? = null
     private var listenStartJob: Job? = null
     private var listenTimeoutJob: Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
@@ -105,10 +107,10 @@ class VoiceAnswerController @Inject constructor(
         routeObserverJob = scope.launch {
             audioRouteManager.route.collect { route ->
                 Log.i(TAG, "capture route -> ${route.type}")
-                _state.value = _state.value.copy(captureRoute = route.type)
+                _state.update { it.copy(captureRoute = route.type) }
             }
         }
-        scope.launch { audioRouteManager.acquireSessionRoute() }
+        sessionRouteJob = scope.launch { audioRouteManager.acquireSessionRoute() }
     }
 
     fun stop() {
@@ -117,6 +119,10 @@ class VoiceAnswerController @Inject constructor(
         listenTimeoutJob?.cancel()
         listenTimeoutJob = null
         voiceCaptureEngine.stopListening()
+        // Cancel before releasing: acquireSessionRoute() can still be mid-handshake here, and a
+        // stale resume after releaseSessionRoute() would re-apply BT routing on a dead session.
+        sessionRouteJob?.cancel()
+        sessionRouteJob = null
         audioRouteManager.releaseSessionRoute()
         routeObserverJob?.cancel()
         routeObserverJob = null
@@ -141,12 +147,14 @@ class VoiceAnswerController @Inject constructor(
         // otherwise it rides along on this phase-only update, gets picked up as "new" by the
         // ViewModel, and re-shows a stale snackbar (e.g. over this round's own no-answer notice),
         // or suppresses re-showing an identical error next round (LaunchedEffect keys on value).
-        _state.value = _state.value.copy(
-            phase = VoiceAnswerPhase.LISTENING,
-            lastGrade = null,
-            lastGradedCardId = null,
-            error = null
-        )
+        _state.update {
+            it.copy(
+                phase = VoiceAnswerPhase.LISTENING,
+                lastGrade = null,
+                lastGradedCardId = null,
+                error = null,
+            )
+        }
         // Bluetooth-strict (ADR-0027): open the listening window only once the mic route has settled
         // to a capturable one. If a mic-capable BT device dropped, this suspends until it reconnects
         // (auto-reacquire) rather than capturing on the pocketed phone mic. Phone-only sessions
@@ -166,7 +174,7 @@ class VoiceAnswerController @Inject constructor(
 
     private suspend fun onSilenceTimeout() {
         voiceCaptureEngine.stopListening()
-        _state.value = _state.value.copy(phase = VoiceAnswerPhase.SPEAKING_NOTICE)
+        _state.update { it.copy(phase = VoiceAnswerPhase.SPEAKING_NOTICE) }
         speakNotice(context.getString(R.string.study_session_voice_answer_skip_spoken_message))
     }
 
@@ -174,10 +182,10 @@ class VoiceAnswerController @Inject constructor(
         when (event) {
             is VoiceCaptureEvent.SpeechStarted -> {
                 listenTimeoutJob?.cancel()
-                _state.value = _state.value.copy(phase = VoiceAnswerPhase.SPEECH_DETECTED)
+                _state.update { it.copy(phase = VoiceAnswerPhase.SPEECH_DETECTED) }
             }
             is VoiceCaptureEvent.SpeechEnded ->
-                _state.value = _state.value.copy(phase = VoiceAnswerPhase.GRADING)
+                _state.update { it.copy(phase = VoiceAnswerPhase.GRADING) }
             is VoiceCaptureEvent.UtteranceCaptured -> {
                 listenTimeoutJob?.cancel()
                 voiceCaptureEngine.stopListening()
@@ -186,17 +194,17 @@ class VoiceAnswerController @Inject constructor(
             is VoiceCaptureEvent.CaptureFailed -> {
                 listenTimeoutJob?.cancel()
                 voiceCaptureEngine.stopListening()
-                _state.value = _state.value.copy(phase = VoiceAnswerPhase.WAITING_FOR_QUESTION, error = event.reason)
+                _state.update { it.copy(phase = VoiceAnswerPhase.WAITING_FOR_QUESTION, error = event.reason) }
             }
         }
     }
 
     private suspend fun gradeUtterance(obfuscatedWav: ByteArray) {
         val card = activeCard ?: run {
-            _state.value = _state.value.copy(phase = VoiceAnswerPhase.WAITING_FOR_QUESTION)
+            _state.update { it.copy(phase = VoiceAnswerPhase.WAITING_FOR_QUESTION) }
             return
         }
-        _state.value = _state.value.copy(phase = VoiceAnswerPhase.GRADING)
+        _state.update { it.copy(phase = VoiceAnswerPhase.GRADING) }
         gradeSpokenAnswer(
             GradeSpokenAnswerUseCase.Params(
                 cardId = card.cardId,
@@ -205,12 +213,14 @@ class VoiceAnswerController @Inject constructor(
                 obfuscatedAnswerWav = obfuscatedWav
             )
         ).onSuccess { grade ->
-            _state.value = _state.value.copy(
-                phase = VoiceAnswerPhase.SPEAKING_NOTICE,
-                lastGrade = grade,
-                lastGradedCardId = card.cardId,
-                error = null
-            )
+            _state.update {
+                it.copy(
+                    phase = VoiceAnswerPhase.SPEAKING_NOTICE,
+                    lastGrade = grade,
+                    lastGradedCardId = card.cardId,
+                    error = null,
+                )
+            }
             speakNotice(
                 context.getString(
                     R.string.study_session_voice_answer_grade_spoken_message,
@@ -219,10 +229,12 @@ class VoiceAnswerController @Inject constructor(
                 )
             )
         }.onFailure { error ->
-            _state.value = _state.value.copy(
-                phase = VoiceAnswerPhase.SPEAKING_NOTICE,
-                error = error.message
-            )
+            _state.update {
+                it.copy(
+                    phase = VoiceAnswerPhase.SPEAKING_NOTICE,
+                    error = error.message,
+                )
+            }
             // No screen to look at in this UX — failure must be audible (design doc §Upload
             // failure handling; silent-drop was explicitly rejected).
             speakNotice(context.getString(R.string.study_session_voice_answer_failure_spoken_message))
@@ -268,7 +280,7 @@ class VoiceAnswerController @Inject constructor(
     private suspend fun onNoticeFinishedSpeaking() {
         delay(ADVANCE_DELAY_MS)
         if (!_state.value.isEnabled) return
-        _state.value = _state.value.copy(phase = VoiceAnswerPhase.WAITING_FOR_QUESTION)
+        _state.update { it.copy(phase = VoiceAnswerPhase.WAITING_FOR_QUESTION) }
         _advanceRequests.emit(Unit)
     }
 
