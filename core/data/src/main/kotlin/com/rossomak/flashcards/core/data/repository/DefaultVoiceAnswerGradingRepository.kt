@@ -51,8 +51,13 @@ class DefaultVoiceAnswerGradingRepository @Inject constructor(
                                 emit(VoiceAnswerGradingEvent.TranscriptReady(event.sanitizedTranscript))
                             }
                             is VoiceGradingStreamEventDto.Graded -> {
+                                // The stream contract guarantees the transcript chunk precedes the
+                                // grade (ADR-0028); a Graded event with no prior transcript is a
+                                // protocol violation and must surface, not emit an empty transcript.
+                                val transcript = sanitizedTranscript
+                                    ?: error("Graded event arrived before any transcript chunk")
                                 val grade = VoiceAnswerGrade(
-                                    sanitizedTranscript = sanitizedTranscript.orEmpty(),
+                                    sanitizedTranscript = transcript,
                                     gradePercent = event.gradePercent,
                                     feedback = event.feedback,
                                 )

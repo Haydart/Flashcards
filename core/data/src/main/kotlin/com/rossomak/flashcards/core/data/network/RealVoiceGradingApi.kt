@@ -75,21 +75,23 @@ class RealVoiceGradingApi @Inject constructor(
         is StreamResponse.Message -> {
             val data = message.data as? Map<*, *>
                 ?: error("Unexpected transcribeAndGradeSpokenAnswer chunk shape: ${message.data}")
-            VoiceGradingStreamEventDto.TranscriptChunk(
-                sanitizedTranscript = data[FIELD_SANITIZED_TRANSCRIPT] as? String ?: "",
-            )
+            val sanitizedTranscript = data[FIELD_SANITIZED_TRANSCRIPT] as? String
+                ?: error("transcribeAndGradeSpokenAnswer chunk missing transcript: ${message.data}")
+            VoiceGradingStreamEventDto.TranscriptChunk(sanitizedTranscript = sanitizedTranscript)
         }
         is StreamResponse.Result -> {
             val data = result.data as? Map<*, *>
                 ?: error("Unexpected transcribeAndGradeSpokenAnswer result shape: ${result.data}")
             // Production always grades; an empty terminal Result is impossible on this path, so a
-            // missing grade is a real server bug and must surface as a mapping error, never a
+            // missing field is a real server bug and must surface as a mapping error, never a
             // silent Graded(0, "") (ADR-0029 §4).
             val gradePercent = (data[FIELD_GRADE] as? Number)?.toInt()
                 ?: error("transcribeAndGradeSpokenAnswer result missing grade: ${result.data}")
+            val feedback = data[FIELD_FEEDBACK] as? String
+                ?: error("transcribeAndGradeSpokenAnswer result missing feedback: ${result.data}")
             VoiceGradingStreamEventDto.Graded(
                 gradePercent = gradePercent,
-                feedback = data[FIELD_FEEDBACK] as? String ?: "",
+                feedback = feedback,
             )
         }
         // StreamResponse isn't a Kotlin `sealed class` at the bytecode level (just `abstract`),
