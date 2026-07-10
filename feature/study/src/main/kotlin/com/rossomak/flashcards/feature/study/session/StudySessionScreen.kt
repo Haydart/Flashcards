@@ -87,18 +87,17 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gallatinapps.syntaxmp.tokenizer.SyntaxTokenizer
-import com.rossomak.flashcards.feature.study.BuildConfig
-import com.rossomak.flashcards.feature.study.R
 import com.rossomak.flashcards.core.domain.model.CurationAction
 import com.rossomak.flashcards.core.domain.model.FlashcardRating
 import com.rossomak.flashcards.core.domain.model.StudyMode
-import com.rossomak.flashcards.feature.study.voice.VoiceAnswerPhase
-import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 import com.rossomak.flashcards.core.ui.composables.SyntaxCodeBlock
 import com.rossomak.flashcards.core.ui.composables.VoiceSettingsDialog
 import com.rossomak.flashcards.core.ui.composables.withInlineCode
-import kotlinx.coroutines.launch
+import com.rossomak.flashcards.feature.study.BuildConfig
+import com.rossomak.flashcards.feature.study.R
+import com.rossomak.flashcards.feature.study.voice.VoiceAnswerPhase
 import java.time.Instant
+import kotlinx.coroutines.launch
 
 @Composable
 fun StudySessionScreen(
@@ -124,11 +123,11 @@ fun StudySessionScreen(
     LaunchedEffect(state.isVoiceAutoStartPending) {
         if (!state.isVoiceAutoStartPending) return@LaunchedEffect
         val needsNotificationPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) !=
-                android.content.pm.PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) !=
+            android.content.pm.PackageManager.PERMISSION_GRANTED
         if (needsNotificationPermission) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
@@ -323,163 +322,168 @@ fun StudySessionContent(
         },
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize()) {
-        when {
-            state.isLoading -> CenteredBox(innerPadding) { CircularProgressIndicator() }
-            state.error != null -> CenteredBox(innerPadding) { Text(text = state.error) }
-            state.flashcards.isEmpty() -> CenteredBox(innerPadding) { Text(text = "No cards available") }
-            else -> {
-                val card = state.flashcards[state.currentCardIndex]
-                var isExtendedContextDialogOpen by remember(card.id) { mutableStateOf(false) }
-                val syntaxEngine = remember { SyntaxTokenizer() }
+            when {
+                state.isLoading -> CenteredBox(innerPadding) { CircularProgressIndicator() }
+                state.error != null -> CenteredBox(innerPadding) { Text(text = state.error) }
+                state.flashcards.isEmpty() -> CenteredBox(innerPadding) {
+                    Text(text = stringResource(R.string.study_session_no_cards_message))
+                }
+                else -> {
+                    val card = state.flashcards[state.currentCardIndex]
+                    var isExtendedContextDialogOpen by remember(card.id) { mutableStateOf(false) }
+                    val syntaxEngine = remember { SyntaxTokenizer() }
 
-                if (isExtendedContextDialogOpen && !card.extendedContext.isNullOrBlank()) {
-                    AlertDialog(
-                        onDismissRequest = {
-                            isExtendedContextDialogOpen = false
-                            onExtendedContextDialogDismissed()
-                        },
-                        confirmButton = {
-                            TextButton(onClick = {
+                    if (isExtendedContextDialogOpen && !card.extendedContext.isNullOrBlank()) {
+                        AlertDialog(
+                            onDismissRequest = {
                                 isExtendedContextDialogOpen = false
                                 onExtendedContextDialogDismissed()
-                            }) { Text("Close") }
-                        },
-                        title = { Text("Extended context") },
-                        text = {
-                            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                                Text(
-                                    text = card.extendedContext.orEmpty().withInlineCode(),
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                            }
-                        },
-                    )
-                }
-
-                @OptIn(ExperimentalLayoutApi::class)
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding)
-                        .padding(16.dp)
-                        .verticalScroll(rememberScrollState()),
-                ) {
-                    if (card.tags.isNotEmpty()) {
-                        FlowRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            card.tags.forEach { tag ->
-                                androidx.compose.material3.Surface(
-                                    shape = MaterialTheme.shapes.extraSmall,
-                                    color = MaterialTheme.colorScheme.secondaryContainer,
-                                ) {
+                            },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    isExtendedContextDialogOpen = false
+                                    onExtendedContextDialogDismissed()
+                                }) { Text("Close") }
+                            },
+                            title = { Text("Extended context") },
+                            text = {
+                                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                                     Text(
-                                        text = tag,
-                                        modifier = Modifier.padding(6.dp, 3.dp),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        text = card.extendedContext.orEmpty().withInlineCode(),
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                            }
+                        )
+                    }
+
+                    @OptIn(ExperimentalLayoutApi::class)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                            .padding(16.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        if (card.tags.isNotEmpty()) {
+                            FlowRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                card.tags.forEach { tag ->
+                                    androidx.compose.material3.Surface(
+                                        shape = MaterialTheme.shapes.extraSmall,
+                                        color = MaterialTheme.colorScheme.secondaryContainer
+                                    ) {
+                                        Text(
+                                            text = tag,
+                                            modifier = Modifier.padding(6.dp, 3.dp),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = "Question",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Text(
+                                text = "Difficulty ${card.difficulty}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = card.question.withInlineCode(),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        card.questionCode?.forEach { codeBlock ->
+                            Spacer(modifier = Modifier.height(8.dp))
+                            SyntaxCodeBlock(
+                                code = codeBlock.code,
+                                language = codeBlock.language,
+                                engine = syntaxEngine
+                            )
+                        }
+                        AnimatedVisibility(
+                            visible = state.isAnswerRevealed,
+                            enter = expandVertically(),
+                            exit = shrinkVertically()
+                        ) {
+                            Column {
+                                Spacer(modifier = Modifier.height(24.dp))
+                                HorizontalDivider()
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    text = "Answer",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = card.answer.withInlineCode(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                                card.answerCode?.forEach { codeBlock ->
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    SyntaxCodeBlock(
+                                        code = codeBlock.code,
+                                        language = codeBlock.language,
+                                        engine = syntaxEngine
+                                    )
+                                }
+                                if (!card.extendedContext.isNullOrBlank()) {
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    HorizontalDivider()
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    SuggestionChip(
+                                        onClick = {
+                                            isExtendedContextDialogOpen = true
+                                            onExtendedContextDialogOpen()
+                                        },
+                                        label = { Text("Extended context") },
+                                        icon = {
+                                            Icon(
+                                                imageVector = Icons.Default.Info,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
                                     )
                                 }
                             }
                         }
-                        Spacer(modifier = Modifier.height(12.dp))
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = "Question",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Text(
-                            text = "Difficulty ${card.difficulty}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.outline,
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = card.question.withInlineCode(),
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                    card.questionCode?.forEach { codeBlock ->
-                        Spacer(modifier = Modifier.height(8.dp))
-                        SyntaxCodeBlock(
-                            code = codeBlock.code,
-                            language = codeBlock.language,
-                            engine = syntaxEngine,
-                        )
-                    }
-                    AnimatedVisibility(
-                        visible = state.isAnswerRevealed,
-                        enter = expandVertically(),
-                        exit = shrinkVertically(),
-                    ) {
-                        Column {
-                            Spacer(modifier = Modifier.height(24.dp))
-                            HorizontalDivider()
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                text = "Answer",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.secondary,
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = card.answer.withInlineCode(),
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                            card.answerCode?.forEach { codeBlock ->
-                                Spacer(modifier = Modifier.height(8.dp))
-                                SyntaxCodeBlock(
-                                    code = codeBlock.code,
-                                    language = codeBlock.language,
-                                    engine = syntaxEngine,
-                                )
-                            }
-                            if (!card.extendedContext.isNullOrBlank()) {
-                                Spacer(modifier = Modifier.height(16.dp))
-                                HorizontalDivider()
-                                Spacer(modifier = Modifier.height(8.dp))
-                                SuggestionChip(
-                                    onClick = {
-                                        isExtendedContextDialogOpen = true
-                                        onExtendedContextDialogOpen()
-                                    },
-                                    label = { Text("Extended context") },
-                                    icon = {
-                                        Icon(
-                                            imageVector = Icons.Default.Info,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp),
-                                        )
-                                    },
-                                )
-                            }
-                        }
                     }
                 }
             }
-        }
 
-        if (BuildConfig.DEBUG && state.flashcards.getOrNull(state.currentCardIndex) != null) {
-            FloatingActionButton(
-                onClick = onCurationFabClick,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(
-                        end = 16.dp,
-                        bottom = innerPadding.calculateBottomPadding() + 16.dp,
-                    ),
-            ) {
-                Icon(imageVector = Icons.Default.Build, contentDescription = "Curate card")
+            if (BuildConfig.DEBUG && state.flashcards.getOrNull(state.currentCardIndex) != null) {
+                FloatingActionButton(
+                    onClick = onCurationFabClick,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(
+                            end = 16.dp,
+                            bottom = innerPadding.calculateBottomPadding() + 16.dp
+                        )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Build,
+                        contentDescription = stringResource(R.string.study_session_curate_card_cd),
+                    )
+                }
             }
-        }
         } // end Box
 
         if (state.isVoiceAnswerConsentDialogVisible) {
@@ -692,20 +696,22 @@ private fun StudySessionSheetContent(
                 // hot (grading the TTS's own voice), and skipping during SPEAKING_NOTICE would
                 // start the next question on the main TTS engine while VoiceAnswerController's
                 // separate notice engine is still talking — two overlapping voices.
-                val isVoiceAnswerBusy = state.isVoiceAnswerEnabled && state.voiceAnswerPhase in setOf(
-                    VoiceAnswerPhase.LISTENING,
-                    VoiceAnswerPhase.SPEECH_DETECTED,
-                    VoiceAnswerPhase.GRADING,
-                    VoiceAnswerPhase.SPEAKING_NOTICE,
-                )
+                val isVoiceAnswerBusy = state.isVoiceAnswerEnabled &&
+                    state.voiceAnswerPhase in setOf(
+                        VoiceAnswerPhase.LISTENING,
+                        VoiceAnswerPhase.SPEECH_DETECTED,
+                        VoiceAnswerPhase.GRADING,
+                        VoiceAnswerPhase.SPEAKING_NOTICE
+                    )
                 // Pause only needs to stay disabled for the narrower "answer listening" window —
                 // it toggles the main TtsPlayer, which is a no-op while the mic is what's actually
                 // capturing (LISTENING/SPEECH_DETECTED); re-enables the moment the answer (or its
                 // absence) has been noted and GRADING/SPEAKING_NOTICE takes over.
-                val isVoiceAnswerListening = state.isVoiceAnswerEnabled && state.voiceAnswerPhase in setOf(
-                    VoiceAnswerPhase.LISTENING,
-                    VoiceAnswerPhase.SPEECH_DETECTED,
-                )
+                val isVoiceAnswerListening = state.isVoiceAnswerEnabled &&
+                    state.voiceAnswerPhase in setOf(
+                        VoiceAnswerPhase.LISTENING,
+                        VoiceAnswerPhase.SPEECH_DETECTED
+                    )
                 Row(
                     modifier = Modifier.align(Alignment.Center),
                     horizontalArrangement = Arrangement.Center,
@@ -921,7 +927,8 @@ private fun StudySessionRatedManualPreview() {
                     subcategoryId = "compose",
                     tags = emptyList(),
                     question = "What is the difference between remember and rememberSaveable?",
-                    answer = "remember persists state across recompositions only; rememberSaveable also survives configuration changes and process death by storing in a Bundle.",
+                    answer = "remember persists state across recompositions only; rememberSaveable also survives " +
+                        "configuration changes and process death by storing in a Bundle.",
                     difficulty = 2,
                     questionCode = null,
                     answerCode = null,

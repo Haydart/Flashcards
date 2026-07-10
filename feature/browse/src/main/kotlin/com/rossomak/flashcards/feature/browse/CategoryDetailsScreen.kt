@@ -119,7 +119,7 @@ private fun SubcategoryList(
                 categoryId = categoryId,
                 categoryName = categoryName,
                 subcategory = subcategory,
-                onNavigateToSubcategoryDetails = onNavigateToSubcategoryDetails
+                onNavigateToSubcategoryDetails = onNavigateToSubcategoryDetails,
             )
             HorizontalDivider()
         }
@@ -131,7 +131,7 @@ private fun SubcategoryRow(
     categoryId: String,
     categoryName: String,
     subcategory: Subcategory,
-    onNavigateToSubcategoryDetails: (String, String, String, String) -> Unit
+    onNavigateToSubcategoryDetails: (String, String, String, String) -> Unit,
 ) {
     Row(
         modifier = Modifier

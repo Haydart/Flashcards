@@ -10,7 +10,6 @@ import android.os.Looper
 import android.os.SystemClock
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
-import com.rossomak.flashcards.core.data.voice.VoiceCuration
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
@@ -18,10 +17,11 @@ import androidx.media3.common.SimpleBasePlayer
 import androidx.media3.common.util.UnstableApi
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import com.rossomak.flashcards.core.data.voice.VoiceCuration
+import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.util.Locale
 
 /**
  * Media3 [SimpleBasePlayer] that reads flashcards aloud with the system [TextToSpeech] engine and
@@ -261,7 +261,10 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         }
     }
 
-    /** [voiceId] `null` means "no explicit choice yet" — resolves to a curated English voice, never the device's system default (which may not even be English). */
+    /**
+     * [voiceId] `null` means "no explicit choice yet" — resolves to a curated English voice,
+     * never the device's system default (which may not even be English).
+     */
     private fun applyVoice(voiceId: String?) {
         val resolved = voiceId?.let { id -> tts.voices?.firstOrNull { it.name == id } }
             ?: VoiceCuration.curate(tts.voices.orEmpty()).firstOrNull()

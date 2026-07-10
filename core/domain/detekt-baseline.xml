@@ -1,0 +1,8 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>MaxLineLength:GradeSpokenAnswerUseCase.kt$GradeSpokenAnswerUseCase$override suspend</ID>
+    <ID>MaxLineLength:SanitizeAndGradeTranscriptUseCase.kt$SanitizeAndGradeTranscriptUseCase$override suspend</ID>
+  </CurrentIssues>
+</SmellBaseline>

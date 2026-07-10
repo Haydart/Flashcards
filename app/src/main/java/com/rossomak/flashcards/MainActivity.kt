@@ -9,10 +9,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.navigation.compose.rememberNavController
+import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.presentation.startup.AppStartViewModel
 import com.rossomak.flashcards.presentation.startup.AppStartupState
 import com.rossomak.flashcards.ui.navigation.FlashcardsNavGraph
-import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -28,7 +28,8 @@ class MainActivity : ComponentActivity() {
             appStartViewModel.startupState.value is AppStartupState.Loading
         }
         splashScreen.setOnExitAnimationListener { splashView ->
-            // Deliberately no animation to avoid jank - the goal is a seamless transition to the secondary splash screen in the SplashScreen composable
+            // Deliberately no animation to avoid jank - the goal is a seamless transition
+            // to the secondary splash screen in the SplashScreen composable
             splashView.remove()
         }
 

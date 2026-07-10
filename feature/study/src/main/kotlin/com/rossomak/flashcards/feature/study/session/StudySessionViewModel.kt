@@ -6,32 +6,32 @@ import androidx.lifecycle.viewModelScope
 import com.rossomak.flashcards.core.domain.model.CurationAction
 import com.rossomak.flashcards.core.domain.model.CurationRequest
 import com.rossomak.flashcards.core.domain.model.FlashcardRating
+import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.usecase.GetCurationRequestsUseCase
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.ObserveVoiceAnswerConsentUseCase
 import com.rossomak.flashcards.core.domain.usecase.SetVoiceAnswerConsentUseCase
 import com.rossomak.flashcards.core.domain.usecase.ToggleCurationActionUseCase
-import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.ui.navigation.decodeRoute
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsController
 import com.rossomak.flashcards.feature.study.StudySessionRoute
 import com.rossomak.flashcards.feature.study.voice.VoiceAnswerPhase
 import com.rossomak.flashcards.feature.study.voice.VoiceGateway
-import java.time.Instant
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import com.rossomak.flashcards.feature.study.voice.VoicePhase
 import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.Instant
+import javax.inject.Inject
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 @HiltViewModel
 class StudySessionViewModel @Inject constructor(
@@ -317,7 +317,9 @@ class StudySessionViewModel @Inject constructor(
         }
     }
 
-    fun onVoiceSpeedChange(rate: Float) { voiceGateway.setSpeechRate(rate) }
+    fun onVoiceSpeedChange(rate: Float) {
+        voiceGateway.setSpeechRate(rate)
+    }
 
     fun onExtendedContextDialogOpen() {
         isExtendedContextDialogOpen = true
@@ -476,7 +478,6 @@ class StudySessionViewModel @Inject constructor(
     fun onCurationErrorDismissed() {
         _state.update { it.copy(curationError = null) }
     }
-
 
     public override fun onCleared() {
         voiceGateway.stop()

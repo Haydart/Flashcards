@@ -7,6 +7,9 @@ import android.media.AudioRecord
 import android.media.MediaRecorder
 import androidx.annotation.RequiresPermission
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.util.concurrent.atomic.AtomicBoolean
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -21,9 +24,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.concurrent.atomic.AtomicBoolean
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /** A single VAD-bounded utterance. Only obfuscated audio ever leaves the engine in this form. */
 data class CapturedUtterance(
@@ -413,10 +413,12 @@ class VoiceCaptureEngine @Inject constructor(
         private const val ROUTE_HONORED_POLL_MS = 20L
 
         private const val PRE_ROLL_FRAMES = 10 // 200ms of audio kept before speech onset
+
         // 2.5s silence closes the utterance. Deliberately generous: spoken answers contain
         // thinking-pauses, and a shorter window cut recordings off mid-answer. Silero's accurate
         // soft-speech detection keeps these pauses from being padded with false-positive frames.
         private const val END_SILENCE_FRAMES = 125
+
         // Only this much silence is kept around each speech burst (leading-in for the next one,
         // trailing-out for this one) before ElevenLabs upload; the rest of a thinking-pause is
         // trimmed at capture time. Silence carries no ASR signal, so cutting it is safe and keeps

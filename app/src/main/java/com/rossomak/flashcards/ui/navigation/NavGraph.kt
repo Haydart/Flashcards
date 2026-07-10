@@ -20,16 +20,23 @@ import com.rossomak.flashcards.presentation.splash.SplashScreen
 import kotlinx.serialization.Serializable
 
 @Serializable object Splash
+
 @Serializable object Main
 
 @Serializable object HomeGraph
+
 @Serializable object StudyGraph
+
 @Serializable object SettingsGraph
+
 @Serializable object VoiceDebugGraph
 
 @Serializable object HomeRoot
+
 @Serializable object StudyRoot
+
 @Serializable object SettingsRoot
+
 @Serializable object VoiceDebugRoot
 
 @Composable

@@ -69,21 +69,20 @@ class PreviewStudySessionViewModelTest {
         id: String,
         subcategoryId: String = this.subcategoryId,
         tags: List<String> = listOf("General"),
-        difficulty: Int = 5,
-    ): Flashcard =
-        Flashcard(
-            id = id,
-            subcategoryId = subcategoryId,
-            tags = tags,
-            question = "question-$id",
-            answer = "answer-$id",
-            difficulty = difficulty,
-            questionCode = null,
-            answerCode = null,
-            questionSpoken = null,
-            answerSpoken = null,
-            extendedContext = null,
-        )
+        difficulty: Int = 5
+    ): Flashcard = Flashcard(
+        id = id,
+        subcategoryId = subcategoryId,
+        tags = tags,
+        question = "question-$id",
+        answer = "answer-$id",
+        difficulty = difficulty,
+        questionCode = null,
+        answerCode = null,
+        questionSpoken = null,
+        answerSpoken = null,
+        extendedContext = null
+    )
 
     @Test
     fun `selection caps card count at session size`() = runTest(mainDispatcherRule.testDispatcher) {

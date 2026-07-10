@@ -5,11 +5,11 @@ import com.rossomak.flashcards.core.domain.model.CurationAction
 import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.core.domain.model.FlashcardRating
 import com.rossomak.flashcards.core.domain.model.StudyMode
+import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
 import com.rossomak.flashcards.core.domain.model.VoiceSettings
 import com.rossomak.flashcards.core.domain.repository.CurationRepository
 import com.rossomak.flashcards.core.domain.repository.FakeCurationRepository
 import com.rossomak.flashcards.core.domain.repository.FakeFlashcardRepository
-import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
 import com.rossomak.flashcards.core.domain.repository.VoiceAnswerConsentRepository
 import com.rossomak.flashcards.core.domain.usecase.GetCurationRequestsUseCase
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
@@ -441,29 +441,31 @@ class StudySessionViewModelTest {
     }
 
     @Test
-    fun `onVoiceAnswerToggle without consent shows the consent dialog even before the gateway is active`() = runTest(mainDispatcherRule.testDispatcher) {
-        // Rated sessions never auto-start the gateway (ADR-0025) — the toggle must be reachable
-        // while isVoiceActive is still false.
-        val viewModel = createViewModel()
-        advanceUntilIdle()
+    fun `onVoiceAnswerToggle without consent shows the consent dialog even before the gateway is active`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            // Rated sessions never auto-start the gateway (ADR-0025) — the toggle must be reachable
+            // while isVoiceActive is still false.
+            val viewModel = createViewModel()
+            advanceUntilIdle()
 
-        viewModel.onVoiceAnswerToggle()
+            viewModel.onVoiceAnswerToggle()
 
-        viewModel.state.value.isVoiceAnswerConsentDialogVisible shouldBe true
-        voiceGateway.lastVoiceAnswering shouldBe null
-    }
+            viewModel.state.value.isVoiceAnswerConsentDialogVisible shouldBe true
+            voiceGateway.lastVoiceAnswering shouldBe null
+        }
 
     @Test
-    fun `onVoiceAnswerToggle with consent requests the mic permission even before the gateway is active`() = runTest(mainDispatcherRule.testDispatcher) {
-        voiceAnswerConsentRepository.consentFlow.value = true
-        val viewModel = createViewModel()
-        advanceUntilIdle()
+    fun `onVoiceAnswerToggle with consent requests the mic permission even before the gateway is active`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            voiceAnswerConsentRepository.consentFlow.value = true
+            val viewModel = createViewModel()
+            advanceUntilIdle()
 
-        viewModel.onVoiceAnswerToggle()
+            viewModel.onVoiceAnswerToggle()
 
-        viewModel.state.value.isMicPermissionRequestPending shouldBe true
-        viewModel.state.value.isVoiceAnswerConsentDialogVisible shouldBe false
-    }
+            viewModel.state.value.isMicPermissionRequestPending shouldBe true
+            viewModel.state.value.isVoiceAnswerConsentDialogVisible shouldBe false
+        }
 
     @Test
     fun `onVoiceAnswerToggle in Fast mode does nothing`() = runTest(mainDispatcherRule.testDispatcher) {
@@ -603,13 +605,31 @@ private class FakeVoiceGateway : VoiceGateway {
         lastStartSubcategoryName = subcategoryName
     }
 
-    override fun stop() { stopCalls++ }
-    override fun togglePlayPause() { togglePlayPauseCalls++ }
-    override fun rewindToNext() { rewindToNextCalls++ }
-    override fun rewindToPrevious() { rewindToPreviousCalls++ }
-    override fun restartCurrentCard() { restartCurrentCardCalls++ }
-    override fun showAnswer() { showAnswerCalls++ }
-    override fun setSpeechRate(rate: Float) { lastSpeechRate = rate }
-    override fun setVoice(voiceId: String?) { lastVoiceId = voiceId }
-    override fun setVoiceAnswering(enabled: Boolean) { lastVoiceAnswering = enabled }
+    override fun stop() {
+        stopCalls++
+    }
+    override fun togglePlayPause() {
+        togglePlayPauseCalls++
+    }
+    override fun rewindToNext() {
+        rewindToNextCalls++
+    }
+    override fun rewindToPrevious() {
+        rewindToPreviousCalls++
+    }
+    override fun restartCurrentCard() {
+        restartCurrentCardCalls++
+    }
+    override fun showAnswer() {
+        showAnswerCalls++
+    }
+    override fun setSpeechRate(rate: Float) {
+        lastSpeechRate = rate
+    }
+    override fun setVoice(voiceId: String?) {
+        lastVoiceId = voiceId
+    }
+    override fun setVoiceAnswering(enabled: Boolean) {
+        lastVoiceAnswering = enabled
+    }
 }

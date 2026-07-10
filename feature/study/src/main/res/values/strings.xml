@@ -18,4 +18,6 @@
     <string name="study_session_voice_answer_grade_spoken_message">You scored %1$d percent. %2$s</string>
     <string name="study_session_voice_answer_failure_spoken_message">Couldn\'t grade that answer, moving on.</string>
     <string name="study_session_voice_answer_skip_spoken_message">No answer heard, moving on.</string>
+    <string name="study_session_no_cards_message">No cards available</string>
+    <string name="study_session_curate_card_cd">Curate card</string>
 </resources>

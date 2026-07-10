@@ -1,0 +1,8 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>MagicNumber:HomeScreen.kt$15f</ID>
+    <ID>UnusedParameter:HomeScreen.kt$onNavigateToCategoryDetails: (String, String) -&gt; Unit = { _, _ -&gt; }</ID>
+  </CurrentIssues>
+</SmellBaseline>

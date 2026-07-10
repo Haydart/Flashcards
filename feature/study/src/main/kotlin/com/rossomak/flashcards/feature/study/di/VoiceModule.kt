@@ -1,7 +1,7 @@
 package com.rossomak.flashcards.feature.study.di
 
-import com.rossomak.flashcards.feature.study.voice.VoiceGateway
 import com.rossomak.flashcards.feature.study.voice.StudySessionVoiceGateway
+import com.rossomak.flashcards.feature.study.voice.VoiceGateway
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn

@@ -54,7 +54,7 @@ class FakeVoiceGradingApiTest {
     @Test
     fun `transcribeAndGradeSpokenAnswer streams a transcript chunk derived from the expected answer, then a grade`() = runTest {
         val longExpectedAnswer = "a foreground service keeps running with a persistent notification " +
-                "shown to the user even when the app itself is no longer visible on screen"
+            "shown to the user even when the app itself is no longer visible on screen"
 
         fakeApi.transcribeAndGradeSpokenAnswer("card-1", question, longExpectedAnswer, ByteArray(64_000)).test {
             val chunk = awaitItem() as VoiceGradingStreamEventDto.TranscriptChunk
