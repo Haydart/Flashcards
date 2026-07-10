@@ -144,8 +144,11 @@ fun VoiceDebugContent(
                 Button(onClick = onVadToggle) {
                     Text(
                         stringResource(
-                            if (state.isVadListening) R.string.voice_debug_vad_stop_button
-                            else R.string.voice_debug_vad_start_button
+                            if (state.isVadListening) {
+                                R.string.voice_debug_vad_stop_button
+                            } else {
+                                R.string.voice_debug_vad_start_button
+                            }
                         )
                     )
                 }
@@ -158,8 +161,11 @@ fun VoiceDebugContent(
                 Spacer(modifier = Modifier.size(8.dp))
                 Text(
                     text = stringResource(
-                        if (state.isSpeechDetected) R.string.voice_debug_vad_speech_label
-                        else R.string.voice_debug_vad_silence_label
+                        if (state.isSpeechDetected) {
+                            R.string.voice_debug_vad_speech_label
+                        } else {
+                            R.string.voice_debug_vad_silence_label
+                        }
                     ),
                     style = MaterialTheme.typography.labelMedium,
                 )
@@ -192,8 +198,11 @@ fun VoiceDebugContent(
                 Button(onClick = onRecordClip, enabled = !state.isRecordingClip) {
                     Text(
                         stringResource(
-                            if (state.isRecordingClip) R.string.voice_debug_capture_recording_label
-                            else R.string.voice_debug_capture_record_button
+                            if (state.isRecordingClip) {
+                                R.string.voice_debug_capture_recording_label
+                            } else {
+                                R.string.voice_debug_capture_record_button
+                            }
                         )
                     )
                 }
@@ -234,8 +243,11 @@ fun VoiceDebugContent(
             Button(onClick = onTranscribeClip, enabled = state.hasRawClip && !state.isTranscribing) {
                 Text(
                     stringResource(
-                        if (state.isTranscribing) R.string.voice_debug_transcription_running_label
-                        else R.string.voice_debug_transcription_send_button
+                        if (state.isTranscribing) {
+                            R.string.voice_debug_transcription_running_label
+                        } else {
+                            R.string.voice_debug_transcription_send_button
+                        }
                     )
                 )
             }
@@ -264,8 +276,11 @@ fun VoiceDebugContent(
             Button(onClick = onSanitizeAndGrade, enabled = !state.isGrading) {
                 Text(
                     stringResource(
-                        if (state.isGrading) R.string.voice_debug_grade_running_label
-                        else R.string.voice_debug_grade_send_button
+                        if (state.isGrading) {
+                            R.string.voice_debug_grade_running_label
+                        } else {
+                            R.string.voice_debug_grade_send_button
+                        }
                     )
                 )
             }
@@ -281,8 +296,11 @@ fun VoiceDebugContent(
             Button(onClick = onCheckEntitlement, enabled = !state.isCheckingEntitlement) {
                 Text(
                     stringResource(
-                        if (state.isCheckingEntitlement) R.string.voice_debug_entitlement_checking_label
-                        else R.string.voice_debug_entitlement_check_button
+                        if (state.isCheckingEntitlement) {
+                            R.string.voice_debug_entitlement_checking_label
+                        } else {
+                            R.string.voice_debug_entitlement_check_button
+                        }
                     )
                 )
             }

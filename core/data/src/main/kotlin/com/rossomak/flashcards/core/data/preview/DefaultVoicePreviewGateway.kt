@@ -16,9 +16,13 @@ class DefaultVoicePreviewGateway @Inject constructor(
 ) : VoicePreviewGateway {
 
     @Volatile private var tts: TextToSpeech? = null
+
     @Volatile private var ttsReady = false
+
     @Volatile private var ttsInitFailed = false
+
     @Volatile private var pendingPreviewVoiceId: String? = null
+
     @Volatile private var pendingPreviewRate: Float = 1f
 
     @Synchronized

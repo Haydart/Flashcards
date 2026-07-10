@@ -1,11 +1,11 @@
 package com.rossomak.flashcards.core.voice
 
 import com.rossomak.flashcards.core.voice.SileroVadSession.Companion.WINDOW_SIZE_SAMPLES
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * Neural VAD backed by the Silero v5 ONNX model — far more robust than the previous energy-based

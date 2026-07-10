@@ -13,4 +13,7 @@ dependencies {
     implementation(libs.hilt.gradlePlugin)
     implementation(libs.google.services.gradlePlugin)
     implementation(libs.ksp.gradlePlugin)
+    // Static-analysis plugins applied via pluginManager.apply(...) in android-quality.
+    implementation(libs.spotless.gradlePlugin)
+    implementation(libs.detekt.gradlePlugin)
 }

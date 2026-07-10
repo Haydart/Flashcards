@@ -4,11 +4,11 @@ import com.rossomak.flashcards.core.data.model.EntitlementDto
 import com.rossomak.flashcards.core.data.model.SanitizeAndGradeRequestDto
 import com.rossomak.flashcards.core.data.model.TranscriptionDto
 import com.rossomak.flashcards.core.data.model.VoiceAnswerGradeDto
-import kotlinx.coroutines.delay
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.random.Random
+import kotlinx.coroutines.delay
 
 /**
  * Simulated Cloud Function proxy, used while the real deployment / ElevenLabs / grading LLM

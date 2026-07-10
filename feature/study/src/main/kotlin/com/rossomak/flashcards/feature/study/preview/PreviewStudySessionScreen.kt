@@ -1,6 +1,7 @@
 package com.rossomak.flashcards.feature.study.preview
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +12,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
@@ -46,11 +51,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.CardSortOrder
@@ -359,14 +359,14 @@ private fun SessionCardCountSlider(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        val minCardCount = PreviewStudySessionScreenState.MIN_SESSION_CARD_COUNT
+        val maxCardCount = PreviewStudySessionScreenState.MAX_SESSION_CARD_COUNT
         Slider(
             value = draftCardCount,
             onValueChange = { draftCardCount = it },
             onValueChangeFinished = { onCardCountChange(draftCardCount.roundToInt()) },
-            valueRange = PreviewStudySessionScreenState.MIN_SESSION_CARD_COUNT.toFloat()..
-                PreviewStudySessionScreenState.MAX_SESSION_CARD_COUNT.toFloat(),
-            steps = PreviewStudySessionScreenState.MAX_SESSION_CARD_COUNT -
-                PreviewStudySessionScreenState.MIN_SESSION_CARD_COUNT - 1,
+            valueRange = minCardCount.toFloat()..maxCardCount.toFloat(),
+            steps = maxCardCount - minCardCount - 1
         )
     }
 }

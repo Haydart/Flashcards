@@ -2,9 +2,9 @@ package com.rossomak.flashcards.core.data.network
 
 import com.google.android.gms.tasks.Tasks
 import com.google.firebase.auth.FirebaseAuth
+import javax.inject.Inject
 import okhttp3.Interceptor
 import okhttp3.Response
-import javax.inject.Inject
 
 /**
  * Attaches the caller's Firebase ID token to every Cloud Function request; the function

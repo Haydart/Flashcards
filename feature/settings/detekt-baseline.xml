@@ -1,0 +1,7 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>MaxLineLength:SettingsViewModelTest.kt$SettingsViewModelTest$fun</ID>
+  </CurrentIssues>
+</SmellBaseline>

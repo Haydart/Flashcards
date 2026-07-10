@@ -25,20 +25,18 @@ fun SubcategoryDto.toDomain() = Subcategory(
     cardCount = cardCount
 )
 
-fun FlashcardDto.toDomain(subcategoryId: String): Flashcard? {
-    return difficulty?.let {
-        Flashcard(
-            id = id,
-            subcategoryId = subcategoryId,
-            question = question,
-            answer = answer,
-            tags = tags,
-            difficulty = it,
-            questionCode = questionCode?.map { CodeBlock(it.language, it.code) },
-            answerCode = answerCode?.map { CodeBlock(it.language, it.code) },
-            questionSpoken = questionSpoken,
-            answerSpoken = answerSpoken,
-            extendedContext = extendedContext
-        )
-    }
+fun FlashcardDto.toDomain(subcategoryId: String): Flashcard? = difficulty?.let {
+    Flashcard(
+        id = id,
+        subcategoryId = subcategoryId,
+        question = question,
+        answer = answer,
+        tags = tags,
+        difficulty = it,
+        questionCode = questionCode?.map { CodeBlock(it.language, it.code) },
+        answerCode = answerCode?.map { CodeBlock(it.language, it.code) },
+        questionSpoken = questionSpoken,
+        answerSpoken = answerSpoken,
+        extendedContext = extendedContext
+    )
 }

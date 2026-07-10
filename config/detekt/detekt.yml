@@ -1,0 +1,38 @@
+# Overrides layered on top of detekt's default config (buildUponDefaultConfig = true).
+# Formatting is intentionally NOT enabled here — Spotless/ktlint owns formatting.
+# Keep this lean; tighten in the type-resolution follow-up PR.
+
+build:
+  maxIssues: 0 # any NEW (non-baselined) finding fails the task
+
+complexity:
+  LongMethod:
+    threshold: 80
+  LongParameterList:
+    functionThreshold: 8
+    constructorThreshold: 8 # ViewModels/DI constructors legitimately take many collaborators
+    ignoreDefaultParameters: true
+  TooManyFunctions:
+    thresholdInClasses: 20
+    thresholdInFiles: 20
+
+style:
+  MaxLineLength:
+    maxLineLength: 180
+    excludeCommentStatements: true # comments are never wrapped/broken to fit a length limit
+  MagicNumber:
+    ignorePropertyDeclaration: true
+    ignoreCompanionObjectPropertyDeclaration: true
+    ignoreNamedArgument: true
+    ignoreEnums: true
+  ReturnCount:
+    max: 4
+  UnusedPrivateMember:
+    active: true
+
+naming:
+  FunctionNaming:
+    # @Composable functions are PascalCase by convention.
+    ignoreAnnotated: ['Composable']
+  TopLevelPropertyNaming:
+    active: true

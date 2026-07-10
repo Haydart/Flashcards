@@ -9,8 +9,8 @@ import com.google.firebase.firestore.SetOptions
 import com.rossomak.flashcards.core.data.model.CurationActionEntryDto
 import com.rossomak.flashcards.core.data.model.CurationRequestDto
 import com.rossomak.flashcards.core.domain.model.CurationAction
-import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
+import kotlinx.coroutines.tasks.await
 
 private const val WHEREIN_BATCH_SIZE = 30
 
@@ -36,6 +36,7 @@ class CurationRemoteDataSource @Inject constructor(
                     .documents
                     .mapNotNull { document ->
                         val subcategoryId = document.getString("subcategoryId") ?: return@mapNotNull null
+
                         @Suppress("UNCHECKED_CAST")
                         val actionsRaw = document.get("actions") as? Map<String, Any> ?: emptyMap()
                         val actions = actionsRaw.mapNotNull { (key, value) ->

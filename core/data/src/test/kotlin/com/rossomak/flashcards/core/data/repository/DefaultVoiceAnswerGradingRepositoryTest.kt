@@ -1,7 +1,7 @@
 package com.rossomak.flashcards.core.data.repository
 
-import com.rossomak.flashcards.core.data.model.SanitizeAndGradeRequestDto
 import com.rossomak.flashcards.core.data.model.EntitlementDto
+import com.rossomak.flashcards.core.data.model.SanitizeAndGradeRequestDto
 import com.rossomak.flashcards.core.data.model.TranscriptionDto
 import com.rossomak.flashcards.core.data.model.VoiceAnswerGradeDto
 import com.rossomak.flashcards.core.data.network.VoiceGradingApi

@@ -99,7 +99,7 @@ Every signature type below has one fixed parameter order — rationale in [ADR-0
 ```
 python3 ./scripts/check-arg-order.py
 ```
-Exit code `0` + `check-arg-order: no violations found.` means clean. Exit code `1` prints one `path/to/File.kt:LINE: message (ADR-0020)` line per violation — fix each one and re-run before considering the task done. It's a regex/paren-depth heuristic (no Detekt/ktlint set up yet), so it can miss unusual formatting; don't treat a clean run as a substitute for actually following the rules below, only as a backstop.
+Exit code `0` + `check-arg-order: no violations found.` means clean. Exit code `1` prints one `path/to/File.kt:LINE: message (ADR-0020)` line per violation — fix each one and re-run before considering the task done. It's a regex/paren-depth heuristic (not yet ported to Konsist), so it can miss unusual formatting; don't treat a clean run as a substitute for actually following the rules below, only as a backstop.
 
 **Composable Screens** (`XxxScreen`, nav entry points) — `modifier` → `viewModel` → nav callbacks (`onNavigateBack` first if present, then remaining callbacks happy-path-first):
 ```kotlin
@@ -209,6 +209,26 @@ override suspend fun submitResponse(cardId: String, audioFile: File): Result<Eva
     }
 }
 ```
+
+## Static Analysis
+
+Four tools, one job each, wired via the `android-quality` convention plugin (applied by every module's convention plugin). Config lives at the repo root (`.editorconfig`, `config/detekt/detekt.yml`).
+
+| Tool | Job | Existing violations |
+|------|-----|---------------------|
+| **Spotless** (ktlint) | Formatting (`.kt`, `.gradle.kts`) | Autofixed — no baseline |
+| **detekt** (typeless) | Code smells | Frozen in per-module `detekt-baseline.xml` |
+| **Konsist** | Architecture rules (layer deps, naming) — `:konsist` module, runs as JUnit tests | Rules scoped to pass |
+| **Android Lint** | Android correctness | Frozen in per-module `lint-baseline.xml` |
+
+Commands (local only — CI wiring is a later PR):
+```shell
+./gradlew staticAnalysis   # spotlessCheck + detekt + :konsist:test + lint (the gate)
+./gradlew formatCode       # spotlessApply — autofix formatting
+```
+`staticAnalysis` is NOT wired into `check` (keeps test runs fast). Any NEW (non-baselined) finding fails it.
+
+Burning down a baseline: fix the smells, then regenerate with `./gradlew detektBaseline` / `./gradlew updateLintBaseline`; delete a baseline file once it reaches empty to fully enforce that module. Deferred to follow-up PRs: detekt type-resolution + Compose ruleset, arg-order → Konsist migration, lint rule tightening, CI.
 
 ## Testing Standards
 See [TESTING.md](./TESTING.md) for full conventions: file/method naming, MainDispatcherRule usage, MockK + Kotest patterns, the "extract repeated literals" rule, and coverage targets.

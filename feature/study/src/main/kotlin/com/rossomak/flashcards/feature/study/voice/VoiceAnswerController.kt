@@ -12,10 +12,11 @@ import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
 import com.rossomak.flashcards.core.domain.usecase.GradeSpokenAnswerUseCase
 import com.rossomak.flashcards.core.voice.AudioRouteManager
 import com.rossomak.flashcards.core.voice.CaptureRouteType
-import com.rossomak.flashcards.core.voice.VoiceCaptureEvent
 import com.rossomak.flashcards.core.voice.VoiceCaptureEngine
+import com.rossomak.flashcards.core.voice.VoiceCaptureEvent
 import com.rossomak.flashcards.feature.study.R
 import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -29,7 +30,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 enum class VoiceAnswerPhase { IDLE, WAITING_FOR_QUESTION, LISTENING, SPEECH_DETECTED, GRADING, SPEAKING_NOTICE }
 
@@ -68,7 +68,10 @@ class VoiceAnswerController @Inject constructor(
     private val _state = MutableStateFlow(VoiceAnswerState())
     val state: StateFlow<VoiceAnswerState> = _state.asStateFlow()
 
-    /** Emitted once the grade/skip notice has finished speaking (plus [ADVANCE_DELAY_MS]) — tells the service to move the shared TTS engine to the next card. */
+    /**
+     * Emitted once the grade/skip notice has finished speaking (plus [ADVANCE_DELAY_MS]) — tells
+     * the service to move the shared TTS engine to the next card.
+     */
     private val _advanceRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val advanceRequests: SharedFlow<Unit> = _advanceRequests.asSharedFlow()
 

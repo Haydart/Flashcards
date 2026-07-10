@@ -4,13 +4,13 @@ import com.rossomak.flashcards.core.data.model.EntitlementDto
 import com.rossomak.flashcards.core.data.model.SanitizeAndGradeRequestDto
 import com.rossomak.flashcards.core.data.model.TranscriptionDto
 import com.rossomak.flashcards.core.data.model.VoiceAnswerGradeDto
+import java.net.HttpURLConnection
+import javax.inject.Inject
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.HttpException
-import java.net.HttpURLConnection
-import javax.inject.Inject
 
 /**
  * Real Cloud Function client. Compiles and is fully wired, but only reachable once a deployed
@@ -54,12 +54,11 @@ class RetrofitVoiceGradingApi @Inject constructor(
         throw exception
     }
 
-    private fun ByteArray.toAudioPart(): MultipartBody.Part =
-        MultipartBody.Part.createFormData(
-            AUDIO_PART_NAME,
-            AUDIO_FILE_NAME,
-            toRequestBody(WAV_MEDIA_TYPE.toMediaType()),
-        )
+    private fun ByteArray.toAudioPart(): MultipartBody.Part = MultipartBody.Part.createFormData(
+        AUDIO_PART_NAME,
+        AUDIO_FILE_NAME,
+        toRequestBody(WAV_MEDIA_TYPE.toMediaType())
+    )
 
     private fun String.toTextPart(): RequestBody = toRequestBody(TEXT_MEDIA_TYPE.toMediaType())
 

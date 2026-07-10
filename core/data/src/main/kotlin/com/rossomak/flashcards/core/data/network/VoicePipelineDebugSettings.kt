@@ -1,11 +1,11 @@
 package com.rossomak.flashcards.core.data.network
 
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * Per-stage fake/real routing state for the voice grading pipeline, driven by the debug Voice

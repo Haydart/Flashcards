@@ -16,11 +16,10 @@ class GradeSpokenAnswerUseCase @Inject constructor(
         val obfuscatedAnswerWav: ByteArray,
     )
 
-    override suspend fun invoke(params: Params): Result<VoiceAnswerGrade> =
-        voiceAnswerGradingRepository.gradeSpokenAnswer(
-            cardId = params.cardId,
-            question = params.question,
-            expectedAnswer = params.expectedAnswer,
-            obfuscatedAnswerWav = params.obfuscatedAnswerWav,
-        )
+    override suspend fun invoke(params: Params): Result<VoiceAnswerGrade> = voiceAnswerGradingRepository.gradeSpokenAnswer(
+        cardId = params.cardId,
+        question = params.question,
+        expectedAnswer = params.expectedAnswer,
+        obfuscatedAnswerWav = params.obfuscatedAnswerWav
+    )
 }

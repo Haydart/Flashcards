@@ -4,6 +4,7 @@ plugins {
 }
 
 pluginManager.apply("org.jetbrains.kotlin.plugin.serialization")
+pluginManager.apply("android-quality")
 
 java {
     sourceCompatibility = JavaVersion.VERSION_11

@@ -15,10 +15,9 @@ class SanitizeAndGradeTranscriptUseCase @Inject constructor(
         val rawTranscript: String,
     )
 
-    override suspend fun invoke(params: Params): Result<VoiceAnswerGrade> =
-        voiceAnswerGradingRepository.sanitizeAndGrade(
-            question = params.question,
-            expectedAnswer = params.expectedAnswer,
-            rawTranscript = params.rawTranscript,
-        )
+    override suspend fun invoke(params: Params): Result<VoiceAnswerGrade> = voiceAnswerGradingRepository.sanitizeAndGrade(
+        question = params.question,
+        expectedAnswer = params.expectedAnswer,
+        rawTranscript = params.rawTranscript
+    )
 }

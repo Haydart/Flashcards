@@ -5,12 +5,12 @@ import com.rossomak.flashcards.core.data.model.SanitizeAndGradeRequestDto
 import com.rossomak.flashcards.core.data.network.VoiceGradingApi
 import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
 import com.rossomak.flashcards.core.domain.repository.VoiceAnswerGradingRepository
+import java.io.IOException
+import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import java.io.IOException
-import javax.inject.Inject
 
 /**
  * Never writes to Firestore per answer (ADR-0014): grades are handed back to the caller only.
@@ -39,35 +39,31 @@ class DefaultVoiceAnswerGradingRepository @Inject constructor(
         }
     }
 
-    override suspend fun transcribe(obfuscatedAnswerWav: ByteArray): Result<String> =
-        withContext(Dispatchers.IO) {
-            try {
-                Result.success(voiceGradingApi.transcribe(obfuscatedAnswerWav).transcript)
-            } catch (exception: CancellationException) {
-                throw exception
-            } catch (exception: Exception) {
-                Result.failure(exception)
-            }
-        }
-
-    override suspend fun sanitizeAndGrade(
-        question: String,
-        expectedAnswer: String,
-        rawTranscript: String,
-    ): Result<VoiceAnswerGrade> = withContext(Dispatchers.IO) {
+    override suspend fun transcribe(obfuscatedAnswerWav: ByteArray): Result<String> = withContext(Dispatchers.IO) {
         try {
-            val request = SanitizeAndGradeRequestDto(
-                question = question,
-                expectedAnswer = expectedAnswer,
-                transcript = rawTranscript,
-            )
-            Result.success(voiceGradingApi.sanitizeAndGrade(request).toDomain())
+            Result.success(voiceGradingApi.transcribe(obfuscatedAnswerWav).transcript)
         } catch (exception: CancellationException) {
             throw exception
         } catch (exception: Exception) {
             Result.failure(exception)
         }
     }
+
+    override suspend fun sanitizeAndGrade(question: String, expectedAnswer: String, rawTranscript: String): Result<VoiceAnswerGrade> =
+        withContext(Dispatchers.IO) {
+            try {
+                val request = SanitizeAndGradeRequestDto(
+                    question = question,
+                    expectedAnswer = expectedAnswer,
+                    transcript = rawTranscript
+                )
+                Result.success(voiceGradingApi.sanitizeAndGrade(request).toDomain())
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: Exception) {
+                Result.failure(exception)
+            }
+        }
 
     override suspend fun checkEntitlement(): Result<Boolean> = withContext(Dispatchers.IO) {
         try {

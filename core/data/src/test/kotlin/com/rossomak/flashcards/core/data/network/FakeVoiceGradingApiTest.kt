@@ -99,7 +99,7 @@ class FakeVoiceGradingApiTest {
     @Test
     fun `gradeVoiceAnswer produces a transcript derived from the expected answer`() = runTest {
         val longExpectedAnswer = "a foreground service keeps running with a persistent notification " +
-                "shown to the user even when the app itself is no longer visible on screen"
+            "shown to the user even when the app itself is no longer visible on screen"
 
         val response = fakeApi.gradeVoiceAnswer(
             "card-1",
