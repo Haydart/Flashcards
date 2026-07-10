@@ -144,6 +144,11 @@ All commands below run from the repo root unless noted, via `npx firebase-tools`
      .then(() => process.exit(0));
    '
    ```
+   **Credential handling.** Prefer Application Default Credentials
+   (`gcloud auth application-default login`, then drop the `credential:` arg) over a downloaded
+   `firebase-service-account.json`. If you must use a key file, keep it **outside the repo** or
+   ensure it is gitignored, never commit it, and delete/rotate it once the manual entitlement edit
+   is done — it grants full Admin SDK access to the project.
 
 10. **Point the app at the backend.** Nothing to configure — the app resolves the backend from
     `google-services.json` (already load-bearing for Auth + Firestore). Confirm it points at
@@ -173,3 +178,7 @@ Firebase only actually updates functions whose source changed. Single function:
 - Set a per-key credit/usage cap on the ElevenLabs dashboard as a second line of defense.
 - Gemini via Vertex AI bills to the project's normal billing — no separate cap beyond the
   entitlement gate and whatever budget alerts you set on the project.
+- **Neither of these is a hard spend cap.** `isPremium` only gates *access* — a premium account can
+  still call the grading function without bound — and GCP budget alerts only *notify*, they never
+  stop billing or halt traffic. Before opening this to real users, add per-user request quotas / rate
+  limiting (and, ideally, an ElevenLabs hard credit cap) as the actual abuse-and-spend controls.
