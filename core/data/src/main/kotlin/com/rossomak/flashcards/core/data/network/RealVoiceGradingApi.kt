@@ -52,7 +52,9 @@ class RealVoiceGradingApi @Inject constructor(
             ?: error("transcribeAndSanitize received no transcript chunk")
         val data = firstChunk.message.data as? Map<*, *>
             ?: error("Unexpected transcribeAndSanitize chunk shape: ${firstChunk.message.data}")
-        Result.success(data[FIELD_SANITIZED_TRANSCRIPT] as? String ?: "")
+        val sanitizedTranscript = data[FIELD_SANITIZED_TRANSCRIPT] as? String
+            ?: error("transcribeAndSanitize chunk missing transcript: ${firstChunk.message.data}")
+        Result.success(sanitizedTranscript)
     } catch (exception: CancellationException) {
         throw exception
     } catch (exception: Exception) {
