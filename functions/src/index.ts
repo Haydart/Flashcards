@@ -1,12 +1,12 @@
 import * as admin from "firebase-admin";
-import { onRequest, Request } from "firebase-functions/v2/https";
+import { onCall, onRequest, HttpsError, Request } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 import type { Response } from "express";
 import { requireAuthenticatedUid } from "./lib/auth";
 import { requirePremiumEntitlement, isPremiumUser } from "./lib/entitlement";
 import { parseMultipart } from "./lib/multipart";
 import { transcribeWithElevenLabsScribe } from "./lib/elevenlabs";
-import { gradeWithGemini } from "./lib/grading";
+import { sanitizeTranscript, gradeSanitizedTranscript } from "./lib/grading";
 import { HttpError } from "./lib/httpError";
 
 admin.initializeApp();
@@ -69,33 +69,61 @@ export const sanitizeAndGrade = onRequest(RUNTIME_OPTIONS, handle(async (req, re
     throw new HttpError(400, "Missing question/expected_answer/transcript");
   }
 
-  const grade = await gradeWithGemini(question, expectedAnswer, transcript);
+  const sanitizedTranscript = await sanitizeTranscript(transcript);
+  const grade = await gradeSanitizedTranscript(question, expectedAnswer, sanitizedTranscript);
   res.status(200).json({
-    sanitized_transcript: grade.sanitizedTranscript,
+    sanitized_transcript: sanitizedTranscript,
     grade: grade.gradePercent,
     feedback: grade.feedback,
   });
 }));
 
-export const gradeVoiceAnswer = onRequest(
-  { ...RUNTIME_OPTIONS, secrets: [elevenLabsApiKey] },
-  handle(async (req, res) => {
-    const uid = await requireAuthenticatedUid(req);
-    await requirePremiumEntitlement(uid);
+interface GradeVoiceAnswerRequest {
+  card_id?: string;
+  question?: string;
+  expected_answer?: string;
+  audio_base64?: string;
+}
 
-    const { fields, audio } = await parseMultipart(req);
-    if (!audio) throw new HttpError(400, "Missing audio part");
-    const { question, expected_answer: expectedAnswer } = fields;
-    if (!question || !expectedAnswer) {
-      throw new HttpError(400, "Missing question/expected_answer part");
+interface GradeVoiceAnswerChunk {
+  sanitized_transcript: string;
+}
+
+interface GradeVoiceAnswerResult {
+  grade: number;
+  feedback: string;
+}
+
+/**
+ * Streaming callable (ADR-0028): one client request, two ordered results over the same
+ * connection — `response.sendChunk({ sanitized_transcript })` as soon as STT + sanitize finish,
+ * then `{ grade, feedback }` as the function's normal return value once grading finishes. Must
+ * be `onCall`, not `onRequest` — that's what gives streaming (`request.acceptsStreaming`,
+ * `response.sendChunk`) and automatic Firebase Auth ID-token verification (`request.auth`).
+ * A non-streaming caller still gets the full `{ sanitized_transcript, grade, feedback }`-shaped
+ * data buffered into the single final result (Firebase's own streaming-callable backward
+ * compatibility) — sendChunk silently no-ops when `request.acceptsStreaming` is false.
+ */
+export const gradeVoiceAnswer = onCall<GradeVoiceAnswerRequest, Promise<GradeVoiceAnswerResult>, GradeVoiceAnswerChunk>(
+  { ...RUNTIME_OPTIONS, secrets: [elevenLabsApiKey] },
+  async (request, response) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "Missing Firebase ID token");
+    if (!(await isPremiumUser(uid))) {
+      throw new HttpsError("permission-denied", "No active premium entitlement");
     }
 
-    const rawTranscript = await transcribeWithElevenLabsScribe(audio, elevenLabsApiKey.value());
-    const grade = await gradeWithGemini(question, expectedAnswer, rawTranscript);
-    res.status(200).json({
-      sanitized_transcript: grade.sanitizedTranscript,
-      grade: grade.gradePercent,
-      feedback: grade.feedback,
-    });
-  }),
+    const { question, expected_answer: expectedAnswer, audio_base64: audioBase64 } = request.data;
+    if (!question || !expectedAnswer || !audioBase64) {
+      throw new HttpsError("invalid-argument", "Missing question/expected_answer/audio_base64");
+    }
+
+    const wavBuffer = Buffer.from(audioBase64, "base64");
+    const rawTranscript = await transcribeWithElevenLabsScribe(wavBuffer, elevenLabsApiKey.value());
+    const sanitizedTranscript = await sanitizeTranscript(rawTranscript);
+    await response?.sendChunk({ sanitized_transcript: sanitizedTranscript });
+
+    const grade = await gradeSanitizedTranscript(question, expectedAnswer, sanitizedTranscript);
+    return { grade: grade.gradePercent, feedback: grade.feedback };
+  },
 );

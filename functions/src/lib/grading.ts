@@ -5,42 +5,60 @@ const VERTEX_LOCATION = "us-central1";
 const GEMINI_MODEL = "gemini-2.5-flash";
 
 export interface GradeResult {
-  sanitizedTranscript: string;
   gradePercent: number;
   feedback: string;
 }
 
-interface GeminiGradeJson {
+interface SanitizeJson {
   sanitized_transcript: string;
+}
+
+interface GradeJson {
   grade: number;
   feedback: string;
 }
 
-const RESPONSE_SCHEMA = {
+const SANITIZE_RESPONSE_SCHEMA = {
   type: SchemaType.OBJECT,
   properties: {
     sanitized_transcript: { type: SchemaType.STRING },
+  },
+  required: ["sanitized_transcript"],
+};
+
+const GRADE_RESPONSE_SCHEMA = {
+  type: SchemaType.OBJECT,
+  properties: {
     grade: { type: SchemaType.INTEGER },
     feedback: { type: SchemaType.STRING },
   },
-  required: ["sanitized_transcript", "grade", "feedback"],
+  required: ["grade", "feedback"],
 };
 
-function buildPrompt(question: string, expectedAnswer: string, rawTranscript: string): string {
+function buildSanitizePrompt(rawTranscript: string): string {
+  return `You clean up a raw speech-to-text transcript of a spoken flashcard answer for a study app.
+
+Raw spoken transcript (may contain filler words, disfluencies, and incidentally spoken personal
+information): ${rawTranscript}
+
+Return a single JSON object described by the response schema with one field,
+"sanitized_transcript": the transcript with filler/disfluencies (um, uh, repeated words)
+normalized, and any personal information the speaker incidentally said (names, emails, phone
+numbers, addresses) removed/redacted. Keep the substantive answer content intact.`;
+}
+
+function buildGradePrompt(question: string, expectedAnswer: string, sanitizedTranscript: string): string {
   return `You grade a spoken flashcard answer for a study app.
 
 Flashcard question: ${question}
 Expected answer: ${expectedAnswer}
-Raw spoken transcript (may contain filler words and disfluencies): ${rawTranscript}
+Spoken answer (already sanitized): ${sanitizedTranscript}
 
-Do two things and return them as the single JSON object described by the response schema:
-1. "sanitized_transcript": the transcript with filler/disfluencies (um, uh, repeated words)
-   normalized, and any personal information the speaker incidentally said (names, emails,
-   phone numbers, addresses) removed/redacted. Keep the substantive answer content intact.
-2. "grade": an integer 0-100 for how completely and correctly the transcript answers the
+Return a single JSON object described by the response schema with two fields:
+1. "grade": an integer 0-100 for how completely and correctly the spoken answer answers the
    question relative to the expected answer. Give partial credit for partially correct or
    incomplete answers; do not default to round numbers just because they look tidy.
-3. "feedback": one short spoken-aloud sentence, tone depends on the grade:
+2. "feedback": one short spoken-aloud sentence, tone depends on the grade:
    - grade < 40 (failed) or grade 40-79 (partial): state briefly what was missed, then include
      the full expected answer verbatim so the user hears the correct answer.
    - grade >= 80 (correct): a short affirmation only — do not repeat the expected answer.`;
@@ -58,44 +76,59 @@ function getVertexAi(): VertexAI {
   return vertexAi;
 }
 
-/**
- * Single combined sanitize+grade LLM call (design doc: "Sanitize + grade: one combined
- * LLM call"). Runs on Vertex AI Gemini — same GCP project as Firestore/Cloud Functions,
- * so no separate API key/Secret Manager entry is needed, just the Vertex AI API enabled
- * and the function's service account granted `roles/aiplatform.user`.
- */
-export async function gradeWithGemini(
-  question: string,
-  expectedAnswer: string,
-  rawTranscript: string,
-): Promise<GradeResult> {
+async function generateJson<T>(prompt: string, schema: object): Promise<T> {
   const model = getVertexAi().getGenerativeModel({
     model: GEMINI_MODEL,
     generationConfig: {
       responseMimeType: "application/json",
-      responseSchema: RESPONSE_SCHEMA,
+      responseSchema: schema,
     },
   });
 
-  const result = await model.generateContent(buildPrompt(question, expectedAnswer, rawTranscript));
+  const result = await model.generateContent(prompt);
   const text = result.response.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) {
     throw new HttpError(502, "Grading LLM returned no content");
   }
 
-  let parsed: GeminiGradeJson;
   try {
-    parsed = JSON.parse(text) as GeminiGradeJson;
+    return JSON.parse(text) as T;
   } catch {
     throw new HttpError(502, "Grading LLM returned malformed JSON");
   }
+}
 
+/**
+ * Phase 1 LLM call (ADR-0028 decision 3): PII-strip + normalize filler/disfluencies only, no
+ * grading judgment yet. Must complete before the client sees any transcript, since the sanitized
+ * (not raw) transcript is what gets displayed on screen.
+ */
+export async function sanitizeTranscript(rawTranscript: string): Promise<string> {
+  const parsed = await generateJson<SanitizeJson>(
+    buildSanitizePrompt(rawTranscript),
+    SANITIZE_RESPONSE_SCHEMA,
+  );
+  return parsed.sanitized_transcript;
+}
+
+/**
+ * Phase 2 LLM call (ADR-0028): grades the already-sanitized transcript. Runs after
+ * `response.sendChunk({ sanitizedTranscript })` has already gone out to the client, and its
+ * result is the function's final return value delivered as the stream's `StreamResponse.Result`.
+ */
+export async function gradeSanitizedTranscript(
+  question: string,
+  expectedAnswer: string,
+  sanitizedTranscript: string,
+): Promise<GradeResult> {
+  const parsed = await generateJson<GradeJson>(
+    buildGradePrompt(question, expectedAnswer, sanitizedTranscript),
+    GRADE_RESPONSE_SCHEMA,
+  );
   if (typeof parsed.grade !== "number" || !Number.isFinite(parsed.grade)) {
     throw new HttpError(502, "Grading LLM returned an invalid grade");
   }
-
   return {
-    sanitizedTranscript: parsed.sanitized_transcript,
     gradePercent: Math.max(0, Math.min(100, Math.round(parsed.grade))),
     feedback: parsed.feedback,
   };
