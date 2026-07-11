@@ -29,15 +29,11 @@ import kotlinx.serialization.Serializable
 
 @Serializable object SettingsGraph
 
-@Serializable object VoiceDebugGraph
-
 @Serializable object HomeRoot
 
 @Serializable object StudyRoot
 
 @Serializable object SettingsRoot
-
-@Serializable object VoiceDebugRoot
 
 @Composable
 fun FlashcardsNavGraph(

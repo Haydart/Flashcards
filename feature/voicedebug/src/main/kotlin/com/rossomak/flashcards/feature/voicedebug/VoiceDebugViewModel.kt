@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.presentation.voicedebug
+package com.rossomak.flashcards.feature.voicedebug
 
 import android.annotation.SuppressLint
 import android.media.AudioDeviceInfo
@@ -12,6 +12,8 @@ import com.rossomak.flashcards.core.voice.PcmPlayer
 import com.rossomak.flashcards.core.voice.SileroVoiceActivityDetector
 import com.rossomak.flashcards.core.voice.VoiceCaptureEngine
 import com.rossomak.flashcards.core.voice.VoiceCaptureEvent
+import com.rossomak.flashcards.core.voice.VoiceObfuscator
+import com.rossomak.flashcards.core.voice.WavEncoder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -37,6 +39,7 @@ class VoiceDebugViewModel @Inject constructor(
     private val audioRouteManager: AudioRouteManager,
     private val voiceActivityDetector: SileroVoiceActivityDetector,
     private val pcmPlayer: PcmPlayer,
+    private val voiceObfuscator: VoiceObfuscator,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(VoiceDebugScreenState())
@@ -145,12 +148,12 @@ class VoiceDebugViewModel @Inject constructor(
 
     fun onPlayObfuscatedClip() {
         if (rawClip.isEmpty()) return
-        if (obfuscatedClip.isEmpty()) obfuscatedClip = voiceCaptureEngine.obfuscate(rawClip)
+        if (obfuscatedClip.isEmpty()) obfuscatedClip = voiceObfuscator.obfuscate(rawClip)
         pcmPlayer.play(obfuscatedClip)
     }
 
     fun onRerandomizeObfuscation() {
-        voiceCaptureEngine.rerandomizeObfuscation()
+        voiceObfuscator.randomizeSessionShift()
         obfuscatedClip = ShortArray(0)
     }
 
@@ -160,8 +163,8 @@ class VoiceDebugViewModel @Inject constructor(
         _state.update { it.copy(isTranscribing = true) }
         viewModelScope.launch {
             try {
-                if (obfuscatedClip.isEmpty()) obfuscatedClip = voiceCaptureEngine.obfuscate(rawClip)
-                val wavBytes = voiceCaptureEngine.encodeWav(obfuscatedClip)
+                if (obfuscatedClip.isEmpty()) obfuscatedClip = voiceObfuscator.obfuscate(rawClip)
+                val wavBytes = WavEncoder.encode(obfuscatedClip, VoiceCaptureEngine.SAMPLE_RATE_HZ)
                 transcribeAndSanitize(wavBytes)
                     .onSuccess { transcript ->
                         _state.update { it.copy(transcriptionResult = transcript) }

@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.presentation.voicedebug
+package com.rossomak.flashcards.feature.voicedebug
 
 data class VoiceDebugScreenState(
     val micRouteLabel: String = "",
