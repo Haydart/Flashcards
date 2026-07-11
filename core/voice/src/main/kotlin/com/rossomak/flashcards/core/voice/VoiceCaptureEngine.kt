@@ -134,12 +134,6 @@ class VoiceCaptureEngine @Inject constructor(
         clip
     }
 
-    fun obfuscate(pcm: ShortArray): ShortArray = voiceObfuscator.obfuscate(pcm)
-
-    fun rerandomizeObfuscation() = voiceObfuscator.randomizeSessionShift()
-
-    fun encodeWav(pcm: ShortArray): ByteArray = WavEncoder.encode(pcm, SAMPLE_RATE_HZ)
-
     @RequiresPermission(android.Manifest.permission.RECORD_AUDIO)
     private suspend fun runCaptureLoop() {
         // A route change (BT connect/disconnect mid-session) can't be applied to a live AudioRecord,
