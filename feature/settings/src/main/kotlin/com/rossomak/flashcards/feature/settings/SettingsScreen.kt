@@ -25,17 +25,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.ui.composables.VoiceSettingsDialog
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import com.rossomak.flashcards.core.ui.showcase.Showcase
-import leakcanary.AppWatcher
-
-/**
- * Process-static sink used only to demonstrate LeakCanary in debug builds. Holding a hard
- * reference here keeps each watched object from becoming weakly reachable, so LeakCanary's
- * retained-object check (~5s after [AppWatcher.objectWatcher.expectWeaklyReachable]) reports it
- * as a leak without needing an actual Activity destroy/recreate to happen first.
- */
-private object LeakCanaryTestSink {
-    val leakedReferences = mutableListOf<Any>()
-}
 
 @Composable
 fun SettingsScreen(
@@ -72,15 +61,6 @@ fun SettingsScreen(
         showcaseIntent = showcaseIntent,
         onVoicePlaybackSettingsClick = viewModel::onVoicePlaybackSettingsClick,
         onSignOutClick = viewModel::onSignOutClick,
-        onTriggerMemoryLeakClick = if (BuildConfig.DEBUG) {
-            {
-                val leaked = Any()
-                LeakCanaryTestSink.leakedReferences.add(leaked)
-                AppWatcher.objectWatcher.expectWeaklyReachable(leaked, "Manually triggered from Settings screen")
-            }
-        } else {
-            null
-        },
     )
 }
 
@@ -91,7 +71,6 @@ private fun SettingsContent(
     showcaseIntent: Intent?,
     onVoicePlaybackSettingsClick: () -> Unit,
     onSignOutClick: () -> Unit,
-    onTriggerMemoryLeakClick: (() -> Unit)?,
 ) {
     val context = LocalContext.current
 
@@ -112,12 +91,6 @@ private fun SettingsContent(
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
-        if (onTriggerMemoryLeakClick != null) {
-            OutlinedButton(onClick = onTriggerMemoryLeakClick) {
-                Text(text = "Test LeakCanary (leak activity)")
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-        }
         OutlinedButton(onClick = onSignOutClick, enabled = !isSigningOut) {
             if (isSigningOut) {
                 CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)

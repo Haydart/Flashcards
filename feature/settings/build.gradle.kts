@@ -4,10 +4,6 @@ plugins {
 
 android {
     namespace = "com.rossomak.flashcards.feature.settings"
-
-    buildFeatures {
-        buildConfig = true
-    }
 }
 
 dependencies {
@@ -23,5 +19,4 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
-    debugImplementation(libs.leakcanary.android)
 }
