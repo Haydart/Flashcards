@@ -1,7 +1,5 @@
 package com.rossomak.flashcards.presentation.voicedebug
 
-import com.rossomak.flashcards.core.data.network.VoicePipelineDebugSettings
-
 data class VoiceDebugScreenState(
     val micRouteLabel: String = "",
     val playbackRouteLabel: String = "Idle",
@@ -16,13 +14,6 @@ data class VoiceDebugScreenState(
     val hasRawClip: Boolean = false,
     val isTranscribing: Boolean = false,
     val transcriptionResult: String? = null,
-    val gradeQuestion: String = "",
-    val gradeExpectedAnswer: String = "",
-    val gradeTranscript: String = "",
-    val isGrading: Boolean = false,
-    val gradeResultJson: String? = null,
     val isCheckingEntitlement: Boolean = false,
     val entitlementResult: String? = null,
-    val toggles: VoicePipelineDebugSettings.StageToggles = VoicePipelineDebugSettings.StageToggles(),
-    val isRealBackendConfigured: Boolean = false,
 )

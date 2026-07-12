@@ -1,65 +1,78 @@
 # Voice grading Cloud Functions
 
 Backend for the premium voice-answering pipeline. See `docs/design/premium-voice-grading-pipeline.md`
-for the full pipeline design and `docs/adr/0024-voice-grading-cloud-function-proxy.md` for why this
-is shaped as four separate functions. This file is the practical "how to set it up / how it works"
-reference; the ADR is the "why", kept short on purpose.
+for the full pipeline design, `docs/adr/0024-voice-grading-cloud-function-proxy.md` for the original
+proxy shape, and `docs/adr/0029-voice-grading-two-callables-payload-inferred-debug-mode.md` for the
+current shape (two callables, one grade function serving prod + debug via payload-inferred mode).
+This file is the practical "how to set it up / how it works" reference; the ADRs are the "why".
 
 ## Project
 
 Firebase project: `flashcards-8ad6d` (see `.firebaserc` at repo root). Region: `us-central1` for
 every function (`RUNTIME_OPTIONS.region` in `src/index.ts`).
 
+## Transport
+
+Both functions are Firebase **`onCall` callables** (ADR-0029) — not REST `onRequest`. The Android
+client talks to them via the Firebase Functions SDK (`FirebaseFunctions.getHttpsCallable(name)`),
+which resolves the endpoint from the initialized `FirebaseApp` (`google-services.json`) and attaches
+the caller's Firebase ID token automatically. There is **no** `VOICE_GRADING_BASE_URL`, no Retrofit,
+and no `Authorization` header to manage by hand — `request.auth` is populated (and verified) by the
+callable runtime, or the call is rejected `unauthenticated` before any code runs.
+
 ## Layout
 
 ```
 functions/
-  package.json / tsconfig.json      — Node 20, TypeScript, strict
-  src/index.ts                      — the 4 exported onRequest functions
-  src/lib/auth.ts                   — Firebase ID token verification (401 on failure)
-  src/lib/entitlement.ts            — Firestore entitlement read + gate (403 on failure)
-  src/lib/multipart.ts              — Busboy parsing of req.rawBody for the two audio endpoints
+  package.json / tsconfig.json      — Node 22, TypeScript, strict
+  src/index.ts                      — the 2 exported onCall functions
+  src/lib/entitlement.ts            — Firestore entitlement read (isPremiumUser)
   src/lib/elevenlabs.ts             — ElevenLabs Scribe STT call
-  src/lib/grading.ts                — Vertex AI Gemini sanitize+grade call
-  src/lib/httpError.ts              — HttpError(statusCode, message) thrown by any lib fn
+  src/lib/grading.ts                — Vertex AI Gemini sanitize + grade calls
+  src/lib/httpError.ts              — HttpError(statusCode, message) thrown by elevenlabs/grading libs
 ```
 
 `admin.initializeApp()` runs once at module load in `index.ts` (Application Default Credentials —
 no service account key needed inside the deployed function itself; that's only used locally for
 the Admin SDK scripts under `scripts/seed/` and one-off setup commands below).
 
-## Endpoint contract
+## Function contract
 
-Mirrors `core/data/.../network/VoiceGradingApi.kt` / `VoiceGradingRetrofitService.kt` exactly —
-if you change one side, change the other and re-check both.
+Mirrors `core/data/.../network/VoiceGradingApi.kt` / `RealVoiceGradingApi.kt`.
 
-| Function | Method | Body | Response | Auth | Entitlement gate |
-|---|---|---|---|---|---|
-| `entitlement` | GET | — | `{"is_premium": bool}` | required | n/a (this *is* the check) |
-| `transcribe` | POST | multipart: `audio` (`answer.wav`) | `{"transcript": string}` | required | required |
-| `sanitizeAndGrade` | POST | JSON: `{"question","expected_answer","transcript"}` | `{"sanitized_transcript","grade","feedback"}` | required | required |
-| `gradeVoiceAnswer` | POST | multipart: `audio`, `card_id`, `question`, `expected_answer` | `{"sanitized_transcript","grade","feedback"}` | required | required |
+### `entitlement`
 
-Auth: `Authorization: Bearer <Firebase ID token>` — the Android app's `FirebaseAuthTokenInterceptor`
-attaches this automatically once `VOICE_GRADING_BASE_URL` is configured (see repo-root
-`local.properties`). Every endpoint calls `requireAuthenticatedUid(req)` first; a missing/invalid
-token is a `401` before anything else runs (no ElevenLabs/Vertex call is ever made for an
-unauthenticated request — confirmed during setup: `curl` with no token returns `401` immediately).
+Server-authoritative premium check. No request payload. Returns `{ "is_premium": bool }` by reading
+`users/{uid}/entitlement/premium`. Rejects `unauthenticated` if no ID token. Its only current caller
+is the debug screen; kept as the seam a future proactive paywall gate hangs off (ADR-0029 §6).
 
-Entitlement gate: `transcribe`, `sanitizeAndGrade`, and `gradeVoiceAnswer` all call
-`requirePremiumEntitlement(uid)` right after auth, which reads `users/{uid}/entitlement/premium`
-and throws `403` if `isPremium !== true`. `entitlement` itself just reports the same flag without
-gating on it.
+### `transcribeAndGradeSpokenAnswer`
 
-`card_id` on `gradeVoiceAnswer` is accepted but not used server-side — it's there because the
-client's multipart body includes it (see `RetrofitVoiceGradingApi.toAudioPart()` and friends); the
-app is the one that persists `{cardId, sanitizedTranscript, gradePercent, feedback}` to Firestore
-after getting the response back, not this function.
+STT + sanitize (+ grade), streamed over one connection (ADR-0028): `response.sendChunk({ sanitized_transcript })`
+as soon as STT + sanitize finish, then a terminal `Result`. **The mode is inferred from the payload,
+not a flag** (ADR-0029 §3):
+
+| Payload | Terminal `Result` | Grade LLM |
+|---|---|---|
+| `audio_base64` + `question` + `expected_answer` (full mode) | `{ grade, feedback }` | runs |
+| `audio_base64` only (debug mode) | `{}` (empty) | skipped |
+
+Rules enforced server-side:
+- `audio_base64` is **always** required → `invalid-argument` if missing.
+- `question` + `expected_answer` are **both-or-neither** → exactly one present is `invalid-argument`.
+- Premium entitlement is required → `permission-denied` (mapped client-side to `VoiceGradingEntitlementException`).
+
+`card_id` is accepted but unused server-side — the client includes it and persists results itself
+(`{cardId, sanitizedTranscript, gradePercent, feedback}`), not this function.
+
+The Android client surfaces the two modes as two intent-revealing methods over this one function
+(ADR-0029 §4): `transcribeAndGradeSpokenAnswer(...)` (production, always grades) and
+`transcribeAndSanitize(wav)` (debug, rides the same callable with no question/answer and reads only
+the first streamed chunk).
 
 ## One-time setup (from a clean checkout)
 
-All commands below run from the repo root unless noted. No global `firebase-tools` install is
-needed — everything goes through `npx firebase-tools`.
+All commands below run from the repo root unless noted, via `npx firebase-tools`.
 
 1. **Install deps and typecheck**
    ```
@@ -84,36 +97,27 @@ needed — everything goes through `npx firebase-tools`.
    ```
    Click Enable. The function's own runtime service account
    (`<project-number>-compute@developer.gserviceaccount.com`, the GCP default compute SA — visible
-   in the deploy output) needs `roles/aiplatform.user` to actually call Gemini; on this project it
-   already had sufficient access via its default Editor-equivalent role, so no extra IAM grant was
-   needed. If a future deploy gets a Vertex AI `PERMISSION_DENIED`, that role is what to check/add
-   first (IAM & Admin → grant `roles/aiplatform.user` to that service account).
+   in the deploy output) needs `roles/aiplatform.user` to actually call Gemini. If a future deploy
+   gets a Vertex AI `PERMISSION_DENIED`, that role is what to check/add first.
 
-5. **Set the ElevenLabs API key as a secret** (never in `local.properties`, never in the app, never
-   committed anywhere — Secret Manager only):
+5. **Set the ElevenLabs API key as a secret** (never in the app, never committed — Secret Manager only):
    ```
    npx firebase-tools functions:secrets:set ELEVENLABS_API_KEY
    ```
-   Prompts for the value with hidden input. `src/index.ts` declares it via
-   `defineSecret("ELEVENLABS_API_KEY")` and only binds it to the two functions that actually call
-   ElevenLabs (`transcribe`, `gradeVoiceAnswer`) — `entitlement` and `sanitizeAndGrade` don't get it
-   injected at all, since they never need it.
+   `src/index.ts` declares it via `defineSecret("ELEVENLABS_API_KEY")` and binds it only to
+   `transcribeAndGradeSpokenAnswer` (the only function that calls ElevenLabs).
 
-6. **Build and deploy**
+6. **Build and deploy.** Renaming/removing a deployed function is a delete + create (Firebase has no
+   in-place rename), so explicitly delete the retired functions from the previous shape first:
    ```
-   cd functions && npm run build
-   cd .. && npx firebase-tools deploy --only functions
+   npx firebase-tools functions:delete gradeVoiceAnswer transcribe sanitizeAndGrade --force
+   cd functions && npm run build && cd .. && npx firebase-tools deploy --only functions
+   npx firebase-tools functions:list   # expect only: entitlement, transcribeAndGradeSpokenAnswer
    ```
-   First deploy will also silently enable several supporting APIs (Cloud Build, Artifact Registry,
-   Eventarc, Pub/Sub, Cloud Run, Secret Manager) and grant the runtime service account
-   `secretAccessor` on the ElevenLabs secret — all visible in the deploy log, nothing to do
-   manually. Deploy prints the four function URLs:
-   ```
-   https://us-central1-flashcards-8ad6d.cloudfunctions.net/{entitlement,transcribe,sanitizeAndGrade,gradeVoiceAnswer}
-   ```
+   (On a truly fresh project the `functions:delete` is a harmless no-op.)
 
-7. **Set the container-image cleanup policy** (one-time; otherwise old Cloud Build container images
-   accumulate storage cost forever):
+7. **Set the container-image cleanup policy** (one-time; otherwise old Cloud Build images accumulate
+   storage cost forever):
    ```
    npx firebase-tools functions:artifacts:setpolicy
    ```
@@ -122,23 +126,14 @@ needed — everything goes through `npx firebase-tools`.
    ```
    npx firebase-tools deploy --only firestore:rules
    ```
-   **Read `docs/adr/0024-voice-grading-cloud-function-proxy.md`'s Consequences section before
-   touching this file** — it replaced a blanket `allow read, write: if request.auth != null` that
-   had zero per-user scoping. If you add a new top-level or nested collection anywhere in the app,
-   it needs its own explicit `match` block here or it will silently 403/permission-deny with no
-   matching rule (default deny) — confirm the real Firestore path structure by grepping
-   `core/data/.../source/*.kt` for `.collection(...)` calls before writing the rule; don't guess the
-   nesting. (Cost of guessing wrong: an entire collection becomes unreadable app-wide until the next
-   rules deploy — this happened once during initial setup, `subcategories` was assumed nested under
-   `categories` when it's actually a flat top-level collection with a `categoryId` field.)
+   **Read `docs/adr/0024`'s Consequences section before touching this file.** Any new collection
+   needs its own explicit `match` block or it default-denies. Confirm real Firestore paths by
+   grepping `core/data/.../source/*.kt` for `.collection(...)` before writing a rule.
 
-9. **Entitlement doc for a test account.** Play Billing → Firestore sync is a separate design pass
-   (deferred, see design doc + ADR-0024); until it exists, populate the doc by hand for whichever
-   account you test with. Find the UID in
-   `https://console.firebase.google.com/project/flashcards-8ad6d/authentication/users`, then either
-   use the Firestore console UI to create `users/{uid}/entitlement/premium` with field
-   `isPremium: true` (boolean), or run this from the repo root (uses the existing
-   `firebase-service-account.json` Admin SDK credential already used by `scripts/seed/`):
+9. **Entitlement doc for a test account.** Play Billing → Firestore sync is deferred; until it
+   exists, populate the doc by hand. Find the UID in
+   `https://console.firebase.google.com/project/flashcards-8ad6d/authentication/users`, then create
+   `users/{uid}/entitlement/premium` with field `isPremium: true` (boolean) via the console, or:
    ```js
    node -e '
    const admin = require("./functions/node_modules/firebase-admin");
@@ -149,43 +144,41 @@ needed — everything goes through `npx firebase-tools`.
      .then(() => process.exit(0));
    '
    ```
+   **Credential handling.** Prefer Application Default Credentials
+   (`gcloud auth application-default login`, then drop the `credential:` arg) over a downloaded
+   `firebase-service-account.json`. If you must use a key file, keep it **outside the repo** or
+   ensure it is gitignored, never commit it, and delete/rotate it once the manual entitlement edit
+   is done — it grants full Admin SDK access to the project.
 
-10. **Point the app at the real backend.** In repo-root `local.properties` (gitignored):
-    ```
-    VOICE_GRADING_BASE_URL=https://us-central1-flashcards-8ad6d.cloudfunctions.net/
-    ```
-    Rebuild (`./gradlew assembleDebug`), open the debug-only 🛠️ Voice Debug tab, flip each stage's
-    real/fake toggle (disabled until the URL above is non-blank), test in order: entitlement (no
-    third-party cost) → transcription → sanitize+grade → a real study-session voice answer for the
-    full `gradeVoiceAnswer` path.
+10. **Point the app at the backend.** Nothing to configure — the app resolves the backend from
+    `google-services.json` (already load-bearing for Auth + Firestore). Confirm it points at
+    `flashcards-8ad6d` (project number 1044553396320). Rebuild (`./gradlew assembleDebug`), open the
+    debug-only 🛠️ Voice Debug tab, and test in order: entitlement (no third-party cost) →
+    transcribe + sanitize → a real study-session voice answer for the full streaming path.
 
 ## Local iteration
 
 - `npm run build:watch` inside `functions/` for a standing `tsc --watch`.
-- No Firebase emulator is wired up yet — every test today goes against the real deployed functions
-  via the debug screen or `curl`. Adding `firebase emulators:start` for local-only iteration on
-  `functions/src` would be a reasonable follow-up if the deploy round-trip becomes a bottleneck.
-- Quick manual auth-gate sanity check against the live deployment (no cost — rejected before any
-  paid API call):
-  ```
-  curl -s -o /dev/null -w "%{http_code}\n" https://us-central1-flashcards-8ad6d.cloudfunctions.net/entitlement
-  # -> 401
-  ```
+- No Firebase emulator is wired up yet (deferred, ADR-0029). Every test today goes against the real
+  deployed callables via the debug screen. The in-app fake/real toggles are gone — the fake now only
+  exists as a unit-test double (`core/data/src/test`).
 
 ## Redeploying after a code change
 
 ```
 cd functions && npm run build && cd .. && npx firebase-tools deploy --only functions
 ```
-Deploys all four; Firebase only actually updates the ones whose source changed. To redeploy a
-single function: `--only functions:transcribe` (etc.).
+Firebase only actually updates functions whose source changed. Single function:
+`--only functions:transcribeAndGradeSpokenAnswer`.
 
 ## Secrets and cost hygiene
 
-- `ELEVENLABS_API_KEY` lives only in Secret Manager, bound only to `transcribe` and
-  `gradeVoiceAnswer`. Rotate via `functions:secrets:set` again (creates a new version; old versions
-  are not auto-deleted — prune manually in Secret Manager console if that matters).
-- Set a per-key credit/usage cap on the ElevenLabs dashboard itself (key settings → usage
-  restriction) as a second line of defense independent of this function's own entitlement gate.
-- Gemini via Vertex AI bills to the same GCP project's normal billing — no separate cap mechanism
-  here beyond the entitlement gate and whatever budget alerts you set on the project.
+- `ELEVENLABS_API_KEY` lives only in Secret Manager, bound only to `transcribeAndGradeSpokenAnswer`.
+  Rotate via `functions:secrets:set` again (creates a new version; prune old versions manually).
+- Set a per-key credit/usage cap on the ElevenLabs dashboard as a second line of defense.
+- Gemini via Vertex AI bills to the project's normal billing — no separate cap beyond the
+  entitlement gate and whatever budget alerts you set on the project.
+- **Neither of these is a hard spend cap.** `isPremium` only gates *access* — a premium account can
+  still call the grading function without bound — and GCP budget alerts only *notify*, they never
+  stop billing or halt traffic. Before opening this to real users, add per-user request quotas / rate
+  limiting (and, ideally, an ElevenLabs hard credit cap) as the actual abuse-and-spend controls.

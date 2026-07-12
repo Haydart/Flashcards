@@ -9,7 +9,8 @@ import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
-import com.rossomak.flashcards.core.domain.usecase.GradeSpokenAnswerUseCase
+import com.rossomak.flashcards.core.domain.model.VoiceAnswerGradingEvent
+import com.rossomak.flashcards.core.domain.usecase.TranscribeAndGradeSpokenAnswerUseCase
 import com.rossomak.flashcards.core.voice.AudioRouteManager
 import com.rossomak.flashcards.core.voice.CaptureRouteType
 import com.rossomak.flashcards.core.voice.VoiceCaptureEngine
@@ -28,6 +29,9 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -36,6 +40,8 @@ enum class VoiceAnswerPhase { IDLE, WAITING_FOR_QUESTION, LISTENING, SPEECH_DETE
 data class VoiceAnswerState(
     val isEnabled: Boolean = false,
     val phase: VoiceAnswerPhase = VoiceAnswerPhase.IDLE,
+    /** Sanitized transcript, set as soon as it streams in — ahead of [lastGrade] (ADR-0028). */
+    val sanitizedTranscript: String? = null,
     val lastGrade: VoiceAnswerGrade? = null,
     val lastGradedCardId: String? = null,
     val captureRoute: CaptureRouteType = CaptureRouteType.NONE,
@@ -60,7 +66,7 @@ data class VoiceAnswerState(
  */
 class VoiceAnswerController @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val gradeSpokenAnswer: GradeSpokenAnswerUseCase,
+    private val transcribeAndGradeSpokenAnswer: TranscribeAndGradeSpokenAnswerUseCase,
     private val voiceCaptureEngine: VoiceCaptureEngine,
     private val audioRouteManager: AudioRouteManager,
 ) {
@@ -150,6 +156,7 @@ class VoiceAnswerController @Inject constructor(
         _state.update {
             it.copy(
                 phase = VoiceAnswerPhase.LISTENING,
+                sanitizedTranscript = null,
                 lastGrade = null,
                 lastGradedCardId = null,
                 error = null,
@@ -199,46 +206,60 @@ class VoiceAnswerController @Inject constructor(
         }
     }
 
+    /**
+     * Collects the streamed grading call (ADR-0028): [VoiceAnswerGradingEvent.TranscriptReady]
+     * updates [VoiceAnswerState.sanitizedTranscript] as soon as it arrives — ahead of, and
+     * independent from, the grade/feedback that follows on [VoiceAnswerGradingEvent.Graded].
+     */
     private suspend fun gradeUtterance(obfuscatedWav: ByteArray) {
         val card = activeCard ?: run {
             _state.update { it.copy(phase = VoiceAnswerPhase.WAITING_FOR_QUESTION) }
             return
         }
         _state.update { it.copy(phase = VoiceAnswerPhase.GRADING) }
-        gradeSpokenAnswer(
-            GradeSpokenAnswerUseCase.Params(
+        transcribeAndGradeSpokenAnswer(
+            TranscribeAndGradeSpokenAnswerUseCase.Params(
                 cardId = card.cardId,
                 question = card.questionText,
                 expectedAnswer = card.answerText,
                 obfuscatedAnswerWav = obfuscatedWav,
             )
-        ).onSuccess { grade ->
-            _state.update {
-                it.copy(
-                    phase = VoiceAnswerPhase.SPEAKING_NOTICE,
-                    lastGrade = grade,
-                    lastGradedCardId = card.cardId,
-                    error = null,
-                )
+        )
+            .onEach { event ->
+                when (event) {
+                    is VoiceAnswerGradingEvent.TranscriptReady ->
+                        _state.update { it.copy(sanitizedTranscript = event.sanitizedTranscript) }
+                    is VoiceAnswerGradingEvent.Graded -> {
+                        _state.update {
+                            it.copy(
+                                phase = VoiceAnswerPhase.SPEAKING_NOTICE,
+                                lastGrade = event.grade,
+                                lastGradedCardId = card.cardId,
+                                error = null,
+                            )
+                        }
+                        speakNotice(
+                            context.getString(
+                                R.string.study_session_voice_answer_grade_spoken_message,
+                                event.grade.gradePercent,
+                                event.grade.feedback,
+                            )
+                        )
+                    }
+                }
             }
-            speakNotice(
-                context.getString(
-                    R.string.study_session_voice_answer_grade_spoken_message,
-                    grade.gradePercent,
-                    grade.feedback,
-                )
-            )
-        }.onFailure { error ->
-            _state.update {
-                it.copy(
-                    phase = VoiceAnswerPhase.SPEAKING_NOTICE,
-                    error = error.message,
-                )
+            .catch { error ->
+                _state.update {
+                    it.copy(
+                        phase = VoiceAnswerPhase.SPEAKING_NOTICE,
+                        error = error.message,
+                    )
+                }
+                // No screen to look at in this UX — failure must be audible (design doc §Upload
+                // failure handling; silent-drop was explicitly rejected).
+                speakNotice(context.getString(R.string.study_session_voice_answer_failure_spoken_message))
             }
-            // No screen to look at in this UX — failure must be audible (design doc §Upload
-            // failure handling; silent-drop was explicitly rejected).
-            speakNotice(context.getString(R.string.study_session_voice_answer_failure_spoken_message))
-        }
+            .collect()
     }
 
     /**

@@ -169,6 +169,7 @@ class StudySessionViewModel @Inject constructor(
                     it.copy(
                         isVoiceAnswerEnabled = voiceAnswer.isEnabled,
                         voiceAnswerPhase = voiceAnswer.phase,
+                        voiceAnswerSanitizedTranscript = voiceAnswer.sanitizedTranscript,
                         lastVoiceAnswerGrade = voiceAnswer.lastGrade,
                         voiceAnswerError = voiceAnswer.error,
                         // Grading starts as soon as the utterance is captured, before the TTS

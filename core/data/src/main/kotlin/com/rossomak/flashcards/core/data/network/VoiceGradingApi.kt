@@ -1,34 +1,40 @@
 package com.rossomak.flashcards.core.data.network
 
 import com.rossomak.flashcards.core.data.model.EntitlementDto
-import com.rossomak.flashcards.core.data.model.SanitizeAndGradeRequestDto
-import com.rossomak.flashcards.core.data.model.TranscriptionDto
-import com.rossomak.flashcards.core.data.model.VoiceAnswerGradeDto
+import com.rossomak.flashcards.core.data.model.VoiceGradingStreamEventDto
+import kotlinx.coroutines.flow.Flow
 
 /**
- * Client-side contract of the Firebase Cloud Function proxy. The proxy verifies the Firebase
- * ID token and premium entitlement server-side, forwards the WAV to ElevenLabs Scribe, runs
- * the combined sanitize+grade LLM call, and never persists audio.
+ * Client-side contract of the Firebase Callable voice-grading backend (ADR-0029). One deployed
+ * function, `transcribeAndGradeSpokenAnswer`, serves both the production grade path and the debug
+ * transcribe+sanitize path — the mode is inferred server-side from the payload. The client
+ * surfaces the two modes as two intent-revealing methods so the mode is legible at the call site.
  *
- * [RetrofitVoiceGradingApi] talks to the real deployment; [FakeVoiceGradingApi] simulates it
- * with realistic behavior when credentials/infra are unavailable. [VoiceGradingApiRouter]
- * picks per stage. Swapping fake → real is a DI/config change only.
+ * [RealVoiceGradingApi] talks to the deployment via Firebase callables; [FakeVoiceGradingApi] is a
+ * test-only double (`core/data/src/test`). The proxy verifies the Firebase ID token and premium
+ * entitlement server-side, forwards the WAV to ElevenLabs Scribe, runs the sanitize then grade LLM
+ * calls, and never persists audio.
  */
 interface VoiceGradingApi {
 
-    /** Full pipeline call: obfuscated WAV in, `{sanitized_transcript, grade, feedback}` out. */
-    suspend fun gradeVoiceAnswer(
+    /**
+     * Full pipeline call, streamed over one Firebase Callable connection (ADR-0028): obfuscated
+     * WAV in, a [VoiceGradingStreamEventDto.TranscriptChunk] out as soon as STT + sanitize finish,
+     * then a [VoiceGradingStreamEventDto.Graded] out once grading finishes.
+     */
+    fun transcribeAndGradeSpokenAnswer(
         cardId: String,
         question: String,
         expectedAnswer: String,
         wavBytes: ByteArray,
-    ): VoiceAnswerGradeDto
+    ): Flow<VoiceGradingStreamEventDto>
 
-    /** STT step only. */
-    suspend fun transcribe(wavBytes: ByteArray): TranscriptionDto
-
-    /** Sanitize+grade LLM step only, no audio involved. */
-    suspend fun sanitizeAndGrade(request: SanitizeAndGradeRequestDto): VoiceAnswerGradeDto
+    /**
+     * Debug: transcribe + sanitize only. Rides the same callable with no question/expected_answer,
+     * so the server skips grading (ADR-0029 §3–4); returns the sanitized transcript from the first
+     * streamed chunk and ignores the empty terminal result.
+     */
+    suspend fun transcribeAndSanitize(wavBytes: ByteArray): Result<String>
 
     /** Server-side premium entitlement verdict for the calling user. */
     suspend fun checkEntitlement(): EntitlementDto

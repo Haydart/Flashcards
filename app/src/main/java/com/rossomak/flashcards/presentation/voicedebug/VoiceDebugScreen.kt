@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -24,9 +23,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -89,15 +86,7 @@ fun VoiceDebugScreen(
         onPlayObfuscatedClip = viewModel::onPlayObfuscatedClip,
         onRerandomizeObfuscation = viewModel::onRerandomizeObfuscation,
         onTranscribeClip = viewModel::onTranscribeClip,
-        onGradeQuestionChange = viewModel::onGradeQuestionChange,
-        onGradeExpectedAnswerChange = viewModel::onGradeExpectedAnswerChange,
-        onGradeTranscriptChange = viewModel::onGradeTranscriptChange,
-        onSanitizeAndGrade = viewModel::onSanitizeAndGrade,
         onCheckEntitlement = viewModel::onCheckEntitlement,
-        onSimulatePremiumToggle = viewModel::onSimulatePremiumToggle,
-        onUseRealTranscriptionToggle = viewModel::onUseRealTranscriptionToggle,
-        onUseRealGradingToggle = viewModel::onUseRealGradingToggle,
-        onUseRealEntitlementToggle = viewModel::onUseRealEntitlementToggle,
     )
 }
 
@@ -112,15 +101,7 @@ fun VoiceDebugContent(
     onPlayObfuscatedClip: () -> Unit,
     onRerandomizeObfuscation: () -> Unit,
     onTranscribeClip: () -> Unit,
-    onGradeQuestionChange: (String) -> Unit,
-    onGradeExpectedAnswerChange: (String) -> Unit,
-    onGradeTranscriptChange: (String) -> Unit,
-    onSanitizeAndGrade: () -> Unit,
     onCheckEntitlement: () -> Unit,
-    onSimulatePremiumToggle: (Boolean) -> Unit,
-    onUseRealTranscriptionToggle: (Boolean) -> Unit,
-    onUseRealGradingToggle: (Boolean) -> Unit,
-    onUseRealEntitlementToggle: (Boolean) -> Unit,
 ) {
     Column(
         modifier = modifier
@@ -144,11 +125,8 @@ fun VoiceDebugContent(
                 Button(onClick = onVadToggle) {
                     Text(
                         stringResource(
-                            if (state.isVadListening) {
-                                R.string.voice_debug_vad_stop_button
-                            } else {
-                                R.string.voice_debug_vad_start_button
-                            }
+                            if (state.isVadListening) R.string.voice_debug_vad_stop_button
+                            else R.string.voice_debug_vad_start_button
                         )
                     )
                 }
@@ -161,11 +139,8 @@ fun VoiceDebugContent(
                 Spacer(modifier = Modifier.size(8.dp))
                 Text(
                     text = stringResource(
-                        if (state.isSpeechDetected) {
-                            R.string.voice_debug_vad_speech_label
-                        } else {
-                            R.string.voice_debug_vad_silence_label
-                        }
+                        if (state.isSpeechDetected) R.string.voice_debug_vad_speech_label
+                        else R.string.voice_debug_vad_silence_label
                     ),
                     style = MaterialTheme.typography.labelMedium,
                 )
@@ -198,11 +173,8 @@ fun VoiceDebugContent(
                 Button(onClick = onRecordClip, enabled = !state.isRecordingClip) {
                     Text(
                         stringResource(
-                            if (state.isRecordingClip) {
-                                R.string.voice_debug_capture_recording_label
-                            } else {
-                                R.string.voice_debug_capture_record_button
-                            }
+                            if (state.isRecordingClip) R.string.voice_debug_capture_recording_label
+                            else R.string.voice_debug_capture_record_button
                         )
                     )
                 }
@@ -243,96 +215,24 @@ fun VoiceDebugContent(
             Button(onClick = onTranscribeClip, enabled = state.hasRawClip && !state.isTranscribing) {
                 Text(
                     stringResource(
-                        if (state.isTranscribing) {
-                            R.string.voice_debug_transcription_running_label
-                        } else {
-                            R.string.voice_debug_transcription_send_button
-                        }
+                        if (state.isTranscribing) R.string.voice_debug_transcription_running_label
+                        else R.string.voice_debug_transcription_send_button
                     )
                 )
             }
             state.transcriptionResult?.let { RawDataText(it) }
         }
 
-        DebugBlock(title = stringResource(R.string.voice_debug_grade_title)) {
-            OutlinedTextField(
-                value = state.gradeQuestion,
-                onValueChange = onGradeQuestionChange,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.voice_debug_grade_question_label)) },
-            )
-            OutlinedTextField(
-                value = state.gradeExpectedAnswer,
-                onValueChange = onGradeExpectedAnswerChange,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.voice_debug_grade_expected_answer_label)) },
-            )
-            OutlinedTextField(
-                value = state.gradeTranscript,
-                onValueChange = onGradeTranscriptChange,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.voice_debug_grade_transcript_label)) },
-            )
-            Button(onClick = onSanitizeAndGrade, enabled = !state.isGrading) {
-                Text(
-                    stringResource(
-                        if (state.isGrading) {
-                            R.string.voice_debug_grade_running_label
-                        } else {
-                            R.string.voice_debug_grade_send_button
-                        }
-                    )
-                )
-            }
-            state.gradeResultJson?.let { RawDataText(it) }
-        }
-
         DebugBlock(title = stringResource(R.string.voice_debug_entitlement_title)) {
-            LabeledSwitch(
-                label = stringResource(R.string.voice_debug_entitlement_simulate_premium_label),
-                checked = state.toggles.simulatePremiumEntitlement,
-                onCheckedChange = onSimulatePremiumToggle,
-            )
             Button(onClick = onCheckEntitlement, enabled = !state.isCheckingEntitlement) {
                 Text(
                     stringResource(
-                        if (state.isCheckingEntitlement) {
-                            R.string.voice_debug_entitlement_checking_label
-                        } else {
-                            R.string.voice_debug_entitlement_check_button
-                        }
+                        if (state.isCheckingEntitlement) R.string.voice_debug_entitlement_checking_label
+                        else R.string.voice_debug_entitlement_check_button
                     )
                 )
             }
             state.entitlementResult?.let { RawDataText(it) }
-        }
-
-        DebugBlock(title = stringResource(R.string.voice_debug_toggles_title)) {
-            if (!state.isRealBackendConfigured) {
-                Text(
-                    text = stringResource(R.string.voice_debug_toggles_backend_unconfigured_label),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-            LabeledSwitch(
-                label = stringResource(R.string.voice_debug_toggle_transcription_label),
-                checked = state.toggles.useRealTranscription,
-                enabled = state.isRealBackendConfigured,
-                onCheckedChange = onUseRealTranscriptionToggle,
-            )
-            LabeledSwitch(
-                label = stringResource(R.string.voice_debug_toggle_grading_label),
-                checked = state.toggles.useRealGrading,
-                enabled = state.isRealBackendConfigured,
-                onCheckedChange = onUseRealGradingToggle,
-            )
-            LabeledSwitch(
-                label = stringResource(R.string.voice_debug_toggle_entitlement_label),
-                checked = state.toggles.useRealEntitlement,
-                enabled = state.isRealBackendConfigured,
-                onCheckedChange = onUseRealEntitlementToggle,
-            )
         }
     }
 }
@@ -389,25 +289,4 @@ private fun RawDataText(text: String) {
         style = MaterialTheme.typography.bodySmall,
         fontFamily = FontFamily.Monospace,
     )
-}
-
-@Composable
-private fun LabeledSwitch(
-    label: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    enabled: Boolean = true,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = label,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodySmall,
-        )
-        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
-    }
-    Spacer(modifier = Modifier.height(2.dp))
 }
