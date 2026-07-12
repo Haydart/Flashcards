@@ -104,9 +104,18 @@ Home empty state CTA ("Start your first session") triggers a tab switch to Study
 
 ## Preview Study Session Screen
 
-Full-screen modal that precedes every Study Session. Receives `categoryId`, `categoryName`, `subcategoryIds`, `subcategoryNames`, `filterTagIds: List<String>` (empty by default), and `isQuickSession: Boolean` (false by default). Displays a preview of the session scope: card count, topic count (multi-topic sessions only), estimated duration, and the active Tag filter when `filterTagIds` is non-empty. Below the stats row: radio-card group for **Study Mode** selection (Rated | Fast), each with a short description. Default: Rated. "Start session" button launches the session with the selected mode. A "Re-randomize" button (multi-topic and Quick sessions only) re-runs card selection over the same pool. Future: card count slider.
+Full-screen modal that precedes every Study Session. Receives `categoryId`, `categoryName`, `subcategoryIds`, `subcategoryNames`, `filterTagIds: List<String>` (empty by default), and `isQuickSession: Boolean` (false by default). A read-only hero shows session scope: card count, estimated duration, and topic count (multi-topic sessions only). Below it, a **persistent no-scrim bottom sheet** presents each adjustable setting as a summary row — each shows its current value and opens a focused modal edit sheet (with scrim). Rows and visibility:
 
-This is the only place Study Mode is chosen.
+- **Mode** — Rated | Fast (default Rated). Always shown.
+- **Voice answering** — On | Off. Rated sessions only.
+- **Voice** — TTS voice + speed. Shown for Fast, or Rated + Voice answering on; hidden for manual Rated.
+- **Length** — session card count. Always shown.
+- **Filters** — merged tags + difficulty (ADR-0022 shape; tags OR-within, AND-combined with a difficulty range). Tag facet appears for single-subcategory sessions only; multi-topic sessions filter by difficulty only. Always shown.
+- **Sort** — Default | Easiest first | Hardest first. Always shown.
+
+Each edit popup carries a "keep as default" checkbox (persists a global default; unchecked is session-scoped), except the Filters popup (tags + difficulty always session-scoped). "Start session" launches the session with the chosen settings; a "Re-randomize" button (multi-topic and Quick sessions only) re-runs card selection over the same pool. See [ADR-0030](docs/adr/0030-preview-session-settings-sheet.md) and [docs/design/study-session-preview-sheet.md](docs/design/study-session-preview-sheet.md).
+
+This is the only place Study Mode (and, up front, Voice answering) is chosen.
 
 **Card selection algorithm (runs on Preview Study Session Screen):**
 1. Fetch all Flashcards for the given `subcategoryIds`
@@ -329,4 +338,4 @@ Branded Material 3 — full M3 `ColorScheme` kept intact, with an additive `Bran
 - Admin UI for content management
 - Gamification (streaks, XP)
 - Performance-weighted Quick Session (MVP uses random selection)
-- Session parameters (Flashcard count override, difficulty, time limit)
+- Session time limit (Flashcard count override + difficulty filter are now first-class on the Preview Study Session Screen — see ADR-0030)

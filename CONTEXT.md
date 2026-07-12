@@ -69,7 +69,7 @@ The user's self-assessment after viewing an answer in a **Rated** Study Session.
 _Avoid_: Score, Grade, Answer, Response
 
 **Voice Answering**:
-An in-session toggle, Rated Study Sessions only, that replaces manual reveal-and-self-rate with hands-free listen-transcribe-grade: the shared Fast-mode TTS engine reads the question, the app listens for a spoken answer, transcribes and grades it, and the resulting grade band becomes the Flashcard's **Rating** exactly as a manual tap would. Off by default; toggled after the session has already started (never chosen on the Preview Study Session Screen). Enabling it auto-enables question TTS through the same engine Fast mode uses, but stops after the question — it never auto-progresses to reading the answer.
+A Rated-Study-Sessions-only mechanic that replaces manual reveal-and-self-rate with hands-free listen-transcribe-grade: the shared Fast-mode TTS engine reads the question, the app listens for a spoken answer, transcribes and grades it, and the resulting grade band becomes the Flashcard's **Rating** exactly as a manual tap would. Off by default. Selectable up front as a row on the **Preview Study Session Screen**'s settings sheet (ADR-0030), and still toggleable in-session after the session has started. Enabling it auto-enables question TTS through the same engine Fast mode uses, but stops after the question — it never auto-progresses to reading the answer.
 _Avoid_: Voice mode (voice is the delivery mechanism, not a Study Mode — see Study Mode's avoid list), Voice grading (grading is the mechanism inside the feature, not the feature's name)
 
 **Terminal State**:
@@ -106,7 +106,7 @@ The flow a user goes through to start a Study Session. All entry points route th
 _Avoid_: Session setup, Session wizard
 
 **Preview Study Session Screen**:
-A full-screen preview shown before every Study Session begins. Displays session scope (card count, topic count, estimated duration, active Tag filter). Below the stats row: a radio-card group for **Study Mode** selection (Rated | Fast), each with a short description. Default selection: Rated. Contains a "Start session" button that launches the session with the selected mode, and a "Re-randomize" button (multi-topic and Quick sessions only). Only place in the app where Study Mode is chosen.
+A full-screen preview shown before every Study Session begins. A read-only hero shows session scope (card count, topic count, estimated duration). Below it, a persistent **no-scrim bottom sheet** presents each adjustable session setting as a summary row — Mode (Rated | Fast), Voice answering (Rated only), Voice/TTS (when TTS applies), Length, Filters, Sort — each showing its current value and opening a focused modal edit sheet; plus a "Start session" button and a "Re-randomize" button (multi-topic and Quick sessions only). Only place in the app where Study Mode (and, up front, Voice answering) is chosen. See ADR-0030.
 _Avoid_: Pre-start Screen (retired name), Pre-session screen, Session config, Mode picker
 
 **Persistent Mastery**:

@@ -16,6 +16,8 @@ Grade-percent bands, used both for feedback tone and as the future Failed/Partia
 
 Voice answering is toggled in-session (mic icon/switch after the session has already started, existing consent + mic-permission flow), not chosen upfront on the Preview Study Session Screen alongside the Rated/Fast mode selector.
 
+> **Amended by [ADR-0030](0030-preview-session-settings-sheet.md):** voice answering is now *also* selectable up front, as a row in the Preview Study Session Screen's settings sheet. The in-session toggle remains; the "never chosen upfront on the Preview screen" restriction in the paragraph above no longer holds. All other decisions in this ADR stand.
+
 ## Context
 
 The original implementation gated `VoiceAnswerController`'s activation on `StudySessionViewModel.isVoiceActive`, which only ever becomes `true` via `onVoiceAutoStart()` — itself only triggered `when route.studyMode == StudyMode.FAST`. Net effect: voice answering was reachable only in Fast mode and completely unreachable in Rated mode — the exact opposite of the intended use case (phone-in-pocket hands-free *rating*, which only makes sense where a rating step exists at all — Fast mode has none, per ADR-0016: "Fast mode has no Rating step... There is no Correct/Failed outcome per card").
