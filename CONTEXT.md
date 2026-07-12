@@ -57,11 +57,11 @@ _Avoid_: Quiz, Session alone (ambiguous with auth session)
 **Study Mode**:
 The interaction mechanic of a Study Session. Two values:
 - **Rated**: user reveals each answer manually, then self-rates (Failed / Partial / Correct) — or enables **Voice Answering** in-session for hands-free listen-and-grade instead. Flashcards reaching a Terminal State are written to Firestore.
-- **Fast**: system TTS reads the question aloud, pauses, reads the answer aloud, then auto-advances. User controls playback via transport controls (pause / play / skip / speed slider). Playback continues with the screen off or app backgrounded. No Ratings, no Attempts, no Terminal States.
+- **Fast**: cards advance question → reveal answer → next, either manually (tap to reveal, tap to advance) or with read-aloud enabled — system TTS reads the question aloud, pauses, reads the answer aloud, then auto-advances hands-free. User controls playback via transport controls (pause / play / skip / speed slider) when read-aloud is on. Playback continues with the screen off or app backgrounded. No Ratings, no Attempts, no Terminal States.
 _Avoid_: Automatic mode, Passive mode, Browse mode, Voice mode (voice is the delivery mechanism, not the mode name)
 
 **Attempt**:
-A single presentation of a Flashcard to the user within a **Rated** Study Session. Each Flashcard has a maximum of 3 Attempts per session. Does not apply to Fast Study Sessions.
+A single presentation of a Flashcard to the user within a **Rated** Study Session. Each Flashcard has a maximum number of Attempts per session, user-configurable in Settings (default 3, max 5). Does not apply to Fast Study Sessions.
 _Avoid_: Turn, Round, Try
 
 **Rating**:
@@ -73,7 +73,7 @@ An in-session toggle, Rated Study Sessions only, that replaces manual reveal-and
 _Avoid_: Voice mode (voice is the delivery mechanism, not a Study Mode — see Study Mode's avoid list), Voice grading (grading is the mechanism inside the feature, not the feature's name)
 
 **Terminal State**:
-A Flashcard's final outcome in a **Rated** Study Session. A Flashcard reaches a Terminal State when it receives a Correct Rating (any Attempt) or exhausts all 3 Attempts without a Correct Rating. Terminal states written to Firestore: **Mastered** (Correct) or **Failed** (not Correct in 3 Attempts). Partial on the 3rd Attempt resolves to Failed. Does not apply to Fast Study Sessions.
+A Flashcard's final outcome in a **Rated** Study Session. A Flashcard reaches a Terminal State when it receives a Correct Rating (any Attempt) or exhausts its configured Attempts limit without a Correct Rating. Terminal states written to Firestore: **Mastered** (Correct) or **Failed** (not Correct within the limit). Partial on the final Attempt resolves to Failed. Does not apply to Fast Study Sessions.
 _Avoid_: Final state, End state, Result
 
 **Mastered**:

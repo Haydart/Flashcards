@@ -140,7 +140,7 @@ A session is scoped to one Category and one or more Subcategories. Card selectio
 - QUESTION / ANSWER labels change color on reveal
 - Overflowing content (long text, code blocks) scrolls inside the card; bottom sheet stays pinned
 
-**Attempt label:** "Attempt X of 3" visible in both question and answer states
+**Attempt label:** "Attempt X of N" visible in both question and answer states (N = user's configured Attempts limit, Settings — default 3, max 5)
 
 **Progress indicator:** **"X/N mastered"** — X increments immediately on "Correct" tap (before card transitions away); N = initial Flashcard count
 
@@ -154,12 +154,12 @@ A session is scoped to one Category and one or more Subcategories. Card selectio
 
 - **Correct** (any Attempt): Flashcard exits queue → Mastered, X increments
 - **Partial** or **Failed**: Flashcard re-inserted with Attempt count incremented
-- Each Flashcard has a maximum of 3 Attempts
-- On 3rd Attempt: Correct → Mastered; Partial or Failed → Terminal State = Failed
+- Each Flashcard has a maximum of N Attempts (user-configurable in Settings, default 3, max 5)
+- On the Nth (final) Attempt: Correct → Mastered; Partial or Failed → Terminal State = Failed
 
 ### Session Termination
 
-- **Natural end**: queue empties (all Flashcards Mastered or exhausted 3 Attempts) — Terminal State Flashcards written to Firestore, session written to Recents
+- **Natural end**: queue empties (all Flashcards Mastered or exhausted their Attempts limit) — Terminal State Flashcards written to Firestore, session written to Recents
 - **Premature exit** (X button → confirm dialog): Terminal State Flashcards reached so far are written to Firestore, session written to Recents; Flashcards still in the queue are treated as unseen
 - App kill during session: session is lost, no data saved, no resumption
 
@@ -179,8 +179,9 @@ A session is scoped to one Category and one or more Subcategories. Card selectio
 ## Settings Screen
 
 - App preferences: session Flashcard count (default 20), etc.
+- Attempts per card (default 3, max 5, user-configurable — planned, not yet implemented)
 - Permissions
-- Voice settings (language/voice selection — deferred; TTS playback itself is implemented)
+- Voice settings (voice selection + playback speed — implemented, `VoiceSettingsDialog`)
 - Not for Category or Subcategory management
 - **My Flags** entry → navigates to Flags Screen
 
