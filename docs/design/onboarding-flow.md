@@ -62,7 +62,7 @@ Splash → Login → Onboarding (8 screens) → Main
   - Session size stays at its existing Settings-only default (20 cards), not surfaced during onboarding — reduces screen count, avoids onboarding bloat.
 
 ### 5. Daily goal + XP (new screen — did not exist in original 9)
-- **Why added**: `docs/design/progress-dashboard.md` and `docs/design/session-stats-data-model.md` both spec Daily Goal as "set during onboarding (skippable)," but no such screen existed in the original mockup. XP/leveling (`docs/design/xp-leveling-system.md`) was also entirely absent from onboarding despite Card Mastery (Screen 4) being the #1 XP source.
+- **Why added**: `docs/design/progress-dashboard.md` and `docs/design/session-stats-data-model.md` both spec Daily Goal as "set during onboarding (skippable)," but no such screen existed in the original mockup. XP/leveling (`docs/design/xp-leveling-system.md`) was also entirely absent from onboarding despite Card Mastery (Screen 3) being the #1 XP source.
 - Combined into one screen rather than two — goal-setting is the functional half, XP/streak is a one-line payoff for why the goal matters.
 - Position: fifth in the flow, right after Session modes (Screen 4). No longer directly adjacent to Mastery (Screen 3) after the reorder above, but the XP teaser still conceptually traces back to it — Card Mastery is the XP system's top source — so the link survives one screen removed.
 - Eyebrow: YOUR GOAL
@@ -90,8 +90,8 @@ Splash → Login → Onboarding (8 screens) → Main
 
 ### 8. All set / Start studying — formerly Screen 9
 - Recap badges rework: must reflect the actual decisions the user made during onboarding, in the order they made them — not a mix of real decisions and silent defaults.
-  - **Before**: "20 cards/session" (never user-set — session size stays a silent Settings-only default, per Screen 3's note) + "Rated by default" + "2 favorites". Recap showed an untouched default while omitting a setting the user had just actively configured.
-  - **After**: three badges, one per real decision, ordered by when the user made it — **Study mode** (Screen 3: "Rated by default" / "Fast by default") → **Daily goal** (Screen 5: e.g. "20 min/day") → **Favorites** (Screen 7: "N favorites"). Session-size badge removed entirely.
+  - **Before**: "20 cards/session" (never user-set — session size stays a silent Settings-only default, per Screen 4's note) + "Rated by default" + "2 favorites". Recap showed an untouched default while omitting a setting the user had just actively configured.
+  - **After**: three badges, one per real decision, ordered by when the user made it — **Study mode** (Screen 4: "Rated by default" / "Fast by default") → **Daily goal** (Screen 5: e.g. "20 min/day") → **Favorites** (Screen 7: "N favorites"). Session-size badge removed entirely.
 - Headline/subcopy/CTA unchanged ("You're all set, {name}!" / "Start studying").
 
 ## Open items (pending further grilling)
@@ -100,5 +100,5 @@ Splash → Login → Onboarding (8 screens) → Main
 
 ## Decided against (for now)
 
-- **Voice playback (TTS) settings screen — cut entirely.** Formerly Screen 6: a "Default voice" picker + "Default speed" slider, functionally identical to the `VoiceSettingsDialog` already in Settings. Confirmed real/implemented (not a fake-feature issue like Shuffle-order), but picking a specific TTS voice before the user has ever heard the app talk is a premature decision, and it contradicted Screen 3's own precedent of keeping granular config (session size, shuffle) out of onboarding. Not crucial to convey at this point in the flow — cut, no replacement screen. Voice playback itself is still taught implicitly via Screen 3's Fast-mode card and hands-free banner; fine-tuning the voice stays a Settings-only action.
+- **Voice playback (TTS) settings screen — cut entirely.** Formerly Screen 6: a "Default voice" picker + "Default speed" slider, functionally identical to the `VoiceSettingsDialog` already in Settings. Confirmed real/implemented (not a fake-feature issue like Shuffle-order), but picking a specific TTS voice before the user has ever heard the app talk is a premature decision, and it contradicted Screen 4's own precedent of keeping granular config (session size, shuffle) out of onboarding. Not crucial to convey at this point in the flow — cut, no replacement screen. Voice playback itself is still taught implicitly via Screen 4's Fast-mode card and hands-free banner; fine-tuning the voice stays a Settings-only action.
 - **Reminder notifications**: no onboarding screen added. Feature is NYI — asking for a notification permission tied to a feature that does nothing yet is permission fatigue for zero payoff, and revoking + re-asking later is worse UX than asking once when the feature is real. **Revisit this decision as soon as reminder notifications land in the app in any shape** — add a permission + preferred-time screen then, likely positioned near Screen 5 (Daily goal), since "we'll remind you before your streak breaks" is the natural framing.
