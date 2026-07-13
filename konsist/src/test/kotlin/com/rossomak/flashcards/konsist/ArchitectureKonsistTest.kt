@@ -48,4 +48,14 @@ class ArchitectureKonsistTest {
             .filter { koClass -> koClass.annotations.any { it.name == "HiltViewModel" } }
             .assertTrue { it.name.endsWith("ViewModel") }
     }
+
+    @Test
+    fun `core modules never import feature modules`() {
+        projectScope
+            .files
+            .filter { it.path.contains("/core/") && it.path.contains("/src/") }
+            .assertTrue { file ->
+                file.imports.none { import -> import.name.startsWith("com.rossomak.flashcards.feature.") }
+            }
+    }
 }
