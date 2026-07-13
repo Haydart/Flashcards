@@ -115,7 +115,7 @@ Full-screen modal that precedes every Study Session. Receives `categoryId`, `cat
 
 Each edit popup carries a "keep as default" checkbox (persists a global default; unchecked is session-scoped), except the Filters popup (tags + difficulty always session-scoped). "Start session" launches the session with the chosen settings; a "Re-randomize" button (multi-topic and Quick sessions only) re-runs card selection over the same pool. See [ADR-0030](docs/adr/0030-preview-session-settings-sheet.md) and [docs/design/study-session-preview-sheet.md](docs/design/study-session-preview-sheet.md).
 
-This is the only place Study Mode (and, up front, Voice answering) is chosen.
+This is the only place Study Mode (and, up front, Voice answering) is chosen for a concrete session — onboarding and the Settings screen only set the persisted default preference, neither starts a session. The "keep as default" checkbox on each Preview popup (row 116) is what lets this screen also update that persisted default, without leaving session scope.
 
 **Card selection algorithm (runs on Preview Study Session Screen):**
 1. Fetch all Flashcards for the given `subcategoryIds`
@@ -149,7 +149,7 @@ A session is scoped to one Category and one or more Subcategories. Card selectio
 - QUESTION / ANSWER labels change color on reveal
 - Overflowing content (long text, code blocks) scrolls inside the card; bottom sheet stays pinned
 
-**Attempt label:** "Attempt X of N" visible in both question and answer states (N = user's configured Attempts limit, Settings — default 3, max 5)
+**Attempt label:** "Attempt X of N" visible in both question and answer states (N = user's configured Attempts limit, Settings — default 3, max 5) — planned, not yet implemented
 
 **Progress indicator:** **"X/N mastered"** — X increments immediately on "Correct" tap (before card transitions away); N = initial Flashcard count
 
@@ -159,7 +159,7 @@ A session is scoped to one Category and one or more Subcategories. Card selectio
 
 **Flag icon:** outline flag icon in the top-right corner of the card (always outline regardless of existing flag state). Tapping opens a dialog with three options: **Retire**, **Rework**, **Cancel**. Confirming either action upserts `users/{uid}/flaggedCards/{cardId}`. The card continues in the session queue — no suppression.
 
-### Re-insertion Rules
+### Re-insertion Rules (planned, not yet implemented — current code advances to next card on any Rating, no re-insertion or Attempt tracking)
 
 - **Correct** (any Attempt): Flashcard exits queue → Mastered, X increments
 - **Partial** or **Failed**: Flashcard re-inserted with Attempt count incremented

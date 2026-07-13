@@ -106,7 +106,7 @@ The flow a user goes through to start a Study Session. All entry points route th
 _Avoid_: Session setup, Session wizard
 
 **Preview Study Session Screen**:
-A full-screen preview shown before every Study Session begins. A read-only hero shows session scope (card count, topic count, estimated duration). Below it, a persistent **no-scrim bottom sheet** presents each adjustable session setting as a summary row — Mode (Rated | Fast), Voice answering (Rated only), Voice/TTS (when TTS applies), Length, Filters, Sort — each showing its current value and opening a focused modal edit sheet; plus a "Start session" button and a "Re-randomize" button (multi-topic and Quick sessions only). Only place in the app where Study Mode (and, up front, Voice answering) is chosen. See ADR-0030.
+A full-screen preview shown before every Study Session begins. A read-only hero shows session scope (card count, topic count, estimated duration). Below it, a persistent **no-scrim bottom sheet** presents each adjustable session setting as a summary row — Mode (Rated | Fast), Voice answering (Rated only), Voice/TTS (when TTS applies), Length, Filters, Sort — each showing its current value and opening a focused modal edit sheet; plus a "Start session" button and a "Re-randomize" button (multi-topic and Quick sessions only). Only place in the app where Study Mode (and, up front, Voice answering) is chosen for a concrete session — onboarding and the Settings screen only set the persisted default, they don't start a session. Each Preview setting popup (except Filters) also carries a "keep as default" checkbox to update that persisted default from here. See ADR-0030.
 _Avoid_: Pre-start Screen (retired name), Pre-session screen, Session config, Mode picker
 
 **Persistent Mastery**:
