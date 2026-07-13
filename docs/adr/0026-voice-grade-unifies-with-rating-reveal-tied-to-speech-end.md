@@ -2,7 +2,7 @@
 
 ## Decision
 
-Once the Rating/Attempt/Terminal-State pipeline (ADR-0016) exists, a Voice Answering grade writes a **Rating** exactly like a manual self-rating tap — same Attempt/Terminal-State/Mastery/XP effects, using the grade-band mapping already fixed by ADR-0031 (Failed < 40, Partial 40-79, Correct ≥ 80). This resolves ADR-0031's deferred follow-up #1: voice-graded and manually-rated Attempts are the same kind of Attempt, not two parallel tracks.
+Once the Rating/Attempt/Terminal-State pipeline exists (not yet designed — ADR-0016 covers only Rated-vs-Fast mastery *scoping*, not this pipeline's shape), a Voice Answering grade writes a **Rating** exactly like a manual self-rating tap — same Attempt/Terminal-State/Mastery/XP effects, using the grade-band mapping already fixed by ADR-0031 (Failed < 40, Partial 40-79, Correct ≥ 80). This resolves ADR-0031's deferred follow-up #1: voice-graded and manually-rated Attempts are the same kind of Attempt, not two parallel tracks.
 
 Answer-reveal in voice-on Rated is tied to the **end of the user's spoken answer** (the `LISTENING`/`SPEECH_DETECTED` → `GRADING` transition), not to the end of question-TTS. The user only sees the answer text once their own answer is already locked in.
 
