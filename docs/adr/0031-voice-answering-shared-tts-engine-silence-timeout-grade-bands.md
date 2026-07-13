@@ -34,6 +34,6 @@ A bug surfaced during the original implementation: `VoiceAnswerController.start(
 - `functions/src/lib/grading.ts`'s Gemini prompt needs updating to: instruct inclusion of the full acceptable answer in feedback when the grade is Failed/Partial, and keep Correct feedback to a short affirmation.
 - Grade-to-band mapping needs to live somewhere shared enough that both feedback-content logic and the rating-write logic (ADR-0026) reuse it without drift.
 - Explicit follow-ups, not built:
-  1. Wiring the auto-grade into actual Terminal-state/mastery/XP persistence (ADR-0016) — depends on that system existing at all, for any session type. Resolved in shape by ADR-0026; not yet implemented.
+  1. Wiring the auto-grade into actual Terminal-state/mastery/XP persistence (not yet designed — no ADR number; ADR-0016 covers only Rated-vs-Fast mastery scoping) — depends on that system existing at all, for any session type. Resolved in shape by ADR-0026; not yet implemented.
   2. Silence-timeout handling upgraded from flat skip to "re-prompt the question once before skipping."
   3. Surfacing the 8s silence timeout as a user-configurable preference in Settings.
