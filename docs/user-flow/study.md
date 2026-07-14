@@ -45,29 +45,25 @@ flowchart TD
     TapStartComposite --> PreviewStudySession
 
     %% ── Subcategory Details ───────────────────────────────────────
-    SubcatDetails(SUBCATEGORY DETAILS SCREEN\nFlashcard list · collapsible items)
-    SubcatDetails --> TapFilterIcon[/Tap filter icon\ndot badge when ≥1 tag active/]
-    SubcatDetails --> TapStartSession[/Tap Start Session — app bar/]
-    SubcatDetails --> TapFAB[/FAB — Create Private Flashcard/]
-    SubcatDetails --> TapMultiselectToggle[/Multiselect toggle — bottom toolbar/]
+    SubcatDetails(SUBCATEGORY DETAILS SCREEN\nFlashcard list · collapsible items\nApp bar: back · bookmark · overflow)
+    SubcatDetails --> TapFilterIcon[/Tap filter icon — bottom toolbar\nbadge dot when non-default/]
+    SubcatDetails --> TapSortIcon[/Tap sort icon — bottom toolbar\nbadge dot when non-default/]
+    SubcatDetails --> TapStartSession[/Tap Start Session — trailing FAB/]
+    SubcatDetails --> TapFAB[/Add(+) icon — Create Private Flashcard/]
     SubcatDetails --> SubcatAddShortcut[/⋮ → Add to home screen/]
 
     SubcatAddShortcut --> ShortcutPinDialog
 
-    TapFilterIcon --> TagFilterDialog(TAG FILTER DIALOG\nSelect All · Unselect All\nTag chips + Private chip\nOR semantics · applies on close\nno Apply button)
-    TagFilterDialog -->|dismiss| SubcatDetails
+    TapFilterIcon --> FilterSheet(FILTER SHEET\nTags — Select All · Unselect All\nchips + Private chip · OR semantics\n+ Difficulty RangeSlider 1–10 · AND with tags\napplies on close · no Apply button)
+    FilterSheet -->|dismiss| SubcatDetails
+
+    TapSortIcon --> SortMenu(SORT MENU\nDefault · Easiest first · Hardest first\nreorders list only)
+    SortMenu -->|select| SubcatDetails
 
     TapStartSession -->|filterTagIds = active tags| PreviewStudySession
 
     TapFAB --> CreateCard(CREATE PRIVATE FLASHCARD SCREEN\nQuestion · Answer · Tags)
     CreateCard -->|Save| SubcatDetails
-
-    TapMultiselectToggle --> CardMultiselect(SUBCATEGORY DETAILS\nmultiselect active)
-    CardMultiselect --> SelectCards[/Select ≥1 flashcards/]
-    SelectCards --> BulkRetire[/Tap Retire/]
-    SelectCards --> BulkRework[/Tap Rework/]
-    BulkRetire -->|Flag upserted: RETIRE| SubcatDetails
-    BulkRework -->|Flag upserted: REWORK| SubcatDetails
 ```
 
 ## Session
@@ -88,15 +84,15 @@ flowchart TD
     ModeChoice -->|Fast| FastSession
 
     %% ── Rated Session ─────────────────────────────────────────────
-    RatedSession(STUDY SESSION — RATED\nX/N mastered · Attempt X of 3\nShield icon on mastery defense cards)
+    RatedSession(STUDY SESSION — RATED\nX/N mastered · Attempt X of N\nN = Settings-configured Attempts limit, default 3\nShield icon on mastery defense cards)
     RatedSession --> ShowAnswer[/Tap 'Show Answer' or swipe up/]
     ShowAnswer --> AnswerRevealed(Answer state)
     AnswerRevealed --> Rate[/Rate: Failed · Partial · Correct/]
     Rate --> RateOutcome{Outcome?}
 
     RateOutcome -->|"Correct (any attempt)"| CardMastered[Mastered · X++\nauto-advance]
-    RateOutcome -->|"Partial or Failed\nattempt < 3"| ReInsert[Re-inserted · attempt++\nauto-advance]
-    RateOutcome -->|"Partial or Failed\nattempt = 3"| TerminalFailed[Terminal Failed\nauto-advance]
+    RateOutcome -->|"Partial or Failed\nattempt < N"| ReInsert[Re-inserted · attempt++\nauto-advance]
+    RateOutcome -->|"Partial or Failed\nattempt = N"| TerminalFailed[Terminal Failed\nauto-advance]
 
     CardMastered & ReInsert & TerminalFailed --> QueueCheck{Queue empty?}
     QueueCheck -->|no| RatedSession
@@ -108,12 +104,12 @@ flowchart TD
     TapMore --> ExtCtxDialog(EXTENDED CONTEXT DIALOG\nexplanation · code · references)
     ExtCtxDialog -->|dismiss| AnswerRevealed
 
-    %% Flag dialog (Rated)
+    %% Report a problem (Rated)
     RatedSession --> TapFlag[/Tap flag icon\noutline · top-right of card/]
-    TapFlag --> FlagDialog(FLAG DIALOG\nRetire · Rework · Cancel)
-    FlagDialog -->|Retire or Rework| FlagUpsert[Flag upserted in Firestore\ncard stays in queue]
-    FlagDialog -->|Cancel| RatedSession
-    FlagUpsert --> RatedSession
+    TapFlag --> ReportSheet(REPORT A PROBLEM SHEET\n6 toggleable reasons · Cancel · Submit)
+    ReportSheet -->|Submit ≥1 reason| CurationUpsert[Curation Actions upserted to Firestore\ncard stays in queue]
+    ReportSheet -->|Cancel| RatedSession
+    CurationUpsert --> RatedSession
 
     %% Premature exit (Rated)
     RatedSession --> TapX1[/Tap X — top-left/]
@@ -139,12 +135,12 @@ flowchart TD
     TapMoreFast --> ExtCtxFast(EXTENDED CONTEXT DIALOG\nVoice pauses silently at between-card silence\nAuto-advances 500ms after dismiss\nNo auto-resume if user had manually paused)
     ExtCtxFast -->|dismiss| FastSession
 
-    %% Flag dialog (Fast)
+    %% Report a problem (Fast)
     FastSession --> TapFlagFast[/Tap flag icon/]
-    TapFlagFast --> FlagDialogFast(FLAG DIALOG\nRetire · Rework · Cancel)
-    FlagDialogFast -->|Retire or Rework| FlagUpsertFast[Flag upserted in Firestore\ncard stays in queue]
-    FlagDialogFast -->|Cancel| FastSession
-    FlagUpsertFast --> FastSession
+    TapFlagFast --> ReportSheetFast(REPORT A PROBLEM SHEET\n6 toggleable reasons · Cancel · Submit)
+    ReportSheetFast -->|Submit ≥1 reason| CurationUpsertFast[Curation Actions upserted to Firestore\ncard stays in queue]
+    ReportSheetFast -->|Cancel| FastSession
+    CurationUpsertFast --> FastSession
 
     %% Premature exit (Fast)
     FastSession --> TapX2[/Tap X — top-left/]
