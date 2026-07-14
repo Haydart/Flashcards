@@ -14,7 +14,7 @@ Splash → Login → Onboarding (8 screens) → Main
 - **Onboarding-seen flag**: stored in local DataStore, not Firestore. Device-scoped, not uid-scoped.
   - Consequence (accepted): same device + new account login → onboarding skipped. New device + same account → onboarding shown again.
 - **Future guest mode**: build on Firebase Anonymous Auth, not a separate local-only mode. Anonymous sign-in still returns a non-null uid, so it satisfies `SplashViewModel`'s existing `getCurrentAuthUser() != null` check, ADR-0002's sign-out `popUpTo<AuthedGraph>` logic, and Firestore rules (`request.auth != null`, no provider check) without any rework. This keeps Login-before-Onboarding valid even after guest mode ships — a future anonymous user still has a uid by the time onboarding's Favorites screen runs.
-  - Side finding (unrelated to onboarding, flagged for separate follow-up): `firestore.rules` only has explicit rules for `users/{uid}/voiceAnswers` and `users/{uid}/curationRequests`. `favorites`, `recentSessions`, `progress`, `privateCards`, `flaggedCards` have no explicit rule → default-deny. Needs its own investigation.
+  - Side finding (unrelated to onboarding, flagged for separate follow-up): `firestore.rules` only has explicit rules for `users/{uid}/voiceAnswers` and `users/{uid}/curationRequests`. `favorites`, `recentSessions`, `progress`, `privateCards` have no explicit rule → default-deny. Needs its own investigation.
 
 ## Screens
 

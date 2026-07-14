@@ -80,20 +80,12 @@ _Avoid_: Final state, End state, Result
 The Terminal State of a Flashcard that received a Correct Rating within a **Rated** Study Session.
 _Avoid_: Completed, Passed, Correct (Correct is the Rating that causes Mastered, not a synonym)
 
-**Flag**:
-A user-submitted signal that a Flashcard needs admin attention. One Flag per Flashcard per User; mutable (overwritable). Two action values: **Retire** (card should be deleted — too obscure or irrelevant) and **Rework** (card should be edited — imprecise or poorly worded). Flags are stored at `users/{uid}/flaggedCards/{cardId}`. No personal suppression — flagged Flashcards still appear in Study Sessions. Managed via the **Flags Screen**.
-_Avoid_: Report, Suggest, Propose, Mark-for-deletion
-
-**Flag Action**:
-The intent carried by a Flag. Values: **Retire** (delete the Flashcard from the global pool) or **Rework** (edit the Flashcard for quality). Chosen by the User at flag time; changeable later from the Flags Screen.
-_Avoid_: Flag type, Flag reason, Flag status
-
 **Curation Request**:
-A debug-only developer signal that a global Flashcard needs a specific content fix. Stored at `users/{uid}/curationRequests/{cardId}`. One document per card; multiple Curation Actions can be active simultaneously. Distinct from Flags — Curation Requests are consumed by admin sync scripts and never shown in the Flags Screen. Only present in debug builds.
-_Avoid_: Flag, Report, Curation Flag
+A user-submitted signal that a global Flashcard needs a specific content fix, raised via the in-session flag icon's **"Report a problem"** sheet (Rated and Fast alike). Stored at `users/{uid}/curationRequests/{cardId}`. One document per card; multiple Curation Actions can be active simultaneously, each independently toggleable — unchecking an action withdraws it, and the document is deleted once the last action is removed. No suppression — a flagged Flashcard still appears in Study Sessions. No management/withdraw screen exists; withdrawal happens only by reopening the report sheet on that card. Consumed by admin sync scripts. See [ADR-0017](docs/adr/0017-curation-report-system.md).
+_Avoid_: Flag, Flag Action, Curation Flag
 
 **Curation Action**:
-A specific fix directive attached to a Curation Request. Values: `DIFFICULTY_TOO_EASY` (AI should raise difficulty), `DIFFICULTY_TOO_HARD` (AI should lower difficulty), `DELETE` (card is duplicate or worthless), `BACKTICK_REDO` (inline-code formatting is wrong), `NEEDS_CODE_EXAMPLE` (answer needs a code block), `FULL_REDO` (factually wrong or structurally broken). `DIFFICULTY_TOO_EASY` and `DIFFICULTY_TOO_HARD` are mutually exclusive. All other actions can coexist.
+A specific fix directive attached to a Curation Request. Values: `DIFFICULTY_TOO_EASY` (raise difficulty), `DIFFICULTY_TOO_HARD` (lower difficulty), `DELETE` (card is duplicate or worthless), `BACKTICK_REDO` (inline-code formatting is wrong), `NEEDS_CODE_EXAMPLE` (answer needs a code block), `FULL_REDO` (factually wrong or structurally broken). `DIFFICULTY_TOO_EASY` and `DIFFICULTY_TOO_HARD` are mutually exclusive. All other actions can coexist. Presented to the user as: "Too easy," "Too hard," "Duplicate or low quality," "Formatting looks broken," "Needs a code example," "Needs a full rewrite."
 _Avoid_: Flag Action, Curation Type, Curation Flag Action
 
 ### Activities
