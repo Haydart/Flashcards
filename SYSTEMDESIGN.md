@@ -113,8 +113,9 @@ This is the only place Study Mode (and, up front, Voice answering) is chosen for
 **Card selection algorithm (runs on Preview Study Session Screen):**
 1. Fetch all Flashcards for the given `subcategoryIds`
 2. If `filterTagIds` is non-empty: filter to cards where `card.tags` intersects `filterTagIds` (OR semantics — a card qualifies if it carries any of the active Tags)
-3. Apply scoring and selection (MVP: random shuffle; target: performance-weighted sort → pick top N — see "Flashcard Selection Algorithm" below for the scoring formula)
-4. Pass resolved `cardIds` to `StudySession`; presentation order within the session is then set independently by the Preview screen's Sort row (Default/Easiest/Hardest), not by this selection step
+3. Filter to cards where `card.difficulty` falls within the selected difficulty range (inclusive on both ends), AND-combined with the tag filter
+4. Apply scoring and selection (MVP: random shuffle; target: performance-weighted sort → pick top N — see "Flashcard Selection Algorithm" below for the scoring formula)
+5. Pass resolved `cardIds` to `StudySession`; presentation order within the session is then set independently by the Preview screen's Sort row (Default/Easiest/Hardest), not by this selection step
 
 `filterTagIds` is only ever non-empty for single-subcategory sessions launched from Subcategory Details. All other entry points (Quick Session, fast-start, Composite) pass `filterTagIds = emptyList()`.
 
@@ -209,11 +210,11 @@ Not for Category or Subcategory management.
 
 Reached via the flag icon on both Rated and Fast session cards (top-right). Lets a user flag the current Flashcard for a specific content fix without leaving the session.
 
-- **Dialog**: lists all 6 Curation Actions with icon + label ("Too easy," "Too hard," "Duplicate or low quality," "Formatting looks broken," "Needs a code example," "Needs a full rewrite"). Each shows active state (already reported on this card). Tapping toggles the action; unchecking withdraws it. Dialog stays open — multiple actions can be set per card per session.
+- **Dialog**: lists all 6 Curation Actions with icon + label ("Too easy," "Too hard," "Duplicate or low quality," "Formatting looks broken," "Needs a code example," "Needs a full rewrite"). Each shows active state (already reported on this card). Tapping toggles the checkbox locally; unchecking withdraws it. Dialog stays open — multiple actions can be set per card per session. Plus Cancel/Submit.
 - **State loading**: batch-fetched lazily on first flag-icon tap for all cards in the session deck (`whereIn` in chunks of 30). Cached in `StudySessionViewModel` for the session.
-- **Writes**: optimistic — local cache updated immediately, Firestore written in background. Failure: cache reverted, snackbar error shown.
-- **Doc deletion**: when all actions are removed from a card, the Firestore document is deleted.
-- **No management screen**: Curation Requests are consumed only by admin sync scripts; withdrawing a reason is done only by reopening this dialog and unchecking it.
+- **Writes**: on Submit — the checked Curation Actions are upserted to Firestore in one write; Cancel discards local toggle changes. Failure: snackbar error shown.
+- **Doc deletion**: when all actions are removed from a card and submitted, the Firestore document is deleted.
+- **No management screen**: Curation Requests are consumed only by admin sync scripts; withdrawing a reason is done only by reopening this dialog, unchecking it, and submitting.
 
 See [ADR-0017](docs/adr/0017-curation-report-system.md).
 

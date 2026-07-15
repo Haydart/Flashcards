@@ -4,13 +4,14 @@
 
 Any user can flag a Flashcard for a content fix via the flag icon on a study session card (Rated and
 Fast alike). Tapping it opens a **"Report a problem"** sheet listing 6 Curation Actions the user can
-toggle on/off for the current card. Actions are stored at `users/{uid}/curationRequests/{cardId}` as
-a map of action key → `{ flaggedAt: Timestamp }`. Multiple actions can be active on a single card
-simultaneously, each independently toggleable — unchecking one withdraws it, and the document is
-deleted once the last action is removed. Reported Flashcards are **not suppressed** — they continue
-appearing in Study Sessions normally. Curation Requests are consumed by admin sync scripts; there is
-no user-facing management or withdraw screen — withdrawing a reason is done only by reopening the
-sheet on that card and unchecking it.
+toggle on/off for the current card, plus Cancel/Submit. Toggling only updates local sheet state;
+Submit writes the checked actions to `users/{uid}/curationRequests/{cardId}` as a map of action key →
+`{ flaggedAt: Timestamp }` in one write, Cancel discards the local changes. Multiple actions can be
+active on a single card simultaneously, each independently toggleable — unchecking one and submitting
+withdraws it, and the document is deleted once the last action is removed. Reported Flashcards are
+**not suppressed** — they continue appearing in Study Sessions normally. Curation Requests are
+consumed by admin sync scripts; there is no user-facing management or withdraw screen — withdrawing a
+reason is done only by reopening the sheet on that card, unchecking it, and submitting.
 
 ## Context
 
@@ -58,7 +59,7 @@ noise in the sync script's query results. Delete doc on last action removal.
 - `CurationAction` values: `DIFFICULTY_TOO_EASY`, `DIFFICULTY_TOO_HARD`, `DELETE`, `BACKTICK_REDO`, `NEEDS_CODE_EXAMPLE`, `FULL_REDO`. Presented to users as: "Too easy," "Too hard," "Duplicate or low quality," "Formatting looks broken," "Needs a code example," "Needs a full rewrite."
 - `DIFFICULTY_TOO_EASY` and `DIFFICULTY_TOO_HARD` are mutually exclusive — map key semantics enforce this (writing one overwrites the other). All other actions can coexist.
 - Report state is loaded lazily on first flag-icon tap via a batched `whereIn` query (chunks of 30 due to Firestore limit) and cached in `StudySessionViewModel` for the session.
-- Writes are optimistic: local cache updated immediately, Firestore written in background, snackbar error + cache revert on failure.
+- Writes happen on Submit: checked Curation Actions are upserted to Firestore in one write; Cancel discards local toggle changes; snackbar error shown on write failure.
 - `CurationRepository` is the sole interface for this concern — separate from `FlashcardRepository`.
 - No management screen: Curation Requests are invisible to users anywhere outside the report sheet itself.
 - No bulk report action anywhere in the app (e.g. Subcategory Details has no multiselect report toolbar).
