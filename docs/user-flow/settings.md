@@ -20,7 +20,7 @@ flowchart TD
     VoiceSettings --> VoiceDialog(VOICE SETTINGS DIALOG\nvoice selection + playback speed\nimplemented)
     VoiceDialog -->|dismiss| Settings
 
-    Settings --> VoiceAnsweringDefault{{Voice answering default — Rated\nOn | Off · premium-gated, live\nmirrors Preview screen's\n"keep as default" checkbox\nNYI}}
+    Settings --> VoiceAnsweringDefault[Voice answering default — Rated\nOn | Off · premium-gated, live\nreal server-side entitlement enforcement\nADR-0024/0029\nmirrors Preview screen's\n"keep as default" checkbox]
     Settings --> ReadAloudDefault{{Read-aloud/auto-play default — Fast\nmirrors Preview screen's\n"keep as default" checkbox\nNYI}}
 
     %% ── Notifications ────────────────────────────────────────────

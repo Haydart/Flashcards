@@ -68,14 +68,14 @@ flowchart TD
 
 ## Session
 
-> Study Mode selection happens on the Preview Study Session Screen; a session routed with Fast mode auto-starts voice playback (ADR-0004).
+> Study Mode selection happens on the Preview Study Session Screen; Fast mode is manual tap-to-reveal/advance by default, with read-aloud as an opt-in toggle (Voice row) that auto-starts voice playback (ADR-0004).
 >
-> **Mastery Defense (Rated only):** At Preview Study Session card selection time, up to 10% of the resolved pool is silently filled with previously mastered cards from the same scope. These appear in session with a small shield icon. No user interaction required; transparent to the user.
+> **Mastery Defense (Rated only) — NYI:** design only (see [docs/design/persistent-card-mastery.md](../design/persistent-card-mastery.md)), not in SYSTEMDESIGN.md's current Card Selection Algorithm or Firestore Schema. Planned: at Preview Study Session card selection time, up to 10% of the resolved pool is silently filled with previously mastered cards from the same scope, shown with a small shield icon, no user interaction required.
 
 ```mermaid
 flowchart TD
 
-    %% Legend: (Screen)  [/Action/]  {Decision}  ([Entry/Exit])
+    %% Legend: (Screen)  [/Action/]  {Decision}  ([Entry/Exit])  {{NYI}}
 
     %% ── Preview Study Session Screen ──────────────────────────────────────────
     PreviewStudySession(PREVIEW STUDY SESSION SCREEN\nScope preview · card count · estimated duration\nStudy Mode: Rated or Fast\nStart Session button)
@@ -84,17 +84,14 @@ flowchart TD
     ModeChoice -->|Fast| FastSession
 
     %% ── Rated Session ─────────────────────────────────────────────
-    RatedSession(STUDY SESSION — RATED\nX/N mastered · Attempt X of N\nN = Settings-configured Attempts limit, default 3\nShield icon on mastery defense cards)
+    RatedSession(STUDY SESSION — RATED\nX/N mastered)
     RatedSession --> ShowAnswer[/Tap 'Show Answer' or swipe up/]
     ShowAnswer --> AnswerRevealed(Answer state)
     AnswerRevealed --> Rate[/Rate: Failed · Partial · Correct/]
-    Rate --> RateOutcome{Outcome?}
+    Rate --> TerminalAny[Terminal State written · any rating\nauto-advance\ncurrent code: no re-insertion or Attempt tracking]
+    TerminalAny -.-> AttemptsNYI{{Attempt X of N · re-insertion on\nPartial/Failed below Attempts limit\nMastery Defense shield icon on defended cards\nNYI}}
 
-    RateOutcome -->|"Correct (any attempt)"| CardMastered[Mastered · X++\nauto-advance]
-    RateOutcome -->|"Partial or Failed\nattempt < N"| ReInsert[Re-inserted · attempt++\nauto-advance]
-    RateOutcome -->|"Partial or Failed\nattempt = N"| TerminalFailed[Terminal Failed\nauto-advance]
-
-    CardMastered & ReInsert & TerminalFailed --> QueueCheck{Queue empty?}
+    TerminalAny --> QueueCheck{Queue empty?}
     QueueCheck -->|no| RatedSession
     QueueCheck -->|yes| WriteFull[Write to Firestore:\nTerminal States + session record\nisPartial = false]
     WriteFull --> Summary
@@ -119,13 +116,15 @@ flowchart TD
     WritePartial1 --> Summary
 
     %% ── Fast Session ──────────────────────────────────────────────
-    FastSession(STUDY SESSION — FAST\nTTS auto-play · no ratings · no mastery)
-    %% Controls available during Fast session — no navigation change:
+    FastSession(STUDY SESSION — FAST\nmanual tap-to-reveal/advance by default\nread-aloud opt-in · no ratings · no mastery)
+    FastSession --> ManualAdvance[/Tap to reveal answer\ntap to advance/]
+    ManualAdvance --> FastQueueCheck{Queue empty?}
+    %% Controls available when read-aloud is on — no navigation change:
     %% pause/play · skip-next · skip-previous · speed slider 0.5×–2×
     %% Show Answer: interrupts Q utterance, reads A immediately
     %% Playback survives screen-off/app-background via foreground MediaSession service
-    FastSession --> TtsLoop[TTS: Q → 1.5s pause → A → 2.5s pause → auto-advance]
-    TtsLoop --> FastQueueCheck{Queue empty?}
+    FastSession -->|read-aloud on| TtsLoop[TTS: Q → 1.5s pause → A → 2.5s pause → auto-advance]
+    TtsLoop --> FastQueueCheck
     FastQueueCheck -->|no| FastSession
     FastQueueCheck -->|yes| WriteFast[Write to Firestore:\nsession record · isPartial = false\nno card mastery written]
     WriteFast --> Summary
