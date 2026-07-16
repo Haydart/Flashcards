@@ -2,21 +2,21 @@
 
 ## Decision
 
-Once the Rating/Attempt/Terminal-State pipeline (ADR-0016) exists, a Voice Answering grade writes a **Rating** exactly like a manual self-rating tap — same Attempt/Terminal-State/Mastery/XP effects, using the grade-band mapping already fixed by ADR-0025 (Failed < 40, Partial 40-79, Correct ≥ 80). This resolves ADR-0025's deferred follow-up #1: voice-graded and manually-rated Attempts are the same kind of Attempt, not two parallel tracks.
+Once the Rating/Attempt/Terminal-State pipeline exists (not yet designed — ADR-0016 covers only Rated-vs-Fast mastery *scoping*, not this pipeline's shape), a Voice Answering grade writes a **Rating** exactly like a manual self-rating tap — same Attempt/Terminal-State/Mastery/XP effects, using the grade-band mapping already fixed by ADR-0031 (Failed < 40, Partial 40-79, Correct ≥ 80). This resolves ADR-0031's deferred follow-up #1: voice-graded and manually-rated Attempts are the same kind of Attempt, not two parallel tracks.
 
 Answer-reveal in voice-on Rated is tied to the **end of the user's spoken answer** (the `LISTENING`/`SPEECH_DETECTED` → `GRADING` transition), not to the end of question-TTS. The user only sees the answer text once their own answer is already locked in.
 
-Once `SPEAKING_NOTICE` begins, the grade band and feedback text render on screen alongside the spoken notice. The no-answer/silence-skip case (8s timeout, ADR-0025) gets visually distinct treatment from a real graded result — both share `VoiceAnswerPhase.SPEAKING_NOTICE`, distinguished by `VoiceAnswerState.lastGrade == null` (skip) vs non-null (graded); no new phase enum value.
+Once `SPEAKING_NOTICE` begins, the grade band and feedback text render on screen alongside the spoken notice. The no-answer/silence-skip case (8s timeout, ADR-0031) gets visually distinct treatment from a real graded result — both share `VoiceAnswerPhase.SPEAKING_NOTICE`, distinguished by `VoiceAnswerState.lastGrade == null` (skip) vs non-null (graded); no new phase enum value.
 
 ## Context
 
-ADR-0025 deliberately stopped short of wiring the voice grade into any persistence, since no Rating/Attempt/Terminal-State system exists in this codebase yet for *any* input method, manual or voice. This ADR is the target-design counterpart, written while designing the full Rated-mode mockups (rating buttons, Attempt counter, Mastered progress header) that also don't exist yet — it fixes the shape voice grading unifies into once that system is built, so the two efforts aren't designed independently and then found to disagree.
+ADR-0031 deliberately stopped short of wiring the voice grade into any persistence, since no Rating/Attempt/Terminal-State system exists in this codebase yet for *any* input method, manual or voice. This ADR is the target-design counterpart, written while designing the full Rated-mode mockups (rating buttons, Attempt counter, Mastered progress header) that also don't exist yet — it fixes the shape voice grading unifies into once that system is built, so the two efforts aren't designed independently and then found to disagree.
 
 Separately, cross-referencing the shipped `feat/voice-answering` code against the mockups surfaced two gaps: `isAnswerRevealed` auto-derives from Fast mode's TTS phase (`StudySessionViewModel.kt:130`) but has no equivalent branch for Rated's `VoiceAnswerPhase`, so the answer never auto-reveals in voice-on Rated today. And `SPEAKING_NOTICE` is reused for both the graded-feedback notice and the silence-timeout skip notice with identical UI — audio-only differentiation, which the mockup work chose to add a visual distinction for.
 
 ## Alternatives considered
 
-**Keep voice grade permanently outside Terminal-State/Mastery** (ADR-0025's original deferred stance, kept as a permanent property rather than a temporary gap) — rejected. Once a Rating/Attempt/Mastery system exists at all, having one input method silently not count is worse than not building voice answering yet — it would make the feature's grade feel cosmetic, undermining its stated purpose (hands-free rating).
+**Keep voice grade permanently outside Terminal-State/Mastery** (ADR-0031's original deferred stance, kept as a permanent property rather than a temporary gap) — rejected. Once a Rating/Attempt/Mastery system exists at all, having one input method silently not count is worse than not building voice answering yet — it would make the feature's grade feel cosmetic, undermining its stated purpose (hands-free rating).
 
 **Auto-reveal on question-TTS-end**, mirroring Fast mode exactly — rejected. Fast mode has no rating step, so early reveal costs nothing there. Rated's grading premise is "graded on what you actually said" — revealing the reference answer while the user is still mid-utterance risks them adjusting their spoken answer having glimpsed it, defeating the point of capturing an unprompted response.
 

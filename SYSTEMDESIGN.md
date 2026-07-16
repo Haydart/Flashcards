@@ -22,8 +22,7 @@ Root NavHost
     │   ├── ProgressGraph (nested graph)
     │   │   └── ProgressRoot
     │   └── SettingsGraph (nested graph)
-    │       ├── SettingsRoot
-    │       └── FlagsScreen
+    │       └── SettingsRoot
     ├── CategoryDetails(categoryId, categoryName)                    ← full-screen, no bottom nav; shared by Home + Study
     ├── SubcategoryDetails(categoryId, categoryName, subcategoryId, subcategoryName)  ← full-screen, no bottom nav; shared by Home + Study
     ├── PreviewStudySession(categoryId, categoryName, subcategoryIds, subcategoryNames, filterTagIds, isQuickSession)
@@ -90,29 +89,33 @@ Home empty state CTA ("Start your first session") triggers a tab switch to Study
 ## Subcategory Details Screen
 
 - Lists all Flashcards belonging to the Subcategory as collapsible items (collapsed: question + tag chips; expanded: + answer)
-- App bar includes:
-  - **"Start Session"** button → Preview Study Session Screen with `filterTagIds` = currently active Tags → single-subcategory Study Session begins
-  - **Filter icon button** (top-right) — opens the Tag filter dialog; shows a dot badge when ≥1 Tag is active
-- **Tag filter dialog** (modal overlay, no Apply button — selections apply on close):
-  - Header row: **"Select All"** and **"Unselect All"** actions, separated from the tag list by a divider
-  - Staggered grid of chips below the divider: every Tag present on this Subcategory's Flashcards (derived `distinct(card.tags)`) plus a **"Private"** chip (the derived Private flag)
-  - Multi-select with **OR** semantics — active Tags filter both the visible Flashcard list and the Study Session pool
-- FAB → create Private Flashcard
-- **Bottom toolbar** (always visible):
-  - Default mode: Start Session button + multiselect toggle icon (bottom-left)
-  - **Multiselect mode** (activated by multiselect toggle): checkboxes appear on each Flashcard item; bottom toolbar shows **Retire** and **Rework** action buttons; tapping either flags all selected Flashcards with that Flag Action (upserts `users/{uid}/flaggedCards/{cardId}` for each)
+- App bar: back navigation + bookmark action + overflow menu (placeholder today for a near-future dynamic launcher shortcut item, see `docs/design/launcher-shortcuts.md`)
+- **Bottom toolbar** (always visible, floating): Filter icon, Sort icon, Add(+) icon (create Private Flashcard), then a trailing extended-pill FAB, "Start Session" → Preview Study Session Screen with `filterTagIds` = currently active Tags → single-subcategory Study Session begins. See [ADR-0022](docs/adr/0022-subcategory-details-filter-sort-toolbar.md).
+  - **Filter** — single entry point opening one sheet with Tags (multi-select, OR semantics, chips derived `distinct(card.tags)` plus a **"Private"** chip) and a Difficulty `RangeSlider` (1–10); the two facets AND-combine. Active Tags/difficulty filter both the visible Flashcard list and the Study Session pool. Badge dot when non-default.
+  - **Sort** — menu with **Default | Easiest first | Hardest first**, mutually exclusive; reorders the visible list only, never changes which/how many cards are shown. Badge dot when non-default.
+- Filtering to zero results is a designed-but-not-yet-implemented empty state (clear-filters action, Start-session FAB disabled).
 
 ## Preview Study Session Screen
 
-Full-screen modal that precedes every Study Session. Receives `categoryId`, `categoryName`, `subcategoryIds`, `subcategoryNames`, `filterTagIds: List<String>` (empty by default), and `isQuickSession: Boolean` (false by default). Displays a preview of the session scope: card count, topic count (multi-topic sessions only), estimated duration, and the active Tag filter when `filterTagIds` is non-empty. Below the stats row: radio-card group for **Study Mode** selection (Rated | Fast), each with a short description. Default: Rated. "Start session" button launches the session with the selected mode. A "Re-randomize" button (multi-topic and Quick sessions only) re-runs card selection over the same pool. Future: card count slider.
+Full-screen modal that precedes every Study Session. Receives `categoryId`, `categoryName`, `subcategoryIds`, `subcategoryNames`, `filterTagIds: List<String>` (empty by default), and `isQuickSession: Boolean` (false by default). A read-only hero shows session scope: card count, estimated duration, and topic count (multi-topic sessions only). Below it, a **persistent no-scrim bottom sheet** presents each adjustable setting as a summary row — each shows its current value and opens a focused modal edit sheet (with scrim). Rows and visibility:
 
-This is the only place Study Mode is chosen.
+- **Mode** — Rated | Fast (default Rated). Always shown.
+- **Voice answering** — On | Off. Rated sessions only.
+- **Voice** — TTS voice + speed. Shown for Fast, or Rated + Voice answering on; hidden for manual Rated.
+- **Length** — session card count. Always shown.
+- **Filters** — merged tags + difficulty (ADR-0022 shape; tags OR-within, AND-combined with a difficulty range). Tag facet appears for single-subcategory sessions only; multi-topic sessions filter by difficulty only. Always shown.
+- **Sort** — Default | Easiest first | Hardest first. Controls presentation order of the already-selected cards within the session (Easiest/Hardest reorder by difficulty; Default is the selection algorithm's natural output order). Does not influence which cards get selected — that's the card selection algorithm below, unaffected by this row. Always shown.
+
+Each edit popup carries a "keep as default" checkbox (persists a global default; unchecked is session-scoped), except the Filters popup (tags + difficulty always session-scoped). "Start session" launches the session with the chosen settings; a "Re-randomize" button (multi-topic and Quick sessions only) re-runs card selection over the same pool. See [ADR-0030](docs/adr/0030-preview-session-settings-sheet.md) and [docs/design/study-session-preview-sheet.md](docs/design/study-session-preview-sheet.md).
+
+This is the only place Study Mode (and, up front, Voice answering) is chosen for a concrete session — onboarding and the Settings screen only set the persisted default preference, neither starts a session. The "keep as default" checkbox on each Preview popup (see above) is what lets this screen also update that persisted default, without leaving session scope.
 
 **Card selection algorithm (runs on Preview Study Session Screen):**
 1. Fetch all Flashcards for the given `subcategoryIds`
 2. If `filterTagIds` is non-empty: filter to cards where `card.tags` intersects `filterTagIds` (OR semantics — a card qualifies if it carries any of the active Tags)
-3. Apply scoring and selection (MVP: random shuffle; target: performance-weighted sort → pick top N)
-4. Pass resolved `cardIds` to `StudySession`
+3. Filter to cards where `card.difficulty` falls within the selected difficulty range (inclusive on both ends), AND-combined with the tag filter
+4. Apply scoring and selection (MVP: random shuffle; target: performance-weighted sort → pick top N — see "Flashcard Selection Algorithm" below for the scoring formula)
+5. Pass resolved `cardIds` to `StudySession`; presentation order within the session is then set independently by the Preview screen's Sort row (Default/Easiest/Hardest), not by this selection step
 
 `filterTagIds` is only ever non-empty for single-subcategory sessions launched from Subcategory Details. All other entry points (Quick Session, fast-start, Composite) pass `filterTagIds = emptyList()`.
 
@@ -122,9 +125,9 @@ A session is scoped to one Category and one or more Subcategories. Card selectio
 
 **Study Modes:**
 - **Rated**: user reveals each answer manually, then self-rates (Failed / Partial / Correct). Terminal State cards written to Firestore.
-- **Fast**: system TTS reads the question (`questionSpoken` if present, else `question`), pauses 1 500 ms, reads the answer (`answerSpoken` if present, else `answer`), pauses 2 500 ms, then auto-advances. User controls: pause/play, skip-next, skip-previous, speech-rate slider (0.5×–2×), Show Answer (interrupts question, reads answer immediately). Playback persists with screen off or app backgrounded via `StudySessionVoiceService` (foreground `mediaPlayback` service). Persistent `MediaStyle` notification + lock-screen controls via `MediaSessionCompat`. No Ratings, no Attempts, no Terminal States. Firestore session metadata write deferred. See [ADR-0012](docs/adr/0012-tts-mediasession-stack-for-fast-mode.md).
+- **Fast**: cards advance question → reveal answer → next, manually (tap to reveal, tap to advance) by default, or with read-aloud enabled: system TTS reads the question (`questionSpoken` if present, else `question`), pauses 1 500 ms, reads the answer (`answerSpoken` if present, else `answer`), pauses 2 500 ms, then auto-advances. When read-aloud is on, user controls: pause/play, skip-next, skip-previous, speech-rate slider (0.5×–2×), Show Answer (interrupts question, reads answer immediately). Playback persists with screen off or app backgrounded via `StudySessionVoiceService` (foreground `mediaPlayback` service). Persistent `MediaStyle` notification + lock-screen controls via `MediaSessionCompat`. No Ratings, no Attempts, no Terminal States. Firestore session metadata write deferred. See [ADR-0012](docs/adr/0012-tts-mediasession-stack-for-fast-mode.md).
 
-**Fast mode entry point:** Study Mode is chosen exclusively on the Preview Study Session Screen (ADR-0004). A session routed with `studyMode = FAST` auto-starts voice playback once its cards are loaded (requesting the notification permission first on Android 13+). Voice is tied to the session screen lifetime; navigating away stops playback. A confirmation dialog on session exit is planned.
+**Fast mode entry point:** Study Mode is chosen exclusively on the Preview Study Session Screen (ADR-0004). Read-aloud is an opt-in toggle on that screen (Voice row); when on, a session routed with `studyMode = FAST` auto-starts voice playback once its cards are loaded (requesting the notification permission first on Android 13+), otherwise the session is manual tap-to-reveal/advance. Voice is tied to the session screen lifetime; navigating away stops playback. A confirmation dialog on session exit is planned.
 
 ### Flashcard Mechanics
 
@@ -140,7 +143,7 @@ A session is scoped to one Category and one or more Subcategories. Card selectio
 - QUESTION / ANSWER labels change color on reveal
 - Overflowing content (long text, code blocks) scrolls inside the card; bottom sheet stays pinned
 
-**Attempt label:** "Attempt X of 3" visible in both question and answer states
+**Attempt label:** "Attempt X of N" visible in both question and answer states (N = user's configured Attempts limit, Settings — default 3, max 5) — planned, not yet implemented
 
 **Progress indicator:** **"X/N mastered"** — X increments immediately on "Correct" tap (before card transitions away); N = initial Flashcard count
 
@@ -148,18 +151,18 @@ A session is scoped to one Category and one or more Subcategories. Card selectio
 
 **Exit:** X button (top-left) only — no in-session "Finish session" button. X always shows a confirmation dialog warning that session progress will be lost.
 
-**Flag icon:** outline flag icon in the top-right corner of the card (always outline regardless of existing flag state). Tapping opens a dialog with three options: **Retire**, **Rework**, **Cancel**. Confirming either action upserts `users/{uid}/flaggedCards/{cardId}`. The card continues in the session queue — no suppression.
+**Flag icon:** outline flag icon in the top-right corner of the card (always outline regardless of existing report state). Tapping opens the **"Report a problem"** sheet: six independently-toggleable checkboxes — Too easy, Too hard, Duplicate/low quality, Formatting broken, Needs a code example, Needs a full rewrite — plus Cancel/Submit. Confirming upserts the checked Curation Actions to `users/{uid}/curationRequests/{cardId}`; reopening the sheet on an already-reported card shows prior selections checked, and unchecking withdraws that action (doc deletes when the last action is removed). The card continues in the session queue — no suppression. See [ADR-0017](docs/adr/0017-curation-report-system.md).
 
-### Re-insertion Rules
+### Re-insertion Rules (planned, not yet implemented — current code advances to next card on any Rating, no re-insertion or Attempt tracking)
 
 - **Correct** (any Attempt): Flashcard exits queue → Mastered, X increments
 - **Partial** or **Failed**: Flashcard re-inserted with Attempt count incremented
-- Each Flashcard has a maximum of 3 Attempts
-- On 3rd Attempt: Correct → Mastered; Partial or Failed → Terminal State = Failed
+- Each Flashcard has a maximum of N Attempts (user-configurable in Settings, default 3, max 5)
+- On the Nth (final) Attempt: Correct → Mastered; Partial or Failed → Terminal State = Failed
 
 ### Session Termination
 
-- **Natural end**: queue empties (all Flashcards Mastered or exhausted 3 Attempts) — Terminal State Flashcards written to Firestore, session written to Recents
+- **Natural end**: queue empties (all Flashcards Mastered or exhausted their Attempts limit) — Terminal State Flashcards written to Firestore, session written to Recents
 - **Premature exit** (X button → confirm dialog): Terminal State Flashcards reached so far are written to Firestore, session written to Recents; Flashcards still in the queue are treated as unseen
 - App kill during session: session is lost, no data saved, no resumption
 
@@ -178,37 +181,42 @@ A session is scoped to one Category and one or more Subcategories. Card selectio
 
 ## Settings Screen
 
-- App preferences: session Flashcard count (default 20), etc.
-- Permissions
-- Voice settings (language/voice selection — deferred; TTS playback itself is implemented)
-- Not for Category or Subcategory management
-- **My Flags** entry → navigates to Flags Screen
+**Study Sessions**
+- Session Flashcard count (default 20)
+- Attempts per card (default 3, max 5, user-configurable — planned, not yet implemented)
+- Default study mode (Rated | Fast) — same persisted preference the "keep as default" checkbox on the Preview Study Session Screen's Mode popup writes to (ADR-0030); also set during onboarding
+- Default sort order (Default | Easiest | Hardest) — mirrors the Preview screen's Sort "keep as default" checkbox
 
-## Debug Curation (debug builds only)
+**Voice**
+- Voice settings (voice selection + playback speed — implemented, `VoiceSettingsDialog`)
+- Voice answering default (Rated) — On/Off, premium-gated but live (real server-side entitlement enforcement, ADR-0024/0029) — mirrors the Preview screen's Voice answering "keep as default" checkbox
+- Read-aloud/auto-play default (Fast) — mirrors the Preview screen's Voice/TTS "keep as default" checkbox
 
-Accessible via a FAB on `StudySessionScreen`, visible only in debug builds (`BuildConfig.DEBUG`). Lets the developer flag the current Flashcard for a specific content fix without leaving the session.
+**Notifications**
+- Daily reminder toggle (row exists; backend — FCM + WorkManager — not yet scoped/built)
 
-- **FAB**: always visible (bottom-right, above sheet). Tapping pauses voice playback if active; voice does **not** auto-resume on dialog dismiss.
-- **Dialog**: lists all 6 Curation Actions with icon + label. Each action shows active state (already flagged on this card). Tapping toggles the action. Dialog stays open — multiple actions can be set per card per dialog session.
-- **State loading**: batch-fetched lazily on first FAB tap for all cards in the session deck (`whereIn` in chunks of 30). Cached in `StudySessionViewModel` for the session.
-- **Writes**: optimistic — local cache updated immediately, Firestore written in background. Failure: cache reverted, snackbar error shown.
-- **Doc deletion**: when all actions are removed from a card, the Firestore document is deleted.
-- **No Flags Screen integration**: Curation Requests are invisible to users, consumed only by admin sync scripts.
+**Permissions**
+- Notifications, Microphone — status + link to system settings
 
-See [ADR-0017](docs/adr/0017-debug-curation-system.md).
+**Daily Goal**
+- Minutes/day (default 20) — also editable inline on the Progress screen; both write the same persisted value
 
-## Flags Screen
+**Account**
+- Sign out
 
-Accessible from Settings → My Flags. Full-screen, no bottom nav.
+Not for Category or Subcategory management.
 
-- Lists all Flags raised by the user, grouped by Subcategory with subtle section headers
-- Each item uses the same collapsible Flashcard composable as Subcategory Details (collapsed: question + tag chips; expanded: + answer)
-- **Always in multiselect mode**: checkboxes visible on all items at all times
-- **Bottom toolbar** (always visible) with three actions:
-  - **Withdraw** — removes the Flag document from `users/{uid}/flaggedCards/{cardId}` for all selected cards
-  - **Change to Retire** — upserts `action = "RETIRE"` for all selected flags
-  - **Change to Rework** — upserts `action = "REWORK"` for all selected flags
-- Data: fetched from `users/{uid}/flaggedCards` (single `getDocuments()`); Flashcard question/answer loaded via `subcategories/{subcategoryId}/flashcards/{cardId}` per flag. See [ADR-0009](docs/adr/0009-flag-system-design.md).
+## Report a Problem (in-session flag icon)
+
+Reached via the flag icon on both Rated and Fast session cards (top-right). Lets a user flag the current Flashcard for a specific content fix without leaving the session.
+
+- **Dialog**: lists all 6 Curation Actions with icon + label ("Too easy," "Too hard," "Duplicate or low quality," "Formatting looks broken," "Needs a code example," "Needs a full rewrite"). Each shows active state (already reported on this card). Tapping toggles the checkbox locally; unchecking withdraws it. Dialog stays open — multiple actions can be set per card per session. Plus Cancel/Submit.
+- **State loading**: batch-fetched lazily on first flag-icon tap for all cards in the session deck (`whereIn` in chunks of 30). Cached in `StudySessionViewModel` for the session.
+- **Writes**: on Submit — the checked Curation Actions are upserted to Firestore in one write; Cancel discards local toggle changes. Failure: snackbar error shown.
+- **Doc deletion**: when all actions are removed from a card and submitted, the Firestore document is deleted.
+- **No management screen**: Curation Requests are consumed only by admin sync scripts; withdrawing a reason is done only by reopening this dialog, unchecking it, and submitting.
+
+See [ADR-0017](docs/adr/0017-curation-report-system.md).
 
 ## Firestore Schema
 
@@ -231,9 +239,8 @@ users/{uid}/recentSessions/{sessionId}                → { categoryId, category
 users/{uid}/progress/{cardId}                         → { failedCount, correctCount, lastReviewedAt, nextReviewAt }
 users/{uid}/progress/{cardId}/reviews/{id}            → { rating, reviewedAt }
 users/{uid}/privateCards/{subcategoryId}/flashcards/{cardId} → { question, answer, tags[], status, createdAt }
-users/{uid}/flaggedCards/{cardId}                           → { action: "RETIRE"|"REWORK", flaggedAt, subcategoryId }
 
-// Debug-only (debug builds)
+// Report a problem (in-session flag icon)
 users/{uid}/curationRequests/{cardId}                       → { subcategoryId: String,
                                                                actions: {
                                                                  "<CurationAction>": { flaggedAt: Timestamp }
@@ -251,8 +258,7 @@ users/{uid}/curationRequests/{cardId}                       → { subcategoryId:
 - **Category `iconUrl`**: absolute HTTPS URL. No Firebase Storage SDK dependency in UI layer.
 - **`recentSessions` denormalizes names and stats** at write time — `categoryName`, `subcategoryNames[]`, `cardCount`, `masteredCount` — so the Home screen renders Recent cards from a single read per session. `masteredCount` omitted for Fast Study Sessions.
 - Private Flashcard `status`: `"private" | "submitted" | "approved"` — promotion pipeline to global pool.
-- **`curationRequests/{cardId}` is a debug-only flat collection** keyed by globally-unique cardId. Stores structured content-fix directives for admin sync scripts. Not shown in the app UI. Actions are a map of `CurationAction` string → `{ flaggedAt }`. Doc is deleted when all actions are removed. See [ADR-0017](docs/adr/0017-debug-curation-system.md).
-- **`flaggedCards/{cardId}` is a flat collection keyed by globally-unique cardId** — one Flag per card per user, upserted. `subcategoryId` is denormalized here (deviates from ADR-0007's exclusion of subcategoryId from Flashcard docs) to enable single-read fetch and client-side grouping on the Flags Screen. See [ADR-0009](docs/adr/0009-flag-system-design.md).
+- **`curationRequests/{cardId}` is a flat collection** keyed by globally-unique cardId. Stores structured content-fix directives raised by any user via the in-session "Report a problem" sheet, consumed by admin sync scripts — not surfaced back to users anywhere in the app. Actions are a map of `CurationAction` string → `{ flaggedAt }`. Doc is deleted when all actions are removed. See [ADR-0017](docs/adr/0017-curation-report-system.md).
 - Offline: Firestore Android SDK built-in persistence. No Room needed.
 - Partial Rating is an in-session mechanic only; never written to Firestore as a standalone status.
 
@@ -328,4 +334,4 @@ Branded Material 3 — full M3 `ColorScheme` kept intact, with an additive `Bran
 - Admin UI for content management
 - Gamification (streaks, XP)
 - Performance-weighted Quick Session (MVP uses random selection)
-- Session parameters (Flashcard count override, difficulty, time limit)
+- Session time limit (Flashcard count override + difficulty filter are now first-class on the Preview Study Session Screen — see ADR-0030)

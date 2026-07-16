@@ -1,8 +1,6 @@
-# Subcategory details: mandatory difficulty, merged filter sheet, bottom toolbar
+# Subcategory details: merged filter sheet, bottom toolbar, sort menu
 
 ## Decision
-
-`Flashcard.difficulty: Int` (1-10) becomes mandatory for **all** Flashcards, including Private ones. This supersedes the "Difficulty on Private Flashcards — rejected" alternative in [ADR-0010](0010-difficulty-field-design.md). The Private Flashcard creation dialog requires a difficulty value (Slider, 1-10, discrete steps) before a card can be saved. No backfill is needed: no Private Flashcards exist in Firestore yet, so the mandatory field applies from day one with no transition period for the private-card path (the global-pool backfill/filter behavior described in ADR-0010 is unaffected and still applies to admin-curated cards).
 
 SubcategoryDetailsScreen's top app bar is reduced to: back navigation + bookmark action + overflow menu. The overflow menu is rendered even though it currently has no items, as a deliberate placeholder for a near-future item (creating a dynamic launcher shortcut for the subcategory, see `docs/design/launcher-shortcuts.md`) — this is an intentional exception to the general rule that an overflow affordance shouldn't open onto an empty menu.
 
@@ -20,7 +18,7 @@ Filtering to zero results is a reachable state once tag and difficulty filters c
 
 The Subcategory details screen (`SubcategoryDetailsScreen.kt`) was a placeholder: plain button, no filtering, no sorting, no bottom toolbar. This ADR is the design record for reworking it to match the target Figma ("Subcategory details + Create card") alongside the Category details bottom toolbar pattern, adding tag filtering (UI already speced), difficulty sorting, and difficulty filtering.
 
-Difficulty-aware sorting/filtering surfaced a gap ADR-0010 anticipated but deferred: Private Flashcards had no difficulty and were explicitly excluded from "difficulty-aware features until a clear need... emerges." Subcategory details' mixed list of global + private cards is exactly that need. Rather than build exemption logic (private cards pinned to list-end on sort, dropped from filter results), forcing every card — private included — to carry a difficulty removes an entire class of edge cases from sort/filter logic, at the cost of one more mandatory field in the creation dialog.
+Difficulty-aware sorting/filtering relies on every card — global or Private — carrying a difficulty value ([ADR-0010](0010-difficulty-field-design.md)), since this screen's list mixes both.
 
 ## Alternatives considered
 
@@ -28,18 +26,11 @@ Difficulty-aware sorting/filtering surfaced a gap ADR-0010 anticipated but defer
 
 **Sort as a tap-to-cycle icon** — rejected. Hides current state behind icon-glyph interpretation; an explicit menu keeps state legible per M3 guidance.
 
-**Private cards exempt from difficulty (keep ADR-0010 as-is), pinned-to-end on sort / dropped from filter results** — rejected. No private cards exist in Firestore yet, so there's no migration cost to avoid; forcing the field is simpler than building and maintaining exemption logic in both sort and filter paths indefinitely.
-
-**Backfill-enforce difficulty on existing private cards** — moot; not applicable since none exist yet.
-
 **Fold sort state into the "N OF M CARDS FILTERED" banner** — rejected. Conflates two independent axes (count vs order) into one line; sort's badge dot is sufficient.
 
 **Hide the overflow menu until it has an item** — rejected for this specific case, despite being the generally-correct M3 default; kept visible now because a concrete near-future item (dynamic launcher shortcut) is already planned.
 
 ## Consequences
 
-- `FlashcardDto`/creation flow must validate `difficulty` is present (1-10) before writing a new Private Flashcard document; the mapper's null-filtering behavior from ADR-0010 remains for the global-pool backfill path only.
-- Private Flashcard creation dialog UI requires a `Slider` control (1-10, discrete steps) wired as a mandatory field, not optional.
 - `SubcategoryDetailsScreenState` needs new fields for active tag selection, active difficulty range, active sort mode, and (pending implementation) a distinct empty-filtered-results case.
-- No exemption/fallback logic is needed anywhere for cards lacking difficulty, since none can exist going forward.
 - Empty-filtered-results state and FAB-disable-on-zero-results are specified here but left as a follow-up implementation task.

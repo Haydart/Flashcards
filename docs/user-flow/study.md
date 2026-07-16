@@ -45,41 +45,37 @@ flowchart TD
     TapStartComposite --> PreviewStudySession
 
     %% ── Subcategory Details ───────────────────────────────────────
-    SubcatDetails(SUBCATEGORY DETAILS SCREEN\nFlashcard list · collapsible items)
-    SubcatDetails --> TapFilterIcon[/Tap filter icon\ndot badge when ≥1 tag active/]
-    SubcatDetails --> TapStartSession[/Tap Start Session — app bar/]
-    SubcatDetails --> TapFAB[/FAB — Create Private Flashcard/]
-    SubcatDetails --> TapMultiselectToggle[/Multiselect toggle — bottom toolbar/]
+    SubcatDetails(SUBCATEGORY DETAILS SCREEN\nFlashcard list · collapsible items\nApp bar: back · bookmark · overflow)
+    SubcatDetails --> TapFilterIcon[/Tap filter icon — bottom toolbar\nbadge dot when non-default/]
+    SubcatDetails --> TapSortIcon[/Tap sort icon — bottom toolbar\nbadge dot when non-default/]
+    SubcatDetails --> TapStartSession[/Tap Start Session — trailing FAB/]
+    SubcatDetails --> TapFAB[/Add(+) icon — Create Private Flashcard/]
     SubcatDetails --> SubcatAddShortcut[/⋮ → Add to home screen/]
 
     SubcatAddShortcut --> ShortcutPinDialog
 
-    TapFilterIcon --> TagFilterDialog(TAG FILTER DIALOG\nSelect All · Unselect All\nTag chips + Private chip\nOR semantics · applies on close\nno Apply button)
-    TagFilterDialog -->|dismiss| SubcatDetails
+    TapFilterIcon --> FilterSheet(FILTER SHEET\nTags — Select All · Unselect All\nchips + Private chip · OR semantics\n+ Difficulty RangeSlider 1–10 · AND with tags\napplies on close · no Apply button)
+    FilterSheet -->|dismiss| SubcatDetails
+
+    TapSortIcon --> SortMenu(SORT MENU\nDefault · Easiest first · Hardest first\nreorders list only)
+    SortMenu -->|select| SubcatDetails
 
     TapStartSession -->|filterTagIds = active tags| PreviewStudySession
 
     TapFAB --> CreateCard(CREATE PRIVATE FLASHCARD SCREEN\nQuestion · Answer · Tags)
     CreateCard -->|Save| SubcatDetails
-
-    TapMultiselectToggle --> CardMultiselect(SUBCATEGORY DETAILS\nmultiselect active)
-    CardMultiselect --> SelectCards[/Select ≥1 flashcards/]
-    SelectCards --> BulkRetire[/Tap Retire/]
-    SelectCards --> BulkRework[/Tap Rework/]
-    BulkRetire -->|Flag upserted: RETIRE| SubcatDetails
-    BulkRework -->|Flag upserted: REWORK| SubcatDetails
 ```
 
 ## Session
 
-> Study Mode selection happens on the Preview Study Session Screen; a session routed with Fast mode auto-starts voice playback (ADR-0004).
+> Study Mode selection happens on the Preview Study Session Screen; Fast mode is manual tap-to-reveal/advance by default, with read-aloud as an opt-in toggle (Voice row) that auto-starts voice playback (ADR-0004).
 >
-> **Mastery Defense (Rated only):** At Preview Study Session card selection time, up to 10% of the resolved pool is silently filled with previously mastered cards from the same scope. These appear in session with a small shield icon. No user interaction required; transparent to the user.
+> **Mastery Defense (Rated only) — NYI:** design only (see [docs/design/persistent-card-mastery.md](../design/persistent-card-mastery.md)), not in SYSTEMDESIGN.md's current Card Selection Algorithm or Firestore Schema. Planned: at Preview Study Session card selection time, up to 10% of the resolved pool is silently filled with previously mastered cards from the same scope, shown with a small shield icon, no user interaction required.
 
 ```mermaid
 flowchart TD
 
-    %% Legend: (Screen)  [/Action/]  {Decision}  ([Entry/Exit])
+    %% Legend: (Screen)  [/Action/]  {Decision}  ([Entry/Exit])  {{NYI}}
 
     %% ── Preview Study Session Screen ──────────────────────────────────────────
     PreviewStudySession(PREVIEW STUDY SESSION SCREEN\nScope preview · card count · estimated duration\nStudy Mode: Rated or Fast\nStart Session button)
@@ -88,17 +84,14 @@ flowchart TD
     ModeChoice -->|Fast| FastSession
 
     %% ── Rated Session ─────────────────────────────────────────────
-    RatedSession(STUDY SESSION — RATED\nX/N mastered · Attempt X of 3\nShield icon on mastery defense cards)
+    RatedSession(STUDY SESSION — RATED\nX/N mastered)
     RatedSession --> ShowAnswer[/Tap 'Show Answer' or swipe up/]
     ShowAnswer --> AnswerRevealed(Answer state)
     AnswerRevealed --> Rate[/Rate: Failed · Partial · Correct/]
-    Rate --> RateOutcome{Outcome?}
+    Rate --> TerminalAny[Terminal State written · any rating\nauto-advance\ncurrent code: no re-insertion or Attempt tracking]
+    TerminalAny -.-> AttemptsNYI{{Attempt X of N · re-insertion on\nPartial/Failed below Attempts limit\nMastery Defense shield icon on defended cards\nNYI}}
 
-    RateOutcome -->|"Correct (any attempt)"| CardMastered[Mastered · X++\nauto-advance]
-    RateOutcome -->|"Partial or Failed\nattempt < 3"| ReInsert[Re-inserted · attempt++\nauto-advance]
-    RateOutcome -->|"Partial or Failed\nattempt = 3"| TerminalFailed[Terminal Failed\nauto-advance]
-
-    CardMastered & ReInsert & TerminalFailed --> QueueCheck{Queue empty?}
+    TerminalAny --> QueueCheck{Queue empty?}
     QueueCheck -->|no| RatedSession
     QueueCheck -->|yes| WriteFull[Write to Firestore:\nTerminal States + session record\nisPartial = false]
     WriteFull --> Summary
@@ -108,12 +101,12 @@ flowchart TD
     TapMore --> ExtCtxDialog(EXTENDED CONTEXT DIALOG\nexplanation · code · references)
     ExtCtxDialog -->|dismiss| AnswerRevealed
 
-    %% Flag dialog (Rated)
+    %% Report a problem (Rated)
     RatedSession --> TapFlag[/Tap flag icon\noutline · top-right of card/]
-    TapFlag --> FlagDialog(FLAG DIALOG\nRetire · Rework · Cancel)
-    FlagDialog -->|Retire or Rework| FlagUpsert[Flag upserted in Firestore\ncard stays in queue]
-    FlagDialog -->|Cancel| RatedSession
-    FlagUpsert --> RatedSession
+    TapFlag --> ReportSheet(REPORT A PROBLEM SHEET\n6 toggleable reasons · Cancel · Submit)
+    ReportSheet -->|Submit ≥1 reason| CurationUpsert[Curation Actions upserted to Firestore\ncard stays in queue]
+    ReportSheet -->|Cancel| RatedSession
+    CurationUpsert --> RatedSession
 
     %% Premature exit (Rated)
     RatedSession --> TapX1[/Tap X — top-left/]
@@ -123,13 +116,15 @@ flowchart TD
     WritePartial1 --> Summary
 
     %% ── Fast Session ──────────────────────────────────────────────
-    FastSession(STUDY SESSION — FAST\nTTS auto-play · no ratings · no mastery)
-    %% Controls available during Fast session — no navigation change:
+    FastSession(STUDY SESSION — FAST\nmanual tap-to-reveal/advance by default\nread-aloud opt-in · no ratings · no mastery)
+    FastSession --> ManualAdvance[/Tap to reveal answer\ntap to advance/]
+    ManualAdvance --> FastQueueCheck{Queue empty?}
+    %% Controls available when read-aloud is on — no navigation change:
     %% pause/play · skip-next · skip-previous · speed slider 0.5×–2×
     %% Show Answer: interrupts Q utterance, reads A immediately
     %% Playback survives screen-off/app-background via foreground MediaSession service
-    FastSession --> TtsLoop[TTS: Q → 1.5s pause → A → 2.5s pause → auto-advance]
-    TtsLoop --> FastQueueCheck{Queue empty?}
+    FastSession -->|read-aloud on| TtsLoop[TTS: Q → 1.5s pause → A → 2.5s pause → auto-advance]
+    TtsLoop --> FastQueueCheck
     FastQueueCheck -->|no| FastSession
     FastQueueCheck -->|yes| WriteFast[Write to Firestore:\nsession record · isPartial = false\nno card mastery written]
     WriteFast --> Summary
@@ -139,12 +134,12 @@ flowchart TD
     TapMoreFast --> ExtCtxFast(EXTENDED CONTEXT DIALOG\nVoice pauses silently at between-card silence\nAuto-advances 500ms after dismiss\nNo auto-resume if user had manually paused)
     ExtCtxFast -->|dismiss| FastSession
 
-    %% Flag dialog (Fast)
+    %% Report a problem (Fast)
     FastSession --> TapFlagFast[/Tap flag icon/]
-    TapFlagFast --> FlagDialogFast(FLAG DIALOG\nRetire · Rework · Cancel)
-    FlagDialogFast -->|Retire or Rework| FlagUpsertFast[Flag upserted in Firestore\ncard stays in queue]
-    FlagDialogFast -->|Cancel| FastSession
-    FlagUpsertFast --> FastSession
+    TapFlagFast --> ReportSheetFast(REPORT A PROBLEM SHEET\n6 toggleable reasons · Cancel · Submit)
+    ReportSheetFast -->|Submit ≥1 reason| CurationUpsertFast[Curation Actions upserted to Firestore\ncard stays in queue]
+    ReportSheetFast -->|Cancel| FastSession
+    CurationUpsertFast --> FastSession
 
     %% Premature exit (Fast)
     FastSession --> TapX2[/Tap X — top-left/]

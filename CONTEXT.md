@@ -57,11 +57,11 @@ _Avoid_: Quiz, Session alone (ambiguous with auth session)
 **Study Mode**:
 The interaction mechanic of a Study Session. Two values:
 - **Rated**: user reveals each answer manually, then self-rates (Failed / Partial / Correct) — or enables **Voice Answering** in-session for hands-free listen-and-grade instead. Flashcards reaching a Terminal State are written to Firestore.
-- **Fast**: system TTS reads the question aloud, pauses, reads the answer aloud, then auto-advances. User controls playback via transport controls (pause / play / skip / speed slider). Playback continues with the screen off or app backgrounded. No Ratings, no Attempts, no Terminal States.
+- **Fast**: cards advance question → reveal answer → next, either manually (tap to reveal, tap to advance) or with read-aloud enabled — system TTS reads the question aloud, pauses, reads the answer aloud, then auto-advances hands-free. User controls playback via transport controls (pause / play / skip / speed slider) when read-aloud is on. Playback continues with the screen off or app backgrounded. No Ratings, no Attempts, no Terminal States.
 _Avoid_: Automatic mode, Passive mode, Browse mode, Voice mode (voice is the delivery mechanism, not the mode name)
 
 **Attempt**:
-A single presentation of a Flashcard to the user within a **Rated** Study Session. Each Flashcard has a maximum of 3 Attempts per session. Does not apply to Fast Study Sessions.
+A single presentation of a Flashcard to the user within a **Rated** Study Session. Each Flashcard has a maximum number of Attempts per session, user-configurable in Settings (default 3, max 5). Does not apply to Fast Study Sessions.
 _Avoid_: Turn, Round, Try
 
 **Rating**:
@@ -69,31 +69,23 @@ The user's self-assessment after viewing an answer in a **Rated** Study Session.
 _Avoid_: Score, Grade, Answer, Response
 
 **Voice Answering**:
-An in-session toggle, Rated Study Sessions only, that replaces manual reveal-and-self-rate with hands-free listen-transcribe-grade: the shared Fast-mode TTS engine reads the question, the app listens for a spoken answer, transcribes and grades it, and the resulting grade band becomes the Flashcard's **Rating** exactly as a manual tap would. Off by default; toggled after the session has already started (never chosen on the Preview Study Session Screen). Enabling it auto-enables question TTS through the same engine Fast mode uses, but stops after the question — it never auto-progresses to reading the answer.
+A Rated-Study-Sessions-only mechanic that replaces manual reveal-and-self-rate with hands-free listen-transcribe-grade: the shared Fast-mode TTS engine reads the question, the app listens for a spoken answer, transcribes and grades it, and the resulting grade band becomes the Flashcard's **Rating** exactly as a manual tap would. Off by default. Selectable up front as a row on the **Preview Study Session Screen**'s settings sheet (ADR-0030), and still toggleable in-session after the session has started. Enabling it auto-enables question TTS through the same engine Fast mode uses, but stops after the question — it never auto-progresses to reading the answer.
 _Avoid_: Voice mode (voice is the delivery mechanism, not a Study Mode — see Study Mode's avoid list), Voice grading (grading is the mechanism inside the feature, not the feature's name)
 
 **Terminal State**:
-A Flashcard's final outcome in a **Rated** Study Session. A Flashcard reaches a Terminal State when it receives a Correct Rating (any Attempt) or exhausts all 3 Attempts without a Correct Rating. Terminal states written to Firestore: **Mastered** (Correct) or **Failed** (not Correct in 3 Attempts). Partial on the 3rd Attempt resolves to Failed. Does not apply to Fast Study Sessions.
+A Flashcard's final outcome in a **Rated** Study Session. A Flashcard reaches a Terminal State when it receives a Correct Rating (any Attempt) or exhausts its configured Attempts limit without a Correct Rating. Terminal states written to Firestore: **Mastered** (Correct) or **Failed** (not Correct within the limit). Partial on the final Attempt resolves to Failed. Does not apply to Fast Study Sessions.
 _Avoid_: Final state, End state, Result
 
 **Mastered**:
 The Terminal State of a Flashcard that received a Correct Rating within a **Rated** Study Session.
 _Avoid_: Completed, Passed, Correct (Correct is the Rating that causes Mastered, not a synonym)
 
-**Flag**:
-A user-submitted signal that a Flashcard needs admin attention. One Flag per Flashcard per User; mutable (overwritable). Two action values: **Retire** (card should be deleted — too obscure or irrelevant) and **Rework** (card should be edited — imprecise or poorly worded). Flags are stored at `users/{uid}/flaggedCards/{cardId}`. No personal suppression — flagged Flashcards still appear in Study Sessions. Managed via the **Flags Screen**.
-_Avoid_: Report, Suggest, Propose, Mark-for-deletion
-
-**Flag Action**:
-The intent carried by a Flag. Values: **Retire** (delete the Flashcard from the global pool) or **Rework** (edit the Flashcard for quality). Chosen by the User at flag time; changeable later from the Flags Screen.
-_Avoid_: Flag type, Flag reason, Flag status
-
 **Curation Request**:
-A debug-only developer signal that a global Flashcard needs a specific content fix. Stored at `users/{uid}/curationRequests/{cardId}`. One document per card; multiple Curation Actions can be active simultaneously. Distinct from Flags — Curation Requests are consumed by admin sync scripts and never shown in the Flags Screen. Only present in debug builds.
-_Avoid_: Flag, Report, Curation Flag
+A user-submitted signal that a global Flashcard needs a specific content fix, raised via the in-session flag icon's **"Report a problem"** sheet (Rated and Fast alike). Stored at `users/{uid}/curationRequests/{cardId}`. One document per card; multiple Curation Actions can be active simultaneously, each independently toggleable — unchecking an action withdraws it, and the document is deleted once the last action is removed. No suppression — a flagged Flashcard still appears in Study Sessions. No management/withdraw screen exists; withdrawal happens only by reopening the report sheet on that card. Consumed by admin sync scripts. See [ADR-0017](docs/adr/0017-curation-report-system.md).
+_Avoid_: Flag, Flag Action, Curation Flag
 
 **Curation Action**:
-A specific fix directive attached to a Curation Request. Values: `DIFFICULTY_TOO_EASY` (AI should raise difficulty), `DIFFICULTY_TOO_HARD` (AI should lower difficulty), `DELETE` (card is duplicate or worthless), `BACKTICK_REDO` (inline-code formatting is wrong), `NEEDS_CODE_EXAMPLE` (answer needs a code block), `FULL_REDO` (factually wrong or structurally broken). `DIFFICULTY_TOO_EASY` and `DIFFICULTY_TOO_HARD` are mutually exclusive. All other actions can coexist.
+A specific fix directive attached to a Curation Request. Values: `DIFFICULTY_TOO_EASY` (raise difficulty), `DIFFICULTY_TOO_HARD` (lower difficulty), `DELETE` (card is duplicate or worthless), `BACKTICK_REDO` (inline-code formatting is wrong), `NEEDS_CODE_EXAMPLE` (answer needs a code block), `FULL_REDO` (factually wrong or structurally broken). `DIFFICULTY_TOO_EASY` and `DIFFICULTY_TOO_HARD` are mutually exclusive. All other actions can coexist. Presented to the user as: "Too easy," "Too hard," "Duplicate or low quality," "Formatting looks broken," "Needs a code example," "Needs a full rewrite."
 _Avoid_: Flag Action, Curation Type, Curation Flag Action
 
 ### Activities
@@ -106,7 +98,7 @@ The flow a user goes through to start a Study Session. All entry points route th
 _Avoid_: Session setup, Session wizard
 
 **Preview Study Session Screen**:
-A full-screen preview shown before every Study Session begins. Displays session scope (card count, topic count, estimated duration, active Tag filter). Below the stats row: a radio-card group for **Study Mode** selection (Rated | Fast), each with a short description. Default selection: Rated. Contains a "Start session" button that launches the session with the selected mode, and a "Re-randomize" button (multi-topic and Quick sessions only). Only place in the app where Study Mode is chosen.
+A full-screen preview shown before every Study Session begins. A read-only hero shows session scope (card count, topic count, estimated duration). Below it, a persistent **no-scrim bottom sheet** presents each adjustable session setting as a summary row — Mode (Rated | Fast), Voice answering (Rated only), Voice/TTS (when TTS applies), Length, Filters, Sort — each showing its current value and opening a focused modal edit sheet; plus a "Start session" button and a "Re-randomize" button (multi-topic and Quick sessions only). Only place in the app where Study Mode (and, up front, Voice answering) is chosen for a concrete session — onboarding and the Settings screen only set the persisted default, they don't start a session. Each Preview setting popup (except Filters) also carries a "keep as default" checkbox to update that persisted default from here. See ADR-0030.
 _Avoid_: Pre-start Screen (retired name), Pre-session screen, Session config, Mode picker
 
 **Persistent Mastery**:
