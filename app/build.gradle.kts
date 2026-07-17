@@ -13,8 +13,8 @@ val localProperties = Properties().apply {
 val googleWebClientId: String =
     localProperties.getProperty("GOOGLE_WEB_CLIENT_ID") ?: System.getenv("GOOGLE_WEB_CLIENT_ID") ?: ""
 
-// Bitrise doesn't have local props file, so it will have to call assembleRelease with the -P option and directly passed creds
-fun releaseSigningProperty(name: String): String? =
+// Bitrise doesn't have local props file, so it will have to call assembleRelease/assembleDebug with the -P option and directly passed creds
+fun signingProperty(name: String): String? =
     project.findProperty(name) as String? ?: localProperties.getProperty(name)
 
 val gitCommitCount: Int = providers.exec {
@@ -28,11 +28,17 @@ android {
     namespace = "com.rossomak.flashcards"
 
     signingConfigs {
+        getByName("debug") {
+            storeFile = signingProperty("DEBUG_STORE_FILE")?.let { file(it) }
+            storePassword = signingProperty("DEBUG_STORE_PASSWORD")
+            keyAlias = signingProperty("DEBUG_KEY_ALIAS")
+            keyPassword = signingProperty("DEBUG_KEY_PASSWORD")
+        }
         create("release") {
-            storeFile = releaseSigningProperty("RELEASE_STORE_FILE")?.let { file(it) }
-            storePassword = releaseSigningProperty("RELEASE_STORE_PASSWORD")
-            keyAlias = releaseSigningProperty("RELEASE_KEY_ALIAS")
-            keyPassword = releaseSigningProperty("RELEASE_KEY_PASSWORD")
+            storeFile = signingProperty("RELEASE_STORE_FILE")?.let { file(it) }
+            storePassword = signingProperty("RELEASE_STORE_PASSWORD")
+            keyAlias = signingProperty("RELEASE_KEY_ALIAS")
+            keyPassword = signingProperty("RELEASE_KEY_PASSWORD")
         }
     }
 
@@ -47,6 +53,7 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
+            signingConfig = signingConfigs.getByName("debug")
         }
         release {
             isMinifyEnabled = false
