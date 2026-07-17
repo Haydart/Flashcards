@@ -328,6 +328,7 @@ fun StudySessionContent(
                 state.flashcards.isEmpty() -> CenteredBox(innerPadding) {
                     Text(text = stringResource(R.string.study_session_no_cards_message))
                 }
+
                 else -> {
                     val card = state.flashcards[state.currentCardIndex]
                     var isExtendedContextDialogOpen by remember(card.id) { mutableStateOf(false) }
@@ -673,8 +674,7 @@ private fun StudySessionSheetContent(
             if (state.studyMode == StudyMode.RATED &&
                 state.isVoiceAnswerEnabled &&
                 !state.voiceAnswerSanitizedTranscript.isNullOrBlank() &&
-                (state.voiceAnswerPhase == VoiceAnswerPhase.GRADING ||
-                    state.voiceAnswerPhase == VoiceAnswerPhase.SPEAKING_NOTICE)
+                (state.voiceAnswerPhase == VoiceAnswerPhase.GRADING || state.voiceAnswerPhase == VoiceAnswerPhase.SPEAKING_NOTICE)
             ) {
                 Text(
                     text = state.voiceAnswerSanitizedTranscript,

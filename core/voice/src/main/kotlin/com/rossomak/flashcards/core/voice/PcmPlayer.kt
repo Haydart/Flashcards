@@ -7,11 +7,11 @@ import android.media.AudioRouting
 import android.media.AudioTrack
 import android.os.Handler
 import android.os.Looper
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * Minimal on-device playback of raw PCM clips. Used by the debug Voice screen to audition

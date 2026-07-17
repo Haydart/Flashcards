@@ -384,8 +384,11 @@ class VoiceCaptureEngine @Inject constructor(
      * MIC over a BT communication device is a comparatively under-tested combination.
      */
     private fun preferredAudioSource(route: CaptureRoute): Int =
-        if (route.isBluetooth) MediaRecorder.AudioSource.VOICE_COMMUNICATION
-        else MediaRecorder.AudioSource.MIC
+        if (route.isBluetooth) {
+            MediaRecorder.AudioSource.VOICE_COMMUNICATION
+        } else {
+            MediaRecorder.AudioSource.MIC
+        }
 
     companion object {
         private const val TAG = "VoiceCapture"
@@ -397,6 +400,7 @@ class VoiceCaptureEngine @Inject constructor(
         // Heuristic mean-abs-amplitude floor for "real signal, not BT ramp-up silence/garbage"
         // (int16 PCM). Tune from the settle-time numbers this logs on real BT hardware.
         private const val BT_WARMUP_ENERGY_THRESHOLD = 250L
+
         // Hard cap on how long warmUpBluetoothRoute() waits for real signal before giving up and
         // starting VAD capture anyway — never block the loop indefinitely on a stuck link.
         private const val BT_WARMUP_TIMEOUT_MS = 600L

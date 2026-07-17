@@ -398,8 +398,7 @@ private fun DifficultyRangeSlider(
             onValueChangeFinished = {
                 onDifficultyRangeChange(draftRange.start.roundToInt()..draftRange.endInclusive.roundToInt())
             },
-            valueRange = PreviewStudySessionScreenState.MIN_DIFFICULTY.toFloat()..
-                PreviewStudySessionScreenState.MAX_DIFFICULTY.toFloat(),
+            valueRange = PreviewStudySessionScreenState.MIN_DIFFICULTY.toFloat()..PreviewStudySessionScreenState.MAX_DIFFICULTY.toFloat(),
             steps = PreviewStudySessionScreenState.MAX_DIFFICULTY -
                 PreviewStudySessionScreenState.MIN_DIFFICULTY - 1,
         )
