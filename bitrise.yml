@@ -52,18 +52,6 @@ workflows:
     - install-missing-android-tools@3:
         inputs:
         - gradlew_path: "$PROJECT_LOCATION/gradlew"
-    - script@1:
-        title: Write local.properties (release signing)
-        inputs:
-        - content: |-
-            #!/usr/bin/env bash
-            set -euo pipefail
-            {
-              echo "RELEASE_STORE_FILE=$BITRISE_SOURCE_DIR/release.keystore"
-              echo "RELEASE_STORE_PASSWORD=$BITRISEIO_ANDROID_KEYSTORE_PASSWORD"
-              echo "RELEASE_KEY_ALIAS=$BITRISEIO_ANDROID_KEYSTORE_ALIAS"
-              echo "RELEASE_KEY_PASSWORD=$BITRISEIO_ANDROID_KEYSTORE_PRIVATE_KEY_PASSWORD"
-            } >> "$BITRISE_SOURCE_DIR/local.properties"
     - file-downloader@2:
         title: Download google-services.json
         inputs:
@@ -75,6 +63,11 @@ workflows:
         - source: "$BITRISEIO_ANDROID_KEYSTORE_URL"
         - destination: "$BITRISE_SOURCE_DIR/release.keystore"
     - file-downloader@2:
+        title: Download debug.keystore
+        inputs:
+        - source: "$BITRISEIO_ANDROID_KEYSTORE_DEBUG_URL"
+        - destination: "$BITRISE_SOURCE_DIR/debug.keystore"
+    - file-downloader@2:
         title: Download Firebase App Distribution service account JSON
         inputs:
         - source: "$BITRISEIO_FIREBASE_APP_DISTRO_JSON_URL"
@@ -84,6 +77,15 @@ workflows:
         inputs:
         - build_root_directory: "$PROJECT_LOCATION"
         - gradle_task: assembleDebug assembleRelease
+        - gradle_options: |-
+            -PRELEASE_STORE_FILE=$BITRISE_SOURCE_DIR/release.keystore
+            -PRELEASE_STORE_PASSWORD=$BITRISEIO_ANDROID_KEYSTORE_PASSWORD
+            -PRELEASE_KEY_ALIAS=$BITRISEIO_ANDROID_KEYSTORE_ALIAS
+            -PRELEASE_KEY_PASSWORD=$BITRISEIO_ANDROID_KEYSTORE_PRIVATE_KEY_PASSWORD
+            -PDEBUG_STORE_FILE=$BITRISE_SOURCE_DIR/debug.keystore
+            -PDEBUG_STORE_PASSWORD=$BITRISEIO_ANDROID_KEYSTORE_DEBUG_PASSWORD
+            -PDEBUG_KEY_ALIAS=$BITRISEIO_ANDROID_KEYSTORE_DEBUG_ALIAS
+            -PDEBUG_KEY_PASSWORD=$BITRISEIO_ANDROID_KEYSTORE_DEBUG_PRIVATE_KEY_PASSWORD
     - firebase-app-distribution@0:
         title: Distribute debug APK to internal-debug testers
         inputs:
