@@ -1,0 +1,115 @@
+format_version: '26'
+default_step_lib_source: https://github.com/bitrise-io/bitrise-steplib.git
+project_type: android
+
+app:
+  envs:
+  - PROJECT_LOCATION: "./"
+    opts:
+      is_expand: false
+  - MODULE: app
+    opts:
+      is_expand: false
+
+workflows:
+  pr-check:
+    summary: PR gate for merges into develop/main. staticAnalysis + unit tests only.
+    steps:
+    - git-clone@8: {}
+    - install-missing-android-tools@3:
+        inputs:
+        - gradlew_path: "$PROJECT_LOCATION/gradlew"
+    - script@1:
+        title: Write local.properties (GOOGLE_WEB_CLIENT_ID)
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            set -euo pipefail
+            echo "GOOGLE_WEB_CLIENT_ID=$GOOGLE_WEB_CLIENT_ID" >> "$BITRISE_SOURCE_DIR/local.properties"
+    - file-downloader@2:
+        title: Download google-services.json
+        inputs:
+        - source: "$BITRISEIO_GOOGLE_SERVICES_JSON_URL"
+        - destination: "$BITRISE_SOURCE_DIR/app/google-services.json"
+    - gradle-runner@5:
+        title: staticAnalysis (Spotless + detekt + Konsist + Lint, all modules)
+        inputs:
+        - build_root_directory: "$PROJECT_LOCATION"
+        - gradle_task: staticAnalysis
+    - gradle-runner@5:
+        title: Unit tests (all modules)
+        inputs:
+        - build_root_directory: "$PROJECT_LOCATION"
+        - gradle_task: test
+    - deploy-to-bitrise-io@2:
+        title: Deploy test/lint reports as artifacts
+        inputs:
+        - deploy_path: "$BITRISE_SOURCE_DIR"
+    triggers:
+      pull_request:
+      - source_branch: "*"
+        target_branch: develop
+      - source_branch: "*"
+        target_branch: main
+
+  deploy-internal:
+    summary: Push to main. Builds signed debug+release APKs, distributes both to Firebase App Distribution.
+    steps:
+    - git-clone@8: {}
+    - install-missing-android-tools@3:
+        inputs:
+        - gradlew_path: "$PROJECT_LOCATION/gradlew"
+    - script@1:
+        title: Write local.properties (GOOGLE_WEB_CLIENT_ID + release signing)
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            set -euo pipefail
+            {
+              echo "GOOGLE_WEB_CLIENT_ID=$GOOGLE_WEB_CLIENT_ID"
+              echo "RELEASE_STORE_FILE=$BITRISE_SOURCE_DIR/release.keystore"
+              echo "RELEASE_STORE_PASSWORD=$BITRISEIO_ANDROID_KEYSTORE_PASSWORD"
+              echo "RELEASE_KEY_ALIAS=$BITRISEIO_ANDROID_KEYSTORE_ALIAS"
+              echo "RELEASE_KEY_PASSWORD=$BITRISEIO_ANDROID_KEYSTORE_PRIVATE_KEY_PASSWORD"
+            } >> "$BITRISE_SOURCE_DIR/local.properties"
+    - file-downloader@2:
+        title: Download google-services.json
+        inputs:
+        - source: "$BITRISEIO_GOOGLE_SERVICES_JSON_URL"
+        - destination: "$BITRISE_SOURCE_DIR/app/google-services.json"
+    - file-downloader@2:
+        title: Download release.keystore
+        inputs:
+        - source: "$BITRISEIO_ANDROID_KEYSTORE_URL"
+        - destination: "$BITRISE_SOURCE_DIR/release.keystore"
+    - file-downloader@2:
+        title: Download Firebase App Distribution service account JSON
+        inputs:
+        - source: "$BITRISEIO_FIREBASE_APP_DISTRO_JSON_URL"
+        - destination: "$BITRISE_SOURCE_DIR/firebase-app-distro-service-account.json"
+    - gradle-runner@5:
+        title: assembleDebug assembleRelease
+        inputs:
+        - build_root_directory: "$PROJECT_LOCATION"
+        - gradle_task: assembleDebug assembleRelease
+    - firebase-app-distribution@0:
+        title: Distribute debug APK to internal-debug testers
+        inputs:
+        - app_id: "1:1044553396320:android:f113802dc50e178f445305" # com.rossomak.flashcards.debug
+        - service_credentials_file: "$BITRISE_SOURCE_DIR/firebase-app-distro-service-account.json"
+        - groups: internal-debug
+        - app_path: "$BITRISE_SOURCE_DIR/app/build/outputs/apk/debug/app-debug.apk"
+    - firebase-app-distribution@0:
+        title: Distribute release APK to internal-release testers
+        inputs:
+        - app_id: "1:1044553396320:android:fb869c7f1cd3a332445305" # com.rossomak.flashcards (release)
+        - service_credentials_file: "$BITRISE_SOURCE_DIR/firebase-app-distro-service-account.json"
+        - groups: internal-release
+        - app_path: "$BITRISE_SOURCE_DIR/app/build/outputs/apk/release/app-release.apk"
+    triggers:
+      push:
+      - branch: main
+
+meta:
+  bitrise.io:
+    stack: ubuntu-noble-24.04-bitrise-2025-android
