@@ -12,18 +12,11 @@ pluginManager.apply("io.gitlab.arturbosch.detekt")
 
 // ktlint rule overrides applied on top of the repo-root .editorconfig. `backing-property-naming`
 // clashes with the ViewModel `_prefix` idiom for private MutableStateFlow with no public mirror.
-// KNOWN LIMITATION (see feedback_ktlint_no_autocollapse memory / PR discussion): disabling
-// `function-signature`, `parameter-list-wrapping`, `argument-list-wrapping`, and the two
-// `trailing-comma-on-*` rules this way — the officially documented Spotless mechanism — does NOT
-// take effect against ktlint 1.5.0 via Spotless 7.0.4 in this project; verified the key format is
-// correct (decompiled the rule IDs) and ruled out caching/staleness, an explicit older ktlint
-// version, and `setEditorConfigPath`. ktlint still collapses multi-line signatures and re-adds/
-// strips trailing commas on `spotlessApply`/`formatCode`. Left here as the documented-correct
-// config in case a future Spotless/ktlint upgrade fixes the underlying bug; until then, treat
-// signature/trailing-comma formatting as NOT enforced by this task — never run `formatCode`
-// blindly on files with intentional multi-line signatures without reviewing the diff first.
+// Class and function signature wrapping is intentionally author-controlled. In particular, the
+// `class-signature` rule would otherwise collapse multiline data-class constructors.
 val ktlintOverrides = mapOf(
     "ktlint_standard_backing-property-naming" to "disabled",
+    "ktlint_standard_class-signature" to "disabled",
     "ktlint_standard_function-signature" to "disabled",
     "ktlint_standard_parameter-list-wrapping" to "disabled",
     "ktlint_standard_argument-list-wrapping" to "disabled",
