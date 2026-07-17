@@ -10,7 +10,8 @@ val localProperties = Properties().apply {
         localFile.inputStream().use { load(it) }
     }
 }
-val googleWebClientId: String = localProperties.getProperty("GOOGLE_WEB_CLIENT_ID", "")
+val googleWebClientId: String =
+    localProperties.getProperty("GOOGLE_WEB_CLIENT_ID") ?: System.getenv("GOOGLE_WEB_CLIENT_ID") ?: ""
 
 // Bitrise doesn't have local props file, so it will have to call assembleRelease with the -P option and directly passed creds
 fun releaseSigningProperty(name: String): String? =

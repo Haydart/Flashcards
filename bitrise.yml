@@ -19,13 +19,6 @@ workflows:
     - install-missing-android-tools@3:
         inputs:
         - gradlew_path: "$PROJECT_LOCATION/gradlew"
-    - script@1:
-        title: Write local.properties (GOOGLE_WEB_CLIENT_ID)
-        inputs:
-        - content: |-
-            #!/usr/bin/env bash
-            set -euo pipefail
-            echo "GOOGLE_WEB_CLIENT_ID=$GOOGLE_WEB_CLIENT_ID" >> "$BITRISE_SOURCE_DIR/local.properties"
     - file-downloader@2:
         title: Download google-services.json
         inputs:
@@ -60,13 +53,12 @@ workflows:
         inputs:
         - gradlew_path: "$PROJECT_LOCATION/gradlew"
     - script@1:
-        title: Write local.properties (GOOGLE_WEB_CLIENT_ID + release signing)
+        title: Write local.properties (release signing)
         inputs:
         - content: |-
             #!/usr/bin/env bash
             set -euo pipefail
             {
-              echo "GOOGLE_WEB_CLIENT_ID=$GOOGLE_WEB_CLIENT_ID"
               echo "RELEASE_STORE_FILE=$BITRISE_SOURCE_DIR/release.keystore"
               echo "RELEASE_STORE_PASSWORD=$BITRISEIO_ANDROID_KEYSTORE_PASSWORD"
               echo "RELEASE_KEY_ALIAS=$BITRISEIO_ANDROID_KEYSTORE_ALIAS"
