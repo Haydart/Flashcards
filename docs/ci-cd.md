@@ -11,12 +11,11 @@ feature/*  --PR-->  develop  --PR-->  main  --(future PR)-->  release/*
 
 | Event | Workflow | What runs |
 |---|---|---|
-| PR into `develop` or `main` | `primary-ci` | `./gradlew staticAnalysis` + `./gradlew test`. Required GitHub status check — merge is blocked on failure. |
-| Push to `develop` (post-merge) | `develop-check` | Same checks, no distribution. Safety net only. |
-| Push to `main` | `deploy-internal` | Builds debug + release APKs, signs release, pushes both to Firebase App Distribution ("internal" tester group). |
+| PR into `develop` or `main` | `pr-check` | `./gradlew staticAnalysis` + `./gradlew test`. Required GitHub status check — merge is blocked on failure. Branch protection requires the PR to be up to date with base and disallows admin bypass, so this is the *only* Bitrise build per PR — no separate post-merge check. |
+| Push to `main` | `deploy-internal` | Builds debug + release APKs, signs release, pushes debug to Firebase App Distribution's `internal-debug` group and release to `internal-release`. |
 | Push to `release/*` | *(not yet implemented — see Phase 6)* | Will build an AAB and upload to Play Store. |
 
-No instrumented (`androidTest`) tests exist yet, so no emulator step is configured. Add one to `primary-ci` if/when instrumented tests land.
+No instrumented (`androidTest`) tests exist yet, so no emulator step is configured. Add one to `pr-check` if/when instrumented tests land.
 
 ## Secrets / Generic File Storage (Bitrise)
 
@@ -53,13 +52,6 @@ No instrumented (`androidTest`) tests exist yet, so no emulator step is configur
 ## GitHub integration
 
 - Bitrise GitHub App installed on `Haydart/Flashcards`.
-- Branch protection on `develop` and `main`: `primary-ci` status check required before merge.
+- Branch protection on `develop` and `main`: `pr-check` status check required before merge.
 
-## Implementation status
-
-- [x] Phase 1 — `signingConfig` + versioning added to `app/build.gradle.kts`
-- [ ] Phase 2 — Bitrise account created, GitHub App installed, secrets/files uploaded
-- [ ] Phase 3 — `primary-ci` workflow + branch protection
-- [ ] Phase 4 — `develop-check` workflow
-- [ ] Phase 5 — `deploy-internal` workflow
-- [ ] Phase 6 — Play Store: `release/*` trigger, `bundleRelease`, Play Console service account, Play Store deploy step
+Implementation progress (per-item, granular) is tracked in [docs/temp/bitrise-cicd-implementation-plan.md](temp/bitrise-cicd-implementation-plan.md), not here.

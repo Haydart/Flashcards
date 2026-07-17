@@ -6,10 +6,9 @@ Bitrise is the CI/CD provider, connected to `Haydart/Flashcards` via the Bitrise
 
 Branch roles:
 
-- **`feature/*` → PR → `develop`**: gated by a required GitHub status check running `./gradlew staticAnalysis && ./gradlew test`. No emulator/instrumented-test step — none exist yet (`androidTest` source sets are empty across all modules).
-- **Merge to `develop`**: re-runs the same checks post-merge as a safety net. No build artifact is produced or distributed from this branch.
-- **`develop` → PR → `main`**: same required status check as above.
-- **Merge to `main`**: builds both debug and release APKs, signs the release build, and pushes both to Firebase App Distribution's "internal" tester group.
+- **`feature/*` → PR → `develop`**: gated by a required GitHub status check running `./gradlew staticAnalysis && ./gradlew test`. No emulator/instrumented-test step — none exist yet (`androidTest` source sets are empty across all modules). Branch protection requires the PR branch to be up to date with `develop` before merge, and admin bypass is disabled — so the exact code validated by this check is always what lands on `develop`.
+- **`develop` → PR → `main`**: same required status check and up-to-date/no-bypass protection as above.
+- **Merge to `main`**: builds both debug and release APKs, signs the release build, and pushes each to its own Firebase App Distribution tester group — debug to `internal-debug`, release to `internal-release`.
 - **`release/*`**: reserved for the future Play Store path (see Consequences). Not built by any workflow yet.
 
 Release signing uses a newly generated keystore (the project had no release `signingConfig` before this), stored in Bitrise's encrypted file storage — never committed to the repo. Firebase App Distribution auth uses a dedicated Firebase service account scoped to App Distribution only, separate from the broader service account `functions/` uses.
