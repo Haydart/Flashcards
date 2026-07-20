@@ -89,14 +89,14 @@ workflows:
     - firebase-app-distribution@0:
         title: Distribute debug APK to internal-debug testers
         inputs:
-        - app_id: "1:1044553396320:android:f113802dc50e178f445305" # com.rossomak.flashcards.debug
+        - app: "1:1044553396320:android:f113802dc50e178f445305" # com.rossomak.flashcards.debug
         - service_credentials_file: "$BITRISE_SOURCE_DIR/firebase-app-distro-service-account.json"
         - groups: internal-debug
         - app_path: "$BITRISE_SOURCE_DIR/app/build/outputs/apk/debug/app-debug.apk"
     - firebase-app-distribution@0:
         title: Distribute release APK to internal-release testers
         inputs:
-        - app_id: "1:1044553396320:android:fb869c7f1cd3a332445305" # com.rossomak.flashcards (release)
+        - app: "1:1044553396320:android:fb869c7f1cd3a332445305" # com.rossomak.flashcards (release)
         - service_credentials_file: "$BITRISE_SOURCE_DIR/firebase-app-distro-service-account.json"
         - groups: internal-release
         - app_path: "$BITRISE_SOURCE_DIR/app/build/outputs/apk/release/app-release.apk"
