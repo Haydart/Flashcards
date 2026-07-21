@@ -2,20 +2,10 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>MagicNumber:FakeVoiceGradingApi.kt$FakeVoiceGradingApi$0.3</ID>
-    <ID>MagicNumber:FakeVoiceGradingApi.kt$FakeVoiceGradingApi$10.0</ID>
-    <ID>MagicNumber:FakeVoiceGradingApi.kt$FakeVoiceGradingApi$100</ID>
-    <ID>MagicNumber:FakeVoiceGradingApi.kt$FakeVoiceGradingApi$25</ID>
-    <ID>MagicNumber:FakeVoiceGradingApi.kt$FakeVoiceGradingApi$55</ID>
-    <ID>MagicNumber:FakeVoiceGradingApi.kt$FakeVoiceGradingApi$85</ID>
-    <ID>MaxLineLength:DefaultCurationRepository.kt$DefaultCurationRepository$override suspend</ID>
-    <ID>MaxLineLength:DefaultFlashcardRepository.kt$DefaultFlashcardRepository$override suspend</ID>
-    <ID>MaxLineLength:DefaultVoiceAnswerGradingRepository.kt$DefaultVoiceAnswerGradingRepository$override suspend</ID>
-    <ID>MaxLineLength:FakeVoiceGradingApi.kt$FakeVoiceGradingApi.Companion$"StateFlow holds a single value and replays it to new collectors while SharedFlow does not retain state by default"</ID>
-    <ID>MaxLineLength:FlashcardRemoteDataSource.kt$FlashcardRemoteDataSource$suspend</ID>
     <ID>TooGenericExceptionCaught:DefaultCurationRepository.kt$DefaultCurationRepository$exception: Exception</ID>
     <ID>TooGenericExceptionCaught:DefaultFlashcardRepository.kt$DefaultFlashcardRepository$exception: Exception</ID>
     <ID>TooGenericExceptionCaught:DefaultVoiceAnswerGradingRepository.kt$DefaultVoiceAnswerGradingRepository$exception: Exception</ID>
     <ID>TooGenericExceptionCaught:FirebaseAuthRemoteDataSource.kt$FirebaseAuthRemoteDataSource$exception: Exception</ID>
+    <ID>TooGenericExceptionCaught:RealVoiceGradingApi.kt$RealVoiceGradingApi$exception: Exception</ID>
   </CurrentIssues>
 </SmellBaseline>

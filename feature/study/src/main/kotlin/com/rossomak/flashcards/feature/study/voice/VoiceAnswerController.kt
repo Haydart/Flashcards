@@ -311,7 +311,7 @@ class VoiceAnswerController @Inject constructor(
 
     private fun hasRecordAudioPermission(): Boolean =
         ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
-                PackageManager.PERMISSION_GRANTED
+            PackageManager.PERMISSION_GRANTED
 
     private fun acquireWakeLock() {
         if (wakeLock?.isHeld == true) return

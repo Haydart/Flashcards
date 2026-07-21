@@ -227,7 +227,6 @@ class VoiceDebugViewModel @Inject constructor(
         voiceCaptureEngine.stopListening()
         pcmPlayer.stop()
         audioRouteManager.releaseSessionRoute()
-        super.onCleared()
     }
 
     private fun CaptureRouteType.toRouteLabel(): String = when (this) {

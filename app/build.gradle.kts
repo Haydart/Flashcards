@@ -10,22 +10,54 @@ val localProperties = Properties().apply {
         localFile.inputStream().use { load(it) }
     }
 }
-val googleWebClientId: String = localProperties.getProperty("GOOGLE_WEB_CLIENT_ID", "")
+val googleWebClientId: String =
+    localProperties.getProperty("GOOGLE_WEB_CLIENT_ID") ?: System.getenv("GOOGLE_WEB_CLIENT_ID") ?: ""
+
+// Bitrise doesn't have local props file, so it will have to call assembleRelease/assembleDebug with the -P option and directly passed creds
+fun signingProperty(name: String): String? =
+    project.findProperty(name) as String? ?: localProperties.getProperty(name)
+
+val gitCommitCount: Int = providers.exec {
+    commandLine("git", "rev-list", "--count", "HEAD")
+}.standardOutput.asText.get().trim().toInt()
+
+val versionMajor = 0
+val versionMinor = 1
 
 android {
     namespace = "com.rossomak.flashcards"
 
+    signingConfigs {
+        getByName("debug") {
+            storeFile = signingProperty("DEBUG_STORE_FILE")?.let { file(it) }
+            storePassword = signingProperty("DEBUG_STORE_PASSWORD")
+            keyAlias = signingProperty("DEBUG_KEY_ALIAS")
+            keyPassword = signingProperty("DEBUG_KEY_PASSWORD")
+        }
+        create("release") {
+            storeFile = signingProperty("RELEASE_STORE_FILE")?.let { file(it) }
+            storePassword = signingProperty("RELEASE_STORE_PASSWORD")
+            keyAlias = signingProperty("RELEASE_KEY_ALIAS")
+            keyPassword = signingProperty("RELEASE_KEY_PASSWORD")
+        }
+    }
+
     defaultConfig {
         applicationId = "com.rossomak.flashcards"
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = gitCommitCount
+        versionName = "$versionMajor.$versionMinor.$gitCommitCount"
 
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+            signingConfig = signingConfigs.getByName("debug")
+        }
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

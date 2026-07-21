@@ -6,6 +6,9 @@ build:
   maxIssues: 0 # any NEW (non-baselined) finding fails the task
 
 complexity:
+  ComplexCondition:
+    # Detekt reports conditions whose complexity is greater than or equal to this value.
+    threshold: 6
   LongMethod:
     threshold: 80
   LongParameterList:

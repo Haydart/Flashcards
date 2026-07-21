@@ -18,8 +18,9 @@ ktlint_function_naming_ignore_when_annotated_with = Composable, Preview
 ij_kotlin_packages_to_use_import_on_demand = unset
 # ViewModels use the `_prefix` idiom for private MutableStateFlow with no public mirror.
 ktlint_standard_backing-property-naming = disabled
-# Never auto-collapse a multi-line function/constructor signature onto one line (and never
+# Never auto-collapse a multi-line class or function signature onto one line (and never
 # auto-expand a one-liner either) — signature line-wrapping is an author decision, not ktlint's.
+ktlint_standard_class-signature = disabled
 ktlint_standard_function-signature = disabled
 # Never strip an existing trailing comma, and never force-add one where absent — leave trailing
 # commas exactly as the author wrote them.

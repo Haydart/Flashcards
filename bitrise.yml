@@ -1,0 +1,133 @@
+format_version: '26'
+default_step_lib_source: https://github.com/bitrise-io/bitrise-steplib.git
+project_type: android
+
+app:
+  envs:
+  - PROJECT_LOCATION: "./"
+    opts:
+      is_expand: false
+  - MODULE: app
+    opts:
+      is_expand: false
+
+workflows:
+  pr-check:
+    summary: PR gate for merges into develop/main. staticAnalysis + unit tests only.
+    steps:
+    - git-clone@8: {}
+    - install-missing-android-tools@3:
+        inputs:
+        - gradlew_path: "$PROJECT_LOCATION/gradlew"
+    - file-downloader@2:
+        title: Download google-services.json
+        inputs:
+        - source: "$BITRISEIO_GOOGLE_SERVICES_JSON_URL"
+        - destination: "$BITRISE_SOURCE_DIR/app/google-services.json"
+    - gradle-runner@5:
+        title: staticAnalysis (Spotless + detekt + Konsist + Lint, all modules)
+        inputs:
+        - build_root_directory: "$PROJECT_LOCATION"
+        - gradle_task: staticAnalysis
+    - gradle-runner@5:
+        title: Unit tests (all modules)
+        inputs:
+        - build_root_directory: "$PROJECT_LOCATION"
+        - gradle_task: test
+    - deploy-to-bitrise-io@2:
+        title: Deploy test/lint reports as artifacts
+        inputs:
+        - deploy_path: "$BITRISE_SOURCE_DIR"
+    triggers:
+      pull_request:
+      - source_branch: "*"
+        target_branch: develop
+      - source_branch: "*"
+        target_branch: main
+
+  deploy-internal:
+    summary: Push to main. Builds signed debug+release APKs, distributes both to Firebase App Distribution.
+    steps:
+    - git-clone@8:
+        inputs:
+        - clone_depth: "-1" # versionCode/versionName derive from full git commit count
+    - install-missing-android-tools@3:
+        inputs:
+        - gradlew_path: "$PROJECT_LOCATION/gradlew"
+    - file-downloader@2:
+        title: Download google-services.json
+        inputs:
+        - source: "$BITRISEIO_GOOGLE_SERVICES_JSON_URL"
+        - destination: "$BITRISE_SOURCE_DIR/app/google-services.json"
+    - file-downloader@2:
+        title: Download release.keystore
+        inputs:
+        - source: "$BITRISEIO_ANDROID_KEYSTORE_URL"
+        - destination: "$BITRISE_SOURCE_DIR/release.keystore"
+    - file-downloader@2:
+        title: Download debug.keystore
+        inputs:
+        - source: "$BITRISEIO_ANDROID_KEYSTORE_DEBUG_URL"
+        - destination: "$BITRISE_SOURCE_DIR/debug.keystore"
+    - file-downloader@2:
+        title: Download Firebase App Distribution service account JSON
+        inputs:
+        - source: "$BITRISEIO_FIREBASE_APP_DISTRO_JSON_URL"
+        - destination: "$BITRISE_SOURCE_DIR/firebase-app-distro-service-account.json"
+    - gradle-runner@5:
+        title: assembleDebug assembleRelease
+        inputs:
+        - build_root_directory: "$PROJECT_LOCATION"
+        - gradle_task: assembleDebug assembleRelease
+        - gradle_options: |-
+            -PRELEASE_STORE_FILE=$BITRISE_SOURCE_DIR/release.keystore
+            -PRELEASE_STORE_PASSWORD=$BITRISEIO_ANDROID_KEYSTORE_PASSWORD
+            -PRELEASE_KEY_ALIAS=$BITRISEIO_ANDROID_KEYSTORE_ALIAS
+            -PRELEASE_KEY_PASSWORD=$BITRISEIO_ANDROID_KEYSTORE_PRIVATE_KEY_PASSWORD
+            -PDEBUG_STORE_FILE=$BITRISE_SOURCE_DIR/debug.keystore
+            -PDEBUG_STORE_PASSWORD=$BITRISEIO_ANDROID_KEYSTORE_DEBUG_PASSWORD
+            -PDEBUG_KEY_ALIAS=$BITRISEIO_ANDROID_KEYSTORE_DEBUG_ALIAS
+            -PDEBUG_KEY_PASSWORD=$BITRISEIO_ANDROID_KEYSTORE_DEBUG_PRIVATE_KEY_PASSWORD
+    - script@1:
+        title: Distribute debug APK to internal-debug testers
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            set -euo pipefail
+
+            if ! command -v firebase >/dev/null 2>&1; then
+              curl -sL firebase.tools | bash
+            fi
+
+            export GOOGLE_APPLICATION_CREDENTIALS="$BITRISE_SOURCE_DIR/firebase-app-distro-service-account.json"
+
+            firebase appdistribution:distribute \
+              "$BITRISE_SOURCE_DIR/app/build/outputs/apk/debug/app-debug.apk" \
+              --app "1:1044553396320:android:f113802dc50e178f445305" \
+              --groups internal-debug \
+              --debug
+    - script@1:
+        title: Distribute release APK to internal-release testers
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            set -euo pipefail
+
+            if ! command -v firebase >/dev/null 2>&1; then
+              curl -sL firebase.tools | bash
+            fi
+
+            export GOOGLE_APPLICATION_CREDENTIALS="$BITRISE_SOURCE_DIR/firebase-app-distro-service-account.json"
+
+            firebase appdistribution:distribute \
+              "$BITRISE_SOURCE_DIR/app/build/outputs/apk/release/app-release.apk" \
+              --app "1:1044553396320:android:fb869c7f1cd3a332445305" \
+              --groups internal-release \
+              --debug
+    triggers:
+      push:
+      - branch: main
+
+meta:
+  bitrise.io:
+    stack: ubuntu-noble-24.04-bitrise-2025-android
