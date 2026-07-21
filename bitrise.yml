@@ -48,7 +48,9 @@ workflows:
   deploy-internal:
     summary: Push to main. Builds signed debug+release APKs, distributes both to Firebase App Distribution.
     steps:
-    - git-clone@8: {}
+    - git-clone@8:
+        inputs:
+        - clone_depth: "-1" # versionCode/versionName derive from full git commit count
     - install-missing-android-tools@3:
         inputs:
         - gradlew_path: "$PROJECT_LOCATION/gradlew"
@@ -118,7 +120,7 @@ workflows:
             export GOOGLE_APPLICATION_CREDENTIALS="$BITRISE_SOURCE_DIR/firebase-app-distro-service-account.json"
 
             firebase appdistribution:distribute \
-              "$BITRISE_SOURCE_DIR/app/build/outputs/apk/release/app-release-unsigned.apk" \
+              "$BITRISE_SOURCE_DIR/app/build/outputs/apk/release/app-release.apk" \
               --app "1:1044553396320:android:fb869c7f1cd3a332445305" \
               --groups internal-release \
               --debug
