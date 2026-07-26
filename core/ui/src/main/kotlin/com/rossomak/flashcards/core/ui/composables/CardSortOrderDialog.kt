@@ -25,8 +25,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import com.rossomak.flashcards.core.domain.model.CardSortOrder
+import com.rossomak.flashcards.core.ui.theme.spacing
 
 @Composable
 fun CardSortOrderDialog(
@@ -50,7 +50,7 @@ fun CardSortOrderDialog(
                     )
                 }
                 if (showKeepAsDefaultOption) {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(MaterialTheme.spacing.xsmall))
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -62,7 +62,7 @@ fun CardSortOrderDialog(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Checkbox(checked = keepAsDefault, onCheckedChange = null)
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(MaterialTheme.spacing.xsmall))
                         Text(text = "Keep as default setting")
                     }
                 }
@@ -87,7 +87,7 @@ private fun SortOrderRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         RadioButton(selected = isSelected, onClick = null)
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(MaterialTheme.spacing.xsmall))
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge,
