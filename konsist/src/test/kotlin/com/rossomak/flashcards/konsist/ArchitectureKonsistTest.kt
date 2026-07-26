@@ -50,6 +50,21 @@ class ArchitectureKonsistTest {
     }
 
     @Test
+    fun `design-system composables use no raw dp literals`() {
+        // Reusable components in :core:ui composables/ must read dimensions from theme
+        // tokens (spacing / sizes / cornerRadius), never hardcode `dp` (see core/ui/README.md
+        // and ADR-0020). Opt out per-function with @RawDimensions("reason"). Colors are never
+        // exempt. Token *definitions* live in the theme/ package, so scoping to composables/
+        // keeps them out of this check.
+        val rawDpLiteral = Regex("""\b\d+(\.\d+)?\.dp\b""")
+        projectScope
+            .functions()
+            .filter { function -> function.path.contains("/core/ui/") && function.path.contains("/composables/") }
+            .filter { function -> function.annotations.none { it.name == "RawDimensions" } }
+            .assertFalse { function -> rawDpLiteral.containsMatchIn(function.text) }
+    }
+
+    @Test
     fun `core modules never import feature modules`() {
         projectScope
             .files
