@@ -73,3 +73,13 @@ val surfaceContainerLowDark = Color(0xFF1B1B21)
 val surfaceContainerDark = Color(0xFF1F1F25)
 val surfaceContainerHighDark = Color(0xFF2A2930)
 val surfaceContainerHighestDark = Color(0xFF34343B)
+
+/**
+ * Fixed palette for [com.rossomak.flashcards.core.ui.composables.SyntaxCodeBlock]. The code
+ * block always renders `SyntaxTheme.DefaultDark` regardless of the app's light/dark theme,
+ * so these are intentionally theme-independent constants rather than `colorScheme` tokens.
+ */
+object CodeBlockColors {
+    val background = Color(0xFF1E1E1E)
+    val foreground = Color(0xFFFFFFFF)
+}
