@@ -28,6 +28,21 @@ object AppSizes {
 
     /** 1px hairline used for card borders and dividers. */
     val hairline: Dp = 1.dp
+
+    /** Height of the checkable tag chip (M3 filter chip, one size only). */
+    val tagChipHeight: Dp = 40.dp
+
+    /** Leading check icon inside a selected tag chip. */
+    val tagChipIcon: Dp = 18.dp
+
+    /** Outline width of an unselected tag chip — deliberately heavier than [hairline]. */
+    val tagChipBorder: Dp = 1.5.dp
+
+    /** Height of the metadata badge — the smaller, non-checkable stats pill. */
+    val metadataBadgeHeight: Dp = 32.dp
+
+    /** Leading icon inside a metadata badge. */
+    val metadataBadgeIcon: Dp = 16.dp
 }
 
 val LocalSizes = staticCompositionLocalOf { AppSizes }

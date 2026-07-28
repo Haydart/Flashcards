@@ -108,7 +108,7 @@ fun FlashcardsExpandableCardRow(
                         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall),
                         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xxsmall),
                     ) {
-                        tags.forEach { tag -> FlashcardsTagChip(label = tag) }
+                        tags.forEach { tag -> FlashcardsMetadataBadge(label = tag) }
                     }
                 }
             }
