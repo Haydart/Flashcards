@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
@@ -23,6 +24,9 @@ import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.sizes
 import com.rossomak.flashcards.core.ui.theme.spacing
 
+/** Opacity applied to the whole row when `enabled = false`, per the design's disabled rows. */
+private const val DISABLED_ALPHA = 0.6f
+
 /**
  * The generic design-system list row: an optional [leading] slot, a title with optional
  * [subtitle] / [secondaryText], and an optional [trailing] slot. Settings, category, and topic
@@ -30,7 +34,8 @@ import com.rossomak.flashcards.core.ui.theme.spacing
  * chevron / switch / stepper trailing).
  *
  * The whole row is one merged, clickable node with the given [role]; decorative trailing
- * chevrons should pass `contentDescription = null` (see [FlashcardsChevron]).
+ * chevrons should pass `contentDescription = null` (see [FlashcardsChevron]). When [enabled] is
+ * `false`, the whole row dims rather than only disabling the click.
  */
 @Composable
 fun FlashcardsListRow(
@@ -46,6 +51,7 @@ fun FlashcardsListRow(
 ) {
     Row(
         modifier = modifier
+            .alpha(if (enabled) 1f else DISABLED_ALPHA)
             .heightIn(min = MaterialTheme.sizes.listRowMinHeight)
             .clickable(enabled = enabled, role = role, onClick = onClick)
             .padding(
@@ -115,6 +121,22 @@ fun FlashcardsListRowShowcase() {
                 onClick = {},
                 subtitle = "Compose · Coroutines · Compose Navigation",
                 secondaryText = "13 topics",
+                trailing = { FlashcardsChevron() },
+            )
+        }
+    }
+}
+
+@ShowkaseComposable(name = "List row — disabled", group = "Lists")
+@Composable
+fun FlashcardsListRowDisabledShowcase() {
+    FlashcardsTheme {
+        Surface {
+            FlashcardsListRow(
+                title = "Speak your answer aloud",
+                onClick = {},
+                subtitle = "Coming soon",
+                enabled = false,
                 trailing = { FlashcardsChevron() },
             )
         }
