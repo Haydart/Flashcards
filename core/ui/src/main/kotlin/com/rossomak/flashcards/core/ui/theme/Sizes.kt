@@ -43,6 +43,12 @@ object AppSizes {
 
     /** Leading icon inside a metadata badge. */
     val metadataBadgeIcon: Dp = 16.dp
+
+    /** Width of the category-coded accent stripe leading a search-result row. */
+    val accentStripeWidth: Dp = 4.dp
+
+    /** Height of the category-coded accent stripe leading a search-result row. */
+    val accentStripeHeight: Dp = 30.dp
 }
 
 val LocalSizes = staticCompositionLocalOf { AppSizes }
