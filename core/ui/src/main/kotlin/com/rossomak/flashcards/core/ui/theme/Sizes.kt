@@ -1,4 +1,4 @@
-// Token-grouping file: AppSizes plus its CompositionLocal and border helper live together,
+// Token-grouping file: AppSizes plus its MaterialTheme accessor and border helper live together,
 // matching the sibling Spacing.kt / CornerRadius.kt convention.
 @file:Suppress("MatchingDeclarationName")
 
@@ -8,7 +8,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -51,12 +50,8 @@ object AppSizes {
     val accentStripeHeight: Dp = 30.dp
 }
 
-val LocalSizes = staticCompositionLocalOf { AppSizes }
-
 val MaterialTheme.sizes: AppSizes
-    @Composable
-    @ReadOnlyComposable
-    get() = LocalSizes.current
+    get() = AppSizes
 
 /**
  * The standard 1px hairline border for design-system cards and list groups, tinted with

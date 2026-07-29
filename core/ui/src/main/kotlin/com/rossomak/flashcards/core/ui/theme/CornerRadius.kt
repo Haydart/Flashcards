@@ -1,9 +1,6 @@
 package com.rossomak.flashcards.core.ui.theme
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.ReadOnlyComposable
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -20,9 +17,5 @@ object AppCornerRadius {
     val full: Dp = 9999.dp
 }
 
-val LocalCornerRadius = staticCompositionLocalOf { AppCornerRadius }
-
 val MaterialTheme.cornerRadius: AppCornerRadius
-    @Composable
-    @ReadOnlyComposable
-    get() = LocalCornerRadius.current
+    get() = AppCornerRadius
