@@ -63,7 +63,7 @@ class StudySessionViewModelTest {
         sessionTitle = sessionTitle,
         subcategoryIds = listOf(subcategoryId),
         cardIds = listOf("card-1", "card-2", "card-3"),
-        studyMode = StudyMode.RATED,
+        studyMode = StudyMode.Rated,
     )
 
     @Before
@@ -131,7 +131,7 @@ class StudySessionViewModelTest {
 
     @Test
     fun `fast study mode marks voice auto start pending once cards load`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(route.copy(studyMode = StudyMode.FAST))
+        stubRoute(route.copy(studyMode = StudyMode.Fast))
         loadThreeCards()
 
         val viewModel = createViewModel()
@@ -195,7 +195,7 @@ class StudySessionViewModelTest {
         val viewModel = createViewModel()
         advanceUntilIdle()
         viewModel.onShowAnswer()
-        viewModel.onRating(FlashcardRating.CORRECT)
+        viewModel.onRating(FlashcardRating.Correct)
 
         viewModel.state.value.currentCardIndex shouldBe 1
         viewModel.state.value.isAnswerRevealed shouldBe false
@@ -215,7 +215,7 @@ class StudySessionViewModelTest {
 
     @Test
     fun `onVoiceAutoStartDeclined clears the pending flag`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(route.copy(studyMode = StudyMode.FAST))
+        stubRoute(route.copy(studyMode = StudyMode.Fast))
         loadThreeCards()
 
         val viewModel = createViewModel()
@@ -276,7 +276,7 @@ class StudySessionViewModelTest {
         val viewModel = createViewModel()
         advanceUntilIdle()
 
-        voiceGateway.stateFlow.value = VoicePlaybackState(isActive = true, currentIndex = 2, phase = VoicePhase.ANSWER)
+        voiceGateway.stateFlow.value = VoicePlaybackState(isActive = true, currentIndex = 2, phase = VoicePhase.Answer)
         advanceUntilIdle()
 
         viewModel.state.value.currentCardIndex shouldBe 2
@@ -361,12 +361,12 @@ class StudySessionViewModelTest {
 
         val viewModel = createViewModel(curationRepository)
         advanceUntilIdle()
-        viewModel.onCurationActionToggle(CurationAction.DELETE)
+        viewModel.onCurationActionToggle(CurationAction.Delete)
 
-        viewModel.state.value.curationRequests.getValue("card-1").actions.keys shouldBe setOf(CurationAction.DELETE)
+        viewModel.state.value.curationRequests.getValue("card-1").actions.keys shouldBe setOf(CurationAction.Delete)
 
         advanceUntilIdle()
-        curationRepository.upsertedActions shouldBe listOf(Triple("card-1", subcategoryId, CurationAction.DELETE))
+        curationRepository.upsertedActions shouldBe listOf(Triple("card-1", subcategoryId, CurationAction.Delete))
     }
 
     @Test
@@ -375,11 +375,11 @@ class StudySessionViewModelTest {
 
         val viewModel = createViewModel()
         advanceUntilIdle()
-        viewModel.onCurationActionToggle(CurationAction.DIFFICULTY_TOO_HARD)
-        viewModel.onCurationActionToggle(CurationAction.DIFFICULTY_TOO_EASY)
+        viewModel.onCurationActionToggle(CurationAction.DifficultyTooHard)
+        viewModel.onCurationActionToggle(CurationAction.DifficultyTooEasy)
 
         viewModel.state.value.curationRequests.getValue("card-1").actions.keys shouldBe
-            setOf(CurationAction.DIFFICULTY_TOO_EASY)
+            setOf(CurationAction.DifficultyTooEasy)
     }
 
     @Test
@@ -392,7 +392,7 @@ class StudySessionViewModelTest {
 
         val viewModel = createViewModel(curationRepository)
         advanceUntilIdle()
-        viewModel.onCurationActionToggle(CurationAction.DELETE)
+        viewModel.onCurationActionToggle(CurationAction.Delete)
         advanceUntilIdle()
 
         viewModel.state.value.curationRequests.containsKey("card-1") shouldBe false
@@ -422,7 +422,7 @@ class StudySessionViewModelTest {
 
         val viewModel = createViewModel(curationRepository)
         advanceUntilIdle()
-        viewModel.onCurationActionToggle(CurationAction.DELETE)
+        viewModel.onCurationActionToggle(CurationAction.Delete)
         advanceUntilIdle()
 
         viewModel.onCurationErrorDismissed()
@@ -469,7 +469,7 @@ class StudySessionViewModelTest {
 
     @Test
     fun `onVoiceAnswerToggle in Fast mode does nothing`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(route.copy(studyMode = StudyMode.FAST))
+        stubRoute(route.copy(studyMode = StudyMode.Fast))
         val viewModel = createViewModel()
         advanceUntilIdle()
 

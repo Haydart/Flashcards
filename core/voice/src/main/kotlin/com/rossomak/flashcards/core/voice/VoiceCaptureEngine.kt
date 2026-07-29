@@ -49,7 +49,7 @@ sealed interface VoiceCaptureEvent {
  * [AudioRouteManager] at the session level, not here. This engine only reads the currently active
  * [CaptureRoute]: it binds the input device via `AudioRecord.setPreferredDevice`, verifies the
  * honored [AudioRecord.getRoutedDevice] after `startRecording()`, and — when a Bluetooth mic is
- * required but unavailable ([CaptureRouteType.WAITING]) — strict-pauses rather than silently falling
+ * required but unavailable ([CaptureRouteType.Waiting]) — strict-pauses rather than silently falling
  * back to the pocketed phone mic. On a mid-session route change it rebuilds the [AudioRecord] at the
  * next utterance boundary (an [AudioRecord] cannot change device live).
  *
@@ -65,7 +65,7 @@ class VoiceCaptureEngine @Inject constructor(
     private val audioRouteManager: AudioRouteManager,
 ) {
 
-    private enum class CaptureOutcome { STOPPED, FAILED, ROUTE_CHANGED }
+    private enum class CaptureOutcome { Stopped, Failed, RouteChanged }
 
     private val _events = MutableSharedFlow<VoiceCaptureEvent>(extraBufferCapacity = 16)
     val events: SharedFlow<VoiceCaptureEvent> = _events.asSharedFlow()
@@ -163,14 +163,14 @@ class VoiceCaptureEngine @Inject constructor(
                     audioRecord.startRecording()
                     if (!isRouteHonored(audioRecord, route)) {
                         _events.emit(VoiceCaptureEvent.CaptureFailed("Capture not routed to Bluetooth microphone"))
-                        CaptureOutcome.FAILED
+                        CaptureOutcome.Failed
                     } else {
                         warmUpBluetoothRoute(audioRecord, route)
                         captureFrames(audioRecord) { routeChangePending.get() }
                     }
                 } catch (exception: SecurityException) {
                     _events.emit(VoiceCaptureEvent.CaptureFailed("Microphone permission missing: ${exception.message}"))
-                    CaptureOutcome.FAILED
+                    CaptureOutcome.Failed
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (exception: Exception) {
@@ -178,14 +178,14 @@ class VoiceCaptureEngine @Inject constructor(
                     // the UI stuck on "silence". Surface them so they show up in the debug event log.
                     android.util.Log.e(TAG, "capture loop error", exception)
                     _events.emit(VoiceCaptureEvent.CaptureFailed("Capture loop error: ${exception.message}"))
-                    CaptureOutcome.FAILED
+                    CaptureOutcome.Failed
                 } finally {
                     runCatching { audioRecord.stop() }
                     audioRecord.release()
                 }
                 when (outcome) {
-                    CaptureOutcome.STOPPED, CaptureOutcome.FAILED -> return
-                    CaptureOutcome.ROUTE_CHANGED -> Unit // loop and rebuild AudioRecord on the new route
+                    CaptureOutcome.Stopped, CaptureOutcome.Failed -> return
+                    CaptureOutcome.RouteChanged -> Unit // loop and rebuild AudioRecord on the new route
                 }
             }
         } finally {
@@ -197,9 +197,9 @@ class VoiceCaptureEngine @Inject constructor(
     }
 
     /**
-     * Reads VAD-bounded utterances off [audioRecord] until the job is cancelled ([CaptureOutcome.STOPPED])
+     * Reads VAD-bounded utterances off [audioRecord] until the job is cancelled ([CaptureOutcome.Stopped])
      * or [isRouteChangePending] flips. A pending route change is honored at an utterance boundary:
-     * an in-flight utterance is finished first, then [CaptureOutcome.ROUTE_CHANGED] is returned so the
+     * an in-flight utterance is finished first, then [CaptureOutcome.RouteChanged] is returned so the
      * caller rebuilds on the new route (never a mid-clip device switch).
      */
     private suspend fun captureFrames(
@@ -213,7 +213,7 @@ class VoiceCaptureEngine @Inject constructor(
         var trailingSilenceFrames = 0
         var speechFrameCount = 0
         while (captureJob?.isActive == true) {
-            if (isRouteChangePending() && !isInUtterance) return CaptureOutcome.ROUTE_CHANGED
+            if (isRouteChangePending() && !isInUtterance) return CaptureOutcome.RouteChanged
             val read = audioRecord.read(frame, 0, frame.size)
             if (read <= 0) continue
             updateActualMicDevice(audioRecord)
@@ -257,7 +257,7 @@ class VoiceCaptureEngine @Inject constructor(
                         trailingSilenceFrames = 0
                         speechFrameCount = 0
                         // Finished the in-flight utterance; now it's safe to switch devices.
-                        if (isRouteChangePending()) return CaptureOutcome.ROUTE_CHANGED
+                        if (isRouteChangePending()) return CaptureOutcome.RouteChanged
                     }
                 }
                 else -> {
@@ -266,7 +266,7 @@ class VoiceCaptureEngine @Inject constructor(
                 }
             }
         }
-        return CaptureOutcome.STOPPED
+        return CaptureOutcome.Stopped
     }
 
     private suspend fun finishUtterance(frames: List<ShortArray>, speechFrameCount: Int) {

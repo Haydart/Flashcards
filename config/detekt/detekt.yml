@@ -42,3 +42,9 @@ naming:
     ignoreAnnotated: ['Composable']
   TopLevelPropertyNaming:
     active: true
+  EnumNaming:
+    active: true
+    # PascalCase only. detekt's default pattern allows underscores AND all-caps single words
+    # (e.g. DEFAULT); this requires a lowercase letter after each leading capital, so every
+    # "word" segment must be Capitalized, not ALL_CAPS or ALLCAPS.
+    enumEntryPattern: '[A-Z][a-z0-9]*([A-Z][a-z0-9]*)*'

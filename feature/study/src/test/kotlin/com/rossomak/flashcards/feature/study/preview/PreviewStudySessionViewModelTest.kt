@@ -196,9 +196,9 @@ class PreviewStudySessionViewModelTest {
 
         val viewModel = createViewModel()
         advanceUntilIdle()
-        viewModel.onStudyModeSelect(StudyMode.FAST)
+        viewModel.onStudyModeSelect(StudyMode.Fast)
 
-        viewModel.state.value.selectedStudyMode shouldBe StudyMode.FAST
+        viewModel.state.value.selectedStudyMode shouldBe StudyMode.Fast
     }
 
     @Test
@@ -227,10 +227,10 @@ class PreviewStudySessionViewModelTest {
 
         val viewModel = createViewModel()
         advanceUntilIdle()
-        viewModel.onSortOrderSelect(CardSortOrder.EASIEST_FIRST)
+        viewModel.onSortOrderSelect(CardSortOrder.EasiestFirst)
         viewModel.onStartSession()
 
-        viewModel.state.value.sortOrder shouldBe CardSortOrder.EASIEST_FIRST
+        viewModel.state.value.sortOrder shouldBe CardSortOrder.EasiestFirst
         viewModel.events.test {
             val destination = awaitItem() as PreviewStudySessionDestination.StudySession
             destination.route.cardIds shouldBe listOf("card-2", "card-3", "card-1")
@@ -250,7 +250,7 @@ class PreviewStudySessionViewModelTest {
 
         val viewModel = createViewModel()
         advanceUntilIdle()
-        viewModel.onSortOrderSelect(CardSortOrder.HARDEST_FIRST)
+        viewModel.onSortOrderSelect(CardSortOrder.HardestFirst)
         viewModel.onStartSession()
 
         viewModel.events.test {
@@ -268,7 +268,7 @@ class PreviewStudySessionViewModelTest {
 
         val viewModel = createViewModel()
         advanceUntilIdle()
-        viewModel.onStudyModeSelect(StudyMode.FAST)
+        viewModel.onStudyModeSelect(StudyMode.Fast)
         viewModel.onStartSession()
 
         viewModel.events.test {
@@ -277,7 +277,7 @@ class PreviewStudySessionViewModelTest {
             destination.route.sessionTitle shouldBe subcategoryName
             destination.route.subcategoryIds shouldBe listOf(subcategoryId)
             destination.route.cardIds shouldContainAll listOf("card-1", "card-2")
-            destination.route.studyMode shouldBe StudyMode.FAST
+            destination.route.studyMode shouldBe StudyMode.Fast
         }
     }
 

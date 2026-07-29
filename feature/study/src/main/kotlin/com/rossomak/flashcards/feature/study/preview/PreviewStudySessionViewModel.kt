@@ -135,9 +135,9 @@ class PreviewStudySessionViewModel @Inject constructor(
         val eligibleCards = cardPool.filter { it.difficulty in difficultyRange }
         val drawnCards = eligibleCards.shuffled().take(_state.value.sessionCardCount)
         selectedCards = when (_state.value.sortOrder) {
-            CardSortOrder.DEFAULT -> drawnCards
-            CardSortOrder.EASIEST_FIRST -> drawnCards.sortedBy { it.difficulty }
-            CardSortOrder.HARDEST_FIRST -> drawnCards.sortedByDescending { it.difficulty }
+            CardSortOrder.Default -> drawnCards
+            CardSortOrder.EasiestFirst -> drawnCards.sortedBy { it.difficulty }
+            CardSortOrder.HardestFirst -> drawnCards.sortedByDescending { it.difficulty }
         }
         _state.update {
             it.copy(

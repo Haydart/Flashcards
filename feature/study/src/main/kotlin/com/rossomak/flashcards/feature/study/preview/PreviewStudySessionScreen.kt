@@ -262,15 +262,15 @@ private fun ReadyContent(
                 modifier = Modifier.weight(1f),
                 title = "Rated",
                 description = "Reveal each answer, then rate yourself. Progress is saved.",
-                isSelected = state.selectedStudyMode == StudyMode.RATED,
-                onSelect = { onStudyModeSelect(StudyMode.RATED) },
+                isSelected = state.selectedStudyMode == StudyMode.Rated,
+                onSelect = { onStudyModeSelect(StudyMode.Rated) },
             )
             StudyModeCard(
                 modifier = Modifier.weight(1f),
                 title = "Fast",
                 description = "Cards advance on a timer. Nothing is rated or saved.",
-                isSelected = state.selectedStudyMode == StudyMode.FAST,
-                onSelect = { onStudyModeSelect(StudyMode.FAST) },
+                isSelected = state.selectedStudyMode == StudyMode.Fast,
+                onSelect = { onStudyModeSelect(StudyMode.Fast) },
             )
         }
         Spacer(modifier = Modifier.height(16.dp))
@@ -414,9 +414,9 @@ private fun screenTitle(state: PreviewStudySessionScreenState): String = when {
 }
 
 private fun sortOrderLabel(sortOrder: CardSortOrder): String = when (sortOrder) {
-    CardSortOrder.DEFAULT -> "Default"
-    CardSortOrder.EASIEST_FIRST -> "Easiest first"
-    CardSortOrder.HARDEST_FIRST -> "Hardest first"
+    CardSortOrder.Default -> "Default"
+    CardSortOrder.EasiestFirst -> "Easiest first"
+    CardSortOrder.HardestFirst -> "Hardest first"
 }
 
 private fun scopeDescription(state: PreviewStudySessionScreenState): AnnotatedString = buildAnnotatedString {
@@ -561,7 +561,7 @@ private fun PreviewStudySessionCustomSessionPreview() {
             isLoading = false,
             selectedCardCount = 12,
             estimatedMinutes = 8,
-            selectedStudyMode = StudyMode.FAST,
+            selectedStudyMode = StudyMode.Fast,
         ),
         onNavigateBack = {},
         onRetry = {},

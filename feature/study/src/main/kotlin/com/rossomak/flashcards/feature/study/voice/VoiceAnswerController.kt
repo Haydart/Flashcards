@@ -35,16 +35,16 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-enum class VoiceAnswerPhase { IDLE, WAITING_FOR_QUESTION, LISTENING, SPEECH_DETECTED, GRADING, SPEAKING_NOTICE }
+enum class VoiceAnswerPhase { Idle, WaitingForQuestion, Listening, SpeechDetected, Grading, SpeakingNotice }
 
 data class VoiceAnswerState(
     val isEnabled: Boolean = false,
-    val phase: VoiceAnswerPhase = VoiceAnswerPhase.IDLE,
+    val phase: VoiceAnswerPhase = VoiceAnswerPhase.Idle,
     /** Sanitized transcript, set as soon as it streams in — ahead of [lastGrade] (ADR-0028). */
     val sanitizedTranscript: String? = null,
     val lastGrade: VoiceAnswerGrade? = null,
     val lastGradedCardId: String? = null,
-    val captureRoute: CaptureRouteType = CaptureRouteType.NONE,
+    val captureRoute: CaptureRouteType = CaptureRouteType.None,
     val error: String? = null,
 )
 
@@ -104,7 +104,7 @@ class VoiceAnswerController @Inject constructor(
         }
         acquireWakeLock()
         ensureNoticeTts()
-        _state.value = VoiceAnswerState(isEnabled = true, phase = VoiceAnswerPhase.WAITING_FOR_QUESTION)
+        _state.value = VoiceAnswerState(isEnabled = true, phase = VoiceAnswerPhase.WaitingForQuestion)
         captureEventsJob = scope.launch {
             voiceCaptureEngine.events.collect { event -> handleCaptureEvent(event) }
         }
@@ -155,7 +155,7 @@ class VoiceAnswerController @Inject constructor(
         // or suppresses re-showing an identical error next round (LaunchedEffect keys on value).
         _state.update {
             it.copy(
-                phase = VoiceAnswerPhase.LISTENING,
+                phase = VoiceAnswerPhase.Listening,
                 sanitizedTranscript = null,
                 lastGrade = null,
                 lastGradedCardId = null,
@@ -181,7 +181,7 @@ class VoiceAnswerController @Inject constructor(
 
     private suspend fun onSilenceTimeout() {
         voiceCaptureEngine.stopListening()
-        _state.update { it.copy(phase = VoiceAnswerPhase.SPEAKING_NOTICE) }
+        _state.update { it.copy(phase = VoiceAnswerPhase.SpeakingNotice) }
         speakNotice(context.getString(R.string.study_session_voice_answer_skip_spoken_message))
     }
 
@@ -189,10 +189,10 @@ class VoiceAnswerController @Inject constructor(
         when (event) {
             is VoiceCaptureEvent.SpeechStarted -> {
                 listenTimeoutJob?.cancel()
-                _state.update { it.copy(phase = VoiceAnswerPhase.SPEECH_DETECTED) }
+                _state.update { it.copy(phase = VoiceAnswerPhase.SpeechDetected) }
             }
             is VoiceCaptureEvent.SpeechEnded ->
-                _state.update { it.copy(phase = VoiceAnswerPhase.GRADING) }
+                _state.update { it.copy(phase = VoiceAnswerPhase.Grading) }
             is VoiceCaptureEvent.UtteranceCaptured -> {
                 listenTimeoutJob?.cancel()
                 voiceCaptureEngine.stopListening()
@@ -201,7 +201,7 @@ class VoiceAnswerController @Inject constructor(
             is VoiceCaptureEvent.CaptureFailed -> {
                 listenTimeoutJob?.cancel()
                 voiceCaptureEngine.stopListening()
-                _state.update { it.copy(phase = VoiceAnswerPhase.WAITING_FOR_QUESTION, error = event.reason) }
+                _state.update { it.copy(phase = VoiceAnswerPhase.WaitingForQuestion, error = event.reason) }
             }
         }
     }
@@ -213,10 +213,10 @@ class VoiceAnswerController @Inject constructor(
      */
     private suspend fun gradeUtterance(obfuscatedWav: ByteArray) {
         val card = activeCard ?: run {
-            _state.update { it.copy(phase = VoiceAnswerPhase.WAITING_FOR_QUESTION) }
+            _state.update { it.copy(phase = VoiceAnswerPhase.WaitingForQuestion) }
             return
         }
-        _state.update { it.copy(phase = VoiceAnswerPhase.GRADING) }
+        _state.update { it.copy(phase = VoiceAnswerPhase.Grading) }
         transcribeAndGradeSpokenAnswer(
             TranscribeAndGradeSpokenAnswerUseCase.Params(
                 cardId = card.cardId,
@@ -232,7 +232,7 @@ class VoiceAnswerController @Inject constructor(
                     is VoiceAnswerGradingEvent.Graded -> {
                         _state.update {
                             it.copy(
-                                phase = VoiceAnswerPhase.SPEAKING_NOTICE,
+                                phase = VoiceAnswerPhase.SpeakingNotice,
                                 lastGrade = event.grade,
                                 lastGradedCardId = card.cardId,
                                 error = null,
@@ -251,7 +251,7 @@ class VoiceAnswerController @Inject constructor(
             .catch { error ->
                 _state.update {
                     it.copy(
-                        phase = VoiceAnswerPhase.SPEAKING_NOTICE,
+                        phase = VoiceAnswerPhase.SpeakingNotice,
                         error = error.message,
                     )
                 }
@@ -301,7 +301,7 @@ class VoiceAnswerController @Inject constructor(
     private suspend fun onNoticeFinishedSpeaking() {
         delay(ADVANCE_DELAY_MS)
         if (!_state.value.isEnabled) return
-        _state.update { it.copy(phase = VoiceAnswerPhase.WAITING_FOR_QUESTION) }
+        _state.update { it.copy(phase = VoiceAnswerPhase.WaitingForQuestion) }
         _advanceRequests.emit(Unit)
     }
 

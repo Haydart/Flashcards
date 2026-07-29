@@ -54,7 +54,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
 
     private var cards: List<VoiceCard> = emptyList()
     private var index = 0
-    private var phase = VoicePhase.QUESTION
+    private var phase = VoicePhase.Question
     private var isPlaying = false
     private var isBetweenPause = false
     private var speechRate = VoicePlaybackState.DEFAULT_SPEECH_RATE
@@ -179,7 +179,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         this.cards = cards
         this.subcategoryName = subcategoryName
         this.index = if (cards.isEmpty()) 0 else startIndex.coerceIn(0, cards.lastIndex)
-        this.phase = VoicePhase.QUESTION
+        this.phase = VoicePhase.Question
         this.isBetweenPause = false
         this.isAwaitingSpokenAnswer = false
         this.pendingVoiceAnswerAdvance = false
@@ -239,7 +239,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
 
     fun skipToCardAnswerPlayback() {
         if (cards.isEmpty()) return
-        phase = VoicePhase.ANSWER
+        phase = VoicePhase.Answer
         if (isPlaying) {
             speakAnswer()
         } else {
@@ -254,8 +254,8 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
             applyVoice(voiceId)
             if (isPlaying) {
                 when (phase) {
-                    VoicePhase.QUESTION -> speakQuestion()
-                    VoicePhase.ANSWER -> speakAnswer()
+                    VoicePhase.Question -> speakQuestion()
+                    VoicePhase.Answer -> speakAnswer()
                 }
             }
         }
@@ -277,8 +277,8 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         if (ttsReady) tts.setSpeechRate(speechRate)
         if (isPlaying) {
             when (phase) {
-                VoicePhase.QUESTION -> speakQuestion()
-                VoicePhase.ANSWER -> speakAnswer()
+                VoicePhase.Question -> speakQuestion()
+                VoicePhase.Answer -> speakAnswer()
             }
         } else {
             publishState()
@@ -308,8 +308,8 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
             return
         }
         when (phase) {
-            VoicePhase.QUESTION -> speakQuestion()
-            VoicePhase.ANSWER -> speakAnswer()
+            VoicePhase.Question -> speakQuestion()
+            VoicePhase.Answer -> speakAnswer()
         }
     }
 
@@ -335,7 +335,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
 
     /** Move to the question of the current [index]; keep playing if we were, else just show it. */
     private fun moveToQuestion() {
-        phase = VoicePhase.QUESTION
+        phase = VoicePhase.Question
         isBetweenPause = false
         isAwaitingSpokenAnswer = false
         cardStartedAtMs = SystemClock.elapsedRealtime()
@@ -349,7 +349,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
 
     private fun speakQuestion() {
         val card = cards.getOrNull(index) ?: return
-        phase = VoicePhase.QUESTION
+        phase = VoicePhase.Question
         isPlaying = true
         isAwaitingSpokenAnswer = false
         val generationId = ++generation
@@ -365,7 +365,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
 
     private fun speakAnswer() {
         val card = cards.getOrNull(index) ?: return
-        phase = VoicePhase.ANSWER
+        phase = VoicePhase.Answer
         isPlaying = true
         val generationId = ++generation
         requestAudioFocus()
@@ -395,7 +395,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
             speakQuestion()
         } else {
             phase =
-                VoicePhase.QUESTION // reset so tapping Play re-reads last card from the question
+                VoicePhase.Question // reset so tapping Play re-reads last card from the question
             isPlaying = false
             publishState()
         }
