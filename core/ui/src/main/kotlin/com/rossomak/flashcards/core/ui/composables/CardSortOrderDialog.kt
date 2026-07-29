@@ -11,8 +11,10 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -61,7 +63,14 @@ fun CardSortOrderDialog(
                             ),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Checkbox(checked = keepAsDefault, onCheckedChange = null)
+                        Checkbox(
+                            checked = keepAsDefault,
+                            onCheckedChange = null,
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = MaterialTheme.colorScheme.secondary,
+                                checkmarkColor = MaterialTheme.colorScheme.onSecondary,
+                            ),
+                        )
                         Spacer(modifier = Modifier.width(MaterialTheme.spacing.xsmall))
                         Text(text = "Keep as default setting")
                     }
@@ -86,7 +95,11 @@ private fun SortOrderRow(
             .selectable(selected = isSelected, onClick = onSelect, role = Role.RadioButton),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RadioButton(selected = isSelected, onClick = null)
+        RadioButton(
+            selected = isSelected,
+            onClick = null,
+            colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.secondary),
+        )
         Spacer(modifier = Modifier.width(MaterialTheme.spacing.xsmall))
         Text(
             text = label,

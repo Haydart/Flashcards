@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -26,6 +27,9 @@ import com.rossomak.flashcards.core.ui.theme.FlashcardsMotion
 import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.sizes
 import com.rossomak.flashcards.core.ui.theme.spacing
+
+/** Opacity of [MaterialTheme.colorScheme.secondaryContainer] used as a selection tint. */
+private const val SELECTED_TINT_ALPHA = 0.12f
 
 /**
  * A multi-select list row: a leading checkbox, a title with optional [subtitle], and a
@@ -45,7 +49,7 @@ fun FlashcardsSelectableListRow(
 ) {
     val backgroundColor by animateColorAsState(
         targetValue = if (selected) {
-            MaterialTheme.colorScheme.secondaryContainer
+            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = SELECTED_TINT_ALPHA)
         } else {
             Color.Transparent
         },
@@ -69,7 +73,14 @@ fun FlashcardsSelectableListRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
     ) {
-        Checkbox(checked = selected, onCheckedChange = null)
+        Checkbox(
+            checked = selected,
+            onCheckedChange = null,
+            colors = CheckboxDefaults.colors(
+                checkedColor = MaterialTheme.colorScheme.secondary,
+                checkmarkColor = MaterialTheme.colorScheme.onSecondary,
+            ),
+        )
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
