@@ -38,6 +38,9 @@ import com.rossomak.flashcards.core.ui.theme.spacing
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
+/** Opacity of [MaterialTheme.colorScheme.secondaryContainer] used as the number badge's fill. */
+private const val BADGE_TINT_ALPHA = 0.12f
+
 /**
  * An expandable flashcard row: a leading number badge, the question [title], flat study [tags],
  * and a chevron that toggles an in-place reveal of [expandedContent] (typically the answer).
@@ -83,7 +86,7 @@ fun FlashcardsExpandableCardRow(
                 modifier = Modifier
                     .size(MaterialTheme.sizes.numberBadge)
                     .background(
-                        color = MaterialTheme.colorScheme.primaryContainer,
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = BADGE_TINT_ALPHA),
                         shape = CircleShape,
                     ),
                 contentAlignment = Alignment.Center,
@@ -91,7 +94,7 @@ fun FlashcardsExpandableCardRow(
                 Text(
                     text = index.toString(),
                     style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    color = MaterialTheme.colorScheme.secondaryContainer,
                 )
             }
             Column(

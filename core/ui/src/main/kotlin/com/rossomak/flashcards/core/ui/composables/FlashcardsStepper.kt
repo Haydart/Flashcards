@@ -19,6 +19,9 @@ import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.sizes
 import com.rossomak.flashcards.core.ui.theme.spacing
 
+/** Opacity of [MaterialTheme.colorScheme.secondaryContainer] used as each button's fill. */
+private const val BUTTON_TINT_ALPHA = 0.12f
+
 /**
  * Compact numeric stepper (−  value  +) used as the trailing control of a settings row. The
  * two buttons are independent tap targets, so each carries its own required content
@@ -47,8 +50,8 @@ fun FlashcardsStepper(
                 .size(MaterialTheme.sizes.iconTile)
                 .semantics { contentDescription = decrementContentDescription },
             colors = IconButtonDefaults.filledIconButtonColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = BUTTON_TINT_ALPHA),
+                contentColor = MaterialTheme.colorScheme.secondaryContainer,
             ),
         ) {
             Text(text = "−", style = MaterialTheme.typography.titleMedium)
@@ -64,8 +67,8 @@ fun FlashcardsStepper(
                 .size(MaterialTheme.sizes.iconTile)
                 .semantics { contentDescription = incrementContentDescription },
             colors = IconButtonDefaults.filledIconButtonColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = BUTTON_TINT_ALPHA),
+                contentColor = MaterialTheme.colorScheme.secondaryContainer,
             ),
         ) {
             Text(text = "+", style = MaterialTheme.typography.titleMedium)

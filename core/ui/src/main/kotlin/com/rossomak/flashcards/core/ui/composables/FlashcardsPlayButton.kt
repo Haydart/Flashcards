@@ -15,6 +15,9 @@ import com.airbnb.android.showkase.annotation.ShowkaseComposable
 import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.sizes
 
+/** Opacity of [MaterialTheme.colorScheme.secondaryContainer] used as the button's tinted fill. */
+private const val CONTAINER_TINT_ALPHA = 0.12f
+
 /**
  * Circular, tinted play affordance used as the leading element of topic and search-result
  * rows. It is an independent tap target, distinct from the row's own click, so it carries its
@@ -32,8 +35,8 @@ fun FlashcardsPlayButton(
         enabled = enabled,
         modifier = modifier.size(MaterialTheme.sizes.iconTile),
         colors = IconButtonDefaults.filledIconButtonColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = CONTAINER_TINT_ALPHA),
+            contentColor = MaterialTheme.colorScheme.secondaryContainer,
         ),
     ) {
         Icon(imageVector = Icons.Default.PlayArrow, contentDescription = contentDescription)

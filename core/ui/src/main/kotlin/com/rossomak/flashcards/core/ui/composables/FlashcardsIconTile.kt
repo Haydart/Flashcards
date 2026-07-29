@@ -22,18 +22,24 @@ import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.cornerRadius
 import com.rossomak.flashcards.core.ui.theme.sizes
 
+/** Opacity of [MaterialTheme.colorScheme.secondaryContainer] used as the tile's default fill. */
+private const val DEFAULT_CONTAINER_ALPHA = 0.12f
+
 /**
  * Rounded, tinted square that hosts a leading icon in settings and category rows. Callers
  * supply the glyph (typically a feature-owned [ImageVector]) so `:core:ui` stays free of the
  * heavy icon set; the tile owns only the container shape, size, and tint.
+ *
+ * Defaults to a translucent accent tint (settings rows); category rows pass their own
+ * category-coded [containerColor]/[contentColor].
  */
 @Composable
 fun FlashcardsIconTile(
     icon: ImageVector,
     contentDescription: String?,
     modifier: Modifier = Modifier,
-    containerColor: Color = MaterialTheme.colorScheme.primaryContainer,
-    contentColor: Color = MaterialTheme.colorScheme.onPrimaryContainer,
+    containerColor: Color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = DEFAULT_CONTAINER_ALPHA),
+    contentColor: Color = MaterialTheme.colorScheme.secondaryContainer,
 ) {
     Box(
         modifier = modifier
