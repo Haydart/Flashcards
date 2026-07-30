@@ -48,6 +48,12 @@ object AppSizes {
 
     /** Height of the category-coded accent stripe leading a search-result row. */
     val accentStripeHeight: Dp = 30.dp
+
+    /** Diameter of the circular difficulty badge (leading element of flashcard rows). */
+    val difficultyBadge: Dp = 28.dp
+
+    /** Height of the difficulty range pill (filters, session setup summaries). */
+    val difficultyRangePillHeight: Dp = 26.dp
 }
 
 val MaterialTheme.sizes: AppSizes
