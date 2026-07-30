@@ -38,8 +38,8 @@ fun FlashcardsIconTile(
     icon: ImageVector,
     contentDescription: String?,
     modifier: Modifier = Modifier,
-    containerColor: Color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = DEFAULT_CONTAINER_ALPHA),
     contentColor: Color = MaterialTheme.colorScheme.secondaryContainer,
+    containerColor: Color = contentColor.copy(alpha = DEFAULT_CONTAINER_ALPHA),
 ) {
     Box(
         modifier = modifier
