@@ -83,7 +83,7 @@ fun FlashcardsDifficultyRangePillShowcase() {
                 verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall),
             ) {
                 FlashcardsDifficultyRangePill(lowLevel = 1, highLevel = DifficultyColors.LEVELS)
-                FlashcardsDifficultyRangePill(lowLevel = 3, highLevel = 7)
+                FlashcardsDifficultyRangePill(lowLevel = 3, highLevel = 6)
             }
         }
     }
@@ -94,7 +94,7 @@ fun FlashcardsDifficultyRangePillShowcase() {
 private fun FlashcardsDifficultyRangePillPreview() {
     FlashcardsTheme {
         Surface {
-            FlashcardsDifficultyRangePill(lowLevel = 3, highLevel = 7)
+            FlashcardsDifficultyRangePill(lowLevel = 5, highLevel = 8)
         }
     }
 }

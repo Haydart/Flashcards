@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.core.ui.composables
+package com.rossomak.flashcards.core.ui.composables.lists
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -20,6 +21,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.airbnb.android.showkase.annotation.ShowkaseComposable
+import com.rossomak.flashcards.core.ui.composables.FlashcardsIconTile
 import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.sizes
 import com.rossomak.flashcards.core.ui.theme.spacing
@@ -65,7 +67,9 @@ fun FlashcardsListRow(
             leading()
         }
         Column(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = if (leading != null) MaterialTheme.spacing.xxsmall else MaterialTheme.spacing.none),
             verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.none),
         ) {
             Text(
@@ -100,7 +104,7 @@ fun FlashcardsListRow(
 
 /**
  * Decorative drill-in chevron for the [FlashcardsListRow] trailing slot. Its content
- * description is intentionally `null`: the row itself is the labelled, clickable node.
+ * description is intentionally `null`: the row itself is the labeled, clickable node.
  */
 @Composable
 fun FlashcardsChevron() {
@@ -148,13 +152,42 @@ fun FlashcardsListRowDisabledShowcase() {
 private fun FlashcardsListRowPreview() {
     FlashcardsTheme {
         Surface {
-            FlashcardsListRow(
-                title = "Android",
-                onClick = {},
-                subtitle = "Compose · Coroutines · Compose Navigation",
-                secondaryText = "13 topics",
-                trailing = { FlashcardsChevron() },
-            )
+            Column(
+                verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
+                modifier = Modifier
+                    .padding(MaterialTheme.spacing.normal)
+                    .flashcardsListGroupContainer()
+            ) {
+                FlashcardsListRow(
+                    modifier = Modifier.flashcardsListItemShape(FlashcardsListItemPosition.Top),
+                    title = "Android",
+                    onClick = {},
+                    subtitle = "Compose · Coroutines · Compose Navigation",
+                    secondaryText = "13 topics",
+                    trailing = { FlashcardsChevron() },
+                )
+                FlashcardsListRow(
+                    modifier = Modifier.flashcardsListItemShape(FlashcardsListItemPosition.Middle),
+                    title = "Compose Navigation",
+                    onClick = {},
+                    subtitle = "in Android",
+                    trailing = { FlashcardsChevron() },
+                )
+                FlashcardsListRow(
+                    modifier = Modifier.flashcardsListItemShape(FlashcardsListItemPosition.Bottom),
+                    title = "Kotlin Coroutines",
+                    onClick = {},
+                    subtitle = "Structured concurrency · Flows",
+                    secondaryText = "24 cards",
+                    leading = {
+                        FlashcardsIconTile(
+                            icon = Icons.Default.Star,
+                            contentDescription = null,
+                        )
+                    },
+                    trailing = { FlashcardsChevron() },
+                )
+            }
         }
     }
 }

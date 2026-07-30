@@ -2,12 +2,13 @@
 // its supporting DSL receiver.
 @file:Suppress("MatchingDeclarationName")
 
-package com.rossomak.flashcards.core.ui.composables
+package com.rossomak.flashcards.core.ui.composables.lists
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Mic
@@ -17,7 +18,6 @@ import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SwipeUp
 import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material.icons.filled.Terminal
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -27,28 +27,34 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.airbnb.android.showkase.annotation.ShowkaseComposable
+import com.rossomak.flashcards.core.ui.composables.FlashcardsIconTile
+import com.rossomak.flashcards.core.ui.composables.FlashcardsOverlineLabel
+import com.rossomak.flashcards.core.ui.composables.FlashcardsPlayButton
+import com.rossomak.flashcards.core.ui.composables.FlashcardsStepper
 import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
-import com.rossomak.flashcards.core.ui.theme.cornerRadius
-import com.rossomak.flashcards.core.ui.theme.hairlineBorder
 import com.rossomak.flashcards.core.ui.theme.spacing
 
 /**
  * Records the rows of a [FlashcardsListGroup]. Each `item { }` becomes one row; the group
- * lays them out in order and inserts a divider between adjacent rows.
+ * lays them out in order and shapes each one with [flashcardsListItemShape], marking it
+ * [checked] when the group is in multi-select mode and this row is selected.
  */
 class FlashcardsListGroupScope internal constructor() {
-    internal val rows = mutableListOf<@Composable () -> Unit>()
+    internal class Row(val checked: Boolean, val content: @Composable () -> Unit)
 
-    fun item(content: @Composable () -> Unit) {
-        rows.add(content)
+    internal val rows = mutableListOf<Row>()
+
+    fun item(checked: Boolean = false, content: @Composable () -> Unit) {
+        rows.add(Row(checked, content))
     }
 }
 
 /**
- * A bounded (non-lazy) list container: one rounded, 1px-bordered card wrapping a `Column` of
- * rows with automatic full-width dividers between them (never at the edges). For short,
- * fixed sets — settings sections, category lists, selection groups. Long, scrolling lists use
- * a `LazyColumn` with [flashcardsListItemShape] instead, so laziness stays in the screen.
+ * A bounded (non-lazy) list container: one rounded card wrapping a `Column` of rows, each
+ * shaped by [flashcardsListItemShape] against the [flashcardsListGroupContainer] background
+ * so interior seams read as a 1dp gap rather than a drawn divider. For short, fixed sets —
+ * settings sections, category lists, selection groups. Long, scrolling lists use a
+ * `LazyColumn` with [flashcardsListItemShape] directly instead, so laziness stays in the screen.
  */
 @Composable
 fun FlashcardsListGroup(
@@ -56,19 +62,15 @@ fun FlashcardsListGroup(
     content: FlashcardsListGroupScope.() -> Unit,
 ) {
     val scope = FlashcardsListGroupScope().apply(content)
-    val shape = RoundedCornerShape(MaterialTheme.cornerRadius.card)
-    Surface(
-        modifier = modifier,
-        shape = shape,
-        color = MaterialTheme.colorScheme.surface,
-        border = MaterialTheme.hairlineBorder,
-    ) {
-        Column {
-            scope.rows.forEachIndexed { index, row ->
-                if (index > 0) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                }
-                row()
+    Column(modifier = modifier.flashcardsListGroupContainer()) {
+        scope.rows.forEachIndexed { index, row ->
+            val position = FlashcardsListItemPosition.of(index, scope.rows.size)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .flashcardsListItemShape(position, checked = row.checked),
+            ) {
+                row.content()
             }
         }
     }
@@ -100,7 +102,12 @@ fun FlashcardsListGroupShowcase() {
                         title = "Notifications",
                         onClick = {},
                         subtitle = "Allowed",
-                        leading = { FlashcardsIconTile(icon = Icons.Default.NotificationsActive, contentDescription = null) },
+                        leading = {
+                            FlashcardsIconTile(
+                                icon = Icons.Default.NotificationsActive,
+                                contentDescription = null
+                            )
+                        },
                         trailing = { FlashcardsChevron() },
                     )
                 }
@@ -109,7 +116,12 @@ fun FlashcardsListGroupShowcase() {
                         title = "Microphone",
                         onClick = {},
                         subtitle = "Not granted",
-                        leading = { FlashcardsIconTile(icon = Icons.Default.Mic, contentDescription = null) },
+                        leading = {
+                            FlashcardsIconTile(
+                                icon = Icons.Default.Mic,
+                                contentDescription = null
+                            )
+                        },
                         trailing = { FlashcardsChevron() },
                     )
                 }
@@ -129,7 +141,12 @@ fun FlashcardsListGroupStudySessionsShowcase() {
                         title = "Session size",
                         onClick = {},
                         subtitle = "Cards per session",
-                        leading = { FlashcardsIconTile(icon = Icons.Default.Tag, contentDescription = null) },
+                        leading = {
+                            FlashcardsIconTile(
+                                icon = Icons.Default.Tag,
+                                contentDescription = null
+                            )
+                        },
                         trailing = {
                             FlashcardsStepper(
                                 value = 20,
@@ -146,7 +163,12 @@ fun FlashcardsListGroupStudySessionsShowcase() {
                         title = "Auto-flip on swipe",
                         onClick = {},
                         subtitle = "Reveal answer with a single swipe",
-                        leading = { FlashcardsIconTile(icon = Icons.Default.SwipeUp, contentDescription = null) },
+                        leading = {
+                            FlashcardsIconTile(
+                                icon = Icons.Default.SwipeUp,
+                                contentDescription = null
+                            )
+                        },
                         trailing = { Switch(checked = false, onCheckedChange = null, colors = accentSwitchColors()) },
                     )
                 }
@@ -155,7 +177,12 @@ fun FlashcardsListGroupStudySessionsShowcase() {
                         title = "Shuffle order",
                         onClick = {},
                         subtitle = "Always randomise card order",
-                        leading = { FlashcardsIconTile(icon = Icons.Default.Shuffle, contentDescription = null) },
+                        leading = {
+                            FlashcardsIconTile(
+                                icon = Icons.Default.Shuffle,
+                                contentDescription = null
+                            )
+                        },
                         trailing = { Switch(checked = true, onCheckedChange = null, colors = accentSwitchColors()) },
                     )
                 }
@@ -248,10 +275,17 @@ fun FlashcardsListGroupSearchResultsShowcase() {
                         title = "Compose",
                         onClick = {},
                         secondaryText = "in Android",
-                        leading = { FlashcardsAccentStripe(color = categoryColorAndroid) },
+                        leading = {
+                            FlashcardsAccentStripe(
+                                color = categoryColorAndroid
+                            )
+                        },
                         trailing = {
                             Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall)) {
-                                FlashcardsPlayButton(onClick = {}, contentDescription = "Study Compose")
+                                FlashcardsPlayButton(
+                                    onClick = {},
+                                    contentDescription = "Study Compose"
+                                )
                                 FlashcardsChevron()
                             }
                         },
@@ -262,10 +296,17 @@ fun FlashcardsListGroupSearchResultsShowcase() {
                         title = "Compose Navigation",
                         onClick = {},
                         secondaryText = "in Android",
-                        leading = { FlashcardsAccentStripe(color = categoryColorAndroid) },
+                        leading = {
+                            FlashcardsAccentStripe(
+                                color = categoryColorAndroid
+                            )
+                        },
                         trailing = {
                             Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall)) {
-                                FlashcardsPlayButton(onClick = {}, contentDescription = "Study Compose Navigation")
+                                FlashcardsPlayButton(
+                                    onClick = {},
+                                    contentDescription = "Study Compose Navigation"
+                                )
                                 FlashcardsChevron()
                             }
                         },
@@ -282,9 +323,11 @@ fun FlashcardsListGroupMultiSelectShowcase() {
     FlashcardsTheme {
         Surface {
             Column {
-                FlashcardsSectionHeader(text = "3 of 13 topics selected")
+                FlashcardsOverlineLabel(
+                    text = "3 of 13 topics selected"
+                )
                 FlashcardsListGroup {
-                    item {
+                    item(checked = true) {
                         FlashcardsSelectableListRow(
                             title = "Compose",
                             selected = true,
@@ -293,7 +336,7 @@ fun FlashcardsListGroupMultiSelectShowcase() {
                             trailing = { FlashcardsChevron() },
                         )
                     }
-                    item {
+                    item(checked = true) {
                         FlashcardsSelectableListRow(
                             title = "Coroutines",
                             selected = true,
@@ -302,7 +345,7 @@ fun FlashcardsListGroupMultiSelectShowcase() {
                             trailing = { FlashcardsChevron() },
                         )
                     }
-                    item {
+                    item(checked = false) {
                         FlashcardsSelectableListRow(
                             title = "Compose Navigation",
                             selected = false,
@@ -311,7 +354,7 @@ fun FlashcardsListGroupMultiSelectShowcase() {
                             trailing = { FlashcardsChevron() },
                         )
                     }
-                    item {
+                    item(checked = false) {
                         FlashcardsSelectableListRow(
                             title = "Testing",
                             selected = false,
@@ -320,7 +363,7 @@ fun FlashcardsListGroupMultiSelectShowcase() {
                             trailing = { FlashcardsChevron() },
                         )
                     }
-                    item {
+                    item(checked = true) {
                         FlashcardsSelectableListRow(
                             title = "Architecture",
                             selected = true,
@@ -346,7 +389,12 @@ private fun FlashcardsListGroupPreview() {
                         title = "Notifications",
                         onClick = {},
                         subtitle = "Allowed",
-                        leading = { FlashcardsIconTile(icon = Icons.Default.NotificationsActive, contentDescription = null) },
+                        leading = {
+                            FlashcardsIconTile(
+                                icon = Icons.Default.NotificationsActive,
+                                contentDescription = null
+                            )
+                        },
                         trailing = { FlashcardsChevron() },
                     )
                 }
@@ -355,7 +403,12 @@ private fun FlashcardsListGroupPreview() {
                         title = "Microphone",
                         onClick = {},
                         subtitle = "Not granted",
-                        leading = { FlashcardsIconTile(icon = Icons.Default.Mic, contentDescription = null) },
+                        leading = {
+                            FlashcardsIconTile(
+                                icon = Icons.Default.Mic,
+                                contentDescription = null
+                            )
+                        },
                         trailing = { FlashcardsChevron() },
                     )
                 }

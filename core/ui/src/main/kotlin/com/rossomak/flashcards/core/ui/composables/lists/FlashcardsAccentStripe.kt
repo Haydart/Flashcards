@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.core.ui.composables
+package com.rossomak.flashcards.core.ui.composables.lists
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box

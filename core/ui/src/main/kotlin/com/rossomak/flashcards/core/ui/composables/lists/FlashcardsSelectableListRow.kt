@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.core.ui.composables
+package com.rossomak.flashcards.core.ui.composables.lists
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -140,7 +140,11 @@ fun FlashcardsSelectableListRowUncheckedShowcase() {
 private fun FlashcardsSelectableListRowPreview() {
     FlashcardsTheme {
         Surface {
-            Column {
+            Column(
+                modifier = Modifier
+                    .padding(MaterialTheme.spacing.normal)
+                    .flashcardsListGroupContainer()
+            ) {
                 FlashcardsSelectableListRow(
                     title = "Compose",
                     selected = true,
