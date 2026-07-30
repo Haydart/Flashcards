@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.core.ui.composables
+package com.rossomak.flashcards.core.ui.composables.lists
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -13,11 +13,8 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -31,19 +28,18 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.airbnb.android.showkase.annotation.ShowkaseComposable
+import com.rossomak.flashcards.core.ui.composables.FlashcardsDifficultyBadge
+import com.rossomak.flashcards.core.ui.composables.FlashcardsMetadataBadge
 import com.rossomak.flashcards.core.ui.theme.FlashcardsMotion
 import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
-import com.rossomak.flashcards.core.ui.theme.sizes
 import com.rossomak.flashcards.core.ui.theme.spacing
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
-/** Opacity of [MaterialTheme.colorScheme.secondaryContainer] used as the number badge's fill. */
-private const val BADGE_TINT_ALPHA = 0.12f
-
 /**
- * An expandable flashcard row: a leading number badge, the question [title], flat study [tags],
- * and a chevron that toggles an in-place reveal of [expandedContent] (typically the answer).
+ * An expandable flashcard row: a leading [FlashcardsDifficultyBadge], the question [title], flat
+ * study [tags], and a chevron that toggles an in-place reveal of [expandedContent] (typically the
+ * answer).
  *
  * The component owns the expand animation — the chevron rotates and the reveal fades/expands
  * here — so screens only hoist [expanded] + [onExpandedChange] and never reimplement it. The
@@ -52,7 +48,7 @@ private const val BADGE_TINT_ALPHA = 0.12f
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun FlashcardsExpandableCardRow(
-    index: Int,
+    difficulty: Int,
     title: String,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
@@ -62,15 +58,19 @@ fun FlashcardsExpandableCardRow(
     tags: ImmutableList<String> = persistentListOf(),
     expandedContent: @Composable (() -> Unit)? = null,
 ) {
+    val backgroundColor = MaterialTheme.colorScheme.surface
     val chevronRotation by animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
         animationSpec = tween(FlashcardsMotion.DURATION_MEDIUM_MS, easing = FlashcardsMotion.EmphasizedEasing),
         label = "chevronRotation",
     )
-    Column(modifier = modifier) {
+    Column(
+        modifier = modifier.background(backgroundColor),
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .background(backgroundColor)
                 .semantics {
                     stateDescription = if (expanded) expandedStateDescription else collapsedStateDescription
                 }
@@ -82,21 +82,7 @@ fun FlashcardsExpandableCardRow(
             verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
         ) {
-            Box(
-                modifier = Modifier
-                    .size(MaterialTheme.sizes.numberBadge)
-                    .background(
-                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = BADGE_TINT_ALPHA),
-                        shape = CircleShape,
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = index.toString(),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                )
-            }
+            FlashcardsDifficultyBadge(level = difficulty)
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall),
@@ -124,8 +110,11 @@ fun FlashcardsExpandableCardRow(
         }
         AnimatedVisibility(visible = expanded) {
             if (expandedContent != null) {
-                Column {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(backgroundColor),
+                ) {
                     Box(
                         modifier = Modifier.padding(
                             horizontal = MaterialTheme.spacing.normal,
@@ -143,12 +132,13 @@ fun FlashcardsExpandableCardRow(
 private val previewTags = persistentListOf("Views", "State")
 
 @ShowkaseComposable(name = "Card row — expanded", group = "Cards")
+@PreviewLightDark
 @Composable
 fun FlashcardsExpandableCardRowExpandedShowcase() {
     FlashcardsTheme {
         Surface {
             FlashcardsExpandableCardRow(
-                index = 2,
+                difficulty = 2,
                 title = "What does remember do differently from rememberSaveable?",
                 expanded = true,
                 onExpandedChange = {},
@@ -173,7 +163,7 @@ fun FlashcardsExpandableCardRowCollapsedShowcase() {
     FlashcardsTheme {
         Surface {
             FlashcardsExpandableCardRow(
-                index = 1,
+                difficulty = 5,
                 title = "What is recomposition in Jetpack Compose?",
                 expanded = false,
                 onExpandedChange = {},
@@ -191,7 +181,7 @@ private fun FlashcardsExpandableCardRowPreview() {
     FlashcardsTheme {
         Surface {
             FlashcardsExpandableCardRow(
-                index = 1,
+                difficulty = 5,
                 title = "What is recomposition in Jetpack Compose?",
                 expanded = false,
                 onExpandedChange = {},
