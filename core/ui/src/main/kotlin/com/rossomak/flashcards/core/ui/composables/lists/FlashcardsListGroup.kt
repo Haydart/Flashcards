@@ -275,11 +275,6 @@ fun FlashcardsListGroupSearchResultsShowcase() {
                         title = "Compose",
                         onClick = {},
                         secondaryText = "in Android",
-                        leading = {
-                            FlashcardsAccentStripe(
-                                color = categoryColorAndroid
-                            )
-                        },
                         trailing = {
                             Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall)) {
                                 FlashcardsPlayButton(
@@ -296,11 +291,6 @@ fun FlashcardsListGroupSearchResultsShowcase() {
                         title = "Compose Navigation",
                         onClick = {},
                         secondaryText = "in Android",
-                        leading = {
-                            FlashcardsAccentStripe(
-                                color = categoryColorAndroid
-                            )
-                        },
                         trailing = {
                             Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall)) {
                                 FlashcardsPlayButton(

@@ -3,15 +3,14 @@
 package com.rossomak.flashcards.core.ui.composables.lists
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import com.rossomak.flashcards.core.ui.theme.cornerRadius
 import com.rossomak.flashcards.core.ui.theme.sizes
 
@@ -39,11 +38,11 @@ enum class FlashcardsListItemPosition {
 
 /**
  * Clips a lazy list item to the right corners for its [position] and, unless [checked], paints
- * the row surface inset by a 1dp gap at the bottom (skipped on [Bottom]/[Single], which have no
- * following row). The gap is just [flashcardsListGroupContainer]'s background showing through —
- * there's no divider drawn. It's always reserved by position, regardless of [checked]: a
- * [checked] row (multi-select mode) paints no surface at all, so the gap is invisible wherever
- * either neighbor is also checked, without needing to look at neighboring rows.
+ * the row surface inset by a 1dp bottom padding (skipped on [Bottom]/[Single], which have no
+ * following row). The gap is just [flashcardsListGroupContainer]'s background showing through
+ * that 1dp strip — there's no divider drawn. It's always reserved by position, regardless of
+ * [checked]: a [checked] row (multi-select mode) paints no surface at all, so the gap is
+ * invisible wherever either neighbor is also checked, without needing to look at neighboring rows.
  */
 @Composable
 fun Modifier.flashcardsListItemShape(
@@ -58,20 +57,9 @@ fun Modifier.flashcardsListItemShape(
         FlashcardsListItemPosition.Bottom -> RoundedCornerShape(bottomStart = corner, bottomEnd = corner)
         FlashcardsListItemPosition.Middle -> RectangleShape
     }
-    val surfaceColor = MaterialTheme.colorScheme.surface
-    val hairlinePx = with(LocalDensity.current) { MaterialTheme.sizes.hairline.toPx() }
     return this
+        .padding(bottom = if (showGap) MaterialTheme.sizes.hairline else 0.dp)
         .clip(shape)
-        .then(
-            if (checked) {
-                Modifier
-            } else {
-                Modifier.drawBehind {
-                    val height = if (showGap) size.height - hairlinePx else size.height
-                    drawRect(color = surfaceColor, size = Size(size.width, height))
-                }
-            },
-        )
 }
 
 /**
