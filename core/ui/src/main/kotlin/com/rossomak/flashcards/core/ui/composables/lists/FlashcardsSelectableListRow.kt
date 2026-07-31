@@ -51,10 +51,9 @@ fun FlashcardsSelectableListRow(
         targetValue = if (selected) {
             MaterialTheme.colorScheme.secondaryContainer.copy(alpha = SELECTED_TINT_ALPHA)
         } else {
-            Color.Transparent
+            MaterialTheme.colorScheme.surface
         },
         animationSpec = tween(FlashcardsMotion.DURATION_SHORT_MS, easing = FlashcardsMotion.StandardEasing),
-        label = "selectionTint",
     )
     Row(
         modifier = modifier
