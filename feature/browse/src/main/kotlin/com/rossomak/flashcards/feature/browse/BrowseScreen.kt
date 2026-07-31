@@ -1,25 +1,28 @@
 package com.rossomak.flashcards.feature.browse
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.rossomak.flashcards.core.domain.model.Category
+import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsChevron
+import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListGroup
+import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListGroupItem
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
+import com.rossomak.flashcards.core.ui.theme.spacing
 
 @Composable
 fun BrowseScreen(
@@ -68,6 +71,13 @@ fun BrowseContent(
     }
 }
 
+/**
+ * Categories are a short, fixed set (roughly a dozen) so this binds [FlashcardsListGroup]
+ * directly rather than a `LazyColumn` — every row composes up front at negligible cost. A
+ * subcategory list nested under one category can run into the dozens and should use
+ *
+ * `flashcardsListGroupItems` inside a `LazyColumn` instead.
+ */
 @Composable
 private fun CategoryList(
     state: BrowseScreenState,
@@ -79,17 +89,20 @@ private fun CategoryList(
         }
         return
     }
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
-        items(state.categories, key = { it.id }) { category ->
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onCategoryClick(category.id, category.name) }
-                    .padding(16.dp)
-            ) {
-                Text(text = category.name)
-                Text(text = "${category.subcategoryCount} subcategories")
-            }
-        }
-    }
+    FlashcardsListGroup(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .padding(MaterialTheme.spacing.normal),
+        items = state.categories.map { category -> category.toListGroupItem(onCategoryClick) },
+    )
 }
+
+private fun Category.toListGroupItem(onCategoryClick: (String, String) -> Unit) =
+    FlashcardsListGroupItem.Row(
+        key = id,
+        title = name,
+        onClick = { onCategoryClick(id, name) },
+        subtitle = "$subcategoryCount subcategories",
+        trailing = { FlashcardsChevron() },
+    )
