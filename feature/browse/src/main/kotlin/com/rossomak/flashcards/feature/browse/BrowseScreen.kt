@@ -9,6 +9,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -23,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.Category
+import com.rossomak.flashcards.core.ui.composables.FlashcardsIconTile
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsChevron
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListGroup
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListGroupItem
@@ -105,6 +110,8 @@ private fun CategoryList(
         )
         Spacer(modifier = Modifier.height(MaterialTheme.spacing.normal))
         MockSelectableList()
+        Spacer(modifier = Modifier.height(MaterialTheme.spacing.normal))
+        MockSettingsList()
     }
 }
 
@@ -125,6 +132,39 @@ private fun MockSelectableList() {
                 trailing = { FlashcardsChevron() },
             )
         },
+    )
+}
+
+/** Mock settings-style rows to eyeball [FlashcardsIconTile] leading icons against list rows. */
+@Composable
+private fun MockSettingsList() {
+    FlashcardsListGroup(
+        items = listOf(
+            FlashcardsListGroupItem.Row(
+                key = "appearance",
+                title = "Appearance",
+                subtitle = "Theme, colors",
+                onClick = {},
+                leading = { FlashcardsIconTile(icon = Icons.Default.Palette, contentDescription = null) },
+                trailing = { FlashcardsChevron() },
+            ),
+            FlashcardsListGroupItem.Row(
+                key = "notifications",
+                title = "Notifications",
+                subtitle = "Reminders, study nudges",
+                onClick = {},
+                leading = { FlashcardsIconTile(icon = Icons.Default.Notifications, contentDescription = null) },
+                trailing = { FlashcardsChevron() },
+            ),
+            FlashcardsListGroupItem.Row(
+                key = "about",
+                title = "About",
+                subtitle = "Version, licenses",
+                onClick = {},
+                leading = { FlashcardsIconTile(icon = Icons.Default.Info, contentDescription = null) },
+                trailing = { FlashcardsChevron() },
+            ),
+        ),
     )
 }
 
