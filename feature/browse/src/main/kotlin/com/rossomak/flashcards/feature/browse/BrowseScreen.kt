@@ -1,8 +1,11 @@
 package com.rossomak.flashcards.feature.browse
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -13,6 +16,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -89,12 +94,37 @@ private fun CategoryList(
         }
         return
     }
-    FlashcardsListGroup(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
             .padding(MaterialTheme.spacing.normal),
-        items = state.categories.map { category -> category.toListGroupItem(onCategoryClick) },
+    ) {
+        FlashcardsListGroup(
+            items = state.categories.map { category -> category.toListGroupItem(onCategoryClick) },
+        )
+        Spacer(modifier = Modifier.height(MaterialTheme.spacing.normal))
+        MockSelectableList()
+    }
+}
+
+/** Mock rows to eyeball [FlashcardsSelectableListRow]'s coloring/background after the rework. */
+@Composable
+private fun MockSelectableList() {
+    val mockTitles = listOf("Compose", "Coroutines", "Testing", "Networking", "Dependency Injection")
+    val selectedStates = remember { mutableStateMapOf<String, Boolean>() }
+
+    FlashcardsListGroup(
+        items = mockTitles.mapIndexed { index, title ->
+            FlashcardsListGroupItem.Selectable(
+                key = title,
+                title = title,
+                selected = selectedStates[title] ?: (index == 0),
+                onSelectedChange = { selected -> selectedStates[title] = selected },
+                subtitle = "${(index + 1) * 10} cards",
+                trailing = { FlashcardsChevron() },
+            )
+        },
     )
 }
 
