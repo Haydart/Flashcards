@@ -3,14 +3,18 @@
 package com.rossomak.flashcards.core.ui.composables.lists
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.dp
+import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListItemPosition.Bottom
+import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListItemPosition.Middle
+import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListItemPosition.Single
+import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListItemPosition.Top
 import com.rossomak.flashcards.core.ui.theme.cornerRadius
 import com.rossomak.flashcards.core.ui.theme.sizes
 
@@ -37,28 +41,34 @@ enum class FlashcardsListItemPosition {
 }
 
 /**
- * Clips a lazy list item to the right corners for its [position] and, unless [checked], paints
- * the row surface inset by a 1dp bottom padding (skipped on [Bottom]/[Single], which have no
- * following row). The gap is just [flashcardsListGroupContainer]'s background showing through
- * that 1dp strip — there's no divider drawn. It's always reserved by position, regardless of
- * [checked]: a [checked] row (multi-select mode) paints no surface at all, so the gap is
- * invisible wherever either neighbor is also checked, without needing to look at neighboring rows.
+ * Insets a list item by a 1dp gap on every edge but the group's trailing one ([Bottom]/[Single],
+ * which have no following row) and clips it to the right corners for its [position]. The gap is
+ * just [flashcardsListGroupContainer]'s background showing through that 1dp strip — there's no
+ * divider drawn. [position] is the only input: this modifier only pads and clips, it never paints
+ * a background — each row composable paints its own, so a row's color (including any per-row
+ * visual state, e.g. a checkable row rendering itself differently while selected) stays that
+ * composable's own implementation detail.
  */
 @Composable
 fun Modifier.flashcardsListItemShape(
     position: FlashcardsListItemPosition,
-    checked: Boolean = false,
-    showGap: Boolean = position == FlashcardsListItemPosition.Top || position == FlashcardsListItemPosition.Middle,
 ): Modifier {
-    val corner = MaterialTheme.cornerRadius.card
+    val largeCorner = MaterialTheme.cornerRadius.card
+    val smallCorner = MaterialTheme.cornerRadius.xsmall
     val shape = when (position) {
-        FlashcardsListItemPosition.Single -> RoundedCornerShape(corner)
-        FlashcardsListItemPosition.Top -> RoundedCornerShape(topStart = corner, topEnd = corner)
-        FlashcardsListItemPosition.Bottom -> RoundedCornerShape(bottomStart = corner, bottomEnd = corner)
-        FlashcardsListItemPosition.Middle -> RectangleShape
+        Single -> RoundedCornerShape(largeCorner)
+        Top -> RoundedCornerShape(topStart = largeCorner, topEnd = largeCorner, bottomStart = smallCorner, bottomEnd = smallCorner)
+        Middle -> RoundedCornerShape(smallCorner)
+        Bottom -> RoundedCornerShape(bottomStart = largeCorner, bottomEnd = largeCorner, topStart = smallCorner, topEnd = smallCorner)
     }
+    val paddingValues = PaddingValues(
+        top = MaterialTheme.sizes.hairline,
+        start = MaterialTheme.sizes.hairline,
+        end = MaterialTheme.sizes.hairline,
+        bottom = if (position == Bottom || position == Single) MaterialTheme.sizes.hairline else 0.dp,
+    )
     return this
-        .padding(bottom = if (showGap) MaterialTheme.sizes.hairline else 0.dp)
+        .padding(paddingValues)
         .clip(shape)
 }
 
@@ -71,4 +81,4 @@ fun Modifier.flashcardsListItemShape(
 @Composable
 fun Modifier.flashcardsListGroupContainer(): Modifier = this
     .clip(RoundedCornerShape(MaterialTheme.cornerRadius.card))
-    .background(MaterialTheme.colorScheme.surfaceContainerLow)
+    .background(MaterialTheme.colorScheme.secondaryContainer)
