@@ -2,6 +2,7 @@ package com.rossomak.flashcards.presentation.main
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavGraphBuilder
@@ -14,7 +15,12 @@ import com.rossomak.flashcards.feature.voicedebug.VoiceDebugScreen
 
 @Composable
 internal fun debugTabs(): List<TabItem> = listOf(
-    TabItem(stringResource(VoiceDebugR.string.main_voice_debug_tab_label), Icons.Filled.GraphicEq, VoiceDebugGraph)
+    TabItem(
+        stringResource(VoiceDebugR.string.main_voice_debug_tab_label),
+        Icons.Filled.GraphicEq,
+        Icons.Outlined.GraphicEq,
+        VoiceDebugGraph,
+    ),
 )
 
 internal fun NavGraphBuilder.debugNavGraphEntries() {

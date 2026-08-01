@@ -88,8 +88,9 @@ fun MainScreen(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
             ) {
                 tabs.forEach { tab ->
+                    val isSelected = currentDestination?.hierarchy?.any { it.hasRoute(tab.route::class) } == true
                     NavigationBarItem(
-                        selected = currentDestination?.hierarchy?.any { it.hasRoute(tab.route::class) } == true,
+                        selected = isSelected,
                         onClick = {
                             tabNavController.navigate(tab.route) {
                                 popUpTo(tabNavController.graph.findStartDestination().id) {
@@ -106,7 +107,12 @@ fun MainScreen(
                             unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
                         ),
-                        icon = { Icon(imageVector = tab.icon, contentDescription = tab.label) },
+                        icon = {
+                            Icon(
+                                imageVector = if (isSelected) tab.selectedIcon else tab.unselectedIcon,
+                                contentDescription = tab.label,
+                            )
+                        },
                         label = { Text(text = tab.label) }
                     )
                 }
