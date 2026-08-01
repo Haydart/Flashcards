@@ -1,5 +1,6 @@
 package com.rossomak.flashcards.core.ui.composables.lists
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -54,6 +55,7 @@ fun FlashcardsListRow(
     Row(
         modifier = modifier
             .alpha(if (enabled) 1f else DISABLED_ALPHA)
+            .background(MaterialTheme.colorScheme.surface)
             .heightIn(min = MaterialTheme.sizes.listRowMinHeight)
             .clickable(enabled = enabled, role = role, onClick = onClick)
             .padding(
