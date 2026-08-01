@@ -1,14 +1,15 @@
-// Grouping file: the FlashcardsListGroup composable is the API; FlashcardsListGroupScope is
-// its supporting DSL receiver.
+// Grouping file: FlashcardsListGroupItem is the closed set of row kinds a group can render;
+// FlashcardsListGroup and flashcardsListGroupItems are the bounded and lazy containers for it.
 @file:Suppress("MatchingDeclarationName")
 
 package com.rossomak.flashcards.core.ui.composables.lists
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Mic
@@ -23,6 +24,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.PreviewLightDark
@@ -33,46 +35,158 @@ import com.rossomak.flashcards.core.ui.composables.FlashcardsPlayButton
 import com.rossomak.flashcards.core.ui.composables.FlashcardsStepper
 import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.spacing
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 /**
- * Records the rows of a [FlashcardsListGroup]. Each `item { }` becomes one row; the group
- * lays them out in order and shapes each one with [flashcardsListItemShape], marking it
- * [checked] when the group is in multi-select mode and this row is selected.
+ * The closed set of row kinds [FlashcardsListGroup] and [flashcardsListGroupItems] can render —
+ * one variant per dedicated row composable ([FlashcardsListRow], [FlashcardsSelectableListRow],
+ * [FlashcardsExpandableCardRow]). There is no free-form `content: @Composable () -> Unit` slot: a
+ * group can only ever render these row kinds, so [flashcardsListItemShape] stays owned entirely
+ * by the container that dispatches on this sealed type — a row composable never shapes itself.
  */
-class FlashcardsListGroupScope internal constructor() {
-    internal class Row(val checked: Boolean, val content: @Composable () -> Unit)
+sealed interface FlashcardsListGroupItem {
 
-    internal val rows = mutableListOf<Row>()
+    /**
+     * A stable identity for this row (e.g. a domain model's `id`), used as the composition/lazy
+     * item key. Rows with per-row remembered state — [Selectable]'s selection tint animation,
+     * [ExpandableCard]'s chevron rotation and expand/collapse transition — must set this when the
+     * list can reorder, filter, or resize while visible; otherwise Compose reuses composition
+     * slots by position and that internal animation state can end up attached to the wrong row.
+     * Defaults to `null`, in which case the container falls back to the row's index — fine for
+     * lists that never reorder/filter in place.
+     */
+    val key: Any?
 
-    fun item(checked: Boolean = false, content: @Composable () -> Unit) {
-        rows.add(Row(checked, content))
+    /** Renders as [FlashcardsListRow]. */
+    data class Row(
+        val title: String,
+        val onClick: () -> Unit,
+        val subtitle: String? = null,
+        val secondaryText: String? = null,
+        val enabled: Boolean = true,
+        val leading: (@Composable () -> Unit)? = null,
+        val trailing: (@Composable () -> Unit)? = null,
+        override val key: Any? = null,
+    ) : FlashcardsListGroupItem
+
+    /** Renders as [FlashcardsSelectableListRow]. */
+    data class Selectable(
+        val title: String,
+        val selected: Boolean,
+        val onSelectedChange: (Boolean) -> Unit,
+        val subtitle: String? = null,
+        val enabled: Boolean = true,
+        val trailing: (@Composable () -> Unit)? = null,
+        override val key: Any? = null,
+    ) : FlashcardsListGroupItem
+
+    /** Renders as [FlashcardsExpandableCardRow]. */
+    data class ExpandableCard(
+        val difficulty: Int,
+        val title: String,
+        val expanded: Boolean,
+        val onExpandedChange: (Boolean) -> Unit,
+        val expandedStateDescription: String,
+        val collapsedStateDescription: String,
+        val tags: ImmutableList<String> = persistentListOf(),
+        val expandedContent: (@Composable () -> Unit)? = null,
+        override val key: Any? = null,
+    ) : FlashcardsListGroupItem
+}
+
+/**
+ * Dispatches [item] to its row composable with the already-shaped [modifier], shared by
+ * [FlashcardsListGroup] and [flashcardsListGroupItems] so bounded and lazy containers render
+ * the exact same set of row kinds.
+ */
+@Composable
+private fun FlashcardsListGroupRow(item: FlashcardsListGroupItem, modifier: Modifier) {
+    when (item) {
+        is FlashcardsListGroupItem.Row -> FlashcardsListRow(
+            modifier = modifier,
+            title = item.title,
+            onClick = item.onClick,
+            subtitle = item.subtitle,
+            secondaryText = item.secondaryText,
+            enabled = item.enabled,
+            leading = item.leading,
+            trailing = item.trailing,
+        )
+        is FlashcardsListGroupItem.Selectable -> FlashcardsSelectableListRow(
+            modifier = modifier,
+            title = item.title,
+            selected = item.selected,
+            onSelectedChange = item.onSelectedChange,
+            subtitle = item.subtitle,
+            enabled = item.enabled,
+            trailing = item.trailing,
+        )
+        is FlashcardsListGroupItem.ExpandableCard -> FlashcardsExpandableCardRow(
+            modifier = modifier,
+            difficulty = item.difficulty,
+            title = item.title,
+            expanded = item.expanded,
+            onExpandedChange = item.onExpandedChange,
+            expandedStateDescription = item.expandedStateDescription,
+            collapsedStateDescription = item.collapsedStateDescription,
+            tags = item.tags,
+            expandedContent = item.expandedContent,
+        )
     }
 }
 
 /**
- * A bounded (non-lazy) list container: one rounded card wrapping a `Column` of rows, each
- * shaped by [flashcardsListItemShape] against the [flashcardsListGroupContainer] background
- * so interior seams read as a 1dp gap rather than a drawn divider. For short, fixed sets —
- * settings sections, category lists, selection groups. Long, scrolling lists use a
- * `LazyColumn` with [flashcardsListItemShape] directly instead, so laziness stays in the screen.
+ * A bounded (non-lazy) list container: one rounded card wrapping a `Column` of [items], each
+ * shaped by [flashcardsListItemShape] against the [flashcardsListGroupContainer] background so
+ * interior seams read as a 1dp gap rather than a drawn divider. For short, fixed sets — settings
+ * sections, category lists, selection groups (roughly under ~15 rows, so composing every row
+ * up front costs nothing). Once a list can grow past what fits comfortably on screen — e.g. a
+ * subcategory list with dozens of rows — use [flashcardsListGroupItems] inside a `LazyColumn`
+ * instead, so only visible rows get composed.
  */
 @Composable
 fun FlashcardsListGroup(
+    items: List<FlashcardsListGroupItem>,
     modifier: Modifier = Modifier,
-    content: FlashcardsListGroupScope.() -> Unit,
 ) {
-    val scope = FlashcardsListGroupScope().apply(content)
     Column(modifier = modifier.flashcardsListGroupContainer()) {
-        scope.rows.forEachIndexed { index, row ->
-            val position = FlashcardsListItemPosition.of(index, scope.rows.size)
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .flashcardsListItemShape(position, checked = row.checked),
-            ) {
-                row.content()
+        items.forEachIndexed { index, item ->
+            key(item.key ?: index) {
+                val position = FlashcardsListItemPosition.of(index, items.size)
+                FlashcardsListGroupRow(
+                    item = item,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .flashcardsListItemShape(position),
+                )
             }
         }
+    }
+}
+
+/**
+ * The lazy counterpart of [FlashcardsListGroup]: adds [items] to a `LazyColumn` (wrapped in
+ * [flashcardsListGroupContainer] by the caller) with the same per-row [flashcardsListItemShape]
+ * positioning, so a list too long to bind with [FlashcardsListGroup] still renders as one
+ * rounded card while only composing rows near the viewport. Keys each item by
+ * [FlashcardsListGroupItem.key] (falling back to its index) and types it by its sealed variant,
+ * so Compose never reuses a row's composition slot — and any per-row remembered/animated state —
+ * for a different item or a different row kind.
+ */
+fun LazyListScope.flashcardsListGroupItems(items: List<FlashcardsListGroupItem>) {
+    itemsIndexed(
+        items,
+        key = { index, item -> item.key ?: index },
+        contentType = { _, item -> item::class },
+    ) { index, item ->
+        val position = FlashcardsListItemPosition.of(index, items.size)
+        FlashcardsListGroupRow(
+            item = item,
+            modifier = Modifier
+                .fillMaxWidth()
+                .flashcardsListItemShape(position),
+        )
     }
 }
 
@@ -96,36 +210,34 @@ private fun accentSwitchColors() = SwitchDefaults.colors(
 fun FlashcardsListGroupShowcase() {
     FlashcardsTheme {
         Surface {
-            FlashcardsListGroup {
-                item {
-                    FlashcardsListRow(
+            FlashcardsListGroup(
+                items = listOf(
+                    FlashcardsListGroupItem.Row(
                         title = "Notifications",
                         onClick = {},
                         subtitle = "Allowed",
                         leading = {
                             FlashcardsIconTile(
                                 icon = Icons.Default.NotificationsActive,
-                                contentDescription = null
+                                contentDescription = null,
                             )
                         },
                         trailing = { FlashcardsChevron() },
-                    )
-                }
-                item {
-                    FlashcardsListRow(
+                    ),
+                    FlashcardsListGroupItem.Row(
                         title = "Microphone",
                         onClick = {},
                         subtitle = "Not granted",
                         leading = {
                             FlashcardsIconTile(
                                 icon = Icons.Default.Mic,
-                                contentDescription = null
+                                contentDescription = null,
                             )
                         },
                         trailing = { FlashcardsChevron() },
-                    )
-                }
-            }
+                    ),
+                ),
+            )
         }
     }
 }
@@ -135,16 +247,16 @@ fun FlashcardsListGroupShowcase() {
 fun FlashcardsListGroupStudySessionsShowcase() {
     FlashcardsTheme {
         Surface {
-            FlashcardsListGroup {
-                item {
-                    FlashcardsListRow(
+            FlashcardsListGroup(
+                items = listOf(
+                    FlashcardsListGroupItem.Row(
                         title = "Session size",
                         onClick = {},
                         subtitle = "Cards per session",
                         leading = {
                             FlashcardsIconTile(
                                 icon = Icons.Default.Tag,
-                                contentDescription = null
+                                contentDescription = null,
                             )
                         },
                         trailing = {
@@ -156,37 +268,33 @@ fun FlashcardsListGroupStudySessionsShowcase() {
                                 incrementContentDescription = "More cards",
                             )
                         },
-                    )
-                }
-                item {
-                    FlashcardsListRow(
+                    ),
+                    FlashcardsListGroupItem.Row(
                         title = "Auto-flip on swipe",
                         onClick = {},
                         subtitle = "Reveal answer with a single swipe",
                         leading = {
                             FlashcardsIconTile(
                                 icon = Icons.Default.SwipeUp,
-                                contentDescription = null
+                                contentDescription = null,
                             )
                         },
                         trailing = { Switch(checked = false, onCheckedChange = null, colors = accentSwitchColors()) },
-                    )
-                }
-                item {
-                    FlashcardsListRow(
+                    ),
+                    FlashcardsListGroupItem.Row(
                         title = "Shuffle order",
                         onClick = {},
                         subtitle = "Always randomise card order",
                         leading = {
                             FlashcardsIconTile(
                                 icon = Icons.Default.Shuffle,
-                                contentDescription = null
+                                contentDescription = null,
                             )
                         },
                         trailing = { Switch(checked = true, onCheckedChange = null, colors = accentSwitchColors()) },
-                    )
-                }
-            }
+                    ),
+                ),
+            )
         }
     }
 }
@@ -207,9 +315,9 @@ private const val CATEGORY_TILE_ALPHA = 0.12f
 fun FlashcardsListGroupCategoriesShowcase() {
     FlashcardsTheme {
         Surface {
-            FlashcardsListGroup {
-                item {
-                    FlashcardsListRow(
+            FlashcardsListGroup(
+                items = listOf(
+                    FlashcardsListGroupItem.Row(
                         title = "Android",
                         onClick = {},
                         subtitle = "Compose · Coroutines · Compose Navigation",
@@ -223,10 +331,8 @@ fun FlashcardsListGroupCategoriesShowcase() {
                             )
                         },
                         trailing = { FlashcardsChevron() },
-                    )
-                }
-                item {
-                    FlashcardsListRow(
+                    ),
+                    FlashcardsListGroupItem.Row(
                         title = "Python",
                         onClick = {},
                         subtitle = "Async · Typing · Decorators",
@@ -240,10 +346,8 @@ fun FlashcardsListGroupCategoriesShowcase() {
                             )
                         },
                         trailing = { FlashcardsChevron() },
-                    )
-                }
-                item {
-                    FlashcardsListRow(
+                    ),
+                    FlashcardsListGroupItem.Row(
                         title = "iOS",
                         onClick = {},
                         subtitle = "SwiftUI · Combine · UIKit",
@@ -257,9 +361,9 @@ fun FlashcardsListGroupCategoriesShowcase() {
                             )
                         },
                         trailing = { FlashcardsChevron() },
-                    )
-                }
-            }
+                    ),
+                ),
+            )
         }
     }
 }
@@ -269,9 +373,9 @@ fun FlashcardsListGroupCategoriesShowcase() {
 fun FlashcardsListGroupSearchResultsShowcase() {
     FlashcardsTheme {
         Surface {
-            FlashcardsListGroup {
-                item {
-                    FlashcardsListRow(
+            FlashcardsListGroup(
+                items = listOf(
+                    FlashcardsListGroupItem.Row(
                         title = "Compose",
                         onClick = {},
                         secondaryText = "in Android",
@@ -279,15 +383,13 @@ fun FlashcardsListGroupSearchResultsShowcase() {
                             Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall)) {
                                 FlashcardsPlayButton(
                                     onClick = {},
-                                    contentDescription = "Study Compose"
+                                    contentDescription = "Study Compose",
                                 )
                                 FlashcardsChevron()
                             }
                         },
-                    )
-                }
-                item {
-                    FlashcardsListRow(
+                    ),
+                    FlashcardsListGroupItem.Row(
                         title = "Compose Navigation",
                         onClick = {},
                         secondaryText = "in Android",
@@ -295,14 +397,14 @@ fun FlashcardsListGroupSearchResultsShowcase() {
                             Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall)) {
                                 FlashcardsPlayButton(
                                     onClick = {},
-                                    contentDescription = "Study Compose Navigation"
+                                    contentDescription = "Study Compose Navigation",
                                 )
                                 FlashcardsChevron()
                             }
                         },
-                    )
-                }
-            }
+                    ),
+                ),
+            )
         }
     }
 }
@@ -314,55 +416,47 @@ fun FlashcardsListGroupMultiSelectShowcase() {
         Surface {
             Column {
                 FlashcardsOverlineLabel(
-                    text = "3 of 13 topics selected"
+                    text = "3 of 13 topics selected",
                 )
-                FlashcardsListGroup {
-                    item(checked = true) {
-                        FlashcardsSelectableListRow(
+                FlashcardsListGroup(
+                    items = listOf(
+                        FlashcardsListGroupItem.Selectable(
                             title = "Compose",
                             selected = true,
                             onSelectedChange = {},
                             subtitle = "80 cards",
                             trailing = { FlashcardsChevron() },
-                        )
-                    }
-                    item(checked = true) {
-                        FlashcardsSelectableListRow(
+                        ),
+                        FlashcardsListGroupItem.Selectable(
                             title = "Coroutines",
                             selected = true,
                             onSelectedChange = {},
                             subtitle = "40 cards",
                             trailing = { FlashcardsChevron() },
-                        )
-                    }
-                    item(checked = false) {
-                        FlashcardsSelectableListRow(
+                        ),
+                        FlashcardsListGroupItem.Selectable(
                             title = "Compose Navigation",
                             selected = false,
                             onSelectedChange = {},
                             subtitle = "30 cards",
                             trailing = { FlashcardsChevron() },
-                        )
-                    }
-                    item(checked = false) {
-                        FlashcardsSelectableListRow(
+                        ),
+                        FlashcardsListGroupItem.Selectable(
                             title = "Testing",
                             selected = false,
                             onSelectedChange = {},
                             subtitle = "25 cards",
                             trailing = { FlashcardsChevron() },
-                        )
-                    }
-                    item(checked = true) {
-                        FlashcardsSelectableListRow(
+                        ),
+                        FlashcardsListGroupItem.Selectable(
                             title = "Architecture",
                             selected = true,
                             onSelectedChange = {},
                             subtitle = "20 cards",
                             trailing = { FlashcardsChevron() },
-                        )
-                    }
-                }
+                        ),
+                    ),
+                )
             }
         }
     }
@@ -373,36 +467,34 @@ fun FlashcardsListGroupMultiSelectShowcase() {
 private fun FlashcardsListGroupPreview() {
     FlashcardsTheme {
         Surface {
-            FlashcardsListGroup {
-                item {
-                    FlashcardsListRow(
+            FlashcardsListGroup(
+                items = listOf(
+                    FlashcardsListGroupItem.Row(
                         title = "Notifications",
                         onClick = {},
                         subtitle = "Allowed",
                         leading = {
                             FlashcardsIconTile(
                                 icon = Icons.Default.NotificationsActive,
-                                contentDescription = null
+                                contentDescription = null,
                             )
                         },
                         trailing = { FlashcardsChevron() },
-                    )
-                }
-                item {
-                    FlashcardsListRow(
+                    ),
+                    FlashcardsListGroupItem.Row(
                         title = "Microphone",
                         onClick = {},
                         subtitle = "Not granted",
                         leading = {
                             FlashcardsIconTile(
                                 icon = Icons.Default.Mic,
-                                contentDescription = null
+                                contentDescription = null,
                             )
                         },
                         trailing = { FlashcardsChevron() },
-                    )
-                }
-            }
+                    ),
+                ),
+            )
         }
     }
 }
