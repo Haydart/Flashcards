@@ -51,7 +51,7 @@ fun FlashcardsStepper(
                 .semantics { contentDescription = decrementContentDescription },
             colors = IconButtonDefaults.filledIconButtonColors(
                 containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = BUTTON_TINT_ALPHA),
-                contentColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
             ),
         ) {
             Text(text = "−", style = MaterialTheme.typography.titleMedium)
@@ -68,7 +68,7 @@ fun FlashcardsStepper(
                 .semantics { contentDescription = incrementContentDescription },
             colors = IconButtonDefaults.filledIconButtonColors(
                 containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = BUTTON_TINT_ALPHA),
-                contentColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
             ),
         ) {
             Text(text = "+", style = MaterialTheme.typography.titleMedium)

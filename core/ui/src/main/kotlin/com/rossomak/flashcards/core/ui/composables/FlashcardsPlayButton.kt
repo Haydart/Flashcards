@@ -36,7 +36,7 @@ fun FlashcardsPlayButton(
         modifier = modifier.size(MaterialTheme.sizes.iconTile),
         colors = IconButtonDefaults.filledIconButtonColors(
             containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = CONTAINER_TINT_ALPHA),
-            contentColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
         ),
     ) {
         Icon(imageVector = Icons.Default.PlayArrow, contentDescription = contentDescription)
