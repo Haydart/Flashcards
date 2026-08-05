@@ -18,7 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
@@ -30,6 +30,9 @@ import com.rossomak.flashcards.core.ui.theme.spacing
 
 /** Opacity of [MaterialTheme.colorScheme.secondaryContainer] used as a selection tint. */
 private const val SELECTED_TINT_ALPHA = 0.12f
+
+/** Opacity applied to the whole row when `enabled = false`, matching [FlashcardsListRow]. */
+private const val DISABLED_ALPHA = 0.6f
 
 /**
  * A multi-select list row: a leading checkbox, a title with optional [subtitle], and a
@@ -57,6 +60,7 @@ fun FlashcardsSelectableListRow(
     )
     Row(
         modifier = modifier
+            .alpha(if (enabled) 1f else DISABLED_ALPHA)
             .heightIn(min = MaterialTheme.sizes.listRowMinHeight)
             .toggleable(
                 value = selected,

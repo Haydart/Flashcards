@@ -10,13 +10,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.unit.dp
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListItemPosition.Bottom
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListItemPosition.Middle
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListItemPosition.Single
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListItemPosition.Top
 import com.rossomak.flashcards.core.ui.theme.cornerRadius
 import com.rossomak.flashcards.core.ui.theme.sizes
+import com.rossomak.flashcards.core.ui.theme.spacing
 
 /**
  * Where a row sits within a grouped list, so a stack of independent `LazyColumn` items reads
@@ -65,7 +65,7 @@ fun Modifier.flashcardsListItemShape(
         top = MaterialTheme.sizes.hairline,
         start = MaterialTheme.sizes.hairline,
         end = MaterialTheme.sizes.hairline,
-        bottom = if (position == Bottom || position == Single) MaterialTheme.sizes.hairline else 0.dp,
+        bottom = if (position == Bottom || position == Single) MaterialTheme.sizes.hairline else MaterialTheme.spacing.none,
     )
     return this
         .padding(paddingValues)

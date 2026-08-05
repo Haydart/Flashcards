@@ -17,7 +17,7 @@ these components are held to; the checklist at the bottom is the definition of d
 
 ## 1. What lives here
 
-```
+```text
 core/ui/src/main/…/theme/        Tokens: Spacing, Sizes, CornerRadius, Motion, Color, Type, BrandColors
 core/ui/src/main/…/composables/  Reusable Flashcards* components (the design system)
 core/ui/src/debug/…/showcase/    Showkase root + sample data / PreviewParameterProviders
@@ -156,9 +156,9 @@ Lists render in one of two ways. The design system serves both and **never swall
 ### 6a. Bounded groups → `FlashcardsListGroup`
 
 For short, bounded sets (settings sections, category lists, selection groups). A non-lazy
-`Column` inside one rounded (`cornerRadius.card`), 1px-bordered card. It **auto-inserts
-full-width 1px dividers** (`colorScheme.outlineVariant`) between children — none at the
-top/bottom edges. Rows themselves draw no divider.
+`Column` inside one rounded (`cornerRadius.card`), 1px-bordered card. Interior seams between
+children are a **1dp gap** showing the container background through — no divider line is
+drawn — while the group's own top/bottom edges sit flush with the card border.
 
 ```kotlin
 FlashcardsListGroup {
