@@ -24,6 +24,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.Category
@@ -106,7 +107,16 @@ private fun CategoryList(
             .padding(MaterialTheme.spacing.normal),
     ) {
         FlashcardsListGroup(
-            items = state.categories.map { category -> category.toListGroupItem(onCategoryClick) },
+            items = state.categories.map { category ->
+                category.toListGroupItem(
+                    subtitle = pluralStringResource(
+                        R.plurals.browse_category_subcategory_count,
+                        category.subcategoryCount,
+                        category.subcategoryCount,
+                    ),
+                    onCategoryClick = onCategoryClick,
+                )
+            },
         )
         Spacer(modifier = Modifier.height(MaterialTheme.spacing.normal))
         MockSelectableList()
@@ -168,11 +178,11 @@ private fun MockSettingsList() {
     )
 }
 
-private fun Category.toListGroupItem(onCategoryClick: (String, String) -> Unit) =
+private fun Category.toListGroupItem(subtitle: String, onCategoryClick: (String, String) -> Unit) =
     FlashcardsListGroupItem.Row(
         key = id,
         title = name,
         onClick = { onCategoryClick(id, name) },
-        subtitle = "$subcategoryCount subcategories",
+        subtitle = subtitle,
         trailing = { FlashcardsChevron() },
     )

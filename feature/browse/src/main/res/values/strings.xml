@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="subcategory_details_card_expanded_cd">Expanded</string>
+    <string name="subcategory_details_card_collapsed_cd">Collapsed</string>
+    <plurals name="browse_category_subcategory_count">
+        <item quantity="one">%d subcategory</item>
+        <item quantity="other">%d subcategories</item>
+    </plurals>
+</resources>

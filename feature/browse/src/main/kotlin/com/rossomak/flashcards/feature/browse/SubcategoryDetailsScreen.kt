@@ -26,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -144,6 +145,8 @@ private fun FlashcardList(
     modifier: Modifier = Modifier,
 ) {
     val expandedStates = remember { mutableStateMapOf<String, Boolean>() }
+    val expandedStateDescription = stringResource(R.string.subcategory_details_card_expanded_cd)
+    val collapsedStateDescription = stringResource(R.string.subcategory_details_card_collapsed_cd)
 
     LazyColumn(
         modifier = modifier
@@ -159,8 +162,8 @@ private fun FlashcardList(
                     title = flashcard.question,
                     expanded = expandedStates[flashcard.id] ?: false,
                     onExpandedChange = { expanded -> expandedStates[flashcard.id] = expanded },
-                    expandedStateDescription = "Expanded",
-                    collapsedStateDescription = "Collapsed",
+                    expandedStateDescription = expandedStateDescription,
+                    collapsedStateDescription = collapsedStateDescription,
                     tags = flashcard.tags.toImmutableList(),
                     expandedContent = {
                         Text(
