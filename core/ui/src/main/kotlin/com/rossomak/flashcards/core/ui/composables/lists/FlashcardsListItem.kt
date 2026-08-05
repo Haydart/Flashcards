@@ -75,10 +75,12 @@ fun Modifier.flashcardsListItemShape(
 /**
  * The group background a screen wraps around its grouped `LazyColumn` section, so individually
  * shaped [flashcardsListItemShape] rows appear inside one rounded card and the 1dp gaps between
- * unchecked rows show this color rather than a drawn divider line. Insets horizontally first, so
- * the screen behind shows through on every side of the rounded card, not just top and bottom.
+ * unchecked rows show this color rather than a drawn divider line. Deliberately a warm
+ * `secondaryContainer` tone rather than [androidx.compose.material3.ColorScheme.background] —
+ * it also shows through a selected row's translucent tint (see [FlashcardsSelectableListRow]), so
+ * it must read as different from the screen behind it, not blend into it.
  */
 @Composable
 fun Modifier.flashcardsListGroupContainer(): Modifier = this
-    .clip(RoundedCornerShape(MaterialTheme.cornerRadius.card))
+    .clip(RoundedCornerShape(MaterialTheme.cornerRadius.medium)) // needs to be 2dp higher than the items background corner to maintain border width
     .background(MaterialTheme.colorScheme.secondaryContainer)

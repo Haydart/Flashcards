@@ -11,7 +11,6 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
@@ -73,10 +72,6 @@ fun CardSortOrderDialog(
                         Checkbox(
                             checked = keepAsDefault,
                             onCheckedChange = null,
-                            colors = CheckboxDefaults.colors(
-                                checkedColor = MaterialTheme.colorScheme.secondary,
-                                checkmarkColor = MaterialTheme.colorScheme.onSecondary,
-                            ),
                         )
                         Spacer(modifier = Modifier.width(MaterialTheme.spacing.xsmall))
                         Text(text = stringResource(R.string.card_sort_order_keep_as_default_label))

@@ -58,7 +58,7 @@ fun FlashcardsExpandableCardRow(
     tags: ImmutableList<String> = persistentListOf(),
     expandedContent: @Composable (() -> Unit)? = null,
 ) {
-    val backgroundColor = MaterialTheme.colorScheme.surface
+    val backgroundColor = MaterialTheme.colorScheme.surfaceContainerLowest
     val chevronRotation by animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
         animationSpec = tween(FlashcardsMotion.DURATION_MEDIUM_MS, easing = FlashcardsMotion.EmphasizedEasing),

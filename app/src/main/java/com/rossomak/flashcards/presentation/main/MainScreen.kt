@@ -85,7 +85,7 @@ fun MainScreen(
         modifier = modifier,
         bottomBar = {
             NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
             ) {
                 tabs.forEach { tab ->
                     val isSelected = currentDestination?.hierarchy?.any { it.hasRoute(tab.route::class) } == true

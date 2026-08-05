@@ -55,7 +55,7 @@ fun FlashcardsListRow(
     Row(
         modifier = modifier
             .alpha(if (enabled) 1f else DISABLED_ALPHA)
-            .background(MaterialTheme.colorScheme.surface)
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
             .heightIn(min = MaterialTheme.sizes.listRowMinHeight)
             .clickable(enabled = enabled, role = role, onClick = onClick)
             .padding(

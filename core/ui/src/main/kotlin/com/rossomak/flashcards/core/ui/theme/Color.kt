@@ -2,7 +2,7 @@ package com.rossomak.flashcards.core.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val primaryLight = Color(0xFF10117A)
+val primaryLight = Color(0xFF7D3AC8)
 val onPrimaryLight = Color(0xFFFFFFFF)
 val primaryContainerLight = Color(0xFF2A2E8F)
 val onPrimaryContainerLight = Color(0xFF989DFF)
@@ -18,7 +18,7 @@ val errorLight = Color(0xFF890023)
 val onErrorLight = Color(0xFFFFFFFF)
 val errorContainerLight = Color(0xFFB50031)
 val onErrorContainerLight = Color(0xFFFFC1C3)
-val backgroundLight = Color(0xFFFBF8FF)
+val backgroundLight = Color(0xFFF5F2FB)
 val onBackgroundLight = Color(0xFF1B1B21)
 val surfaceLight = Color(0xFFFBF8FF)
 val onSurfaceLight = Color(0xFF1B1B21)
