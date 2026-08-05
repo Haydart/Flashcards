@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.List as AutoMirroredList
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Star
@@ -133,7 +133,7 @@ private fun MetadataBadgeSurfaceSampleRow(modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall),
     ) {
         FlashcardsMetadataBadge(label = "~ 12 min", icon = Icons.Default.DateRange)
-        FlashcardsMetadataBadge(label = "3 topics", icon = Icons.AutoMirrored.Filled.List)
+        FlashcardsMetadataBadge(label = "3 topics", icon = Icons.AutoMirrored.Filled.AutoMirroredList)
         FlashcardsMetadataBadge(label = "42 cards", icon = Icons.Default.Star)
     }
 }
