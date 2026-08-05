@@ -19,7 +19,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.PreviewLightDark
-import androidx.compose.ui.unit.dp
 import com.airbnb.android.showkase.annotation.ShowkaseComposable
 import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.cornerRadius
@@ -73,7 +72,7 @@ fun FlashcardsTagChip(
             borderColor = MaterialTheme.colorScheme.outlineVariant,
             selectedBorderColor = Color.Transparent,
             borderWidth = MaterialTheme.sizes.tagChipBorder,
-            selectedBorderWidth = 0.dp,
+            selectedBorderWidth = MaterialTheme.spacing.none,
         ),
     )
 }
