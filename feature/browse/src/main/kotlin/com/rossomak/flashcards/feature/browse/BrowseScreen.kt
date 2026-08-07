@@ -2,10 +2,8 @@ package com.rossomak.flashcards.feature.browse
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -13,10 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MenuBook
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.CircularProgressIndicator
@@ -26,8 +21,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -128,64 +121,7 @@ private fun CategoryList(
                 )
             },
         )
-        Spacer(modifier = Modifier.height(MaterialTheme.spacing.normal))
-        MockSelectableList()
-        Spacer(modifier = Modifier.height(MaterialTheme.spacing.normal))
-        MockSettingsList()
     }
-}
-
-/** Mock rows to eyeball [FlashcardsSelectableListRow]'s coloring/background after the rework. */
-@Composable
-private fun MockSelectableList() {
-    val mockTitles = listOf("Compose", "Coroutines", "Testing", "Networking", "Dependency Injection")
-    val selectedStates = remember { mutableStateMapOf<String, Boolean>() }
-
-    FlashcardsListGroup(
-        items = mockTitles.mapIndexed { index, title ->
-            FlashcardsListGroupItem.Selectable(
-                key = title,
-                title = title,
-                selected = selectedStates[title] ?: (index == 0),
-                onSelectedChange = { selected -> selectedStates[title] = selected },
-                subtitle = "${(index + 1) * 10} cards",
-                trailing = { FlashcardsChevron() },
-            )
-        },
-    )
-}
-
-/** Mock settings-style rows to eyeball [FlashcardsIconTile] leading icons against list rows. */
-@Composable
-private fun MockSettingsList() {
-    FlashcardsListGroup(
-        items = listOf(
-            FlashcardsListGroupItem.Row(
-                key = "appearance",
-                title = "Appearance",
-                secondaryText = "Theme, colors",
-                onClick = {},
-                leading = { FlashcardsIconTile(icon = Icons.Default.Palette, contentDescription = null) },
-                trailing = { FlashcardsChevron() },
-            ),
-            FlashcardsListGroupItem.Row(
-                key = "notifications",
-                title = "Notifications",
-                secondaryText = "Reminders, study nudges",
-                onClick = {},
-                leading = { FlashcardsIconTile(icon = Icons.Default.Notifications, contentDescription = null) },
-                trailing = { FlashcardsChevron() },
-            ),
-            FlashcardsListGroupItem.Row(
-                key = "about",
-                title = "About",
-                secondaryText = "Version, licenses",
-                onClick = {},
-                leading = { FlashcardsIconTile(icon = Icons.Default.Info, contentDescription = null) },
-                trailing = { FlashcardsChevron() },
-            ),
-        ),
-    )
 }
 
 /**
