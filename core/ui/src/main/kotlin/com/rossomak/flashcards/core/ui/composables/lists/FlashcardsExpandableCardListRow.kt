@@ -26,10 +26,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.airbnb.android.showkase.annotation.ShowkaseComposable
 import com.rossomak.flashcards.core.ui.composables.FlashcardsDifficultyBadge
 import com.rossomak.flashcards.core.ui.composables.FlashcardsMetadataBadge
+import com.rossomak.flashcards.core.ui.composables.withInlineCode
 import com.rossomak.flashcards.core.ui.theme.FlashcardsMotion
 import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.spacing
@@ -65,16 +67,17 @@ fun FlashcardsExpandableCardRow(
         label = "chevronRotation",
     )
     Column(
-        modifier = modifier.background(backgroundColor),
+        modifier = modifier
+            .fillMaxWidth()
+            .background(backgroundColor)
+            .semantics {
+                stateDescription = if (expanded) expandedStateDescription else collapsedStateDescription
+            }
+            .clickable { onExpandedChange(!expanded) },
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(backgroundColor)
-                .semantics {
-                    stateDescription = if (expanded) expandedStateDescription else collapsedStateDescription
-                }
-                .clickable { onExpandedChange(!expanded) }
                 .padding(
                     horizontal = MaterialTheme.spacing.normal,
                     vertical = MaterialTheme.spacing.small,
@@ -88,8 +91,9 @@ fun FlashcardsExpandableCardRow(
                 verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall),
             ) {
                 Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
+                    text = title.withInlineCode(),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 if (tags.isNotEmpty()) {
@@ -97,7 +101,7 @@ fun FlashcardsExpandableCardRow(
                         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall),
                         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xxsmall),
                     ) {
-                        tags.forEach { tag -> FlashcardsMetadataBadge(label = tag) }
+                        tags.forEach { tag -> FlashcardsMetadataBadge(label = tag, compact = true) }
                     }
                 }
             }
@@ -110,19 +114,15 @@ fun FlashcardsExpandableCardRow(
         }
         AnimatedVisibility(visible = expanded) {
             if (expandedContent != null) {
-                Column(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(backgroundColor),
-                ) {
-                    Box(
-                        modifier = Modifier.padding(
+                        .padding(
                             horizontal = MaterialTheme.spacing.normal,
                             vertical = MaterialTheme.spacing.small,
                         ),
-                    ) {
-                        expandedContent()
-                    }
+                ) {
+                    expandedContent()
                 }
             }
         }
@@ -139,7 +139,7 @@ fun FlashcardsExpandableCardRowExpandedShowcase() {
         Surface {
             FlashcardsExpandableCardRow(
                 difficulty = 2,
-                title = "What does remember do differently from rememberSaveable?",
+                title = "What does `remember` do differently from `rememberSaveable`?",
                 expanded = true,
                 onExpandedChange = {},
                 expandedStateDescription = "Expanded",
@@ -147,8 +147,9 @@ fun FlashcardsExpandableCardRowExpandedShowcase() {
                 tags = persistentListOf("State"),
                 expandedContent = {
                     Text(
-                        text = "remember retains a value across recompositions only, while " +
-                            "rememberSaveable also survives configuration changes and process death.",
+                        text = ("`remember` retains a value across recompositions only, while " +
+                            "`rememberSaveable` also survives configuration changes and process death.")
+                            .withInlineCode(),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 },
