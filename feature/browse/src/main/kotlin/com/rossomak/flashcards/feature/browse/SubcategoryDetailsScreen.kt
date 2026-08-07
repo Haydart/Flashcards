@@ -32,9 +32,9 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListGroupItem
-import com.rossomak.flashcards.core.ui.composables.withInlineCode
 import com.rossomak.flashcards.core.ui.composables.lists.flashcardsListGroupContainer
 import com.rossomak.flashcards.core.ui.composables.lists.flashcardsListGroupItems
+import com.rossomak.flashcards.core.ui.composables.withInlineCode
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import com.rossomak.flashcards.core.ui.theme.spacing
 import kotlinx.collections.immutable.toImmutableList
