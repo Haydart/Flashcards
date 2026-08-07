@@ -77,7 +77,7 @@ fun BrowseContent(
                 text = "Error: ${state.error}",
                 modifier = Modifier.align(Alignment.Center)
             )
-            else -> CategoryList(state = state, onCategoryClick = onCategoryClick)
+            else -> CategoryList(categories = state.categories, onCategoryClick = onCategoryClick)
         }
     }
 }
@@ -91,10 +91,10 @@ fun BrowseContent(
  */
 @Composable
 private fun CategoryList(
-    state: BrowseScreenState,
+    categories: List<Category>,
     onCategoryClick: (String, String) -> Unit,
 ) {
-    if (state.categories.isEmpty()) {
+    if (categories.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(text = "No categories found")
         }
@@ -107,7 +107,7 @@ private fun CategoryList(
             .padding(MaterialTheme.spacing.normal),
     ) {
         FlashcardsListGroup(
-            items = state.categories.map { category ->
+            items = categories.map { category ->
                 category.toListGroupItem(
                     subtitle = pluralStringResource(
                         R.plurals.browse_category_subcategory_count,
