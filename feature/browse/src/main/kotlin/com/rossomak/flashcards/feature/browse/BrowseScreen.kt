@@ -10,9 +10,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -24,7 +30,9 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.Category
@@ -107,13 +115,15 @@ private fun CategoryList(
             .padding(MaterialTheme.spacing.normal),
     ) {
         FlashcardsListGroup(
-            items = categories.map { category ->
+            items = categories.mapIndexed { index, category ->
                 category.toListGroupItem(
-                    subtitle = pluralStringResource(
+                    index = index,
+                    subcategoryCountText = pluralStringResource(
                         R.plurals.browse_category_subcategory_count,
                         category.subcategoryCount,
                         category.subcategoryCount,
                     ),
+                    placeholderSubtitle = stringResource(R.string.browse_category_placeholder_subtitle),
                     onCategoryClick = onCategoryClick,
                 )
             },
@@ -153,7 +163,7 @@ private fun MockSettingsList() {
             FlashcardsListGroupItem.Row(
                 key = "appearance",
                 title = "Appearance",
-                subtitle = "Theme, colors",
+                secondaryText = "Theme, colors",
                 onClick = {},
                 leading = { FlashcardsIconTile(icon = Icons.Default.Palette, contentDescription = null) },
                 trailing = { FlashcardsChevron() },
@@ -161,7 +171,7 @@ private fun MockSettingsList() {
             FlashcardsListGroupItem.Row(
                 key = "notifications",
                 title = "Notifications",
-                subtitle = "Reminders, study nudges",
+                secondaryText = "Reminders, study nudges",
                 onClick = {},
                 leading = { FlashcardsIconTile(icon = Icons.Default.Notifications, contentDescription = null) },
                 trailing = { FlashcardsChevron() },
@@ -169,7 +179,7 @@ private fun MockSettingsList() {
             FlashcardsListGroupItem.Row(
                 key = "about",
                 title = "About",
-                subtitle = "Version, licenses",
+                secondaryText = "Version, licenses",
                 onClick = {},
                 leading = { FlashcardsIconTile(icon = Icons.Default.Info, contentDescription = null) },
                 trailing = { FlashcardsChevron() },
@@ -178,11 +188,47 @@ private fun MockSettingsList() {
     )
 }
 
-private fun Category.toListGroupItem(subtitle: String, onCategoryClick: (String, String) -> Unit) =
-    FlashcardsListGroupItem.Row(
+/**
+ * Placeholder icon/color per category row, cycled by position — standing in for
+ * `Category.iconUrl` (not yet wired end-to-end; see docs/design/category-icon-color.md). Not
+ * keyed by category name/content: only [Category.name] and [Category.subcategoryCount] are real
+ * backend fields, so nothing here should look tied to a specific category's identity. The
+ * [FlashcardsListGroupItem.DetailedRow] subtitle line is the same static
+ * `R.string.browse_category_placeholder_subtitle` copy on every row for the same reason — there
+ * is no backend topic-summary field yet to show instead.
+ */
+private val categoryIconPalette = listOf(
+    Icons.Default.School to Color(0xFF6B2FA0),
+    Icons.Default.MenuBook to Color(0xFF0277BD),
+    Icons.Default.Extension to Color(0xFF00838F),
+    Icons.Default.AutoAwesome to Color(0xFFAD1457),
+    Icons.Default.Bolt to Color(0xFF558B2F),
+    Icons.Default.Star to Color(0xFFD84315),
+)
+
+private const val CATEGORY_TILE_ALPHA = 0.12f
+
+private fun Category.toListGroupItem(
+    index: Int,
+    subcategoryCountText: String,
+    placeholderSubtitle: String,
+    onCategoryClick: (String, String) -> Unit,
+): FlashcardsListGroupItem {
+    val (icon, color) = categoryIconPalette[index % categoryIconPalette.size]
+    return FlashcardsListGroupItem.DetailedRow(
         key = id,
         title = name,
+        subtitle = placeholderSubtitle,
+        secondaryText = subcategoryCountText,
         onClick = { onCategoryClick(id, name) },
-        subtitle = subtitle,
+        leading = {
+            FlashcardsIconTile(
+                icon = icon,
+                contentDescription = null,
+                containerColor = color.copy(alpha = CATEGORY_TILE_ALPHA),
+                contentColor = color,
+            )
+        },
         trailing = { FlashcardsChevron() },
     )
+}
