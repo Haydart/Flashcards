@@ -43,6 +43,12 @@ object AppSizes {
     /** Leading icon inside a metadata badge. */
     val metadataBadgeIcon: Dp = 16.dp
 
+    /** Height of a [metadataBadgeHeight] badge in its compact variant (flat card-row tags). */
+    val metadataBadgeHeightCompact: Dp = 24.dp
+
+    /** Leading icon inside a compact metadata badge. */
+    val metadataBadgeIconCompact: Dp = 14.dp
+
     /** Diameter of the circular difficulty badge (leading element of flashcard rows). */
     val difficultyBadge: Dp = 28.dp
 

@@ -58,6 +58,9 @@ enum class MetadataBadgeStyle {
  *
  * Pass [onClick] only when the badge doubles as an affordance (e.g. a sort badge that opens a
  * dialog); it then reports itself to accessibility as a button.
+ *
+ * Pass [compact] where badges sit inside another interactive row (e.g. flat study tags on a
+ * flashcard row) and must recede behind the row's own content.
  */
 @Composable
 fun FlashcardsMetadataBadge(
@@ -65,9 +68,21 @@ fun FlashcardsMetadataBadge(
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
     style: MetadataBadgeStyle = MetadataBadgeStyle.Surface,
+    compact: Boolean = false,
     onClick: (() -> Unit)? = null,
 ) {
     val shape = RoundedCornerShape(MaterialTheme.cornerRadius.full)
+    val badgeHeight = if (compact) {
+        MaterialTheme.sizes.metadataBadgeHeightCompact
+    } else {
+        MaterialTheme.sizes.metadataBadgeHeight
+    }
+    val badgeIconSize = if (compact) {
+        MaterialTheme.sizes.metadataBadgeIconCompact
+    } else {
+        MaterialTheme.sizes.metadataBadgeIcon
+    }
+    val badgeTextStyle = if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium
     val onGradient = MaterialTheme.brandColors.onTopBarGradient
     val containerColor = when (style) {
         MetadataBadgeStyle.Surface -> MaterialTheme.colorScheme.surfaceVariant
@@ -91,7 +106,7 @@ fun FlashcardsMetadataBadge(
 
     Surface(
         modifier = modifier
-            .height(MaterialTheme.sizes.metadataBadgeHeight)
+            .height(badgeHeight)
             .clip(shape)
             .then(
                 if (onClick != null) {
@@ -115,12 +130,12 @@ fun FlashcardsMetadataBadge(
                     imageVector = icon,
                     contentDescription = null,
                     tint = iconColor,
-                    modifier = Modifier.size(MaterialTheme.sizes.metadataBadgeIcon),
+                    modifier = Modifier.size(badgeIconSize),
                 )
             }
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelMedium,
+                style = badgeTextStyle,
             )
         }
     }
