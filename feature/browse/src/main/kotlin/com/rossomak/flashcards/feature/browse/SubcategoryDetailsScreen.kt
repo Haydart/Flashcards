@@ -32,6 +32,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListGroupItem
+import com.rossomak.flashcards.core.ui.composables.withInlineCode
 import com.rossomak.flashcards.core.ui.composables.lists.flashcardsListGroupContainer
 import com.rossomak.flashcards.core.ui.composables.lists.flashcardsListGroupItems
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
@@ -141,8 +142,8 @@ fun SubcategoryDetailsContent(
  */
 @Composable
 private fun FlashcardList(
-    flashcards: List<Flashcard>,
     modifier: Modifier = Modifier,
+    flashcards: List<Flashcard>,
 ) {
     val expandedStates = remember { mutableStateMapOf<String, Boolean>() }
     val expandedStateDescription = stringResource(R.string.subcategory_details_card_expanded_cd)
@@ -167,7 +168,7 @@ private fun FlashcardList(
                     tags = flashcard.tags.toImmutableList(),
                     expandedContent = {
                         Text(
-                            text = flashcard.answer,
+                            text = flashcard.answer.withInlineCode(),
                             style = MaterialTheme.typography.bodyMedium,
                         )
                     },
