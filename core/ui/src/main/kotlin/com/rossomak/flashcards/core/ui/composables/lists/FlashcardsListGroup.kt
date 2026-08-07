@@ -40,10 +40,11 @@ import kotlinx.collections.immutable.persistentListOf
 
 /**
  * The closed set of row kinds [FlashcardsListGroup] and [flashcardsListGroupItems] can render —
- * one variant per dedicated row composable ([FlashcardsListRow], [FlashcardsSelectableListRow],
- * [FlashcardsExpandableCardRow]). There is no free-form `content: @Composable () -> Unit` slot: a
- * group can only ever render these row kinds, so [flashcardsListItemShape] stays owned entirely
- * by the container that dispatches on this sealed type — a row composable never shapes itself.
+ * one variant per dedicated row composable ([FlashcardsListRow], [FlashcardsDetailedListRow],
+ * [FlashcardsSelectableListRow], [FlashcardsExpandableCardRow]). There is no free-form
+ * `content: @Composable () -> Unit` slot: a group can only ever render these row kinds, so
+ * [flashcardsListItemShape] stays owned entirely by the container that dispatches on this sealed
+ * type — a row composable never shapes itself.
  */
 sealed interface FlashcardsListGroupItem {
 
@@ -58,12 +59,31 @@ sealed interface FlashcardsListGroupItem {
      */
     val key: Any?
 
-    /** Renders as [FlashcardsListRow]. */
+    /**
+     * Renders as [FlashcardsListRow]: a 1- or 2-line row (title, optional [secondaryText]). For
+     * a row that also needs a wrapping description line, use [DetailedRow] instead — `Row` has
+     * no `subtitle` field, so the two shapes can't be conflated at a call site.
+     */
     data class Row(
         val title: String,
         val onClick: () -> Unit,
-        val subtitle: String? = null,
         val secondaryText: String? = null,
+        val enabled: Boolean = true,
+        val leading: (@Composable () -> Unit)? = null,
+        val trailing: (@Composable () -> Unit)? = null,
+        override val key: Any? = null,
+    ) : FlashcardsListGroupItem
+
+    /**
+     * Renders as [FlashcardsDetailedListRow]: a 3-line row — title, a wrapping [subtitle]
+     * description, and a [secondaryText] label/count below it. Both are mandatory; a row that
+     * only needs one extra line is a [Row], not a `DetailedRow`.
+     */
+    data class DetailedRow(
+        val title: String,
+        val subtitle: String,
+        val secondaryText: String,
+        val onClick: () -> Unit,
         val enabled: Boolean = true,
         val leading: (@Composable () -> Unit)? = null,
         val trailing: (@Composable () -> Unit)? = null,
@@ -107,8 +127,17 @@ private fun FlashcardsListGroupRow(item: FlashcardsListGroupItem, modifier: Modi
             modifier = modifier,
             title = item.title,
             onClick = item.onClick,
+            secondaryText = item.secondaryText,
+            enabled = item.enabled,
+            leading = item.leading,
+            trailing = item.trailing,
+        )
+        is FlashcardsListGroupItem.DetailedRow -> FlashcardsDetailedListRow(
+            modifier = modifier,
+            title = item.title,
             subtitle = item.subtitle,
             secondaryText = item.secondaryText,
+            onClick = item.onClick,
             enabled = item.enabled,
             leading = item.leading,
             trailing = item.trailing,
@@ -215,7 +244,7 @@ fun FlashcardsListGroupShowcase() {
                     FlashcardsListGroupItem.Row(
                         title = "Notifications",
                         onClick = {},
-                        subtitle = "Allowed",
+                        secondaryText = "Allowed",
                         leading = {
                             FlashcardsIconTile(
                                 icon = Icons.Default.NotificationsActive,
@@ -227,7 +256,7 @@ fun FlashcardsListGroupShowcase() {
                     FlashcardsListGroupItem.Row(
                         title = "Microphone",
                         onClick = {},
-                        subtitle = "Not granted",
+                        secondaryText = "Not granted",
                         leading = {
                             FlashcardsIconTile(
                                 icon = Icons.Default.Mic,
@@ -252,7 +281,7 @@ fun FlashcardsListGroupStudySessionsShowcase() {
                     FlashcardsListGroupItem.Row(
                         title = "Session size",
                         onClick = {},
-                        subtitle = "Cards per session",
+                        secondaryText = "Cards per session",
                         leading = {
                             FlashcardsIconTile(
                                 icon = Icons.Default.Tag,
@@ -272,7 +301,7 @@ fun FlashcardsListGroupStudySessionsShowcase() {
                     FlashcardsListGroupItem.Row(
                         title = "Auto-flip on swipe",
                         onClick = {},
-                        subtitle = "Reveal answer with a single swipe",
+                        secondaryText = "Reveal answer with a single swipe",
                         leading = {
                             FlashcardsIconTile(
                                 icon = Icons.Default.SwipeUp,
@@ -284,7 +313,7 @@ fun FlashcardsListGroupStudySessionsShowcase() {
                     FlashcardsListGroupItem.Row(
                         title = "Shuffle order",
                         onClick = {},
-                        subtitle = "Always randomise card order",
+                        secondaryText = "Always randomise card order",
                         leading = {
                             FlashcardsIconTile(
                                 icon = Icons.Default.Shuffle,
@@ -317,7 +346,7 @@ fun FlashcardsListGroupCategoriesShowcase() {
         Surface {
             FlashcardsListGroup(
                 items = listOf(
-                    FlashcardsListGroupItem.Row(
+                    FlashcardsListGroupItem.DetailedRow(
                         title = "Android",
                         onClick = {},
                         subtitle = "Compose · Coroutines · Compose Navigation",
@@ -332,7 +361,7 @@ fun FlashcardsListGroupCategoriesShowcase() {
                         },
                         trailing = { FlashcardsChevron() },
                     ),
-                    FlashcardsListGroupItem.Row(
+                    FlashcardsListGroupItem.DetailedRow(
                         title = "Python",
                         onClick = {},
                         subtitle = "Async · Typing · Decorators",
@@ -347,7 +376,7 @@ fun FlashcardsListGroupCategoriesShowcase() {
                         },
                         trailing = { FlashcardsChevron() },
                     ),
-                    FlashcardsListGroupItem.Row(
+                    FlashcardsListGroupItem.DetailedRow(
                         title = "iOS",
                         onClick = {},
                         subtitle = "SwiftUI · Combine · UIKit",
@@ -472,7 +501,7 @@ private fun FlashcardsListGroupPreview() {
                     FlashcardsListGroupItem.Row(
                         title = "Notifications",
                         onClick = {},
-                        subtitle = "Allowed",
+                        secondaryText = "Allowed",
                         leading = {
                             FlashcardsIconTile(
                                 icon = Icons.Default.NotificationsActive,
@@ -484,7 +513,7 @@ private fun FlashcardsListGroupPreview() {
                     FlashcardsListGroupItem.Row(
                         title = "Microphone",
                         onClick = {},
-                        subtitle = "Not granted",
+                        secondaryText = "Not granted",
                         leading = {
                             FlashcardsIconTile(
                                 icon = Icons.Default.Mic,

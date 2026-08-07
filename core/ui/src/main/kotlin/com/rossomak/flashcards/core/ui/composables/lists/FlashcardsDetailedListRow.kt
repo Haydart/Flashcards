@@ -8,9 +8,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.Icon
+import androidx.compose.material.icons.filled.Android
+import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -27,27 +26,27 @@ import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.sizes
 import com.rossomak.flashcards.core.ui.theme.spacing
 
-/** Opacity applied to the whole row when `enabled = false`, per the design's disabled rows. */
+/** Opacity applied to the whole row when `enabled = false`, matching [FlashcardsListRow]. */
 private const val DISABLED_ALPHA = 0.6f
 
 /**
- * The generic design-system list row: an optional [leading] slot, a title with optional
- * [secondaryText] label, and an optional [trailing] slot — one or two lines. Settings, category,
- * and topic rows are all this row composed with different slots (icon tile / play button
- * leading; chevron / switch / stepper trailing). A row that also needs a wrapping description
- * line is [FlashcardsDetailedListRow] instead — this row has no `subtitle` slot, so the two
- * shapes can't be conflated at a call site.
+ * The generic design-system 3-line list row: an optional [leading] slot, a title, a wrapping
+ * [subtitle] description, a [secondaryText] label/count below it, and an optional [trailing]
+ * slot. Category rows are this row; a row that only needs one extra line is [FlashcardsListRow]
+ * instead — both [subtitle] and [secondaryText] are mandatory here, so the two row shapes can't
+ * be conflated at a call site.
  *
  * The whole row is one merged, clickable node with the given [role]; decorative trailing
  * chevrons should pass `contentDescription = null` (see [FlashcardsChevron]). When [enabled] is
  * `false`, the whole row dims rather than only disabling the click.
  */
 @Composable
-fun FlashcardsListRow(
+fun FlashcardsDetailedListRow(
     title: String,
+    subtitle: String,
+    secondaryText: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    secondaryText: String? = null,
     enabled: Boolean = true,
     role: Role = Role.Button,
     leading: @Composable (() -> Unit)? = null,
@@ -82,13 +81,18 @@ fun FlashcardsListRow(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (secondaryText != null) {
-                Text(
-                    text = secondaryText,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = secondaryText,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         if (trailing != null) {
             trailing()
@@ -96,44 +100,16 @@ fun FlashcardsListRow(
     }
 }
 
-/**
- * Decorative drill-in chevron for the [FlashcardsListRow] trailing slot. Its content
- * description is intentionally `null`: the row itself is the labeled, clickable node.
- */
+@ShowkaseComposable(name = "Detailed list row — category", group = "Lists")
 @Composable
-fun FlashcardsChevron() {
-    Icon(
-        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-        contentDescription = null,
-        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-}
-
-@ShowkaseComposable(name = "List row — nav", group = "Lists")
-@Composable
-fun FlashcardsListRowShowcase() {
+fun FlashcardsDetailedListRowShowcase() {
     FlashcardsTheme {
         Surface {
-            FlashcardsListRow(
-                title = "Compose",
+            FlashcardsDetailedListRow(
+                title = "Android",
+                subtitle = "Compose · Coroutines · Compose Navigation",
+                secondaryText = "13 topics",
                 onClick = {},
-                secondaryText = "in Android",
-                trailing = { FlashcardsChevron() },
-            )
-        }
-    }
-}
-
-@ShowkaseComposable(name = "List row — disabled", group = "Lists")
-@Composable
-fun FlashcardsListRowDisabledShowcase() {
-    FlashcardsTheme {
-        Surface {
-            FlashcardsListRow(
-                title = "Speak your answer aloud",
-                onClick = {},
-                secondaryText = "Coming soon",
-                enabled = false,
                 trailing = { FlashcardsChevron() },
             )
         }
@@ -142,7 +118,7 @@ fun FlashcardsListRowDisabledShowcase() {
 
 @PreviewLightDark
 @Composable
-private fun FlashcardsListRowPreview() {
+private fun FlashcardsDetailedListRowPreview() {
     FlashcardsTheme {
         Surface {
             Column(
@@ -151,28 +127,29 @@ private fun FlashcardsListRowPreview() {
                     .padding(MaterialTheme.spacing.normal)
                     .flashcardsListGroupContainer()
             ) {
-                FlashcardsListRow(
+                FlashcardsDetailedListRow(
                     modifier = Modifier.flashcardsListItemShape(FlashcardsListItemPosition.Top),
-                    title = "Notifications",
+                    title = "Android",
+                    subtitle = "Compose · Coroutines · Compose Navigation",
+                    secondaryText = "13 topics",
                     onClick = {},
-                    secondaryText = "Allowed",
-                    trailing = { FlashcardsChevron() },
-                )
-                FlashcardsListRow(
-                    modifier = Modifier.flashcardsListItemShape(FlashcardsListItemPosition.Middle),
-                    title = "Compose Navigation",
-                    onClick = {},
-                    secondaryText = "in Android",
-                    trailing = { FlashcardsChevron() },
-                )
-                FlashcardsListRow(
-                    modifier = Modifier.flashcardsListItemShape(FlashcardsListItemPosition.Bottom),
-                    title = "Kotlin Coroutines",
-                    onClick = {},
-                    secondaryText = "24 cards",
                     leading = {
                         FlashcardsIconTile(
-                            icon = Icons.Default.Star,
+                            icon = Icons.Default.Android,
+                            contentDescription = null,
+                        )
+                    },
+                    trailing = { FlashcardsChevron() },
+                )
+                FlashcardsDetailedListRow(
+                    modifier = Modifier.flashcardsListItemShape(FlashcardsListItemPosition.Bottom),
+                    title = "Python",
+                    subtitle = "Async · Typing · Decorators",
+                    secondaryText = "6 topics",
+                    onClick = {},
+                    leading = {
+                        FlashcardsIconTile(
+                            icon = Icons.Default.Terminal,
                             contentDescription = null,
                         )
                     },
