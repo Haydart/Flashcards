@@ -31,6 +31,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.Subcategory
+import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListGroupItem
+import com.rossomak.flashcards.core.ui.composables.lists.flashcardsListGroupContainer
+import com.rossomak.flashcards.core.ui.composables.lists.flashcardsListGroupItems
+import com.rossomak.flashcards.core.ui.theme.spacing
 
 @Composable
 fun CategoryDetailsScreen(
@@ -86,6 +90,7 @@ fun CategoryDetailsContent(
             ) {
                 CircularProgressIndicator()
             }
+
             state.error != null -> Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -94,12 +99,11 @@ fun CategoryDetailsContent(
             ) {
                 Text(text = state.error)
             }
+
             else -> SubcategoryList(
-                categoryId = state.categoryId,
-                categoryName = state.categoryName,
-                onNavigateToSubcategoryDetails = onNavigateToSubcategoryDetails,
                 subcategories = state.subcategories,
                 modifier = Modifier.padding(innerPadding),
+                onNavigateToSubcategoryDetails = onNavigateToSubcategoryDetails,
             )
         }
     }
@@ -107,57 +111,26 @@ fun CategoryDetailsContent(
 
 @Composable
 private fun SubcategoryList(
-    categoryId: String,
-    categoryName: String,
-    onNavigateToSubcategoryDetails: (String, String, String, String) -> Unit,
-    subcategories: List<Subcategory>,
     modifier: Modifier = Modifier,
+    subcategories: List<Subcategory>,
+    onNavigateToSubcategoryDetails: (String, String, String, String) -> Unit,
 ) {
-    LazyColumn(modifier = modifier.fillMaxSize()) {
-        items(subcategories, key = { it.id }) { subcategory ->
-            SubcategoryRow(
-                categoryId = categoryId,
-                categoryName = categoryName,
-                subcategory = subcategory,
-                onNavigateToSubcategoryDetails = onNavigateToSubcategoryDetails,
-            )
-            HorizontalDivider()
-        }
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = MaterialTheme.spacing.normal)
+            .flashcardsListGroupContainer()
+    ) {
+        flashcardsListGroupItems(
+            items = subcategories.map { subcategory ->
+                FlashcardsListGroupItem.Row(
+                    key = subcategory.id,
+                    title = subcategory.name,
+                    subtitle = "${subcategory.cardCount} cards",
+                    onClick = { onNavigateToSubcategoryDetails(subcategory.categoryId, subcategory.categoryName, subcategory.id, subcategory.name) }
+                )
+            }
+        )
     }
 }
 
-@Composable
-private fun SubcategoryRow(
-    categoryId: String,
-    categoryName: String,
-    subcategory: Subcategory,
-    onNavigateToSubcategoryDetails: (String, String, String, String) -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable {
-                onNavigateToSubcategoryDetails(
-                    categoryId,
-                    categoryName,
-                    subcategory.id,
-                    subcategory.name
-                )
-            }
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = subcategory.name,
-                style = MaterialTheme.typography.bodyLarge,
-            )
-            Text(
-                text = "${subcategory.cardCount} cards",
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                ),
-            )
-        }
-    }
-}
