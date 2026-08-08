@@ -32,7 +32,7 @@ class DefaultCurationRepositoryTest {
         val flaggedAt = Timestamp(Date(1_000L))
         val dto = CurationRequestDto(
             subcategoryId = "sub-1",
-            actions = mapOf(CurationAction.DELETE.name to CurationActionEntryDto(flaggedAt = flaggedAt)),
+            actions = mapOf(CurationAction.Delete.name to CurationActionEntryDto(flaggedAt = flaggedAt)),
         )
         coEvery { remoteDataSource.getCurationRequests(cardIds) } returns mapOf(cardId to dto)
 
@@ -42,7 +42,7 @@ class DefaultCurationRepositoryTest {
         val request = result.getOrThrow().getValue(cardId)
         request.cardId shouldBe cardId
         request.subcategoryId shouldBe dto.subcategoryId
-        request.actions.keys shouldBe setOf(CurationAction.DELETE)
+        request.actions.keys shouldBe setOf(CurationAction.Delete)
         coVerify(exactly = 1) { remoteDataSource.getCurationRequests(cardIds) }
     }
 
@@ -74,7 +74,7 @@ class DefaultCurationRepositoryTest {
     fun `upsertCurationAction forwards identifiers and action to data source`() = runTest {
         val cardId = "card-1"
         val subcategoryId = "sub-1"
-        val action = CurationAction.DIFFICULTY_TOO_HARD
+        val action = CurationAction.DifficultyTooHard
         coEvery { remoteDataSource.upsertCurationAction(cardId, subcategoryId, action) } just Runs
 
         val result = createRepository().upsertCurationAction(cardId, subcategoryId, action)
@@ -87,7 +87,7 @@ class DefaultCurationRepositoryTest {
     fun `upsertCurationAction wraps data source failure in failure result`() = runTest {
         val cardId = "card-1"
         val subcategoryId = "sub-1"
-        val action = CurationAction.DIFFICULTY_TOO_HARD
+        val action = CurationAction.DifficultyTooHard
         val error = IllegalStateException("firestore down")
         coEvery { remoteDataSource.upsertCurationAction(cardId, subcategoryId, action) } throws error
 
@@ -101,7 +101,7 @@ class DefaultCurationRepositoryTest {
     @Test
     fun `removeCurationAction forwards card id and action to data source`() = runTest {
         val cardId = "card-1"
-        val action = CurationAction.DELETE
+        val action = CurationAction.Delete
         coEvery { remoteDataSource.removeCurationAction(cardId, action) } just Runs
 
         val result = createRepository().removeCurationAction(cardId, action)
@@ -113,7 +113,7 @@ class DefaultCurationRepositoryTest {
     @Test
     fun `removeCurationAction wraps data source failure in failure result`() = runTest {
         val cardId = "card-1"
-        val action = CurationAction.DELETE
+        val action = CurationAction.Delete
         val error = IllegalStateException("firestore down")
         coEvery { remoteDataSource.removeCurationAction(cardId, action) } throws error
 

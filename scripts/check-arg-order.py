@@ -166,6 +166,14 @@ def main() -> int:
     for path in ROOT.rglob("*.kt"):
         rel = path.relative_to(ROOT)
         name = path.name
+
+        # Reusable design-system components (:core:ui composables/) follow the official
+        # Compose Component API guidelines (required -> modifier -> optional -> trailing
+        # slot), NOT the Screen/Content order. Exempt them from the arg-order check.
+        rel_posix = rel.as_posix()
+        if "/core/ui/" in f"/{rel_posix}" and "/composables/" in f"/{rel_posix}":
+            continue
+
         text = path.read_text(encoding="utf-8")
 
         if name.endswith("Screen.kt") or name.endswith("Content.kt"):

@@ -3,14 +3,14 @@ package com.rossomak.flashcards.feature.study.voice
 import com.rossomak.flashcards.core.domain.model.Flashcard
 import kotlinx.coroutines.flow.StateFlow
 
-enum class VoicePhase { QUESTION, ANSWER }
+enum class VoicePhase { Question, Answer }
 
 data class VoicePlaybackState(
     val isActive: Boolean = false,
     val isPlaying: Boolean = false,
     val currentIndex: Int = 0,
     val totalCards: Int = 0,
-    val phase: VoicePhase = VoicePhase.QUESTION,
+    val phase: VoicePhase = VoicePhase.Question,
     val isInBetweenPause: Boolean = false,
     val isAwaitingSpokenAnswer: Boolean = false,
     val speechRate: Float = DEFAULT_SPEECH_RATE,

@@ -1,0 +1,27 @@
+package com.rossomak.flashcards.core.ui.theme
+
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.Easing
+import androidx.compose.animation.core.FastOutSlowInEasing
+
+/**
+ * Animation timing tokens for design-system components. Components must read durations and
+ * easing from here rather than hardcoding raw millisecond values, so motion stays uniform
+ * across the app.
+ */
+object FlashcardsMotion {
+    /** Quick state feedback: selection tint, chevron rotation. */
+    const val DURATION_SHORT_MS: Int = 150
+
+    /** Standard content transitions: row expand/collapse, size changes. */
+    const val DURATION_MEDIUM_MS: Int = 250
+
+    /** Deliberate, larger transitions. */
+    const val DURATION_LONG_MS: Int = 400
+
+    /** Default easing for enter/exit and size animations. */
+    val StandardEasing: Easing = FastOutSlowInEasing
+
+    /** Emphasized easing for expand/reveal interactions. */
+    val EmphasizedEasing: Easing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
+}

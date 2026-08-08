@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="card_sort_order_dialog_title">Sort by</string>
+    <string name="card_sort_order_default_label">Default</string>
+    <string name="card_sort_order_easiest_first_label">Easiest first</string>
+    <string name="card_sort_order_hardest_first_label">Hardest first</string>
+    <string name="card_sort_order_keep_as_default_label">Keep as default setting</string>
+    <string name="common_done_button">Done</string>
+    <string name="common_difficulty_level_cd">Difficulty %1$d out of %2$d</string>
+    <string name="common_difficulty_range_cd">Difficulty %1$d to %2$d out of %3$d</string>
+</resources>

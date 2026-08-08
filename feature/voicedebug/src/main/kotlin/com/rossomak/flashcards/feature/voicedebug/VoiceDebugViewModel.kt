@@ -230,11 +230,11 @@ class VoiceDebugViewModel @Inject constructor(
     }
 
     private fun CaptureRouteType.toRouteLabel(): String = when (this) {
-        CaptureRouteType.PHONE -> "Phone mic"
-        CaptureRouteType.BLUETOOTH_LE -> "Bluetooth (LE Audio)"
-        CaptureRouteType.BLUETOOTH_SCO -> "Bluetooth (SCO)"
-        CaptureRouteType.WAITING -> "Waiting for Bluetooth link"
-        CaptureRouteType.NONE -> "No capturable mic"
+        CaptureRouteType.Phone -> "Phone mic"
+        CaptureRouteType.BluetoothLe -> "Bluetooth (LE Audio)"
+        CaptureRouteType.BluetoothSco -> "Bluetooth (SCO)"
+        CaptureRouteType.Waiting -> "Waiting for Bluetooth link"
+        CaptureRouteType.None -> "No capturable mic"
     }
 
     private fun AudioDeviceInfo.toRouteLabel(): String {

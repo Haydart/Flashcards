@@ -30,12 +30,14 @@ graphify-out/
 
 # Raw docs, sources for generating the flashcards
 /docs/temp/
+/docs/android/
 
 # Kotlin language reference docs — local working material, not committed
 /docs/kotlin/
 
 # Python language reference docs — local working material, not committed
 /docs/python/
+/docs/scientific-python/
 
 # Python bytecode cache
 scripts/__pycache__/

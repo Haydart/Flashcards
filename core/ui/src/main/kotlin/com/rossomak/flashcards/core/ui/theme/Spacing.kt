@@ -1,9 +1,6 @@
 package com.rossomak.flashcards.core.ui.theme
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.ReadOnlyComposable
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -19,9 +16,5 @@ object AppSpacing {
     val xxlarge: Dp = 64.dp
 }
 
-val LocalSpacing = staticCompositionLocalOf { AppSpacing }
-
 val MaterialTheme.spacing: AppSpacing
-    @Composable
-    @ReadOnlyComposable
-    get() = LocalSpacing.current
+    get() = AppSpacing

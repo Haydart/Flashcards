@@ -4,6 +4,6 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 enum class StudyMode {
-    RATED,
-    FAST,
+    Rated,
+    Fast,
 }

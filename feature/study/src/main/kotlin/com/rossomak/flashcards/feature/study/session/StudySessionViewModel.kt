@@ -109,7 +109,7 @@ class StudySessionViewModel @Inject constructor(
                 it.copy(
                     isLoading = false,
                     flashcards = sessionCards,
-                    isVoiceAutoStartPending = route.studyMode == StudyMode.FAST && sessionCards.isNotEmpty(),
+                    isVoiceAutoStartPending = route.studyMode == StudyMode.Fast && sessionCards.isNotEmpty(),
                 )
             }
         }
@@ -133,9 +133,9 @@ class StudySessionViewModel @Inject constructor(
                         // don't let this collector's phase check stomp that back to false while
                         // the TTS engine itself is still sitting on QUESTION.
                         isAnswerRevealed = if (voice.isActive) {
-                            voice.phase == VoicePhase.ANSWER ||
-                                it.voiceAnswerPhase == VoiceAnswerPhase.GRADING ||
-                                it.voiceAnswerPhase == VoiceAnswerPhase.SPEAKING_NOTICE
+                            voice.phase == VoicePhase.Answer ||
+                                it.voiceAnswerPhase == VoiceAnswerPhase.Grading ||
+                                it.voiceAnswerPhase == VoiceAnswerPhase.SpeakingNotice
                         } else {
                             it.isAnswerRevealed
                         },
@@ -176,7 +176,7 @@ class StudySessionViewModel @Inject constructor(
                         // engine's own phase would flip to ANSWER — reveal the card now so the
                         // user can check what they missed while grading/feedback plays out.
                         isAnswerRevealed = it.isAnswerRevealed ||
-                            voiceAnswer.phase == VoiceAnswerPhase.GRADING,
+                            voiceAnswer.phase == VoiceAnswerPhase.Grading,
                     )
                 }
             }
@@ -193,7 +193,7 @@ class StudySessionViewModel @Inject constructor(
 
     // Voice answering is Rated-only (ADR-0025) — Fast mode has no rating step for it to drive.
     fun onVoiceAnswerToggle() {
-        if (_state.value.studyMode != StudyMode.RATED) return
+        if (_state.value.studyMode != StudyMode.Rated) return
         if (_state.value.isVoiceAnswerEnabled) {
             // Voice-answering-on drives the shared TTS engine in a stop-after-question shape;
             // there is no meaningful "keep reading, just stop grading" middle state (ADR-0025),

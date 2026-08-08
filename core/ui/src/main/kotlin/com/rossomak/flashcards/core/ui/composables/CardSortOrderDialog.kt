@@ -13,6 +13,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -22,11 +23,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import com.rossomak.flashcards.core.domain.model.CardSortOrder
+import com.rossomak.flashcards.core.ui.R
+import com.rossomak.flashcards.core.ui.theme.spacing
 
 @Composable
 fun CardSortOrderDialog(
@@ -39,7 +42,12 @@ fun CardSortOrderDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(text = "Sort by", style = MaterialTheme.typography.headlineSmall) },
+        title = {
+            Text(
+                text = stringResource(R.string.card_sort_order_dialog_title),
+                style = MaterialTheme.typography.headlineSmall,
+            )
+        },
         text = {
             Column(modifier = Modifier.selectableGroup()) {
                 CardSortOrder.entries.forEach { sortOrder ->
@@ -50,7 +58,7 @@ fun CardSortOrderDialog(
                     )
                 }
                 if (showKeepAsDefaultOption) {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(MaterialTheme.spacing.xsmall))
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -61,15 +69,18 @@ fun CardSortOrderDialog(
                             ),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Checkbox(checked = keepAsDefault, onCheckedChange = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = "Keep as default setting")
+                        Checkbox(
+                            checked = keepAsDefault,
+                            onCheckedChange = null,
+                        )
+                        Spacer(modifier = Modifier.width(MaterialTheme.spacing.xsmall))
+                        Text(text = stringResource(R.string.card_sort_order_keep_as_default_label))
                     }
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text(text = "Done") }
+            TextButton(onClick = onDismiss) { Text(text = stringResource(R.string.common_done_button)) }
         },
     )
 }
@@ -86,8 +97,12 @@ private fun SortOrderRow(
             .selectable(selected = isSelected, onClick = onSelect, role = Role.RadioButton),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RadioButton(selected = isSelected, onClick = null)
-        Spacer(modifier = Modifier.width(8.dp))
+        RadioButton(
+            selected = isSelected,
+            onClick = null,
+            colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.secondary),
+        )
+        Spacer(modifier = Modifier.width(MaterialTheme.spacing.xsmall))
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge,
@@ -96,17 +111,18 @@ private fun SortOrderRow(
     }
 }
 
+@Composable
 private fun CardSortOrder.label(): String = when (this) {
-    CardSortOrder.DEFAULT -> "Default"
-    CardSortOrder.EASIEST_FIRST -> "Easiest first"
-    CardSortOrder.HARDEST_FIRST -> "Hardest first"
+    CardSortOrder.Default -> stringResource(R.string.card_sort_order_default_label)
+    CardSortOrder.EasiestFirst -> stringResource(R.string.card_sort_order_easiest_first_label)
+    CardSortOrder.HardestFirst -> stringResource(R.string.card_sort_order_hardest_first_label)
 }
 
 @Preview
 @Composable
 private fun CardSortOrderDialogSessionPreview() {
     CardSortOrderDialog(
-        selectedSortOrder = CardSortOrder.HARDEST_FIRST,
+        selectedSortOrder = CardSortOrder.HardestFirst,
         showKeepAsDefaultOption = true,
         onSortOrderSelect = {},
         onDismiss = {},
@@ -117,7 +133,7 @@ private fun CardSortOrderDialogSessionPreview() {
 @Composable
 private fun CardSortOrderDialogSettingsPreview() {
     CardSortOrderDialog(
-        selectedSortOrder = CardSortOrder.DEFAULT,
+        selectedSortOrder = CardSortOrder.Default,
         showKeepAsDefaultOption = false,
         onSortOrderSelect = {},
         onDismiss = {},

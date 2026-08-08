@@ -2,14 +2,14 @@ package com.rossomak.flashcards.core.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val primaryLight = Color(0xFF10117A)
+val primaryLight = Color(0xFF7D3AC8)
 val onPrimaryLight = Color(0xFFFFFFFF)
 val primaryContainerLight = Color(0xFF2A2E8F)
 val onPrimaryContainerLight = Color(0xFF989DFF)
 val secondaryLight = Color(0xFF520F87)
 val onSecondaryLight = Color(0xFFFFFFFF)
-val secondaryContainerLight = Color(0xFF6B2FA0)
-val onSecondaryContainerLight = Color(0xFFDAAFFF)
+val secondaryContainerLight = Color(0xFFF0E8FA)
+val onSecondaryContainerLight = Color(0xFF7D3AC8)
 val tertiaryLight = Color(0xFF854B72)
 val onTertiaryLight = Color(0xFFFFFFFF)
 val tertiaryContainerLight = Color(0xFFFFB6E3)
@@ -18,12 +18,12 @@ val errorLight = Color(0xFF890023)
 val onErrorLight = Color(0xFFFFFFFF)
 val errorContainerLight = Color(0xFFB50031)
 val onErrorContainerLight = Color(0xFFFFC1C3)
-val backgroundLight = Color(0xFFFBF8FF)
+val backgroundLight = Color(0xFFF5F2FB)
 val onBackgroundLight = Color(0xFF1B1B21)
 val surfaceLight = Color(0xFFFBF8FF)
 val onSurfaceLight = Color(0xFF1B1B21)
 val surfaceVariantLight = Color(0xFFE3E1F0)
-val onSurfaceVariantLight = Color(0xFF464652)
+val onSurfaceVariantLight = Color(0xFF62627D)
 val outlineLight = Color(0xFF767683)
 val outlineVariantLight = Color(0xFFC7C5D4)
 val scrimLight = Color(0xFF000000)
@@ -73,3 +73,13 @@ val surfaceContainerLowDark = Color(0xFF1B1B21)
 val surfaceContainerDark = Color(0xFF1F1F25)
 val surfaceContainerHighDark = Color(0xFF2A2930)
 val surfaceContainerHighestDark = Color(0xFF34343B)
+
+/**
+ * Fixed palette for [com.rossomak.flashcards.core.ui.composables.SyntaxCodeBlock]. The code
+ * block always renders `SyntaxTheme.DefaultDark` regardless of the app's light/dark theme,
+ * so these are intentionally theme-independent constants rather than `colorScheme` tokens.
+ */
+object CodeBlockColors {
+    val background = Color(0xFF1E1E1E)
+    val foreground = Color(0xFFFFFFFF)
+}

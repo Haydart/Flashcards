@@ -5,16 +5,23 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.sp
+import com.airbnb.android.showkase.annotation.ShowkaseComposable
 import com.gallatinapps.syntaxmp.compose.SyntaxTheme
 import com.gallatinapps.syntaxmp.compose.rememberSyntaxAnnotatedString
 import com.gallatinapps.syntaxmp.tokenizer.SyntaxTokenizer
+import com.rossomak.flashcards.core.ui.theme.CodeBlockColors
+import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
+import com.rossomak.flashcards.core.ui.theme.cornerRadius
+import com.rossomak.flashcards.core.ui.theme.spacing
 
 @Composable
 fun SyntaxCodeBlock(
@@ -33,14 +40,50 @@ fun SyntaxCodeBlock(
         style = TextStyle(
             fontFamily = FontFamily.Monospace,
             fontSize = 13.sp,
-            color = Color.White,
+            color = CodeBlockColors.foreground,
         ),
         modifier = modifier
             .fillMaxWidth()
             .background(
-                color = Color(0xFF1E1E1E),
-                shape = RoundedCornerShape(8.dp),
+                // Fixed dark surface: this block always renders SyntaxTheme.DefaultDark,
+                // independent of the app light/dark theme (see CodeBlockColors).
+                color = CodeBlockColors.background,
+                shape = RoundedCornerShape(MaterialTheme.cornerRadius.small),
             )
-            .padding(12.dp),
+            .padding(MaterialTheme.spacing.small),
     )
+}
+
+private const val PREVIEW_CODE = """fun greet(name: String): String {
+    return "Hello, ${'$'}name!"
+}"""
+
+@ShowkaseComposable(name = "Syntax code block", group = "Code")
+@Composable
+fun SyntaxCodeBlockShowcase() {
+    FlashcardsTheme {
+        Surface {
+            SyntaxCodeBlock(
+                code = PREVIEW_CODE,
+                language = "kotlin",
+                engine = remember { SyntaxTokenizer() },
+                modifier = Modifier.padding(MaterialTheme.spacing.normal),
+            )
+        }
+    }
+}
+
+@PreviewLightDark
+@Composable
+private fun SyntaxCodeBlockPreview() {
+    FlashcardsTheme {
+        Surface {
+            SyntaxCodeBlock(
+                code = PREVIEW_CODE,
+                language = "kotlin",
+                engine = remember { SyntaxTokenizer() },
+                modifier = Modifier.padding(MaterialTheme.spacing.normal),
+            )
+        }
+    }
 }

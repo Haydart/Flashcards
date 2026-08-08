@@ -32,7 +32,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 
-enum class CaptureRouteType { PHONE, BLUETOOTH_LE, BLUETOOTH_SCO, WAITING, NONE }
+enum class CaptureRouteType { Phone, BluetoothLe, BluetoothSco, Waiting, None }
 
 /**
  * The capture route selected for a listening session.
@@ -46,10 +46,10 @@ data class CaptureRoute(
     val device: AudioDeviceInfo? = null,
 ) {
     val isBluetooth: Boolean
-        get() = type == CaptureRouteType.BLUETOOTH_LE || type == CaptureRouteType.BLUETOOTH_SCO
+        get() = type == CaptureRouteType.BluetoothLe || type == CaptureRouteType.BluetoothSco
 
     val isCapturable: Boolean
-        get() = type == CaptureRouteType.PHONE || isBluetooth
+        get() = type == CaptureRouteType.Phone || isBluetooth
 }
 
 /**
@@ -60,8 +60,8 @@ data class CaptureRoute(
  *   mic + hi-fi output on one session-long link, no per-turn toggling. Classic SCO
  *   (`TYPE_BLUETOOTH_SCO`) is the fallback only when LE Audio is unavailable.
  * - **Bluetooth-strict:** when a mic-capable BT device is connected but the link is not yet ready,
- *   the route is [CaptureRouteType.WAITING] and callers must NOT capture on the phone mic. The phone
- *   mic is only ever [CaptureRouteType.PHONE] when no mic-capable BT device is present (A2DP-only
+ *   the route is [CaptureRouteType.Waiting] and callers must NOT capture on the phone mic. The phone
+ *   mic is only ever [CaptureRouteType.Phone] when no mic-capable BT device is present (A2DP-only
  *   output does not count).
  * - **Session-level:** [acquireSessionRoute] runs the handshake once per session; the route is held
  *   until [releaseSessionRoute], never toggled per card. Mid-session connect/disconnect is observed
@@ -82,7 +82,7 @@ class AudioRouteManager @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
 
-    private val _route = MutableStateFlow(CaptureRoute(CaptureRouteType.NONE))
+    private val _route = MutableStateFlow(CaptureRoute(CaptureRouteType.None))
     val route: StateFlow<CaptureRoute> = _route.asStateFlow()
 
     /** Emitted when the selected route changes mid-session; the engine switches at an utterance boundary. */
@@ -115,7 +115,7 @@ class AudioRouteManager @Inject constructor(
         return resolveAndActivate()
     }
 
-    /** Suspends until the route settles to a capturable one (past any [CaptureRouteType.WAITING]). */
+    /** Suspends until the route settles to a capturable one (past any [CaptureRouteType.Waiting]). */
     suspend fun awaitRouteReady(): CaptureRoute = route.first { it.isCapturable }
 
     /** Tear down routing at session end: clear the communication device / stop SCO, unregister callbacks. */
@@ -125,7 +125,7 @@ class AudioRouteManager @Inject constructor(
         unregisterScoStateReceiver()
         unregisterCommunicationDeviceListener()
         deactivateRoute()
-        _route.value = CaptureRoute(CaptureRouteType.NONE)
+        _route.value = CaptureRoute(CaptureRouteType.None)
     }
 
     private suspend fun resolveAndActivate(): CaptureRoute = resolveMutex.withLock {
@@ -150,19 +150,19 @@ class AudioRouteManager @Inject constructor(
             // No mic-capable BT communication device (A2DP-only or nothing) -> phone mic allowed.
             audioManager.clearCommunicationDevice()
             audioManager.mode = AudioManager.MODE_NORMAL
-            return CaptureRoute(CaptureRouteType.PHONE)
+            return CaptureRoute(CaptureRouteType.Phone)
         }
         // setCommunicationDevice() is documented to require MODE_IN_COMMUNICATION/MODE_IN_CALL to
         // behave correctly; without it OEM audio HALs commonly apply inconsistent onset gating/AGC
         // on the BT link — swallowed first syllable on every utterance, not just at session start.
         audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
         val ready = requestCommunicationDevice(target)
-        if (!ready) return CaptureRoute(CaptureRouteType.WAITING)
+        if (!ready) return CaptureRoute(CaptureRouteType.Waiting)
         val routeType =
             if (target.type == AudioDeviceInfo.TYPE_BLE_HEADSET) {
-                CaptureRouteType.BLUETOOTH_LE
+                CaptureRouteType.BluetoothLe
             } else {
-                CaptureRouteType.BLUETOOTH_SCO
+                CaptureRouteType.BluetoothSco
             }
         return CaptureRoute(routeType, matchingInputDevice(target.type))
     }
@@ -189,7 +189,7 @@ class AudioRouteManager @Inject constructor(
         if (!isBluetoothAudioConnected() || !audioManager.isBluetoothScoAvailableOffCall) {
             runCatching { audioManager.stopBluetoothSco() }
             audioManager.mode = AudioManager.MODE_NORMAL
-            return CaptureRoute(CaptureRouteType.PHONE)
+            return CaptureRoute(CaptureRouteType.Phone)
         }
         // See resolveCommunicationRoute(): SCO needs MODE_IN_COMMUNICATION for the onset of capture
         // not to be gated/AGC-chewed by the platform's default (non-communication) audio policy.
@@ -197,9 +197,9 @@ class AudioRouteManager @Inject constructor(
         val connected = awaitScoConnected()
         if (!connected) {
             runCatching { audioManager.stopBluetoothSco() }
-            return CaptureRoute(CaptureRouteType.WAITING)
+            return CaptureRoute(CaptureRouteType.Waiting)
         }
-        return CaptureRoute(CaptureRouteType.BLUETOOTH_SCO, matchingInputDevice(AudioDeviceInfo.TYPE_BLUETOOTH_SCO))
+        return CaptureRoute(CaptureRouteType.BluetoothSco, matchingInputDevice(AudioDeviceInfo.TYPE_BLUETOOTH_SCO))
     }
 
     @SuppressLint("DEPRECATION")
@@ -280,7 +280,7 @@ class AudioRouteManager @Inject constructor(
     }
 
     /**
-     * API 31+ recovery path for a stuck [CaptureRouteType.WAITING]: [requestCommunicationDevice]'s
+     * API 31+ recovery path for a stuck [CaptureRouteType.Waiting]: [requestCommunicationDevice]'s
      * handshake can time out before `setCommunicationDevice()` actually settles, and
      * [AudioDeviceCallback] alone won't re-trigger since no device was added/removed — only the
      * active communication device changed. This listener re-resolves whenever that settles late.

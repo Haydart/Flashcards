@@ -269,8 +269,8 @@ fun StudySessionContent(
         sheetSwipeEnabled = false,
         sheetPeekHeight = when {
             state.isVoiceActive -> 176.dp
-            state.studyMode == StudyMode.RATED && state.isAnswerRevealed -> 200.dp
-            state.studyMode == StudyMode.RATED -> 152.dp
+            state.studyMode == StudyMode.Rated && state.isAnswerRevealed -> 200.dp
+            state.studyMode == StudyMode.Rated -> 152.dp
             state.isAnswerRevealed -> 160.dp
             else -> 112.dp
         },
@@ -583,21 +583,21 @@ private fun CurationDialog(
 }
 
 private fun CurationAction.dialogIcon(): ImageVector = when (this) {
-    CurationAction.DIFFICULTY_TOO_EASY -> Icons.Default.ArrowUpward
-    CurationAction.DIFFICULTY_TOO_HARD -> Icons.Default.ArrowDownward
-    CurationAction.DELETE -> Icons.Default.Delete
-    CurationAction.BACKTICK_REDO -> Icons.Default.Code
-    CurationAction.NEEDS_CODE_EXAMPLE -> Icons.Default.DataObject
-    CurationAction.FULL_REDO -> Icons.Default.Refresh
+    CurationAction.DifficultyTooEasy -> Icons.Default.ArrowUpward
+    CurationAction.DifficultyTooHard -> Icons.Default.ArrowDownward
+    CurationAction.Delete -> Icons.Default.Delete
+    CurationAction.BacktickRedo -> Icons.Default.Code
+    CurationAction.NeedsCodeExample -> Icons.Default.DataObject
+    CurationAction.FullRedo -> Icons.Default.Refresh
 }
 
 private fun CurationAction.dialogLabel(): String = when (this) {
-    CurationAction.DIFFICULTY_TOO_EASY -> "Too easy — raise difficulty"
-    CurationAction.DIFFICULTY_TOO_HARD -> "Too hard — lower difficulty"
-    CurationAction.DELETE -> "Delete — duplicate or worthless"
-    CurationAction.BACKTICK_REDO -> "Fix backtick formatting"
-    CurationAction.NEEDS_CODE_EXAMPLE -> "Needs code example"
-    CurationAction.FULL_REDO -> "Full rewrite needed"
+    CurationAction.DifficultyTooEasy -> "Too easy — raise difficulty"
+    CurationAction.DifficultyTooHard -> "Too hard — lower difficulty"
+    CurationAction.Delete -> "Delete — duplicate or worthless"
+    CurationAction.BacktickRedo -> "Fix backtick formatting"
+    CurationAction.NeedsCodeExample -> "Needs code example"
+    CurationAction.FullRedo -> "Full rewrite needed"
 }
 
 @Composable
@@ -622,18 +622,18 @@ private fun StudySessionSheetContent(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (state.studyMode == StudyMode.RATED && state.isVoiceAnswerEnabled) {
+                if (state.studyMode == StudyMode.Rated && state.isVoiceAnswerEnabled) {
                     Text(
                         text = stringResource(
                             when (state.voiceAnswerPhase) {
-                                VoiceAnswerPhase.WAITING_FOR_QUESTION -> R.string.study_session_voice_answer_waiting_label
-                                VoiceAnswerPhase.GRADING -> R.string.study_session_voice_answer_grading_label
-                                VoiceAnswerPhase.SPEAKING_NOTICE -> R.string.study_session_voice_answer_feedback_label
+                                VoiceAnswerPhase.WaitingForQuestion -> R.string.study_session_voice_answer_waiting_label
+                                VoiceAnswerPhase.Grading -> R.string.study_session_voice_answer_grading_label
+                                VoiceAnswerPhase.SpeakingNotice -> R.string.study_session_voice_answer_feedback_label
                                 else -> R.string.study_session_voice_answer_listening_label
                             }
                         ),
                         style = MaterialTheme.typography.labelMedium,
-                        color = if (state.voiceAnswerPhase == VoiceAnswerPhase.SPEECH_DETECTED) {
+                        color = if (state.voiceAnswerPhase == VoiceAnswerPhase.SpeechDetected) {
                             MaterialTheme.colorScheme.primary
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
@@ -641,7 +641,7 @@ private fun StudySessionSheetContent(
                     )
                 }
                 Spacer(modifier = Modifier.weight(1f))
-                if (state.studyMode == StudyMode.RATED) {
+                if (state.studyMode == StudyMode.Rated) {
                     IconButton(onClick = onVoiceAnswerToggle) {
                         Icon(
                             imageVector = if (state.isVoiceAnswerEnabled) Icons.Default.Mic else Icons.Default.MicOff,
@@ -671,10 +671,10 @@ private fun StudySessionSheetContent(
             // Shown as soon as the sanitized transcript streams in (ADR-0028) — screen-on is a
             // first-class case, not just a background/audio-only fallback, so the transcript
             // should be readable the moment it arrives rather than waiting for the grade.
-            if (state.studyMode == StudyMode.RATED &&
+            if (state.studyMode == StudyMode.Rated &&
                 state.isVoiceAnswerEnabled &&
                 !state.voiceAnswerSanitizedTranscript.isNullOrBlank() &&
-                (state.voiceAnswerPhase == VoiceAnswerPhase.GRADING || state.voiceAnswerPhase == VoiceAnswerPhase.SPEAKING_NOTICE)
+                (state.voiceAnswerPhase == VoiceAnswerPhase.Grading || state.voiceAnswerPhase == VoiceAnswerPhase.SpeakingNotice)
             ) {
                 Text(
                     text = state.voiceAnswerSanitizedTranscript,
@@ -698,10 +698,10 @@ private fun StudySessionSheetContent(
                 // separate notice engine is still talking — two overlapping voices.
                 val isVoiceAnswerBusy = state.isVoiceAnswerEnabled &&
                     state.voiceAnswerPhase in setOf(
-                        VoiceAnswerPhase.LISTENING,
-                        VoiceAnswerPhase.SPEECH_DETECTED,
-                        VoiceAnswerPhase.GRADING,
-                        VoiceAnswerPhase.SPEAKING_NOTICE
+                        VoiceAnswerPhase.Listening,
+                        VoiceAnswerPhase.SpeechDetected,
+                        VoiceAnswerPhase.Grading,
+                        VoiceAnswerPhase.SpeakingNotice
                     )
                 // Pause only needs to stay disabled for the narrower "answer listening" window —
                 // it toggles the main TtsPlayer, which is a no-op while the mic is what's actually
@@ -709,8 +709,8 @@ private fun StudySessionSheetContent(
                 // absence) has been noted and GRADING/SPEAKING_NOTICE takes over.
                 val isVoiceAnswerListening = state.isVoiceAnswerEnabled &&
                     state.voiceAnswerPhase in setOf(
-                        VoiceAnswerPhase.LISTENING,
-                        VoiceAnswerPhase.SPEECH_DETECTED
+                        VoiceAnswerPhase.Listening,
+                        VoiceAnswerPhase.SpeechDetected
                     )
                 Row(
                     modifier = Modifier.align(Alignment.Center),
@@ -763,7 +763,7 @@ private fun StudySessionSheetContent(
                 }
             }
         } else {
-            if (state.studyMode == StudyMode.RATED) {
+            if (state.studyMode == StudyMode.Rated) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -819,21 +819,21 @@ private fun RatingButtons(
                 icon = Icons.Default.Close,
                 containerColor = Color(0xFFF6D9DA),
                 contentColor = Color(0xFFC94F4F),
-                onClick = { onRating(FlashcardRating.FAILED) },
+                onClick = { onRating(FlashcardRating.Failed) },
             )
             RatingOption(
                 label = "Somewhat",
                 icon = Icons.Default.Remove,
                 containerColor = Color(0xFFF6E8C8),
                 contentColor = Color(0xFFC98F2B),
-                onClick = { onRating(FlashcardRating.PARTIALLY_CORRECT) },
+                onClick = { onRating(FlashcardRating.PartiallyCorrect) },
             )
             RatingOption(
                 label = "Very well",
                 icon = Icons.Default.Check,
                 containerColor = Color(0xFFD3EBD6),
                 contentColor = Color(0xFF3E9556),
-                onClick = { onRating(FlashcardRating.CORRECT) },
+                onClick = { onRating(FlashcardRating.Correct) },
             )
         }
     }

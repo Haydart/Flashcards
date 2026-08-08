@@ -4,7 +4,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 enum class CardSortOrder {
-    DEFAULT,
-    EASIEST_FIRST,
-    HARDEST_FIRST,
+    Default,
+    EasiestFirst,
+    HardestFirst,
 }

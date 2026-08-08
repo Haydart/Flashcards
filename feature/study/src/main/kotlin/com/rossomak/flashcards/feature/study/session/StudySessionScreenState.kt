@@ -10,7 +10,7 @@ import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 
 data class StudySessionScreenState(
     val sessionTitle: String = "",
-    val studyMode: StudyMode = StudyMode.RATED,
+    val studyMode: StudyMode = StudyMode.Rated,
     val isLoading: Boolean = false,
     val flashcards: List<Flashcard> = emptyList(),
     val currentCardIndex: Int = 0,
@@ -27,7 +27,7 @@ data class StudySessionScreenState(
     val curationError: String? = null,
     val voiceSettingsState: VoiceSettingsDraftState = VoiceSettingsDraftState(),
     val isVoiceAnswerEnabled: Boolean = false,
-    val voiceAnswerPhase: VoiceAnswerPhase = VoiceAnswerPhase.IDLE,
+    val voiceAnswerPhase: VoiceAnswerPhase = VoiceAnswerPhase.Idle,
     val voiceAnswerSanitizedTranscript: String? = null,
     val lastVoiceAnswerGrade: VoiceAnswerGrade? = null,
     val voiceAnswerError: String? = null,

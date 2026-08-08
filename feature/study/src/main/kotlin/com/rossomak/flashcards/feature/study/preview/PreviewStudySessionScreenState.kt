@@ -12,10 +12,10 @@ data class PreviewStudySessionScreenState(
     val error: String? = null,
     val selectedCardCount: Int = 0,
     val estimatedMinutes: Int = 0,
-    val selectedStudyMode: StudyMode = StudyMode.RATED,
+    val selectedStudyMode: StudyMode = StudyMode.Rated,
     val sessionCardCount: Int = DEFAULT_SESSION_CARD_COUNT,
     val difficultyRange: IntRange = MIN_DIFFICULTY..MAX_DIFFICULTY,
-    val sortOrder: CardSortOrder = CardSortOrder.DEFAULT,
+    val sortOrder: CardSortOrder = CardSortOrder.Default,
     val isSortDialogVisible: Boolean = false,
 ) {
     val isSingleTopic: Boolean get() = subcategoryNames.size == 1
