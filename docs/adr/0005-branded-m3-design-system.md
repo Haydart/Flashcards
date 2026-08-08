@@ -22,3 +22,7 @@ The app has a strong visual identity (purple gradients, branded category tints) 
 - `BrandColors` slots are added incrementally as new screens need them; no upfront registry required.
 - Dark mode support for branded colors is handled in `BrandColors` in one place, not scattered across composables.
 - A composable that needs a branded color must use `MaterialTheme.brandColors.*` — the pattern is consistent and greppable.
+
+## Amendment: per-category colors are data, not `BrandColors` slots
+
+Per-category tint (`Category.color`, a Firestore-authored hex string) is explicitly **out of scope** for `BrandColors`. `BrandColors` is for a small, fixed, app-wide set of semantic extras known at compile time; category colors are an open, content-managed set that grows as categories are added in Firestore, with no corresponding code change. They are parsed from the hex string to `Color` at the UI edge (see `docs/design/category-icon-color.md`) and used directly, the same way any other piece of remote content (text, an image) would be — this does not violate the "no raw `Color.kt` tokens" rule, since the value never originates from `Color.kt`.
