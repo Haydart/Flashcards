@@ -82,7 +82,7 @@ fun FlashcardsDifficultyRangePillShowcase() {
                 modifier = Modifier.padding(MaterialTheme.spacing.small),
                 verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall),
             ) {
-                FlashcardsDifficultyRangePill(lowLevel = 1, highLevel = DifficultyColors.LEVELS)
+                FlashcardsDifficultyRangePill(lowLevel = 1, highLevel = 10)
                 FlashcardsDifficultyRangePill(lowLevel = 3, highLevel = 6)
             }
         }

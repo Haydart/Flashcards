@@ -122,7 +122,6 @@ private fun FlashcardsDetailedListRowPreview() {
     FlashcardsTheme {
         Surface {
             Column(
-                verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
                 modifier = Modifier
                     .padding(MaterialTheme.spacing.normal)
                     .flashcardsListGroupContainer()

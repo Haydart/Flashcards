@@ -144,6 +144,7 @@ private fun FlashcardsSelectableListRowPreview() {
                     .flashcardsListGroupContainer()
             ) {
                 FlashcardsSelectableListRow(
+                    modifier = Modifier.flashcardsListItemShape(FlashcardsListItemPosition.Top),
                     title = "Compose",
                     selected = true,
                     onSelectedChange = {},
@@ -151,6 +152,7 @@ private fun FlashcardsSelectableListRowPreview() {
                     trailing = { FlashcardsChevron() },
                 )
                 FlashcardsSelectableListRow(
+                    modifier = Modifier.flashcardsListItemShape(FlashcardsListItemPosition.Bottom),
                     title = "Testing",
                     selected = false,
                     onSelectedChange = {},
