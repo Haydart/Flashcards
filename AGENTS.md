@@ -239,6 +239,11 @@ See [TESTING.md](./TESTING.md) for full conventions: file/method naming, MainDis
 - Use `local.properties` for local secrets (gitignored)
 - Use `BuildConfig` fields for compile-time config
 - Use `EncryptedSharedPreferences` for auth tokens
+- **NEVER** read/open/print gitignored secret files (`local.properties`, `app/google-services.json`, `*service-account*.json`, `*.cred.json`, keystore files) — path/filename references are fine, contents are not
+
+### New worktrees
+
+Creating a new `git worktree` gives you a checkout without the gitignored local secrets (Firebase config, signing keystores, service-account JSONs) needed to build/run the app. You're allowed to run `scripts/copy-worktree-secrets.sh -f <path-to-worktree>` to copy them over from the current checkout — do this right after creating a worktree, without asking. Always pass `-f` so existing files in the target worktree are overwritten (keeps stale copies from lingering). Do not open/read these files yourself; the script copies by filename pattern only and never prints contents.
 
 ## Project Documentation
 
