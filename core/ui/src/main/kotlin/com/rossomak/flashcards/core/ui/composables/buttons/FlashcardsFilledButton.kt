@@ -134,12 +134,21 @@ fun FlashcardsFilledButtonOnGradientShowcase() {
                 .background(MaterialTheme.brandColors.topBarGradient)
                 .padding(MaterialTheme.spacing.small),
         ) {
-            FlashcardsFilledButton(
-                text = "Study now",
-                onClick = {},
-                icon = Icons.Default.School,
-                style = FlashcardsButtonStyle.OnGradient,
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall)) {
+                FlashcardsFilledButton(
+                    text = "Study now",
+                    onClick = {},
+                    icon = Icons.Default.School,
+                    style = FlashcardsButtonStyle.OnGradient,
+                )
+                FlashcardsFilledButton(
+                    text = "Study now",
+                    onClick = {},
+                    icon = Icons.Default.School,
+                    style = FlashcardsButtonStyle.OnGradient,
+                    enabled = false,
+                )
+            }
         }
     }
 }

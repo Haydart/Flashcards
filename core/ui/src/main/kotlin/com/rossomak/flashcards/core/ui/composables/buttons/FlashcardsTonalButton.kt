@@ -121,12 +121,21 @@ fun FlashcardsTonalButtonOnGradientShowcase() {
                 .background(MaterialTheme.brandColors.topBarGradient)
                 .padding(MaterialTheme.spacing.small),
         ) {
-            FlashcardsTonalButton(
-                text = "Play audio",
-                onClick = {},
-                icon = Icons.Default.PlayArrow,
-                style = FlashcardsButtonStyle.OnGradient,
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall)) {
+                FlashcardsTonalButton(
+                    text = "Play audio",
+                    onClick = {},
+                    icon = Icons.Default.PlayArrow,
+                    style = FlashcardsButtonStyle.OnGradient,
+                )
+                FlashcardsTonalButton(
+                    text = "Play audio",
+                    onClick = {},
+                    icon = Icons.Default.PlayArrow,
+                    style = FlashcardsButtonStyle.OnGradient,
+                    enabled = false,
+                )
+            }
         }
     }
 }

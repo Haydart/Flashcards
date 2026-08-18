@@ -110,7 +110,10 @@ fun FlashcardsTextButtonOnGradientShowcase() {
                 .background(MaterialTheme.brandColors.topBarGradient)
                 .padding(MaterialTheme.spacing.small),
         ) {
-            FlashcardsTextButton(text = "Not sure", onClick = {}, style = FlashcardsButtonStyle.OnGradient)
+            Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall)) {
+                FlashcardsTextButton(text = "Not sure", onClick = {}, style = FlashcardsButtonStyle.OnGradient)
+                FlashcardsTextButton(text = "Not sure", onClick = {}, style = FlashcardsButtonStyle.OnGradient, enabled = false)
+            }
         }
     }
 }

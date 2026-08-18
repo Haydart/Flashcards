@@ -125,7 +125,10 @@ fun FlashcardsOutlinedButtonOnGradientShowcase() {
                 .background(MaterialTheme.brandColors.topBarGradient)
                 .padding(MaterialTheme.spacing.small),
         ) {
-            FlashcardsOutlinedButton(text = "Skip card", onClick = {}, style = FlashcardsButtonStyle.OnGradient)
+            Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall)) {
+                FlashcardsOutlinedButton(text = "Skip card", onClick = {}, style = FlashcardsButtonStyle.OnGradient)
+                FlashcardsOutlinedButton(text = "Skip card", onClick = {}, style = FlashcardsButtonStyle.OnGradient, enabled = false)
+            }
         }
     }
 }
