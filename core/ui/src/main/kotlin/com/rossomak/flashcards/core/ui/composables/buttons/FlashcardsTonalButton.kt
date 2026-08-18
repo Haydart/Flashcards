@@ -70,10 +70,10 @@ fun FlashcardsTonalButton(
             disabledContainerColor = disabledButtonContainerColorFor(style),
             disabledContentColor = disabledButtonContentColorFor(style),
         ),
-        border = if (onGradient) {
-            BorderStroke(MaterialTheme.sizes.tagChipBorder, Color.White.copy(alpha = ON_GRADIENT_BORDER_ALPHA))
-        } else {
-            null
+        border = when {
+            !onGradient -> null
+            !enabled -> BorderStroke(MaterialTheme.sizes.tagChipBorder, disabledButtonContentColorFor(style))
+            else -> BorderStroke(MaterialTheme.sizes.tagChipBorder, Color.White.copy(alpha = ON_GRADIENT_BORDER_ALPHA))
         },
         contentPadding = PaddingValues(horizontal = metrics.horizontalPadding, vertical = 0.dp),
     ) {
