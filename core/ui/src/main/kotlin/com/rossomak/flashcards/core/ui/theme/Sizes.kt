@@ -58,8 +58,12 @@ object AppSizes {
     /** Height of a [com.rossomak.flashcards.core.ui.composables.FlashcardsButtonSize.Normal] button. */
     val buttonHeightNormal: Dp = 56.dp
 
-    /** Height of a [com.rossomak.flashcards.core.ui.composables.FlashcardsButtonSize.Small] button. */
-    val buttonHeightSmall: Dp = 32.dp
+    /**
+     * Height of a [com.rossomak.flashcards.core.ui.composables.FlashcardsButtonSize.Small] button.
+     * Matches M3's `ButtonDefaults.MinHeight` so it doesn't fight the min-height floor built into
+     * the M3 `Button`/`FilledTonalButton`/`OutlinedButton`/`TextButton` family.
+     */
+    val buttonHeightSmall: Dp = 40.dp
 
     /** Icon size inside a [com.rossomak.flashcards.core.ui.composables.FlashcardsButtonSize.Normal] button. */
     val buttonIconSizeNormal: Dp = 24.dp

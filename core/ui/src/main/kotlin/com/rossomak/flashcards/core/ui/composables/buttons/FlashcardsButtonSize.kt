@@ -9,6 +9,6 @@ enum class FlashcardsButtonSize {
     /** 56dp — the default, canonical CTA height. */
     Normal,
 
-    /** 32dp — compact/dense contexts such as inline row actions. */
+    /** 40dp — compact/dense contexts such as inline row actions. */
     Small,
 }
