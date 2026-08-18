@@ -2,25 +2,33 @@ package com.rossomak.flashcards.core.ui.composables.buttons
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.airbnb.android.showkase.annotation.ShowkaseComposable
 import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.brandColors
+import com.rossomak.flashcards.core.ui.theme.cornerRadius
 import com.rossomak.flashcards.core.ui.theme.spacing
 
 /**
  * The lowest-emphasis button — no fill, no border, text (+ optional icon) only ("Skip",
  * "Learn more"). Use for a dismissive or auxiliary action that shouldn't draw the eye.
+ *
+ * Unlike the other three `Flashcards*Button`s, this doesn't override M3 [TextButton]'s
+ * `contentPadding` — a text button has no visible container edge, so its own tighter default
+ * spacing (rather than the shared [FlashcardsButtonSize] horizontal padding) is the right fit.
  */
 @Composable
 fun FlashcardsTextButton(
@@ -34,18 +42,20 @@ fun FlashcardsTextButton(
     style: FlashcardsButtonStyle = FlashcardsButtonStyle.Surface,
 ) {
     val onGradient = style == FlashcardsButtonStyle.OnGradient
-    FlashcardsButtonLayout(
-        text = text,
+    val metrics = size.metrics()
+
+    TextButton(
         onClick = onClick,
-        size = size,
-        modifier = modifier,
+        modifier = modifier.height(metrics.height),
         enabled = enabled,
-        icon = icon,
-        iconPosition = iconPosition,
-        contentColor = if (onGradient) MaterialTheme.brandColors.onTopBarGradient else MaterialTheme.colorScheme.primary,
-        disabledContainerColor = Color.Transparent,
-        disabledContentColor = disabledButtonContentColorFor(style),
-    )
+        shape = RoundedCornerShape(MaterialTheme.cornerRadius.full),
+        colors = ButtonDefaults.textButtonColors(
+            contentColor = if (onGradient) MaterialTheme.brandColors.onTopBarGradient else MaterialTheme.colorScheme.primary,
+            disabledContentColor = disabledButtonContentColorFor(style),
+        ),
+    ) {
+        FlashcardsButtonContent(text = text, icon = icon, iconPosition = iconPosition, metrics = metrics)
+    }
 }
 
 @ShowkaseComposable(name = "Text", group = "Buttons")

@@ -1,44 +1,38 @@
 package com.rossomak.flashcards.core.ui.composables.buttons
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import com.rossomak.flashcards.core.ui.theme.AppSizes
 import com.rossomak.flashcards.core.ui.theme.AppSpacing
-import com.rossomak.flashcards.core.ui.theme.cornerRadius
 import com.rossomak.flashcards.core.ui.theme.sizes
 import com.rossomak.flashcards.core.ui.theme.spacing
 
-/** The geometry that varies by [FlashcardsButtonSize], resolved once per composition. */
-private data class FlashcardsButtonMetrics(
+/**
+ * The geometry that varies by [FlashcardsButtonSize], resolved once per composition. Icon size
+ * isn't here — both tiers share the same M3 [ButtonDefaults.IconSize] (18dp), so it's referenced
+ * directly at the call site in [FlashcardsButtonIcon] instead of being duplicated per tier.
+ */
+internal data class FlashcardsButtonMetrics(
     val height: Dp,
     val horizontalPadding: Dp,
-    val iconSize: Dp,
     val textStyle: TextStyle,
 )
 
 @Composable
 @ReadOnlyComposable
-private fun FlashcardsButtonSize.metrics(
+internal fun FlashcardsButtonSize.metrics(
     sizes: AppSizes = MaterialTheme.sizes,
     spacing: AppSpacing = MaterialTheme.spacing,
     typography: Typography = MaterialTheme.typography,
@@ -46,13 +40,11 @@ private fun FlashcardsButtonSize.metrics(
     FlashcardsButtonSize.Normal -> FlashcardsButtonMetrics(
         height = sizes.buttonHeightNormal,
         horizontalPadding = spacing.medium,
-        iconSize = sizes.buttonIconSizeNormal,
         textStyle = typography.labelLarge,
     )
     FlashcardsButtonSize.Small -> FlashcardsButtonMetrics(
         height = sizes.buttonHeightSmall,
         horizontalPadding = spacing.normal,
-        iconSize = sizes.buttonIconSizeSmall,
         textStyle = typography.labelMedium,
     )
 }
@@ -90,63 +82,22 @@ internal fun disabledButtonContentColorFor(style: FlashcardsButtonStyle): Color 
 }
 
 /**
- * Shared geometry + layout for every `Flashcards*Button`. Built on [Surface] rather than M3's
- * [androidx.compose.material3.Button]/[androidx.compose.material3.TextButton] family, which
- * enforce a minimum touch-target height that would clip [FlashcardsButtonSize.Small] back up to
- * 40dp; [Surface] gives click handling, ripple, and disabled semantics without that constraint.
- *
- * Only [FlashcardsFilledButton] passes [containerBrush] (a gradient can't be expressed as a
- * plain [Surface] `color`), so it layers the brush on as a background instead and leaves the
- * `Surface` itself transparent.
+ * Shared label/icon content for every `Flashcards*Button`, rendered as the `content` lambda of
+ * the underlying M3 [androidx.compose.material3.Button]/[androidx.compose.material3.FilledTonalButton]/
+ * [androidx.compose.material3.OutlinedButton]/[androidx.compose.material3.TextButton]. Their own
+ * internal `Row` already provides icon/label spacing and vertical centering, so this only emits
+ * children — it doesn't wrap another `Row`.
  */
 @Composable
-internal fun FlashcardsButtonLayout(
+internal fun RowScope.FlashcardsButtonContent(
     text: String,
-    onClick: () -> Unit,
-    size: FlashcardsButtonSize,
-    contentColor: Color,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    icon: ImageVector? = null,
-    iconPosition: FlashcardsButtonIconPosition = FlashcardsButtonIconPosition.Leading,
-    containerColor: Color = Color.Transparent,
-    containerBrush: Brush? = null,
-    disabledContainerColor: Color = disabledButtonContainerColorFor(FlashcardsButtonStyle.Surface),
-    disabledContentColor: Color = disabledButtonContentColorFor(FlashcardsButtonStyle.Surface),
-    border: BorderStroke? = null,
+    icon: ImageVector?,
+    iconPosition: FlashcardsButtonIconPosition,
+    metrics: FlashcardsButtonMetrics,
 ) {
-    val shape = RoundedCornerShape(MaterialTheme.cornerRadius.full)
-    val metrics = size.metrics()
-    val showsGradientFill = containerBrush != null && enabled
-    val surfaceModifier = modifier.height(metrics.height).then(
-        if (showsGradientFill) Modifier.background(brush = containerBrush, shape = shape) else Modifier,
-    )
-
-    Surface(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = surfaceModifier,
-        shape = shape,
-        color = if (showsGradientFill) {
-            Color.Transparent
-        } else if (enabled) {
-            containerColor
-        } else {
-            disabledContainerColor
-        },
-        contentColor = if (enabled) contentColor else disabledContentColor,
-        border = border,
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = metrics.horizontalPadding),
-            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall, Alignment.CenterHorizontally),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            FlashcardsButtonIcon(icon, FlashcardsButtonIconPosition.Leading, iconPosition, metrics.iconSize)
-            Text(text = text, style = metrics.textStyle)
-            FlashcardsButtonIcon(icon, FlashcardsButtonIconPosition.Trailing, iconPosition, metrics.iconSize)
-        }
-    }
+    FlashcardsButtonIcon(icon, FlashcardsButtonIconPosition.Leading, iconPosition)
+    Text(text = text, style = metrics.textStyle)
+    FlashcardsButtonIcon(icon, FlashcardsButtonIconPosition.Trailing, iconPosition)
 }
 
 /** Renders [icon] only when it's set and [wantedPosition] matches the button's [actualPosition]. */
@@ -155,9 +106,8 @@ private fun FlashcardsButtonIcon(
     icon: ImageVector?,
     wantedPosition: FlashcardsButtonIconPosition,
     actualPosition: FlashcardsButtonIconPosition,
-    iconSize: Dp,
 ) {
     if (icon != null && actualPosition == wantedPosition) {
-        Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(iconSize))
+        Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
     }
 }

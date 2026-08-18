@@ -3,11 +3,15 @@ package com.rossomak.flashcards.core.ui.composables.buttons
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -16,9 +20,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewLightDark
+import androidx.compose.ui.unit.dp
 import com.airbnb.android.showkase.annotation.ShowkaseComposable
 import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.brandColors
+import com.rossomak.flashcards.core.ui.theme.cornerRadius
 import com.rossomak.flashcards.core.ui.theme.sizes
 import com.rossomak.flashcards.core.ui.theme.spacing
 
@@ -45,28 +51,32 @@ fun FlashcardsTonalButton(
     style: FlashcardsButtonStyle = FlashcardsButtonStyle.Surface,
 ) {
     val onGradient = style == FlashcardsButtonStyle.OnGradient
-    FlashcardsButtonLayout(
-        text = text,
+    val metrics = size.metrics()
+
+    FilledTonalButton(
         onClick = onClick,
-        size = size,
-        modifier = modifier,
+        modifier = modifier.height(metrics.height),
         enabled = enabled,
-        icon = icon,
-        iconPosition = iconPosition,
-        containerColor = if (onGradient) {
-            Color.White.copy(alpha = ON_GRADIENT_CONTAINER_ALPHA)
-        } else {
-            MaterialTheme.brandColors.tonalButtonContainer
-        },
-        contentColor = if (onGradient) MaterialTheme.brandColors.onTopBarGradient else MaterialTheme.brandColors.onTonalButtonContainer,
+        shape = RoundedCornerShape(MaterialTheme.cornerRadius.full),
+        colors = ButtonDefaults.filledTonalButtonColors(
+            containerColor = if (onGradient) {
+                Color.White.copy(alpha = ON_GRADIENT_CONTAINER_ALPHA)
+            } else {
+                MaterialTheme.brandColors.tonalButtonContainer
+            },
+            contentColor = if (onGradient) MaterialTheme.brandColors.onTopBarGradient else MaterialTheme.brandColors.onTonalButtonContainer,
+            disabledContainerColor = disabledButtonContainerColorFor(style),
+            disabledContentColor = disabledButtonContentColorFor(style),
+        ),
         border = if (onGradient) {
             BorderStroke(MaterialTheme.sizes.tagChipBorder, Color.White.copy(alpha = ON_GRADIENT_BORDER_ALPHA))
         } else {
             null
         },
-        disabledContainerColor = disabledButtonContainerColorFor(style),
-        disabledContentColor = disabledButtonContentColorFor(style),
-    )
+        contentPadding = PaddingValues(horizontal = metrics.horizontalPadding, vertical = 0.dp),
+    ) {
+        FlashcardsButtonContent(text = text, icon = icon, iconPosition = iconPosition, metrics = metrics)
+    }
 }
 
 @ShowkaseComposable(name = "Tonal", group = "Buttons")

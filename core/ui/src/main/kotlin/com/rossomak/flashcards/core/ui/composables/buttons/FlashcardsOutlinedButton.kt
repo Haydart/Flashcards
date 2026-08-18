@@ -3,10 +3,15 @@ package com.rossomak.flashcards.core.ui.composables.buttons
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -14,9 +19,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewLightDark
+import androidx.compose.ui.unit.dp
 import com.airbnb.android.showkase.annotation.ShowkaseComposable
 import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.brandColors
+import com.rossomak.flashcards.core.ui.theme.cornerRadius
 import com.rossomak.flashcards.core.ui.theme.sizes
 import com.rossomak.flashcards.core.ui.theme.spacing
 
@@ -41,15 +48,17 @@ fun FlashcardsOutlinedButton(
 ) {
     val onGradient = style == FlashcardsButtonStyle.OnGradient
     val contentColor = if (onGradient) MaterialTheme.brandColors.onTopBarGradient else MaterialTheme.colorScheme.primary
-    FlashcardsButtonLayout(
-        text = text,
+    val metrics = size.metrics()
+
+    OutlinedButton(
         onClick = onClick,
-        size = size,
-        modifier = modifier,
+        modifier = modifier.height(metrics.height),
         enabled = enabled,
-        icon = icon,
-        iconPosition = iconPosition,
-        contentColor = contentColor,
+        shape = RoundedCornerShape(MaterialTheme.cornerRadius.full),
+        colors = ButtonDefaults.outlinedButtonColors(
+            contentColor = contentColor,
+            disabledContentColor = disabledButtonContentColorFor(style),
+        ),
         border = if (enabled) {
             BorderStroke(
                 width = MaterialTheme.sizes.tagChipBorder,
@@ -58,9 +67,10 @@ fun FlashcardsOutlinedButton(
         } else {
             BorderStroke(MaterialTheme.sizes.tagChipBorder, disabledButtonContentColorFor(style))
         },
-        disabledContainerColor = Color.Transparent,
-        disabledContentColor = disabledButtonContentColorFor(style),
-    )
+        contentPadding = PaddingValues(horizontal = metrics.horizontalPadding, vertical = 0.dp),
+    ) {
+        FlashcardsButtonContent(text = text, icon = icon, iconPosition = iconPosition, metrics = metrics)
+    }
 }
 
 @ShowkaseComposable(name = "Outlined", group = "Buttons")
