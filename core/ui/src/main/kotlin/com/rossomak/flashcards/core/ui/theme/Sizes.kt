@@ -55,11 +55,11 @@ object AppSizes {
     /** Height of the difficulty range pill (filters, session setup summaries). */
     val difficultyRangePillHeight: Dp = 26.dp
 
-    /** Height of a [com.rossomak.flashcards.core.ui.composables.FlashcardsButtonSize.Normal] button. */
+    /** Height of a [com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsButtonSize.Normal] button. */
     val buttonHeightNormal: Dp = 56.dp
 
     /**
-     * Height of a [com.rossomak.flashcards.core.ui.composables.FlashcardsButtonSize.Small] button.
+     * Height of a [com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsButtonSize.Small] button.
      * Matches M3's `ButtonDefaults.MinHeight` so it doesn't fight the min-height floor built into
      * the M3 `Button`/`FilledTonalButton`/`OutlinedButton`/`TextButton` family.
      */
