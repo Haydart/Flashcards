@@ -1,6 +1,7 @@
 package com.rossomak.flashcards.core.ui.composables.buttons
 
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -86,7 +87,9 @@ internal fun disabledButtonContentColorFor(style: FlashcardsButtonStyle): Color 
  * the underlying M3 [androidx.compose.material3.Button]/[androidx.compose.material3.FilledTonalButton]/
  * [androidx.compose.material3.OutlinedButton]/[androidx.compose.material3.TextButton]. Their own
  * internal `Row` already provides icon/label spacing and vertical centering, so this only emits
- * children — it doesn't wrap another `Row`.
+ * children — it doesn't wrap another `Row`. The icon carries extra padding on its label-facing
+ * side, on top of that built-in spacing, because [ButtonDefaults.IconSpacing] alone reads too
+ * dense against the icon.
  */
 @Composable
 internal fun RowScope.FlashcardsButtonContent(
@@ -95,19 +98,20 @@ internal fun RowScope.FlashcardsButtonContent(
     iconPosition: FlashcardsButtonIconPosition,
     metrics: FlashcardsButtonMetrics,
 ) {
-    FlashcardsButtonIcon(icon, FlashcardsButtonIconPosition.Leading, iconPosition)
+    val extraIconGap = MaterialTheme.spacing.xxsmall
+    if (icon != null && iconPosition == FlashcardsButtonIconPosition.Leading) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(ButtonDefaults.IconSize).padding(end = extraIconGap),
+        )
+    }
     Text(text = text, style = metrics.textStyle)
-    FlashcardsButtonIcon(icon, FlashcardsButtonIconPosition.Trailing, iconPosition)
-}
-
-/** Renders [icon] only when it's set and [wantedPosition] matches the button's [actualPosition]. */
-@Composable
-private fun FlashcardsButtonIcon(
-    icon: ImageVector?,
-    wantedPosition: FlashcardsButtonIconPosition,
-    actualPosition: FlashcardsButtonIconPosition,
-) {
-    if (icon != null && actualPosition == wantedPosition) {
-        Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+    if (icon != null && iconPosition == FlashcardsButtonIconPosition.Trailing) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(ButtonDefaults.IconSize).padding(start = extraIconGap),
+        )
     }
 }
