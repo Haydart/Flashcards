@@ -1,7 +1,9 @@
 package com.rossomak.flashcards.core.ui.composables.buttons
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -118,7 +120,13 @@ fun FlashcardsTextButtonOnGradientShowcase() {
 private fun FlashcardsTextButtonPreview() {
     FlashcardsTheme {
         Surface {
-            FlashcardsTextButton(text = "Learn more", onClick = {}, icon = Icons.Default.Info)
+            Column(
+                modifier = Modifier.padding(MaterialTheme.spacing.small),
+                verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall),
+            ) {
+                FlashcardsTextButton(text = "Learn more", onClick = {}, icon = Icons.Default.Info)
+                FlashcardsTextButton(text = "Learn more", onClick = {}, icon = Icons.Default.Info, enabled = false)
+            }
         }
     }
 }

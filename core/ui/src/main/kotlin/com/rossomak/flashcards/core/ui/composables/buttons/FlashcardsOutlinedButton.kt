@@ -2,7 +2,9 @@ package com.rossomak.flashcards.core.ui.composables.buttons
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -133,7 +135,13 @@ fun FlashcardsOutlinedButtonOnGradientShowcase() {
 private fun FlashcardsOutlinedButtonPreview() {
     FlashcardsTheme {
         Surface {
-            FlashcardsOutlinedButton(text = "Share", onClick = {}, icon = Icons.Default.Share)
+            Column(
+                modifier = Modifier.padding(MaterialTheme.spacing.small),
+                verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall),
+            ) {
+                FlashcardsOutlinedButton(text = "Share", onClick = {}, icon = Icons.Default.Share)
+                FlashcardsOutlinedButton(text = "Share", onClick = {}, icon = Icons.Default.Share, enabled = false)
+            }
         }
     }
 }

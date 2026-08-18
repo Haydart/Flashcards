@@ -1,7 +1,9 @@
 package com.rossomak.flashcards.core.ui.composables.buttons
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -147,7 +149,13 @@ fun FlashcardsFilledButtonOnGradientShowcase() {
 private fun FlashcardsFilledButtonPreview() {
     FlashcardsTheme {
         Surface {
-            FlashcardsFilledButton(text = "New deck", onClick = {}, icon = Icons.Default.Add)
+            Column(
+                modifier = Modifier.padding(MaterialTheme.spacing.small),
+                verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall),
+            ) {
+                FlashcardsFilledButton(text = "New deck", onClick = {}, icon = Icons.Default.Add)
+                FlashcardsFilledButton(text = "New deck", onClick = {}, icon = Icons.Default.Add, enabled = false)
+            }
         }
     }
 }

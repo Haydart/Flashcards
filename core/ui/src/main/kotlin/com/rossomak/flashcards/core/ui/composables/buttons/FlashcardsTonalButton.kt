@@ -2,7 +2,9 @@ package com.rossomak.flashcards.core.ui.composables.buttons
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -134,7 +136,13 @@ fun FlashcardsTonalButtonOnGradientShowcase() {
 private fun FlashcardsTonalButtonPreview() {
     FlashcardsTheme {
         Surface {
-            FlashcardsTonalButton(text = "Edit", onClick = {}, icon = Icons.Default.Edit)
+            Column(
+                modifier = Modifier.padding(MaterialTheme.spacing.small),
+                verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall),
+            ) {
+                FlashcardsTonalButton(text = "Edit", onClick = {}, icon = Icons.Default.Edit)
+                FlashcardsTonalButton(text = "Edit", onClick = {}, icon = Icons.Default.Edit, enabled = false)
+            }
         }
     }
 }
