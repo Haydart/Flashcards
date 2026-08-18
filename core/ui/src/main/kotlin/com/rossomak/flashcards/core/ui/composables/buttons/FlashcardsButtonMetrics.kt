@@ -103,7 +103,7 @@ internal fun RowScope.FlashcardsButtonContent(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            modifier = Modifier.size(ButtonDefaults.IconSize).padding(end = extraIconGap),
+            modifier = Modifier.padding(end = extraIconGap).size(ButtonDefaults.IconSize),
         )
     }
     Text(text = text, style = metrics.textStyle)
@@ -111,7 +111,7 @@ internal fun RowScope.FlashcardsButtonContent(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            modifier = Modifier.size(ButtonDefaults.IconSize).padding(start = extraIconGap),
+            modifier = Modifier.padding(start = extraIconGap).size(ButtonDefaults.IconSize),
         )
     }
 }
