@@ -65,11 +65,9 @@ object AppSizes {
      */
     val buttonHeightSmall: Dp = 40.dp
 
-    /** Icon size inside a [com.rossomak.flashcards.core.ui.composables.FlashcardsButtonSize.Normal] button. */
-    val buttonIconSizeNormal: Dp = 24.dp
-
-    /** Icon size inside a [com.rossomak.flashcards.core.ui.composables.FlashcardsButtonSize.Small] button. */
-    val buttonIconSizeSmall: Dp = 20.dp
+    // Button icon size isn't a design-system token: it's androidx.compose.material3.ButtonDefaults.IconSize
+    // (18dp), referenced directly in FlashcardsButtonMetrics.kt. Both size tiers share that one M3
+    // constant, so there's nothing tier-specific to define here.
 }
 
 val MaterialTheme.sizes: AppSizes
