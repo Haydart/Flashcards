@@ -54,6 +54,18 @@ object AppSizes {
 
     /** Height of the difficulty range pill (filters, session setup summaries). */
     val difficultyRangePillHeight: Dp = 26.dp
+
+    /** Height of a [com.rossomak.flashcards.core.ui.composables.FlashcardsButtonSize.Normal] button. */
+    val buttonHeightNormal: Dp = 56.dp
+
+    /** Height of a [com.rossomak.flashcards.core.ui.composables.FlashcardsButtonSize.Small] button. */
+    val buttonHeightSmall: Dp = 32.dp
+
+    /** Icon size inside a [com.rossomak.flashcards.core.ui.composables.FlashcardsButtonSize.Normal] button. */
+    val buttonIconSizeNormal: Dp = 24.dp
+
+    /** Icon size inside a [com.rossomak.flashcards.core.ui.composables.FlashcardsButtonSize.Small] button. */
+    val buttonIconSizeSmall: Dp = 20.dp
 }
 
 val MaterialTheme.sizes: AppSizes
