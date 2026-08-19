@@ -5,5 +5,6 @@ data class CategoryDto(
     val name: String = "",
     val order: Int = 0,
     val subcategoryCount: Int = 0,
-    val iconUrl: String? = null
+    val iconSvg: String? = null,
+    val color: String? = null,
 )

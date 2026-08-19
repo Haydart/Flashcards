@@ -13,7 +13,8 @@ fun CategoryDto.toDomain() = Category(
     name = name,
     order = order,
     subcategoryCount = subcategoryCount,
-    iconUrl = iconUrl
+    iconSvg = iconSvg,
+    color = color,
 )
 
 fun SubcategoryDto.toDomain() = Subcategory(
