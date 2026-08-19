@@ -53,5 +53,3 @@ No instrumented (`androidTest`) tests exist yet, so no emulator step is configur
 
 - Bitrise GitHub App installed on `Haydart/Flashcards`.
 - Branch protection on `develop` and `main`: `pr-check` status check required before merge.
-
-Implementation progress (per-item, granular) is tracked in [docs/temp/bitrise-cicd-implementation-plan.md](temp/bitrise-cicd-implementation-plan.md), not here.
