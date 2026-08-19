@@ -20,9 +20,16 @@ over whatever the checked-in fixture has, and the write uses `set(merge=True)` s
 omitted from the payload is left untouched rather than deleted.
 
 Idempotency:
-  --skip-existing (DEFAULT)  write a doc only if its id is absent; skip if present.
-  --overwrite                set() every doc unconditionally (clobbers console edits).
-  --dry-run                  report planned writes/skips without touching Firestore.
+  --skip-existing (DEFAULT)  subcategories/cards: write a doc only if its id is absent, skip if
+                             present. categories: not applicable — always merge-written (see
+                             `upsert_categories`), since the sticky-field logic above already
+                             makes re-seeding non-destructive.
+  --overwrite                subcategories/cards: set() every doc unconditionally (clobbers
+                             console edits). categories: also clobbers `iconSvg`/`color` sticky
+                             fields, bypassing the preserve-existing-value check.
+  --dry-run                  report planned writes/skips without touching Firestore. Still reads
+                             existing docs (categories: to evaluate sticky fields; others: to
+                             determine skip/write), it just skips the write call itself.
 
 Credentials: Application Default Credentials. Point GOOGLE_APPLICATION_CREDENTIALS
 at a service-account JSON, or pass --cred <path>. The project id is taken from the
@@ -122,6 +129,9 @@ def upsert_categories(db, categories: list[dict], *, overwrite: bool, dry_run: b
     written = 0
     for category in categories:
         doc_ref = db.collection("categories").document(category["id"])
+        # get() then set() below are not atomic: a console edit to iconSvg/color landing in this
+        # window would get clobbered. Accepted risk — this is a solo, manually-run pipeline, not
+        # a concurrent/scheduled one; revisit with db.transaction() if that ever changes.
         existing = {} if overwrite else (doc_ref.get().to_dict() or {})
         payload = {k: v for k, v in category.items() if k != "id"}
         for sticky_field in ("iconSvg", "color"):
