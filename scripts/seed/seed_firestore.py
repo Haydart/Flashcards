@@ -5,12 +5,19 @@ Globs the gitignored temp dir (default `scripts/seed/.tmp/*.json`) for fixtures
 produced by `build_fixture.py` and upserts them via the Firebase Admin SDK.
 
 Schema written (see ADR-0007):
-  categories/{categoryId}                               → { name, order, subcategoryCount, iconUrl }
+  categories/{categoryId}                               → { name, order, subcategoryCount, iconSvg, color }
   subcategories/{categoryId-subSlug}                    → { name, categoryId, categoryName, order, cardCount }
   subcategories/{categoryId-subSlug}/flashcards/{cardId} → { question, answer, tags[], createdAt, ... }
 
 The `subcategoryId` field carried in the fixture is used to route each card into the correct
 subcollection path — it is NOT written as a Firestore document field.
+
+`categories` gets its own write path (see `upsert_categories`), separate from the generic
+`upsert()` used by `subcategories`/`cards`: `iconSvg`/`color` are optional, hand-curated fields
+(see docs/design/category-icon-color.md) that this pipeline must never clobber — once Firestore
+holds a non-empty value for either (including one set by a manual console edit), that value wins
+over whatever the checked-in fixture has, and the write uses `set(merge=True)` so any field
+omitted from the payload is left untouched rather than deleted.
 
 Idempotency:
   --skip-existing (DEFAULT)  write a doc only if its id is absent; skip if present.
@@ -106,6 +113,26 @@ def upsert(db, collection: str, docs: list[dict], *, overwrite: bool, dry_run: b
     return written, skipped
 
 
+def upsert_categories(db, categories: list[dict], *, overwrite: bool, dry_run: bool):
+    """Bespoke category write path — see module docstring for why this isn't the generic
+    upsert(). Every category is always written (merge=True), but `iconSvg`/`color` are dropped
+    from the payload whenever Firestore already holds a non-empty value for that field, so a
+    manually-curated or previously-seeded value is never clobbered. Returns (written, skipped).
+    """
+    written = 0
+    for category in categories:
+        doc_ref = db.collection("categories").document(category["id"])
+        existing = {} if overwrite else (doc_ref.get().to_dict() or {})
+        payload = {k: v for k, v in category.items() if k != "id"}
+        for sticky_field in ("iconSvg", "color"):
+            if not overwrite and existing.get(sticky_field) and sticky_field in payload:
+                del payload[sticky_field]
+        if not dry_run:
+            doc_ref.set(payload, merge=True)
+        written += 1
+    return written, 0
+
+
 def upsert_cards(db, cards: list[dict], *, overwrite: bool, dry_run: bool):
     """Upsert cards into subcategories/{subcategoryId}/flashcards/{cardId} subcollections.
 
@@ -166,7 +193,7 @@ def main():
 
     db = init_db(args.cred)
 
-    cw, cs = upsert(db, "categories", categories, overwrite=overwrite, dry_run=args.dry_run)
+    cw, cs = upsert_categories(db, categories, overwrite=overwrite, dry_run=args.dry_run)
     sw, ss = upsert(db, "subcategories", subcategories, overwrite=overwrite, dry_run=args.dry_run)
     kw, ks = upsert_cards(db, cards, overwrite=overwrite, dry_run=args.dry_run)
 

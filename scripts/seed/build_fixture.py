@@ -9,7 +9,7 @@ The fixture is intentionally NOT committed — it is a throwaway hand-off to
 `seed_firestore.py`. Re-run any time; output is deterministic.
 
 Schema (see ADR-0007):
-  categories/{categoryId}                        → { name, order, subcategoryCount, iconUrl }
+  categories/{categoryId}                        → { name, order, subcategoryCount, iconSvg, color }
   subcategories/{categoryId-subSlug}             → { name, categoryId, categoryName, order, cardCount }
   subcategories/{categoryId-subSlug}/flashcards/{cardId} → { question, answer, tags[], createdAt, ... }
 
@@ -35,6 +35,7 @@ from collections import Counter, defaultdict
 
 DEFAULT_SRC = os.path.expanduser("~/.claude/flashcards")
 DEFAULT_OUT = os.path.join(os.path.dirname(__file__), ".tmp", "fixture.json")
+DEFAULT_ICON_ASSETS = os.path.join(os.path.dirname(__file__), "assets", "category-icons")
 
 # Display-name overrides for slugs that do not titlecase nicely. Admin can extend.
 NAME_OVERRIDES = {
@@ -46,6 +47,23 @@ NAME_OVERRIDES = {
     "app-distribution": "App Distribution",
     "build-system": "Build System",
 }
+
+# Icon/color cannot be derived from a slug like NAME_OVERRIDES can. Unlike NAME_OVERRIDES, these
+# are NOT hand-maintained Python dict literals — they're real, versioned files under
+# scripts/seed/assets/category-icons/{slug}.svg (plain SVG, rendered via androidsvg on-device) and
+# {slug}.color (plain-text hex string), one pair per category slug. Both fields are optional on
+# Category (nullable, see
+# docs/design/category-icon-color.md), so a missing file is a warning, not a build failure — the
+# seed pipeline can legitimately auto-create a category before its icon/color art exists.
+
+
+def read_icon_asset(slug: str, ext: str, icon_assets_dir: str) -> str | None:
+    path = os.path.join(icon_assets_dir, f"{slug}.{ext}")
+    if not os.path.isfile(path):
+        print(f"warning: no {path} — category '{slug}' will omit its {ext} field", file=sys.stderr)
+        return None
+    with open(path, encoding="utf-8") as f:
+        return f.read().strip()
 
 
 def display_name(slug: str) -> str:
@@ -85,7 +103,12 @@ def project_card(d: dict, subcategory_id: str) -> dict:
     return out
 
 
-def build(src_root: str, sample: int | None = None, seed: int | None = None):
+def build(
+    src_root: str,
+    sample: int | None = None,
+    seed: int | None = None,
+    icon_assets_dir: str = DEFAULT_ICON_ASSETS,
+):
     files = sorted(glob.glob(os.path.join(src_root, "*", "*", "inbox.jsonl")))
     if not files:
         sys.exit(f"no inbox files under {src_root}")
@@ -143,13 +166,19 @@ def build(src_root: str, sample: int | None = None, seed: int | None = None):
     # categories: ordered by card volume desc, then slug
     categories = []
     for order, slug in enumerate(sorted(cat_counts, key=lambda s: (-cat_counts[s], s))):
-        categories.append({
+        category = {
             "id": slug,
             "name": display_name(slug),
             "order": order,
             "subcategoryCount": cat_sub_counts[slug],
-            "iconUrl": "",
-        })
+        }
+        icon_svg = read_icon_asset(slug, "svg", icon_assets_dir)
+        if icon_svg is not None:
+            category["iconSvg"] = icon_svg
+        color = read_icon_asset(slug, "color", icon_assets_dir)
+        if color is not None:
+            category["color"] = color
+        categories.append(category)
 
     # subcategories: flat collection, namespaced id, ordered per-parent by card volume
     by_parent: dict[str, list[str]] = defaultdict(list)
@@ -180,9 +209,13 @@ def main():
                     help="keep at most N cards per subcategory (random sample)")
     ap.add_argument("--seed", type=int, default=None,
                     help="random seed for reproducible sampling (only with --sample)")
+    ap.add_argument("--icon-assets", default=DEFAULT_ICON_ASSETS,
+                    help=f"dir of {{slug}}.svg/{{slug}}.color files (default {DEFAULT_ICON_ASSETS})")
     args = ap.parse_args()
 
-    fixture, cat_counts, sub_counts = build(args.src, sample=args.sample, seed=args.seed)
+    fixture, cat_counts, sub_counts = build(
+        args.src, sample=args.sample, seed=args.seed, icon_assets_dir=args.icon_assets
+    )
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     with open(args.out, "w", encoding="utf-8") as f:
         json.dump(fixture, f, ensure_ascii=False, indent=2)
