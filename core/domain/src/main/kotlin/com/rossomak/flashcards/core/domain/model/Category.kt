@@ -5,5 +5,6 @@ data class Category(
     val name: String,
     val order: Int,
     val subcategoryCount: Int,
-    val iconUrl: String?
+    val iconSvg: String?,
+    val color: String?,
 )
