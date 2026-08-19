@@ -21,7 +21,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewLightDark
-import androidx.compose.ui.unit.dp
 import com.airbnb.android.showkase.annotation.ShowkaseComposable
 import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.brandColors
@@ -69,7 +68,7 @@ fun FlashcardsOutlinedButton(
         } else {
             BorderStroke(MaterialTheme.sizes.tagChipBorder, disabledButtonContentColorFor(style))
         },
-        contentPadding = PaddingValues(horizontal = metrics.horizontalPadding, vertical = 0.dp),
+        contentPadding = PaddingValues(horizontal = metrics.horizontalPadding, vertical = MaterialTheme.spacing.none),
     ) {
         FlashcardsButtonContent(text = text, icon = icon, iconPosition = iconPosition, metrics = metrics)
     }
