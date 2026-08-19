@@ -54,6 +54,20 @@ object AppSizes {
 
     /** Height of the difficulty range pill (filters, session setup summaries). */
     val difficultyRangePillHeight: Dp = 26.dp
+
+    /** Height of a [com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsButtonSize.Normal] button. */
+    val buttonHeightNormal: Dp = 56.dp
+
+    /**
+     * Height of a [com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsButtonSize.Small] button.
+     * Matches M3's `ButtonDefaults.MinHeight` so it doesn't fight the min-height floor built into
+     * the M3 `Button`/`FilledTonalButton`/`OutlinedButton`/`TextButton` family.
+     */
+    val buttonHeightSmall: Dp = 40.dp
+
+    // Button icon size isn't a design-system token: it's androidx.compose.material3.ButtonDefaults.IconSize
+    // (18dp), referenced directly in FlashcardsButtonMetrics.kt. Both size tiers share that one M3
+    // constant, so there's nothing tier-specific to define here.
 }
 
 val MaterialTheme.sizes: AppSizes
