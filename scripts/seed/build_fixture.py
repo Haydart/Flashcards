@@ -63,7 +63,11 @@ def read_icon_asset(slug: str, ext: str, icon_assets_dir: str) -> str | None:
         print(f"warning: no {path} — category '{slug}' will omit its {ext} field", file=sys.stderr)
         return None
     with open(path, encoding="utf-8") as f:
-        return f.read().strip()
+        content = f.read().strip()
+    if not content:
+        print(f"warning: {path} is empty — category '{slug}' will omit its {ext} field", file=sys.stderr)
+        return None
+    return content
 
 
 def display_name(slug: str) -> str:
