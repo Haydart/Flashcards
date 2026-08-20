@@ -23,7 +23,7 @@ class DefaultFlashcardRepositoryTest {
 
     @Test
     fun `fetchCategories maps dtos to domain in order`() = runTest {
-        val categoryDto = CategoryDto(id = "cat-1", name = "Android", order = 2, subcategoryCount = 3, iconUrl = "icon")
+        val categoryDto = CategoryDto(id = "cat-1", name = "Android", order = 2, subcategoryCount = 3, iconSvg = "<svg />", color = "#6B2FA0")
         coEvery { remoteDataSource.getCategories() } returns listOf(categoryDto)
 
         val result = createRepository().fetchCategories()
@@ -34,7 +34,8 @@ class DefaultFlashcardRepositoryTest {
         category.name shouldBe categoryDto.name
         category.order shouldBe categoryDto.order
         category.subcategoryCount shouldBe categoryDto.subcategoryCount
-        category.iconUrl shouldBe categoryDto.iconUrl
+        category.iconSvg shouldBe categoryDto.iconSvg
+        category.color shouldBe categoryDto.color
         coVerify(exactly = 1) { remoteDataSource.getCategories() }
     }
 

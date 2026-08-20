@@ -329,10 +329,13 @@ fun FlashcardsListGroupStudySessionsShowcase() {
 }
 
 /**
- * Sample per-category colors, standing in for a future `Category.color` domain field. Each
- * category defines its own color independently — these are NOT sourced from `colorScheme`
- * roles, even where a value happens to coincide with one (Android's matches this app's brand
- * purple, but that's a coincidence of this particular category, not a theme reference).
+ * Sample per-category colors, deliberately hardcoded rather than fetched — this Showkase catalog
+ * entry stays on [FlashcardsIconTile] (not [com.rossomak.flashcards.core.ui.composables.FlashcardsVectorIconTile])
+ * so the debug-only design-system browser never has to author sample category SVG glyphs. Each category defines
+ * its own color independently — these are NOT sourced from `colorScheme` roles, even where a
+ * value happens to coincide with one (Android's matches this app's brand purple, but that's a
+ * coincidence of this particular category, not a theme reference). Real values live on
+ * `Category.color`.
  */
 private val categoryColorAndroid = Color(0xFF6B2FA0)
 private val categoryColorPython = Color(0xFF0277BD)
