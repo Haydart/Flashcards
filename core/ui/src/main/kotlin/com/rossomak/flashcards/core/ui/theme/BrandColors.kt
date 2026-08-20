@@ -15,6 +15,10 @@ data class BrandColors(
     val onGradientFilled: Color,
     val tonalButtonContainer: Color,
     val onTonalButtonContainer: Color,
+    val progressBarFillOnSurface: Color,
+    val progressBarTrackOnSurface: Color,
+    val progressBarFillOnGradient: Color,
+    val progressBarTrackOnGradient: Color,
 )
 
 /**
@@ -53,6 +57,37 @@ private val brandCtaButtonGradient = Brush.linearGradient(
  */
 private val onGradientFilledButton = primaryLight
 
+/**
+ * Fill colour for every `Flashcards*Progress*` composable's
+ * [com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle.OnSurface] style.
+ * Reuses [ctaGradientPurple] rather than `colorScheme.primary` and is fixed across themes — like
+ * [brandCtaButtonGradient], the fill is a brand accent, not a surface, so both the Surface and
+ * Gradient treatments read as the same purple identity in dark mode instead of drifting apart.
+ */
+private val progressBarFillOnSurfaceColor = ctaGradientPurple
+
+/**
+ * Track colour for the `OnSurface` style — **theme-flipping**, unlike [progressBarFillOnSurfaceColor].
+ * A track is a recessed surface, not a brand asset, so it follows light/dark like
+ * [BrandColors.tonalButtonContainer] does. Dark reuses [surfaceContainerHighDark] (the same token
+ * `tonalButtonContainer` picks in dark) rather than `surfaceVariantDark`, for the same
+ * hue-consistency reason documented on [darkBrandColors] below.
+ */
+private val progressBarTrackOnSurfaceLight = surfaceContainerHighLight
+private val progressBarTrackOnSurfaceDark = surfaceContainerHighDark
+
+/**
+ * Fill/track colours for the
+ * [com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle.OnGradient] style.
+ * Fixed across themes like every other on-gradient color in this file — the gradients they sit on
+ * never flip either.
+ */
+private val progressBarFillOnGradientColor = Color.White
+
+/** Alpha of the recessed track against an on-gradient background. */
+private const val PROGRESS_BAR_TRACK_ON_GRADIENT_ALPHA = 0.20f
+private val progressBarTrackOnGradientColor = Color.White.copy(alpha = PROGRESS_BAR_TRACK_ON_GRADIENT_ALPHA)
+
 val lightBrandColors = BrandColors(
     topBarGradient = brandTopBarGradient,
     onTopBarGradient = onBrandTopBarGradient,
@@ -60,6 +95,10 @@ val lightBrandColors = BrandColors(
     onGradientFilled = onGradientFilledButton,
     tonalButtonContainer = secondaryContainerLight,
     onTonalButtonContainer = onSecondaryContainerLight,
+    progressBarFillOnSurface = progressBarFillOnSurfaceColor,
+    progressBarTrackOnSurface = progressBarTrackOnSurfaceLight,
+    progressBarFillOnGradient = progressBarFillOnGradientColor,
+    progressBarTrackOnGradient = progressBarTrackOnGradientColor,
 )
 
 // Dark uses a neutral elevated-surface container (surfaceContainerHighDark) with primaryDark as
@@ -76,6 +115,10 @@ val darkBrandColors = BrandColors(
     onGradientFilled = onGradientFilledButton,
     tonalButtonContainer = surfaceContainerHighDark,
     onTonalButtonContainer = primaryDark,
+    progressBarFillOnSurface = progressBarFillOnSurfaceColor,
+    progressBarTrackOnSurface = progressBarTrackOnSurfaceDark,
+    progressBarFillOnGradient = progressBarFillOnGradientColor,
+    progressBarTrackOnGradient = progressBarTrackOnGradientColor,
 )
 
 val LocalBrandColors = staticCompositionLocalOf { lightBrandColors }

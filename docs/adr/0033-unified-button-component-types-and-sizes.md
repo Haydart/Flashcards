@@ -1,5 +1,13 @@
 # Unified button component: 4 types × 2 sizes
 
+> **Amended by [ADR-0034](0034-consolidated-component-style-and-size-tokens.md).**
+> `FlashcardsButtonSize` and `FlashcardsButtonStyle` (below) were extracted to the shared
+> `FlashcardsComponentSize`/`FlashcardsComponentStyle` in `composables/common/`, reused by
+> buttons, the metadata badge, and the new progress bar family
+> ([ADR-0035](0035-progress-bar-composables.md)). `Style.Surface` was renamed to `.OnSurface` in
+> that move. Read this ADR for the *rationale* behind the two axes (why two sizes, why an
+> on-gradient axis at all) — for the current type names, see ADR-0034.
+
 ## Decision
 
 `core:ui` gets a family of four button composables — `FlashcardsFilledButton`, `FlashcardsTonalButton`, `FlashcardsOutlinedButton`, `FlashcardsTextButton`. Each type is its own composable (not one `FlashcardsButton(type, size, ...)` entry point), living in its own file, plus a shared `FlashcardsButtonSize` enum in its own file.
