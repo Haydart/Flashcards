@@ -96,8 +96,17 @@ internal fun progressBarTrackColorFor(style: FlashcardsComponentStyle): Color = 
     FlashcardsComponentStyle.OnGradient -> MaterialTheme.brandColors.progressBarTrackOnGradient
 }
 
-/** Clamps [progress] into the renderable `0f..1f` range rather than crashing on out-of-range input. */
-internal fun clampProgressBarProgress(progress: Float): Float = progress.coerceIn(0f, 1f)
+/**
+ * Clamps [progress] into the renderable `0f..1f` range rather than crashing on out-of-range input.
+ *
+ * `Float.coerceIn` does not catch `NaN`: IEEE 754 comparisons (`<`/`>`) against `NaN` are always
+ * `false`, so `NaN.coerceIn(0f, 1f)` returns `NaN` unchanged, not a clamped value. Checked
+ * explicitly here and mapped to `0f` (empty, not "complete") — upstream `NaN` (e.g. a `0/0`
+ * percentage calculation) should render as no progress, not silently propagate into
+ * `animateFloatAsState`/`ProgressBarRangeInfo`.
+ */
+internal fun clampProgressBarProgress(progress: Float): Float =
+    if (progress.isNaN()) 0f else progress.coerceIn(0f, 1f)
 
 /** Clamps [segmentCount] to at least 1 — a zero/negative count renders as a single segment rather than crashing. */
 internal fun clampSegmentCount(segmentCount: Int): Int = segmentCount.coerceAtLeast(1)

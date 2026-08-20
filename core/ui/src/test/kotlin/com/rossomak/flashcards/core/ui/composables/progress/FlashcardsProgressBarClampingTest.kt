@@ -33,6 +33,13 @@ class FlashcardsProgressBarClampingTest {
     }
 
     @Test
+    fun `clampProgressBarProgress with NaN falls back to zero`() {
+        // Float#coerceIn does not catch NaN (IEEE 754 comparisons against NaN are always false),
+        // so this must be checked explicitly rather than relying on coerceIn alone.
+        clampProgressBarProgress(Float.NaN) shouldBe 0f
+    }
+
+    @Test
     fun `clampSegmentCount zero clamps to one`() {
         clampSegmentCount(0) shouldBe 1
     }
