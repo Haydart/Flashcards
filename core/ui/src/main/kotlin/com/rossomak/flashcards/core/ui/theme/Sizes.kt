@@ -55,11 +55,11 @@ object AppSizes {
     /** Height of the difficulty range pill (filters, session setup summaries). */
     val difficultyRangePillHeight: Dp = 26.dp
 
-    /** Height of a [com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsButtonSize.Normal] button. */
+    /** Height of a [com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentSize.Normal] button. */
     val buttonHeightNormal: Dp = 56.dp
 
     /**
-     * Height of a [com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsButtonSize.Small] button.
+     * Height of a [com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentSize.Small] button.
      * Matches M3's `ButtonDefaults.MinHeight` so it doesn't fight the min-height floor built into
      * the M3 `Button`/`FilledTonalButton`/`OutlinedButton`/`TextButton` family.
      */
@@ -68,6 +68,23 @@ object AppSizes {
     // Button icon size isn't a design-system token: it's androidx.compose.material3.ButtonDefaults.IconSize
     // (18dp), referenced directly in FlashcardsButtonMetrics.kt. Both size tiers share that one M3
     // constant, so there's nothing tier-specific to define here.
+
+    /**
+     * Track height (linear/segmented) and stroke width (circular) at
+     * [com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentSize.Normal] — one
+     * shared thickness token for every `Flashcards*Progress*` composable, since the design uses
+     * the same value for both.
+     */
+    val progressBarThicknessNormal: Dp = 5.dp
+
+    /** Progress-bar thickness at [com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentSize.Small]. */
+    val progressBarThicknessSmall: Dp = 4.dp
+
+    /** Diameter of [com.rossomak.flashcards.core.ui.composables.progress.FlashcardsCircularProgressRing] at `Normal` ("Continue learning" card). */
+    val progressRingDiameterNormal: Dp = 56.dp
+
+    /** Diameter of [com.rossomak.flashcards.core.ui.composables.progress.FlashcardsCircularProgressRing] at `Small` (list rows). */
+    val progressRingDiameterSmall: Dp = 40.dp
 }
 
 val MaterialTheme.sizes: AppSizes
