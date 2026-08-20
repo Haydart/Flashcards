@@ -16,14 +16,14 @@
         android:interpolator="@android:interpolator/fast_out_slow_in" />
     <objectAnimator
         android:propertyName="translateX"
-        android:valueFrom="428"
+        android:valueFrom="426"
         android:valueTo="0"
         android:startOffset="250"
         android:duration="500"
         android:interpolator="@android:interpolator/fast_out_slow_in" />
     <objectAnimator
         android:propertyName="translateY"
-        android:valueFrom="-40"
+        android:valueFrom="38"
         android:valueTo="0"
         android:startOffset="250"
         android:duration="500"

@@ -19,14 +19,21 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.tooling.preview.PreviewLightDark
+import androidx.compose.ui.unit.Dp
 import com.airbnb.android.showkase.annotation.ShowkaseComposable
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentSize
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle
+import com.rossomak.flashcards.core.ui.theme.AppSizes
 import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.brandColors
 import com.rossomak.flashcards.core.ui.theme.cornerRadius
@@ -36,19 +43,29 @@ import com.rossomak.flashcards.core.ui.theme.spacing
 private const val GRADIENT_CONTAINER_ALPHA = 0.16f
 private const val GRADIENT_BORDER_ALPHA = 0.22f
 
-/**
- * Which background a [FlashcardsMetadataBadge] is drawn on. The badge cannot read the surface
- * behind it, so the caller declares it.
- */
-enum class MetadataBadgeStyle {
-    /** Default — a tinted pill for use on a plain themed surface. */
-    Surface,
+/** Geometry for [FlashcardsMetadataBadge] at a given [FlashcardsComponentSize]. */
+private data class FlashcardsMetadataBadgeMetrics(
+    val height: Dp,
+    val iconSize: Dp,
+    val textStyle: TextStyle,
+)
 
-    /**
-     * Translucent pill for use on [BrandColors.topBarGradient] (top bars, hero headers). That
-     * gradient never flips to a dark variant, so this style's colors are theme-independent.
-     */
-    OnGradient,
+@Composable
+@ReadOnlyComposable
+private fun FlashcardsComponentSize.metadataBadgeMetrics(
+    sizes: AppSizes = MaterialTheme.sizes,
+    typography: Typography = MaterialTheme.typography,
+): FlashcardsMetadataBadgeMetrics = when (this) {
+    FlashcardsComponentSize.Normal -> FlashcardsMetadataBadgeMetrics(
+        height = sizes.metadataBadgeHeight,
+        iconSize = sizes.metadataBadgeIcon,
+        textStyle = typography.labelMedium,
+    )
+    FlashcardsComponentSize.Small -> FlashcardsMetadataBadgeMetrics(
+        height = sizes.metadataBadgeHeightCompact,
+        iconSize = sizes.metadataBadgeIconCompact,
+        textStyle = typography.labelSmall,
+    )
 }
 
 /**
@@ -59,46 +76,37 @@ enum class MetadataBadgeStyle {
  * Pass [onClick] only when the badge doubles as an affordance (e.g. a sort badge that opens a
  * dialog); it then reports itself to accessibility as a button.
  *
- * Pass [compact] where badges sit inside another interactive row (e.g. flat study tags on a
- * flashcard row) and must recede behind the row's own content.
+ * Pass `size = FlashcardsComponentSize.Small` where badges sit inside another interactive row
+ * (e.g. flat study tags on a flashcard row) and must recede behind the row's own content — same
+ * `Normal`/`Small` axis every other `Flashcards*` component family uses (ADR-0034).
  */
 @Composable
 fun FlashcardsMetadataBadge(
     label: String,
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
-    style: MetadataBadgeStyle = MetadataBadgeStyle.Surface,
-    compact: Boolean = false,
+    style: FlashcardsComponentStyle = FlashcardsComponentStyle.OnSurface,
+    size: FlashcardsComponentSize = FlashcardsComponentSize.Normal,
     onClick: (() -> Unit)? = null,
 ) {
     val shape = RoundedCornerShape(MaterialTheme.cornerRadius.full)
-    val badgeHeight = if (compact) {
-        MaterialTheme.sizes.metadataBadgeHeightCompact
-    } else {
-        MaterialTheme.sizes.metadataBadgeHeight
-    }
-    val badgeIconSize = if (compact) {
-        MaterialTheme.sizes.metadataBadgeIconCompact
-    } else {
-        MaterialTheme.sizes.metadataBadgeIcon
-    }
-    val badgeTextStyle = if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium
+    val metrics = size.metadataBadgeMetrics()
     val onGradient = MaterialTheme.brandColors.onTopBarGradient
     val containerColor = when (style) {
-        MetadataBadgeStyle.Surface -> MaterialTheme.colorScheme.surfaceVariant
-        MetadataBadgeStyle.OnGradient -> onGradient.copy(alpha = GRADIENT_CONTAINER_ALPHA)
+        FlashcardsComponentStyle.OnSurface -> MaterialTheme.colorScheme.surfaceVariant
+        FlashcardsComponentStyle.OnGradient -> onGradient.copy(alpha = GRADIENT_CONTAINER_ALPHA)
     }
     val contentColor = when (style) {
-        MetadataBadgeStyle.Surface -> MaterialTheme.colorScheme.onSurface
-        MetadataBadgeStyle.OnGradient -> onGradient
+        FlashcardsComponentStyle.OnSurface -> MaterialTheme.colorScheme.onSurface
+        FlashcardsComponentStyle.OnGradient -> onGradient
     }
     val iconColor = when (style) {
-        MetadataBadgeStyle.Surface -> MaterialTheme.colorScheme.onSurfaceVariant
-        MetadataBadgeStyle.OnGradient -> onGradient
+        FlashcardsComponentStyle.OnSurface -> MaterialTheme.colorScheme.onSurfaceVariant
+        FlashcardsComponentStyle.OnGradient -> onGradient
     }
     val border = when (style) {
-        MetadataBadgeStyle.Surface -> null
-        MetadataBadgeStyle.OnGradient -> BorderStroke(
+        FlashcardsComponentStyle.OnSurface -> null
+        FlashcardsComponentStyle.OnGradient -> BorderStroke(
             width = MaterialTheme.sizes.hairline,
             color = onGradient.copy(alpha = GRADIENT_BORDER_ALPHA),
         )
@@ -106,7 +114,7 @@ fun FlashcardsMetadataBadge(
 
     Surface(
         modifier = modifier
-            .height(badgeHeight)
+            .height(metrics.height)
             .clip(shape)
             .then(
                 if (onClick != null) {
@@ -130,12 +138,12 @@ fun FlashcardsMetadataBadge(
                     imageVector = icon,
                     contentDescription = null,
                     tint = iconColor,
-                    modifier = Modifier.size(badgeIconSize),
+                    modifier = Modifier.size(metrics.iconSize),
                 )
             }
             Text(
                 text = label,
-                style = badgeTextStyle,
+                style = metrics.textStyle,
             )
         }
     }
@@ -226,17 +234,17 @@ private fun MetadataBadgeGradientSampleRow(modifier: Modifier = Modifier) {
         FlashcardsMetadataBadge(
             label = "~ 12 min",
             icon = Icons.Default.DateRange,
-            style = MetadataBadgeStyle.OnGradient,
+            style = FlashcardsComponentStyle.OnGradient,
         )
         FlashcardsMetadataBadge(
             label = "3 topics",
             icon = Icons.Default.List,
-            style = MetadataBadgeStyle.OnGradient,
+            style = FlashcardsComponentStyle.OnGradient,
         )
         FlashcardsMetadataBadge(
             label = "42 cards",
             icon = Icons.Default.Star,
-            style = MetadataBadgeStyle.OnGradient,
+            style = FlashcardsComponentStyle.OnGradient,
         )
     }
 }

@@ -12,8 +12,8 @@
         android:pivotY="462"
         android:scaleX="2.09"
         android:scaleY="2.09"
-        android:translateX="428"
-        android:translateY="-40">
+        android:translateX="421"
+        android:translateY="38">
         <path
             android:name="path_f_body"
             android:fillColor="#ffffff"

@@ -31,6 +31,7 @@ import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.airbnb.android.showkase.annotation.ShowkaseComposable
 import com.rossomak.flashcards.core.ui.composables.FlashcardsDifficultyBadge
 import com.rossomak.flashcards.core.ui.composables.FlashcardsMetadataBadge
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentSize
 import com.rossomak.flashcards.core.ui.composables.withInlineCode
 import com.rossomak.flashcards.core.ui.theme.FlashcardsMotion
 import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
@@ -101,7 +102,9 @@ fun FlashcardsExpandableCardRow(
                         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall),
                         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xxsmall),
                     ) {
-                        tags.forEach { tag -> FlashcardsMetadataBadge(label = tag, compact = true) }
+                        tags.forEach { tag ->
+                            FlashcardsMetadataBadge(label = tag, size = FlashcardsComponentSize.Small)
+                        }
                     }
                 }
             }

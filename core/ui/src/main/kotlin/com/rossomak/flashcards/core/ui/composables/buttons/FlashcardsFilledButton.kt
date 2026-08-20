@@ -22,6 +22,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.airbnb.android.showkase.annotation.ShowkaseComposable
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentSize
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle
 import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.brandColors
 import com.rossomak.flashcards.core.ui.theme.cornerRadius
@@ -44,13 +46,13 @@ fun FlashcardsFilledButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    size: FlashcardsButtonSize = FlashcardsButtonSize.Normal,
+    size: FlashcardsComponentSize = FlashcardsComponentSize.Normal,
     enabled: Boolean = true,
     icon: ImageVector? = null,
     iconPosition: FlashcardsButtonIconPosition = FlashcardsButtonIconPosition.Leading,
-    style: FlashcardsButtonStyle = FlashcardsButtonStyle.Surface,
+    style: FlashcardsComponentStyle = FlashcardsComponentStyle.OnSurface,
 ) {
-    val onGradient = style == FlashcardsButtonStyle.OnGradient
+    val onGradient = style == FlashcardsComponentStyle.OnGradient
     val metrics = size.metrics()
     val shape = RoundedCornerShape(MaterialTheme.cornerRadius.full)
     val gradientModifier = if (onGradient) {
@@ -70,7 +72,7 @@ fun FlashcardsFilledButton(
         shape = shape,
         colors = ButtonDefaults.buttonColors(
             containerColor = if (onGradient) Color.White else Color.Transparent,
-            // Fixed white on both branches, not colorScheme.onPrimary — the Surface-style
+            // Fixed white on both branches, not colorScheme.onPrimary — the OnSurface-style
             // container is the ctaButtonGradient brush, which is itself fixed across themes (see
             // BrandColors.kt), so its content color must be fixed too.
             contentColor = if (onGradient) MaterialTheme.brandColors.onGradientFilled else Color.White,
@@ -108,7 +110,7 @@ fun FlashcardsFilledButtonWithIconShowcase() {
 fun FlashcardsFilledButtonSmallShowcase() {
     FlashcardsTheme {
         Surface {
-            FlashcardsFilledButton(text = "Add card", onClick = {}, size = FlashcardsButtonSize.Small, icon = Icons.Default.Add)
+            FlashcardsFilledButton(text = "Add card", onClick = {}, size = FlashcardsComponentSize.Small, icon = Icons.Default.Add)
         }
     }
 }
@@ -138,13 +140,13 @@ fun FlashcardsFilledButtonOnGradientShowcase() {
                     text = "Study now",
                     onClick = {},
                     icon = Icons.Default.School,
-                    style = FlashcardsButtonStyle.OnGradient,
+                    style = FlashcardsComponentStyle.OnGradient,
                 )
                 FlashcardsFilledButton(
                     text = "Study now",
                     onClick = {},
                     icon = Icons.Default.School,
-                    style = FlashcardsButtonStyle.OnGradient,
+                    style = FlashcardsComponentStyle.OnGradient,
                     enabled = false,
                 )
             }
