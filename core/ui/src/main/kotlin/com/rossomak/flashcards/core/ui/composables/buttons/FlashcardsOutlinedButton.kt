@@ -22,13 +22,15 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.airbnb.android.showkase.annotation.ShowkaseComposable
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentSize
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle
 import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.brandColors
 import com.rossomak.flashcards.core.ui.theme.cornerRadius
 import com.rossomak.flashcards.core.ui.theme.sizes
 import com.rossomak.flashcards.core.ui.theme.spacing
 
-/** Border alpha for [FlashcardsButtonStyle.OnGradient]'s white outline. */
+/** Border alpha for [FlashcardsComponentStyle.OnGradient]'s white outline. */
 private const val ON_GRADIENT_BORDER_ALPHA = 0.55f
 
 /**
@@ -41,13 +43,13 @@ fun FlashcardsOutlinedButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    size: FlashcardsButtonSize = FlashcardsButtonSize.Normal,
+    size: FlashcardsComponentSize = FlashcardsComponentSize.Normal,
     enabled: Boolean = true,
     icon: ImageVector? = null,
     iconPosition: FlashcardsButtonIconPosition = FlashcardsButtonIconPosition.Leading,
-    style: FlashcardsButtonStyle = FlashcardsButtonStyle.Surface,
+    style: FlashcardsComponentStyle = FlashcardsComponentStyle.OnSurface,
 ) {
-    val onGradient = style == FlashcardsButtonStyle.OnGradient
+    val onGradient = style == FlashcardsComponentStyle.OnGradient
     val contentColor = if (onGradient) MaterialTheme.brandColors.onTopBarGradient else MaterialTheme.colorScheme.primary
     val metrics = size.metrics()
 
@@ -99,7 +101,7 @@ fun FlashcardsOutlinedButtonWithIconShowcase() {
 fun FlashcardsOutlinedButtonSmallShowcase() {
     FlashcardsTheme {
         Surface {
-            FlashcardsOutlinedButton(text = "Cancel", onClick = {}, size = FlashcardsButtonSize.Small)
+            FlashcardsOutlinedButton(text = "Cancel", onClick = {}, size = FlashcardsComponentSize.Small)
         }
     }
 }
@@ -125,8 +127,8 @@ fun FlashcardsOutlinedButtonOnGradientShowcase() {
                 .padding(MaterialTheme.spacing.small),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall)) {
-                FlashcardsOutlinedButton(text = "Skip card", onClick = {}, style = FlashcardsButtonStyle.OnGradient)
-                FlashcardsOutlinedButton(text = "Skip card", onClick = {}, style = FlashcardsButtonStyle.OnGradient, enabled = false)
+                FlashcardsOutlinedButton(text = "Skip card", onClick = {}, style = FlashcardsComponentStyle.OnGradient)
+                FlashcardsOutlinedButton(text = "Skip card", onClick = {}, style = FlashcardsComponentStyle.OnGradient, enabled = false)
             }
         }
     }

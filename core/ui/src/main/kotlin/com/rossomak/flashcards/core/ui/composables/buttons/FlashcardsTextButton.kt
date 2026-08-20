@@ -19,6 +19,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.airbnb.android.showkase.annotation.ShowkaseComposable
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentSize
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle
 import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.brandColors
 import com.rossomak.flashcards.core.ui.theme.cornerRadius
@@ -30,20 +32,20 @@ import com.rossomak.flashcards.core.ui.theme.spacing
  *
  * Unlike the other three `Flashcards*Button`s, this doesn't override M3 [TextButton]'s
  * `contentPadding` — a text button has no visible container edge, so its own tighter default
- * spacing (rather than the shared [FlashcardsButtonSize] horizontal padding) is the right fit.
+ * spacing (rather than the shared [FlashcardsComponentSize] horizontal padding) is the right fit.
  */
 @Composable
 fun FlashcardsTextButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    size: FlashcardsButtonSize = FlashcardsButtonSize.Normal,
+    size: FlashcardsComponentSize = FlashcardsComponentSize.Normal,
     enabled: Boolean = true,
     icon: ImageVector? = null,
     iconPosition: FlashcardsButtonIconPosition = FlashcardsButtonIconPosition.Leading,
-    style: FlashcardsButtonStyle = FlashcardsButtonStyle.Surface,
+    style: FlashcardsComponentStyle = FlashcardsComponentStyle.OnSurface,
 ) {
-    val onGradient = style == FlashcardsButtonStyle.OnGradient
+    val onGradient = style == FlashcardsComponentStyle.OnGradient
     val metrics = size.metrics()
 
     TextButton(
@@ -85,7 +87,7 @@ fun FlashcardsTextButtonWithIconShowcase() {
 fun FlashcardsTextButtonSmallShowcase() {
     FlashcardsTheme {
         Surface {
-            FlashcardsTextButton(text = "Skip", onClick = {}, size = FlashcardsButtonSize.Small)
+            FlashcardsTextButton(text = "Skip", onClick = {}, size = FlashcardsComponentSize.Small)
         }
     }
 }
@@ -111,8 +113,8 @@ fun FlashcardsTextButtonOnGradientShowcase() {
                 .padding(MaterialTheme.spacing.small),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall)) {
-                FlashcardsTextButton(text = "Not sure", onClick = {}, style = FlashcardsButtonStyle.OnGradient)
-                FlashcardsTextButton(text = "Not sure", onClick = {}, style = FlashcardsButtonStyle.OnGradient, enabled = false)
+                FlashcardsTextButton(text = "Not sure", onClick = {}, style = FlashcardsComponentStyle.OnGradient)
+                FlashcardsTextButton(text = "Not sure", onClick = {}, style = FlashcardsComponentStyle.OnGradient, enabled = false)
             }
         }
     }

@@ -23,16 +23,18 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.airbnb.android.showkase.annotation.ShowkaseComposable
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentSize
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle
 import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.brandColors
 import com.rossomak.flashcards.core.ui.theme.cornerRadius
 import com.rossomak.flashcards.core.ui.theme.sizes
 import com.rossomak.flashcards.core.ui.theme.spacing
 
-/** Container fill alpha for [FlashcardsButtonStyle.OnGradient]'s translucent white pill. */
+/** Container fill alpha for [FlashcardsComponentStyle.OnGradient]'s translucent white pill. */
 private const val ON_GRADIENT_CONTAINER_ALPHA = 0.18f
 
-/** Border alpha for [FlashcardsButtonStyle.OnGradient]'s translucent white pill. */
+/** Border alpha for [FlashcardsComponentStyle.OnGradient]'s translucent white pill. */
 private const val ON_GRADIENT_BORDER_ALPHA = 0.35f
 
 /**
@@ -45,13 +47,13 @@ fun FlashcardsTonalButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    size: FlashcardsButtonSize = FlashcardsButtonSize.Normal,
+    size: FlashcardsComponentSize = FlashcardsComponentSize.Normal,
     enabled: Boolean = true,
     icon: ImageVector? = null,
     iconPosition: FlashcardsButtonIconPosition = FlashcardsButtonIconPosition.Leading,
-    style: FlashcardsButtonStyle = FlashcardsButtonStyle.Surface,
+    style: FlashcardsComponentStyle = FlashcardsComponentStyle.OnSurface,
 ) {
-    val onGradient = style == FlashcardsButtonStyle.OnGradient
+    val onGradient = style == FlashcardsComponentStyle.OnGradient
     val metrics = size.metrics()
 
     FilledTonalButton(
@@ -95,7 +97,7 @@ fun FlashcardsTonalButtonShowcase() {
 fun FlashcardsTonalButtonSmallShowcase() {
     FlashcardsTheme {
         Surface {
-            FlashcardsTonalButton(text = "Edit", onClick = {}, size = FlashcardsButtonSize.Small, icon = Icons.Default.Edit)
+            FlashcardsTonalButton(text = "Edit", onClick = {}, size = FlashcardsComponentSize.Small, icon = Icons.Default.Edit)
         }
     }
 }
@@ -125,13 +127,13 @@ fun FlashcardsTonalButtonOnGradientShowcase() {
                     text = "Play audio",
                     onClick = {},
                     icon = Icons.Default.PlayArrow,
-                    style = FlashcardsButtonStyle.OnGradient,
+                    style = FlashcardsComponentStyle.OnGradient,
                 )
                 FlashcardsTonalButton(
                     text = "Play audio",
                     onClick = {},
                     icon = Icons.Default.PlayArrow,
-                    style = FlashcardsButtonStyle.OnGradient,
+                    style = FlashcardsComponentStyle.OnGradient,
                     enabled = false,
                 )
             }
