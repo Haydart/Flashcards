@@ -331,7 +331,7 @@ fun FlashcardsListGroupStudySessionsShowcase() {
 /**
  * Sample per-category colors, deliberately hardcoded rather than fetched — this Showkase catalog
  * entry stays on [FlashcardsIconTile] (not [com.rossomak.flashcards.core.ui.composables.FlashcardsVectorIconTile])
- * so the debug-only design-system browser never has to author sample VectorDrawable XML. Each category defines
+ * so the debug-only design-system browser never has to author sample category SVG glyphs. Each category defines
  * its own color independently — these are NOT sourced from `colorScheme` roles, even where a
  * value happens to coincide with one (Android's matches this app's brand purple, but that's a
  * coincidence of this particular category, not a theme reference). Real values live on

@@ -188,7 +188,7 @@ fun FlashcardsVectorIconTile(
 ## Seed pipeline
 
 `build_fixture.py` derives Category `id`/`name`/`order`/`subcategoryCount` automatically from
-inbox folder slugs. `color`/`iconXml` cannot be derived from a slug, and — unlike the first design
+inbox folder slugs. `color`/`iconSvg` cannot be derived from a slug, and — unlike the first design
 pass — are **not** hand-maintained Python dict literals either:
 
 - `scripts/seed/assets/category-icons/{slug}.svg` (plain SVG) and

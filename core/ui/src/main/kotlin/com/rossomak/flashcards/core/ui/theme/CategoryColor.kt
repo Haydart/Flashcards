@@ -8,10 +8,12 @@ private val HEX_COLOR_PATTERN = Regex("^#[0-9A-Fa-f]{6}$")
 private const val OPAQUE_ALPHA_MASK = 0xFF000000.toInt()
 
 /**
- * Parses [Category.color][com.rossomak.flashcards.core.domain.model.Category.color] — a mandatory
- * `#RRGGBB` hex string — into a Compose [Color]. Category color is hand-curated, authored data
- * (not user input), so a malformed value throws [IllegalArgumentException] rather than degrading
- * to a fallback; there is deliberately no nullable/default handling here.
+ * Parses a `#RRGGBB` hex string — [Category.color][com.rossomak.flashcards.core.domain.model.Category.color]
+ * when present — into a Compose [Color]. This is a strict parser: category color is hand-curated,
+ * authored data (not user input), so a malformed value throws [IllegalArgumentException] rather
+ * than degrading to a fallback. [Category.color] itself is nullable (icon/color art can lag a
+ * category's creation), so callers wrap this in `runCatching { ... }.getOrNull()` for graceful
+ * degradation rather than this function handling null/fallback itself.
  *
  * Implemented as plain hex parsing rather than `android.graphics.Color.parseColor()` — the latter
  * is a stubbed Android-framework call that throws "not mocked" in this project's plain-JVM,
