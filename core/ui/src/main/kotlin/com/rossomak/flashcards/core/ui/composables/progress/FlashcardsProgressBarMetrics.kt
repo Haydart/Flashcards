@@ -108,8 +108,16 @@ internal fun progressBarTrackColorFor(style: FlashcardsComponentStyle): Color = 
 internal fun clampProgressBarProgress(progress: Float): Float =
     if (progress.isNaN()) 0f else progress.coerceIn(0f, 1f)
 
-/** Clamps [segmentCount] to at least 1 — a zero/negative count renders as a single segment rather than crashing. */
-internal fun clampSegmentCount(segmentCount: Int): Int = segmentCount.coerceAtLeast(1)
+/** Segment counts render at most this many segments — see [clampSegmentCount]. */
+private const val MAX_SEGMENT_COUNT = 100
+
+/**
+ * Clamps [segmentCount] into `1..`[MAX_SEGMENT_COUNT] — a zero/negative count renders as a single
+ * segment rather than crashing; the upper bound guards against a pathological/corrupted count
+ * (e.g. `Int.MAX_VALUE`) driving billions of `Canvas` draw calls on the UI thread. No real
+ * segmented-progress design needs anywhere near 100 steps.
+ */
+internal fun clampSegmentCount(segmentCount: Int): Int = segmentCount.coerceIn(1, MAX_SEGMENT_COUNT)
 
 /** Clamps [filledSegmentCount] into `0..segmentCount` rather than crashing on noisy domain data. */
 internal fun clampFilledSegmentCount(filledSegmentCount: Int, segmentCount: Int): Int =

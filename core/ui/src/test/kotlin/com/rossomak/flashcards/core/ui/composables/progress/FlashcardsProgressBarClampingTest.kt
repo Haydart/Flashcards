@@ -55,6 +55,21 @@ class FlashcardsProgressBarClampingTest {
     }
 
     @Test
+    fun `clampSegmentCount at the maximum is unchanged`() {
+        clampSegmentCount(100) shouldBe 100
+    }
+
+    @Test
+    fun `clampSegmentCount above the maximum clamps down`() {
+        clampSegmentCount(101) shouldBe 100
+    }
+
+    @Test
+    fun `clampSegmentCount with Int MAX_VALUE clamps to the maximum, not a runaway draw loop`() {
+        clampSegmentCount(Int.MAX_VALUE) shouldBe 100
+    }
+
+    @Test
     fun `clampFilledSegmentCount negative clamps to zero`() {
         clampFilledSegmentCount(filledSegmentCount = -1, segmentCount = 8) shouldBe 0
     }
