@@ -76,7 +76,7 @@ private fun FlashcardsComponentSize.metadataBadgeMetrics(
  * Pass [onClick] only when the badge doubles as an affordance (e.g. a sort badge that opens a
  * dialog); it then reports itself to accessibility as a button.
  *
- * Pass `size = `[FlashcardsComponentSize.Small] where badges sit inside another interactive row
+ * Pass `size = FlashcardsComponentSize.Small` where badges sit inside another interactive row
  * (e.g. flat study tags on a flashcard row) and must recede behind the row's own content — same
  * `Normal`/`Small` axis every other `Flashcards*` component family uses (ADR-0034).
  */
