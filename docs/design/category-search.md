@@ -6,7 +6,7 @@
 
 The Study tab search box (search categories/topics) needs to feel "smart" — searching "compose" should surface both the `Compose` Subcategory and the `Android` Category (because one of its children matched); searching "testing" should surface every matching Subcategory across every Category, plus each of those parent Categories. All of this must run on a debounced live Firestore query, never a full local cache of `subcategories` (that collection is expected to keep growing; loading it in full to answer a "handful of subcategories" search is wasteful).
 
-This doc covers matching rules, the two Firestore schema fields it depends on, the read-cost budget for both the default Browse state and live search, and where the logic lives in the module structure. Related: [Category icon+color](category-icon-color.md) (sibling denormalized-field design), [Persistent Card Mastery](persistent-card-mastery.md) (the `subcategoryProgress` rollup that supplies the progress rings shown alongside matched topics).
+This doc covers matching rules, result layout, the two Firestore schema fields it depends on, the read-cost budget for both the default Browse state and live search, and where the logic lives in the module structure. Related: [Category icon+color](category-icon-color.md) (sibling denormalized-field design), [Persistent Card Mastery](persistent-card-mastery.md) (the `subcategoryProgress` rollup that will eventually supply the progress rings shown alongside matched topics — see "Progress rings" below for what ships in the meantime).
 
 ## Matching rule: prefix-only, uniform
 
@@ -16,7 +16,45 @@ Category-name matching happens entirely client-side against an always-cached lis
 
 Case-insensitivity: comparisons are done against a lowercased field (`nameLower` — see below), since Firestore range comparisons are case-sensitive.
 
+**Query floor and ceiling.** A query shorter than **2 characters** is treated as no query at all — the screen stays in its default state and no Firestore read is issued. A single character matches a large and growing slice of the collection, which is exactly the bulk load this design exists to avoid. The live query is also capped at **`.limit(20)`**. The cap must stay at or below **30**, because the future progress-ring lookup (below) feeds the matched ids into a Firestore `whereIn`, which Firestore caps at 30 values.
+
 Out of scope for v1: synonym/fuzzy matching (e.g. "async" → Coroutines). Additive later via a `searchTerms: List<String>` field on Subcategory if needed — doesn't conflict with this design.
+
+## Result layout
+
+Search results render as **two sections under overline headers**, topics first:
+
+```
+TOPICS
+  ○58%  Compose                 [▶] [›]
+        ⬤ in Android
+  ○86%  Compose Navigation      [▶] [›]
+        ⬤ in Android
+
+CATEGORIES
+  [A]   Android                    [›]
+        Compose · Compose Navigation · Coroutines…
+        13 topics
+```
+
+**TOPICS** — one flat row per matched Subcategory (`FlashcardsListGroupItem.Row`): a mastery ring, the topic name, a secondary line reading `in <CategoryName>` prefixed by the parent Category's small tinted icon glyph, and two distinct tap targets — a play button and a chevron. The parent's name and glyph cost nothing extra: `categoryName` is already denormalized onto the Subcategory doc (ADR-0007), and the glyph comes from the cached `categories` list keyed by `categoryId`.
+
+**CATEGORIES** — the existing Browse category row shape (`FlashcardsListGroupItem.DetailedRow`): icon tile, name, chip line, topic count, chevron. **No play button** — starting a session is a topic-level action, and a Category is not a study unit.
+
+The default (no query) state is the same category row shape it is today, under its own `CATEGORIES` overline header — the header is new; the Browse screen currently renders the group with no section label.
+
+**Row actions.** In TOPICS, the play button navigates straight to `PreviewStudySessionRoute(categoryId, categoryName, subcategoryId, subcategoryName)` — all four arguments are already present on the matched Subcategory doc, so no extra read. The row body and chevron navigate to Subcategory Details. In CATEGORIES, the row navigates to Category Details, exactly as it does in the default state.
+
+**Which Categories appear.** The CATEGORIES section is the **union** of:
+
+1. the parent Categories of everything in the TOPICS section (resolved from each match's `categoryId` against the cached list — no read), and
+2. Categories whose own `name` prefix-matches the query.
+
+deduplicated, in stored `order`. Branch 1 is what puts `Android` under a search for "compose" — `Android` is not itself a prefix match, it is there because a child matched. Branch 2 is what makes a search for "and" find `Android` when no child matches at all. Without both, one of those two cases silently returns nothing.
+
+**Ordering within TOPICS** is whatever the Firestore range query returns — `nameLower` ascending, since Firestore forces the range field to be the first `orderBy`. That needs no client-side sort and no composite index, and it is the right ranking for prefix search besides: alphabetical order on a shared prefix is effectively shortest-first, so the exact match (`Compose`) sorts above its longer extensions (`Compose Navigation`). This is a separate question from the ordering *inside a chip line*, which is prominence-based — see below.
+
+**No matches:** both sections are empty and the screen shows a single static line of copy (no query interpolation).
 
 ## Firestore schema additions (ADR-0007)
 
@@ -27,13 +65,15 @@ subcategories/{subcategoryId} → { ..., nameLower: String }
 
 `topSubcategoryNames`: the display names of the top-5 Subcategories per Category, ranked by the same card-volume-descending order that already produces each Subcategory's `order` field (`build_fixture.py`). Computed once at fixture-build time. **Not sticky** — unlike `iconSvg`/`color`, this is pure derived data with no manual curation, so every reseed overwrites it unconditionally as ranks shift with card counts.
 
-`nameLower`: `name.lower()`, computed at fixture-build time for every Subcategory. Exists solely to make prefix-range queries case-insensitive.
+`nameLower`: `name.lower()`, computed at fixture-build time for every Subcategory. Exists solely to make prefix-range queries case-insensitive. It is a Firestore query implementation detail with no UI consumer, so it lives on `SubcategoryDto` and the Firestore payload only — the domain `Subcategory` model does not carry it and the mapper drops it.
+
+**Backfilling existing docs.** `seed_firestore.py` writes `subcategories` in `--skip-existing` mode by default: a doc is written only if its id is *absent*. Re-running the seed normally therefore leaves `nameLower` off all pre-existing Subcategory docs, and search silently returns nothing. The rollout is a full `--overwrite` reseed (dry-run first). Blast radius, checked against the script: `categories` writes still go through `set(merge=True)`, so a field absent from the payload is not deleted and curated `iconSvg`/`color` survive; `subcategories` and `flashcards` get whole-document `set()` rewrites, which is write cost rather than data loss as long as nothing writes to those documents at runtime — true today, and a constraint to re-check once card-level mastery state lands.
 
 ## Read budget
 
 Two collections, two very different caching strategies, because of their size trajectory: `categories` is small and fixed (4 today); `subcategories` is larger and grows over time (84 today).
 
-**`categories`** — always fully cached client-side (one listener, established once when the Study tab is first opened). Cost: **N reads**, N = category count, once per cold session. Category-name matching and the default-state topic chips both read from this cache — zero further Firestore cost.
+**`categories`** — fetched once per Browse screen load and held in the screen's state for the lifetime of that ViewModel. Category-name matching, the parent-glyph lookup, and both the default-state and search-mode chip lines all read from that in-memory list — zero further Firestore cost. Cost: **N reads**, N = category count. This is the existing `GetCategoriesUseCase` load, reused as-is; search adds no listener and no repository-level cache layer. (A process-wide cache or snapshot listener would cut the repeat cost across ViewModel recreations, but it would also change pull-to-refresh semantics on Browse, so it stays out of this design.)
 
 **`subcategories`** — never bulk-loaded. Only touched by a live, debounced query scoped to whatever the user is currently typing:
 
@@ -41,16 +81,25 @@ Two collections, two very different caching strategies, because of their size tr
 subcategories
     .whereGreaterThanOrEqualTo("nameLower", query)
     .whereLessThan("nameLower", query + "")
+    .limit(20)
 ```
 
-Cost: exactly the number of matched Subcategory docs — "a handful," not the full collection. Each returned doc already carries `categoryId`/`categoryName` (existing denormalized fields, ADR-0007), so grouping a match into its parent Category needs no further read; the parent's chip-fill data comes from the already-cached `categories` list.
+Cost: at most 20 docs, and in practice exactly the number of matched Subcategory docs — "a handful," not the full collection. Each returned doc already carries `categoryId`/`categoryName` (existing denormalized fields, ADR-0007), so grouping a match into its parent Category needs no further read; the parent's chip-fill data comes from the already-cached `categories` list.
 
-**Browse screen entry, end to end: exactly N reads** (one query on `categories`). `subcategories` is untouched until the user interacts with search.
+**Browse screen entry, end to end: exactly N reads** (one query on `categories`). `subcategories` is untouched until the user types a second character into search.
 
 ## Live search behavior
 
 - **Debounce:** 500ms after the last keystroke before firing a query.
 - **Query cache:** exact-string keyed (`"testing" → [matched docs]`), in-memory, scoped to the search ViewModel/use case lifetime — cleared on leaving the screen or process death. Not persisted. Not prefix-aware (a query for `"testin"` after already having fetched `"testing"` results is a fresh live query, not a local filter of the cached superset) — deliberately the simplest option that satisfies "don't repeat a query we already ran"; a prefix-refinement cache (exploiting that `"testin"` results ⊇ `"testing"` results) is a viable future optimization if read volume warrants it.
+
+**Entering and leaving search.** Search is inline on the Browse screen — it is not a separate route and takes no back-stack entry. The field's leading icon flips from a search glyph to a back arrow once search is active, and a clear (✕) affordance appears trailing. The two are not redundant:
+
+- **✕** clears the query text but keeps search mode and focus, so a long query can be retyped without losing the mode.
+- **Back arrow** leaves search mode entirely: clears the query, drops focus, restores the default category list.
+- **System back** mirrors the back arrow, via a `BackHandler` enabled only while search is active. Without it, a system back press mid-search would yank the user off the Study tab, which reads as a bug on Android.
+
+There is **no voice/mic affordance** in v1. Speech-to-text into the search field is a separate feature with its own permission, consent, and listening-state surface, and shipping a visible-but-inert mic button is worse than shipping none.
 
 ## Chip-line construction
 
@@ -58,20 +107,26 @@ Both the default Browse state and live search results render a short list of Sub
 
 **Default state:** `Category.topSubcategoryNames` directly, in stored order (card-volume descending).
 
-**Search-mode (query active):** matched Subcategory(ies) for that Category come first, then the list is backfilled — skipping duplicates — from `topSubcategoryNames`/prominence order until 5 names are reached. If more than one Subcategory within the same Category matches the query, the matches themselves are ordered by their own prominence `order` (not match position or alphabetically) — one ranking signal used everywhere in this design, no special case for the multi-match branch.
+**Search-mode (query active):** matched Subcategory(ies) for that Category come first, then the list is backfilled — skipping duplicates — from `topSubcategoryNames`/prominence order until 5 names are reached. If more than one Subcategory within the same Category matches the query, the matches themselves are ordered by their own prominence `order` (not match position, not alphabetically, and *not* the `nameLower` ordering the TOPICS section uses — that ordering is a property of the flat result list, not of a chip line). One prominence signal, used everywhere a chip line is built, with no special case for the multi-match branch.
 
 Example: query "testing" → Android chip line is `Testing, Compose, Background` (Testing is the match; Compose/Background are Android's next-most-prominent topics, unrelated to the query, filling out the line).
+
+Note that for some queries the reordered line is indistinguishable from the default one — a query matching a Subcategory that already leads `topSubcategoryNames` reorders nothing. That is a coincidence of the data, not evidence the reordering step can be skipped.
+
+## Progress rings on matched topics
+
+Topic rows in search results carry a mastery-percentage ring. The data behind it comes from the `subcategoryProgress` rollup in [Persistent Card Mastery](persistent-card-mastery.md), read as `where subcategoryId in [matchedIds]` (Firestore `in` caps at 30 — hence the `.limit(20)` ceiling on the search query above) against `users/{uid}/subcategoryProgress`, scoped to exactly the Subcategories the search already matched. No new read pattern: it composes directly with the live-query result set this design already produces.
+
+**That rollup does not exist yet** — no mastery, session-summary, or `subcategoryProgress` code is in the repo. Search does not block on it. The ring ships rendering a **0% placeholder** so the row's layout and leading slot are final from day one; wiring the real value is a one-call-site change once the mastery feature lands.
+
+## Explicitly deferred (not v1)
+
+- Voice/speech-to-text search input.
+- Synonym/fuzzy matching (`searchTerms` field).
+- Prefix-refinement query cache (serving a longer-prefix query by filtering a cached shorter-prefix superset locally).
+- Persisting the query cache across sessions.
+- A process-wide `categories` cache or snapshot listener spanning ViewModel recreations.
 
 ## Layering
 
 A `SearchCategoriesUseCase` in `core:domain` owns the whole pipeline: local category-name matching, the debounced live Subcategory query, the exact-string query cache, and chip-fill ranking. The Study tab ViewModel owns only the debounced text-input `Flow` and calls the use case — matches the existing `GetFlashcardsUseCase` pattern rather than putting query/cache/ranking logic directly in the ViewModel.
-
-## Progress rings on matched topics
-
-Search results show a mastery-percentage ring next to each matched topic (see screenshot in Study tab designs). This reuses the `subcategoryProgress` rollup counter from [Persistent Card Mastery](persistent-card-mastery.md) unchanged: `where subcategoryId in [matchedIds]` (Firestore `in` caps at 30) against `users/{uid}/subcategoryProgress`, scoped to exactly the Subcategories the search already matched — no new read pattern needed, it composes directly with the live-query result set this design already produces.
-
-## Explicitly deferred (not v1)
-
-- Synonym/fuzzy matching (`searchTerms` field).
-- Prefix-refinement query cache (serving a longer-prefix query by filtering a cached shorter-prefix superset locally).
-- Persisting the query cache across sessions.
