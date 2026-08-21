@@ -46,14 +46,14 @@ class StudySessionVoiceService : MediaSessionService() {
     private lateinit var mediaSession: MediaSession
 
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-    private var sessionCards: List<VoiceCard> = emptyList()
+    private var sessionCards: List<VoiceFlashcard> = emptyList()
 
     inner class LocalBinder : Binder() {
         val state: StateFlow<VoicePlaybackState> get() = player.voiceState
 
         val voiceAnswerState: StateFlow<VoiceAnswerState> get() = voiceAnswerController.state
 
-        fun loadSession(cards: List<VoiceCard>, startIndex: Int, subcategoryName: String) {
+        fun loadSession(cards: List<VoiceFlashcard>, startIndex: Int, subcategoryName: String) {
             sessionCards = cards
             player.loadAndStartSession(cards, startIndex, subcategoryName)
         }

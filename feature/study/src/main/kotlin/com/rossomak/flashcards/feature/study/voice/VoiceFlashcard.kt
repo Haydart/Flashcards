@@ -1,6 +1,6 @@
 package com.rossomak.flashcards.feature.study.voice
 
-data class VoiceCard(
+data class VoiceFlashcard(
     val spokenQuestion: String,
     val spokenAnswer: String,
     // Grading context for voice answering: the original (non-speech-transformed) card content
