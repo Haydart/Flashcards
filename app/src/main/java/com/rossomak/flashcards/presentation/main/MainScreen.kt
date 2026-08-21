@@ -1,5 +1,6 @@
 package com.rossomak.flashcards.presentation.main
 
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -20,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -70,10 +72,49 @@ private fun mainTabs(): List<TabItem> = buildList {
     addAll(debugTabs())
 }
 
+/**
+ * A tab is selected when the current destination sits anywhere under its graph, so a nested
+ * destination still keeps its parent tab highlighted.
+ */
+@Composable
+private fun MainBottomBar(
+    tabs: List<TabItem>,
+    currentDestination: NavDestination?,
+    onTabSelect: (TabItem) -> Unit,
+) {
+    NavigationBar(
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+    ) {
+        tabs.forEach { tab ->
+            val isSelected = currentDestination?.hierarchy?.any { it.hasRoute(tab.route::class) } == true
+            NavigationBarItem(
+                selected = isSelected,
+                onClick = { onTabSelect(tab) },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    selectedTextColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                ),
+                icon = {
+                    Icon(
+                        imageVector = if (isSelected) tab.selectedIcon else tab.unselectedIcon,
+                        contentDescription = tab.label,
+                    )
+                },
+                label = { Text(text = tab.label) }
+            )
+        }
+    }
+}
+
 @Composable
 fun MainScreen(
     modifier: Modifier = Modifier,
     onNavigateToCategoryDetails: (String, String) -> Unit,
+    onNavigateToSubcategoryDetails: (String, String, String, String) -> Unit,
+    onNavigateToPreviewStudySession: (String, String, String, String) -> Unit,
     onNavigateToLogin: () -> Unit,
 ) {
     val tabs = mainTabs()
@@ -84,39 +125,19 @@ fun MainScreen(
     Scaffold(
         modifier = modifier,
         bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-            ) {
-                tabs.forEach { tab ->
-                    val isSelected = currentDestination?.hierarchy?.any { it.hasRoute(tab.route::class) } == true
-                    NavigationBarItem(
-                        selected = isSelected,
-                        onClick = {
-                            tabNavController.navigate(tab.route) {
-                                popUpTo(tabNavController.graph.findStartDestination().id) {
-                                    saveState = true
-                                }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                            selectedTextColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
-                        ),
-                        icon = {
-                            Icon(
-                                imageVector = if (isSelected) tab.selectedIcon else tab.unselectedIcon,
-                                contentDescription = tab.label,
-                            )
-                        },
-                        label = { Text(text = tab.label) }
-                    )
-                }
-            }
+            MainBottomBar(
+                tabs = tabs,
+                currentDestination = currentDestination,
+                onTabSelect = { tab ->
+                    tabNavController.navigate(tab.route) {
+                        popUpTo(tabNavController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+            )
         }
     ) { innerPadding ->
         NavHost(
@@ -125,6 +146,10 @@ fun MainScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                // Declares the bottom-bar inset already spent, so any descendant applying a
+                // window-inset padding of its own adds only the part beyond the bar rather than
+                // double-counting it.
+                .consumeWindowInsets(innerPadding)
         ) {
             navigation<HomeGraph>(startDestination = HomeRoot) {
                 composable<HomeRoot> {
@@ -137,6 +162,8 @@ fun MainScreen(
                 composable<StudyRoot> {
                     BrowseScreen(
                         onNavigateToCategoryDetails = onNavigateToCategoryDetails,
+                        onNavigateToSubcategoryDetails = onNavigateToSubcategoryDetails,
+                        onNavigateToPreviewStudySession = onNavigateToPreviewStudySession,
                     )
                 }
             }

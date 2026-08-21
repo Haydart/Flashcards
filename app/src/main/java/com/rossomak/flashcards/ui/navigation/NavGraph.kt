@@ -35,6 +35,40 @@ import kotlinx.serialization.Serializable
 
 @Serializable object SettingsRoot
 
+/**
+ * Reached from three places — Category Details, and both a search result's row and its play button
+ * on the Study tab — so the route construction lives here once rather than in each `composable`
+ * block.
+ */
+private fun NavHostController.navigateToSubcategoryDetails(
+    categoryId: String,
+    categoryName: String,
+    subcategoryId: String,
+    subcategoryName: String,
+) {
+    navigate(SubcategoryDetailsRoute(categoryId, categoryName, subcategoryId, subcategoryName))
+}
+
+/**
+ * Study Creation takes a list of subcategories; every entry point that starts from a single
+ * Subcategory wraps it in a one-element list here.
+ */
+private fun NavHostController.navigateToPreviewStudySession(
+    categoryId: String,
+    categoryName: String,
+    subcategoryId: String,
+    subcategoryName: String,
+) {
+    navigate(
+        PreviewStudySessionRoute(
+            categoryId = categoryId,
+            categoryName = categoryName,
+            subcategoryIds = listOf(subcategoryId),
+            subcategoryNames = listOf(subcategoryName),
+        )
+    )
+}
+
 @Composable
 fun FlashcardsNavGraph(
     navController: NavHostController,
@@ -77,32 +111,21 @@ fun FlashcardsNavGraph(
                 },
                 onNavigateToCategoryDetails = { categoryId, categoryName ->
                     navController.navigate(CategoryDetailsRoute(categoryId, categoryName))
-                }
+                },
+                onNavigateToSubcategoryDetails = navController::navigateToSubcategoryDetails,
+                onNavigateToPreviewStudySession = navController::navigateToPreviewStudySession,
             )
         }
         composable<CategoryDetailsRoute> {
             CategoryDetailsScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToSubcategoryDetails = { categoryId, categoryName, subcategoryId, subcategoryName ->
-                    navController.navigate(
-                        SubcategoryDetailsRoute(categoryId, categoryName, subcategoryId, subcategoryName)
-                    )
-                }
+                onNavigateToSubcategoryDetails = navController::navigateToSubcategoryDetails,
             )
         }
         composable<SubcategoryDetailsRoute> {
             SubcategoryDetailsScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToPreviewStudySession = { categoryId, categoryName, subcategoryId, subcategoryName ->
-                    navController.navigate(
-                        PreviewStudySessionRoute(
-                            categoryId = categoryId,
-                            categoryName = categoryName,
-                            subcategoryIds = listOf(subcategoryId),
-                            subcategoryNames = listOf(subcategoryName),
-                        )
-                    )
-                }
+                onNavigateToPreviewStudySession = navController::navigateToPreviewStudySession,
             )
         }
         composable<PreviewStudySessionRoute> {
