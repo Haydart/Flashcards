@@ -7,4 +7,5 @@ data class CategoryDto(
     val subcategoryCount: Int = 0,
     val iconSvg: String? = null,
     val color: String? = null,
+    val featuredSubcategoryNames: List<String> = emptyList(),
 )
