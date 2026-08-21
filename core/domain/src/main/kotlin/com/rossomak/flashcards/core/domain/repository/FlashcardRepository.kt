@@ -10,5 +10,12 @@ interface FlashcardRepository {
 
     suspend fun fetchSubcategories(categoryId: String): Result<List<Subcategory>>
 
+    /**
+     * Subcategories across every category whose name starts with [namePrefix], ordered by name
+     * ascending and capped to a small page — a live query, never a bulk load of the collection.
+     * Matching is prefix-only and case-insensitive; [namePrefix] is normalized by the caller.
+     */
+    suspend fun searchSubcategories(namePrefix: String): Result<List<Subcategory>>
+
     suspend fun fetchFlashcards(subcategoryId: String): Result<List<Flashcard>>
 }
