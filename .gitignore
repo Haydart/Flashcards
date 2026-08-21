@@ -39,6 +39,9 @@ graphify-out/
 /docs/python/
 /docs/scientific-python/
 
+# Swift language reference docs — local working material, not committed
+/docs/swift/
+
 # Python bytecode cache
 scripts/__pycache__/
 
