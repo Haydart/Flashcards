@@ -50,7 +50,7 @@ import kotlinx.collections.immutable.persistentListOf
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun FlashcardsExpandableCardRow(
+fun FlashcardsExpandableListRow(
     difficulty: Int,
     title: String,
     expanded: Boolean,
@@ -134,13 +134,13 @@ fun FlashcardsExpandableCardRow(
 
 private val previewTags = persistentListOf("Views", "State")
 
-@ShowkaseComposable(name = "Card row — expanded", group = "Cards")
+@ShowkaseComposable(name = "Expandable list row — expanded", group = "Lists")
 @PreviewLightDark
 @Composable
-fun FlashcardsExpandableCardRowExpandedShowcase() {
+fun FlashcardsExpandableListRowExpandedShowcase() {
     FlashcardsTheme {
         Surface {
-            FlashcardsExpandableCardRow(
+            FlashcardsExpandableListRow(
                 difficulty = 2,
                 title = "What does `remember` do differently from `rememberSaveable`?",
                 expanded = true,
@@ -161,12 +161,12 @@ fun FlashcardsExpandableCardRowExpandedShowcase() {
     }
 }
 
-@ShowkaseComposable(name = "Card row — collapsed", group = "Cards")
+@ShowkaseComposable(name = "Expandable list row — collapsed", group = "Lists")
 @Composable
-fun FlashcardsExpandableCardRowCollapsedShowcase() {
+fun FlashcardsExpandableListRowCollapsedShowcase() {
     FlashcardsTheme {
         Surface {
-            FlashcardsExpandableCardRow(
+            FlashcardsExpandableListRow(
                 difficulty = 5,
                 title = "What is recomposition in Jetpack Compose?",
                 expanded = false,
@@ -181,10 +181,10 @@ fun FlashcardsExpandableCardRowCollapsedShowcase() {
 
 @PreviewLightDark
 @Composable
-private fun FlashcardsExpandableCardRowPreview() {
+private fun FlashcardsExpandableListRowPreview() {
     FlashcardsTheme {
         Surface {
-            FlashcardsExpandableCardRow(
+            FlashcardsExpandableListRow(
                 difficulty = 5,
                 title = "What is recomposition in Jetpack Compose?",
                 expanded = false,

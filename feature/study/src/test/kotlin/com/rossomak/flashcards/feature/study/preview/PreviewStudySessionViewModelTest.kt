@@ -2,8 +2,8 @@ package com.rossomak.flashcards.feature.study.preview
 
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
-import com.rossomak.flashcards.core.domain.model.CardSortOrder
 import com.rossomak.flashcards.core.domain.model.Flashcard
+import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.repository.FakeFlashcardRepository
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
@@ -227,10 +227,10 @@ class PreviewStudySessionViewModelTest {
 
         val viewModel = createViewModel()
         advanceUntilIdle()
-        viewModel.onSortOrderSelect(CardSortOrder.EasiestFirst)
+        viewModel.onSortOrderSelect(FlashcardSortOrder.EasiestFirst)
         viewModel.onStartSession()
 
-        viewModel.state.value.sortOrder shouldBe CardSortOrder.EasiestFirst
+        viewModel.state.value.sortOrder shouldBe FlashcardSortOrder.EasiestFirst
         viewModel.events.test {
             val destination = awaitItem() as PreviewStudySessionDestination.StudySession
             destination.route.cardIds shouldBe listOf("card-2", "card-3", "card-1")
@@ -250,7 +250,7 @@ class PreviewStudySessionViewModelTest {
 
         val viewModel = createViewModel()
         advanceUntilIdle()
-        viewModel.onSortOrderSelect(CardSortOrder.HardestFirst)
+        viewModel.onSortOrderSelect(FlashcardSortOrder.HardestFirst)
         viewModel.onStartSession()
 
         viewModel.events.test {

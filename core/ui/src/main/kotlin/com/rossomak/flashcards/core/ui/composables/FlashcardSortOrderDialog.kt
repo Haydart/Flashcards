@@ -27,15 +27,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
-import com.rossomak.flashcards.core.domain.model.CardSortOrder
+import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
 import com.rossomak.flashcards.core.ui.R
 import com.rossomak.flashcards.core.ui.theme.spacing
 
 @Composable
-fun CardSortOrderDialog(
-    selectedSortOrder: CardSortOrder,
+fun FlashcardSortOrderDialog(
+    selectedSortOrder: FlashcardSortOrder,
     showKeepAsDefaultOption: Boolean = false,
-    onSortOrderSelect: (CardSortOrder) -> Unit,
+    onSortOrderSelect: (FlashcardSortOrder) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var keepAsDefault by remember { mutableStateOf(false) }
@@ -44,13 +44,13 @@ fun CardSortOrderDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = stringResource(R.string.card_sort_order_dialog_title),
+                text = stringResource(R.string.flashcard_sort_order_dialog_title),
                 style = MaterialTheme.typography.headlineSmall,
             )
         },
         text = {
             Column(modifier = Modifier.selectableGroup()) {
-                CardSortOrder.entries.forEach { sortOrder ->
+                FlashcardSortOrder.entries.forEach { sortOrder ->
                     SortOrderRow(
                         label = sortOrder.label(),
                         isSelected = sortOrder == selectedSortOrder,
@@ -74,7 +74,7 @@ fun CardSortOrderDialog(
                             onCheckedChange = null,
                         )
                         Spacer(modifier = Modifier.width(MaterialTheme.spacing.xsmall))
-                        Text(text = stringResource(R.string.card_sort_order_keep_as_default_label))
+                        Text(text = stringResource(R.string.flashcard_sort_order_keep_as_default_label))
                     }
                 }
             }
@@ -112,17 +112,17 @@ private fun SortOrderRow(
 }
 
 @Composable
-private fun CardSortOrder.label(): String = when (this) {
-    CardSortOrder.Default -> stringResource(R.string.card_sort_order_default_label)
-    CardSortOrder.EasiestFirst -> stringResource(R.string.card_sort_order_easiest_first_label)
-    CardSortOrder.HardestFirst -> stringResource(R.string.card_sort_order_hardest_first_label)
+private fun FlashcardSortOrder.label(): String = when (this) {
+    FlashcardSortOrder.Default -> stringResource(R.string.flashcard_sort_order_default_label)
+    FlashcardSortOrder.EasiestFirst -> stringResource(R.string.flashcard_sort_order_easiest_first_label)
+    FlashcardSortOrder.HardestFirst -> stringResource(R.string.flashcard_sort_order_hardest_first_label)
 }
 
 @Preview
 @Composable
-private fun CardSortOrderDialogSessionPreview() {
-    CardSortOrderDialog(
-        selectedSortOrder = CardSortOrder.HardestFirst,
+private fun FlashcardSortOrderDialogSessionPreview() {
+    FlashcardSortOrderDialog(
+        selectedSortOrder = FlashcardSortOrder.HardestFirst,
         showKeepAsDefaultOption = true,
         onSortOrderSelect = {},
         onDismiss = {},
@@ -131,9 +131,9 @@ private fun CardSortOrderDialogSessionPreview() {
 
 @Preview
 @Composable
-private fun CardSortOrderDialogSettingsPreview() {
-    CardSortOrderDialog(
-        selectedSortOrder = CardSortOrder.Default,
+private fun FlashcardSortOrderDialogSettingsPreview() {
+    FlashcardSortOrderDialog(
+        selectedSortOrder = FlashcardSortOrder.Default,
         showKeepAsDefaultOption = false,
         onSortOrderSelect = {},
         onDismiss = {},

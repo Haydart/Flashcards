@@ -1,6 +1,6 @@
 package com.rossomak.flashcards.feature.study.preview
 
-import com.rossomak.flashcards.core.domain.model.CardSortOrder
+import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
 import com.rossomak.flashcards.core.domain.model.StudyMode
 
 data class PreviewStudySessionScreenState(
@@ -15,7 +15,7 @@ data class PreviewStudySessionScreenState(
     val selectedStudyMode: StudyMode = StudyMode.Rated,
     val sessionCardCount: Int = DEFAULT_SESSION_CARD_COUNT,
     val difficultyRange: IntRange = MIN_DIFFICULTY..MAX_DIFFICULTY,
-    val sortOrder: CardSortOrder = CardSortOrder.Default,
+    val sortOrder: FlashcardSortOrder = FlashcardSortOrder.Default,
     val isSortDialogVisible: Boolean = false,
 ) {
     val isSingleTopic: Boolean get() = subcategoryNames.size == 1

@@ -157,7 +157,7 @@ private fun FlashcardList(
     ) {
         flashcardsListGroupItems(
             items = flashcards.map { flashcard ->
-                FlashcardsListGroupItem.ExpandableCard(
+                FlashcardsListGroupItem.ExpandableRow(
                     key = flashcard.id,
                     difficulty = flashcard.difficulty,
                     title = flashcard.question,

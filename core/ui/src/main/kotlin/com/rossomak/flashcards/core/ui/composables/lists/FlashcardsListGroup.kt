@@ -41,7 +41,7 @@ import kotlinx.collections.immutable.persistentListOf
 /**
  * The closed set of row kinds [FlashcardsListGroup] and [flashcardsListGroupItems] can render —
  * one variant per dedicated row composable ([FlashcardsListRow], [FlashcardsDetailedListRow],
- * [FlashcardsSelectableListRow], [FlashcardsExpandableCardRow]). There is no free-form
+ * [FlashcardsSelectableListRow], [FlashcardsExpandableListRow]). There is no free-form
  * `content: @Composable () -> Unit` slot: a group can only ever render these row kinds, so
  * [flashcardsListItemShape] stays owned entirely by the container that dispatches on this sealed
  * type — a row composable never shapes itself.
@@ -51,7 +51,7 @@ sealed interface FlashcardsListGroupItem {
     /**
      * A stable identity for this row (e.g. a domain model's `id`), used as the composition/lazy
      * item key. Rows with per-row remembered state — [Selectable]'s selection tint animation,
-     * [ExpandableCard]'s chevron rotation and expand/collapse transition — must set this when the
+     * [ExpandableRow]'s chevron rotation and expand/collapse transition — must set this when the
      * list can reorder, filter, or resize while visible; otherwise Compose reuses composition
      * slots by position and that internal animation state can end up attached to the wrong row.
      * Defaults to `null`, in which case the container falls back to the row's index — fine for
@@ -101,8 +101,8 @@ sealed interface FlashcardsListGroupItem {
         override val key: Any? = null,
     ) : FlashcardsListGroupItem
 
-    /** Renders as [FlashcardsExpandableCardRow]. */
-    data class ExpandableCard(
+    /** Renders as [FlashcardsExpandableListRow]. */
+    data class ExpandableRow(
         val difficulty: Int,
         val title: String,
         val expanded: Boolean,
@@ -151,7 +151,7 @@ private fun FlashcardsListGroupRow(item: FlashcardsListGroupItem, modifier: Modi
             enabled = item.enabled,
             trailing = item.trailing,
         )
-        is FlashcardsListGroupItem.ExpandableCard -> FlashcardsExpandableCardRow(
+        is FlashcardsListGroupItem.ExpandableRow -> FlashcardsExpandableListRow(
             modifier = modifier,
             difficulty = item.difficulty,
             title = item.title,

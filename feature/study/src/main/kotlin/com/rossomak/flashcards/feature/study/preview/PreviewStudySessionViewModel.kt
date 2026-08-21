@@ -3,8 +3,8 @@ package com.rossomak.flashcards.feature.study.preview
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.rossomak.flashcards.core.domain.model.CardSortOrder
 import com.rossomak.flashcards.core.domain.model.Flashcard
+import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.ui.navigation.decodeRoute
@@ -84,7 +84,7 @@ class PreviewStudySessionViewModel @Inject constructor(
         _state.update { it.copy(isSortDialogVisible = false) }
     }
 
-    fun onSortOrderSelect(sortOrder: CardSortOrder) {
+    fun onSortOrderSelect(sortOrder: FlashcardSortOrder) {
         _state.update { it.copy(sortOrder = sortOrder) }
         selectCards()
     }
@@ -135,9 +135,9 @@ class PreviewStudySessionViewModel @Inject constructor(
         val eligibleCards = cardPool.filter { it.difficulty in difficultyRange }
         val drawnCards = eligibleCards.shuffled().take(_state.value.sessionCardCount)
         selectedCards = when (_state.value.sortOrder) {
-            CardSortOrder.Default -> drawnCards
-            CardSortOrder.EasiestFirst -> drawnCards.sortedBy { it.difficulty }
-            CardSortOrder.HardestFirst -> drawnCards.sortedByDescending { it.difficulty }
+            FlashcardSortOrder.Default -> drawnCards
+            FlashcardSortOrder.EasiestFirst -> drawnCards.sortedBy { it.difficulty }
+            FlashcardSortOrder.HardestFirst -> drawnCards.sortedByDescending { it.difficulty }
         }
         _state.update {
             it.copy(

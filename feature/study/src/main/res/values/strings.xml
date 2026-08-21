@@ -10,7 +10,7 @@
     <string name="study_session_voice_answer_error_message">Couldn\'t grade that answer</string>
     <string name="study_session_voice_answer_label">Voice answering</string>
     <string name="study_session_show_answer_cd">Show answer</string>
-    <string name="study_session_next_card_cd">Next card</string>
+    <string name="study_session_next_flashcard_cd">Next flashcard</string>
     <string name="study_session_voice_answer_consent_title">Hands-free voice answering</string>
     <string name="study_session_voice_answer_consent_message">While a study session with voice answering is active, the microphone listens in the background (a persistent notification is shown). Your voice is obfuscated on this device before anything leaves it, audio is never stored, and only a sanitized transcript with its grade is saved to your account.</string>
     <string name="study_session_voice_answer_consent_accept_button">Enable</string>
@@ -19,5 +19,5 @@
     <string name="study_session_voice_answer_failure_spoken_message">Couldn\'t grade that answer, moving on.</string>
     <string name="study_session_voice_answer_skip_spoken_message">No answer heard, moving on.</string>
     <string name="study_session_no_cards_message">No cards available</string>
-    <string name="study_session_curate_card_cd">Curate card</string>
+    <string name="study_session_curate_flashcard_cd">Curate flashcard</string>
 </resources>
