@@ -6,7 +6,7 @@
 
 The Study tab search box (search categories/topics) needs to feel "smart" — searching "compose" should surface both the `Compose` Subcategory and the `Android` Category (because one of its children matched); searching "testing" should surface every matching Subcategory across every Category, plus each of those parent Categories. All of this must run on a debounced live Firestore query, never a full local cache of `subcategories` (that collection is expected to keep growing; loading it in full to answer a "handful of subcategories" search is wasteful).
 
-This doc covers matching rules, result layout, the two Firestore schema fields it depends on, the read-cost budget for both the default Browse state and live search, and where the logic lives in the module structure. Related: [Category icon+color](category-icon-color.md) (sibling denormalized-field design), [Persistent Card Mastery](persistent-card-mastery.md) (the `subcategoryProgress` rollup that will eventually supply the progress rings shown alongside matched topics — see "Progress rings" below for what ships in the meantime).
+This doc covers matching rules, result layout, the two Firestore schema fields it depends on, the read-cost budget for both the default Browse state and live search, and where the logic lives in the module structure. Related: [Category icon+color](category-icon-color.md) (sibling denormalized-field design), [Persistent Card Mastery](persistent-card-mastery.md) (the `subcategoryProgress` rollup that will eventually supply the progress rings shown alongside matched Subcategories — see "Progress rings" below for what ships in the meantime).
 
 ## Matching rule: prefix-only, uniform
 
@@ -39,7 +39,7 @@ CATEGORIES
 
 **TOPICS** — one flat row per matched Subcategory (`FlashcardsListGroupItem.Row`): a mastery ring, the topic name, a secondary line reading `in <CategoryName>` prefixed by the parent Category's small tinted icon glyph, and two distinct tap targets — a play button and a chevron. The parent's name and glyph cost nothing extra: `categoryName` is already denormalized onto the Subcategory doc (ADR-0007), and the glyph comes from the cached `categories` list keyed by `categoryId`.
 
-**CATEGORIES** — the existing Browse category row shape (`FlashcardsListGroupItem.DetailedRow`): icon tile, name, chip line, topic count, chevron. **No play button** — starting a session is a topic-level action, and a Category is not a study unit.
+**CATEGORIES** — the existing Browse category row shape (`FlashcardsListGroupItem.DetailedRow`): icon tile, name, chip line, subcategory count, chevron. **No play button** — starting a session is a Subcategory-level action, and a Category is not a study unit.
 
 The default (no query) state is the same category row shape it is today, under its own `CATEGORIES` overline header — the header is new; the Browse screen currently renders the group with no section label.
 
@@ -59,15 +59,17 @@ deduplicated, in stored `order`. Branch 1 is what puts `Android` under a search 
 ## Firestore schema additions (ADR-0007)
 
 ```
-categories/{categoryId}     → { ..., topSubcategoryNames: [String] }   (up to 5, see below)
+categories/{categoryId}     → { ..., featuredSubcategoryNames: [String] }   (up to 5, see below)
 subcategories/{subcategoryId} → { ..., nameLower: String }
 ```
 
-`topSubcategoryNames`: the display names of the top-5 Subcategories per Category, ranked by the same card-volume-descending order that already produces each Subcategory's `order` field (`build_fixture.py`). Computed once at fixture-build time. **Not sticky** — unlike `iconSvg`/`color`, this is pure derived data with no manual curation, so every reseed overwrites it unconditionally as ranks shift with card counts.
+`featuredSubcategoryNames`: the display names of the top-5 Subcategories per Category, ranked by the same card-volume-descending order that already produces each Subcategory's `order` field (`build_fixture.py`). Computed once at fixture-build time. **Not sticky** — unlike `iconSvg`/`color`, this is pure derived data with no manual curation, so every reseed overwrites it unconditionally as ranks shift with card counts.
 
 `nameLower`: `name.lower()`, computed at fixture-build time for every Subcategory. Exists solely to make prefix-range queries case-insensitive. It is a Firestore query implementation detail with no UI consumer, so it lives on `SubcategoryDto` and the Firestore payload only — the domain `Subcategory` model does not carry it and the mapper drops it.
 
-**Backfilling existing docs.** `seed_firestore.py` writes `subcategories` in `--skip-existing` mode by default: a doc is written only if its id is *absent*. Re-running the seed normally therefore leaves `nameLower` off all pre-existing Subcategory docs, and search silently returns nothing. The rollout is a full `--overwrite` reseed (dry-run first). Blast radius, checked against the script: `categories` writes still go through `set(merge=True)`, so a field absent from the payload is not deleted and curated `iconSvg`/`color` survive; `subcategories` and `flashcards` get whole-document `set()` rewrites, which is write cost rather than data loss as long as nothing writes to those documents at runtime — true today, and a constraint to re-check once card-level mastery state lands.
+**Backfilling existing docs.** `seed_firestore.py` writes `subcategories` in `--skip-existing` mode by default: a doc is written only if its id is *absent*. Re-running the seed normally therefore leaves `nameLower` off every pre-existing Subcategory doc — and because a Firestore range filter **excludes documents that lack the queried field entirely**, search then returns nothing at all rather than stale results. The same applies to `featuredSubcategoryNames` on Categories, which silently falls back to the placeholder chip line.
+
+The rollout is `scripts/seed/backfill_search_fields.py` (dry-run first), which `set(merge=True)`s just these fields onto documents that already exist. It exists because the blunt alternative — a full `--overwrite` reseed — rewrites all ~18k card documents to repair a few dozen, and bypasses the `iconSvg`/`color` sticky-field check on Categories. Documents in the fixture but absent from Firestore are reported and skipped rather than half-created; creating them properly remains `seed_firestore.py`'s job. Both scripts read the same fixture, so the sequence is always `build_fixture.py` first.
 
 ## Read budget
 
@@ -101,21 +103,25 @@ Cost: at most 20 docs, and in practice exactly the number of matched Subcategory
 
 There is **no voice/mic affordance** in v1. Speech-to-text into the search field is a separate feature with its own permission, consent, and listening-state surface, and shipping a visible-but-inert mic button is worse than shipping none.
 
+**The field is Material 3's `SearchBarDefaults.InputField`, used without the `SearchBar` wrapper.** M3's intended pairing is a collapsed `SearchBar` plus an `ExpandedFullScreenSearchBar` (or `ExpandedDockedSearchBar`) that animates the pill into a full-screen surface owning the results. This design does not expand that way: the bar stays put, the bottom tab bar stays visible, and results render as ordinary page content below. Since a collapsed `SearchBar` is only a `Surface` around the input field, and the input field already draws its own pill container, omitting the wrapper costs nothing.
+
+Taken from M3 rather than re-implemented: the pill container and colors (`SurfaceContainerHigh`, `CornerFull`, 56dp), the IME "search" action, the search/suggestions-available accessibility semantics, and the two-way coupling between focus and active state. Two consequences follow from skipping the expanded composables: **back handling is not inherited** — the `BackHandler` described above is the screen's own, not M3's — and neither is M3's predictive-back animation. The input field also carries a 720dp max width, so on a tablet the bar stops short of the full window even though the results below it do not.
+
 ## Chip-line construction
 
 Both the default Browse state and live search results render a short list of Subcategory names under each Category row (`Compose · Coroutines · Compose Navig…`, truncated by available width in the UI, not by a fixed count — the underlying data always carries up to 5 names).
 
-**Default state:** `Category.topSubcategoryNames` directly, in stored order (card-volume descending).
+**Default state:** `Category.featuredSubcategoryNames` directly, in stored order (card-volume descending).
 
-**Search-mode (query active):** matched Subcategory(ies) for that Category come first, then the list is backfilled — skipping duplicates — from `topSubcategoryNames`/prominence order until 5 names are reached. If more than one Subcategory within the same Category matches the query, the matches themselves are ordered by their own prominence `order` (not match position, not alphabetically, and *not* the `nameLower` ordering the TOPICS section uses — that ordering is a property of the flat result list, not of a chip line). One prominence signal, used everywhere a chip line is built, with no special case for the multi-match branch.
+**Search-mode (query active):** matched Subcategory(ies) for that Category come first, then the list is backfilled — skipping duplicates — from `featuredSubcategoryNames`/prominence order until 5 names are reached. If more than one Subcategory within the same Category matches the query, the matches themselves are ordered by their own prominence `order` (not match position, not alphabetically, and *not* the `nameLower` ordering the TOPICS section uses — that ordering is a property of the flat result list, not of a chip line). One prominence signal, used everywhere a chip line is built, with no special case for the multi-match branch.
 
-Example: query "testing" → Android chip line is `Testing, Compose, Background` (Testing is the match; Compose/Background are Android's next-most-prominent topics, unrelated to the query, filling out the line).
+Example: query "testing" → Android chip line is `Testing, Compose, Background` (Testing is the match; Compose/Background are Android's next-most-prominent Subcategories, unrelated to the query, filling out the line).
 
-Note that for some queries the reordered line is indistinguishable from the default one — a query matching a Subcategory that already leads `topSubcategoryNames` reorders nothing. That is a coincidence of the data, not evidence the reordering step can be skipped.
+Note that for some queries the reordered line is indistinguishable from the default one — a query matching a Subcategory that already leads `featuredSubcategoryNames` reorders nothing. That is a coincidence of the data, not evidence the reordering step can be skipped.
 
-## Progress rings on matched topics
+## Progress rings on matched Subcategories
 
-Topic rows in search results carry a mastery-percentage ring. The data behind it comes from the `subcategoryProgress` rollup in [Persistent Card Mastery](persistent-card-mastery.md), read as `where subcategoryId in [matchedIds]` (Firestore `in` caps at 30 — hence the `.limit(20)` ceiling on the search query above) against `users/{uid}/subcategoryProgress`, scoped to exactly the Subcategories the search already matched. No new read pattern: it composes directly with the live-query result set this design already produces.
+Subcategory rows in search results carry a mastery-percentage ring. The data behind it comes from the `subcategoryProgress` rollup in [Persistent Card Mastery](persistent-card-mastery.md), read as `where subcategoryId in [matchedIds]` (Firestore `in` caps at 30 — hence the `.limit(20)` ceiling on the search query above) against `users/{uid}/subcategoryProgress`, scoped to exactly the Subcategories the search already matched. No new read pattern: it composes directly with the live-query result set this design already produces.
 
 **That rollup does not exist yet** — no mastery, session-summary, or `subcategoryProgress` code is in the repo. Search does not block on it. The ring ships rendering a **0% placeholder** so the row's layout and leading slot are final from day one; wiring the real value is a one-call-site change once the mastery feature lands.
 
