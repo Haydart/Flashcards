@@ -5,8 +5,8 @@ Globs the gitignored temp dir (default `scripts/seed/.tmp/*.json`) for fixtures
 produced by `build_fixture.py` and upserts them via the Firebase Admin SDK.
 
 Schema written (see ADR-0007):
-  categories/{categoryId}                               → { name, order, subcategoryCount, iconSvg, color }
-  subcategories/{categoryId-subSlug}                    → { name, categoryId, categoryName, order, cardCount }
+  categories/{categoryId}                               → { name, order, subcategoryCount, iconSvg, color, featuredSubcategoryNames[] }
+  subcategories/{categoryId-subSlug}                    → { name, nameLower, categoryId, categoryName, order, cardCount }
   subcategories/{categoryId-subSlug}/flashcards/{cardId} → { question, answer, tags[], createdAt, ... }
 
 The `subcategoryId` field carried in the fixture is used to route each card into the correct
@@ -26,7 +26,14 @@ Idempotency:
                              makes re-seeding non-destructive.
   --overwrite                subcategories/cards: set() every doc unconditionally (clobbers
                              console edits). categories: also clobbers `iconSvg`/`color` sticky
-                             fields, bypassing the preserve-existing-value check.
+                             fields, bypassing the preserve-existing-value check — though the
+                             write is still `set(merge=True)`, so a field the fixture omits (an
+                             uncurated icon) is left alone rather than deleted.
+
+                             Required when a NEW denormalized field is added to an existing
+                             collection: --skip-existing writes only absent doc ids, so a field
+                             like `nameLower` never reaches docs that already exist, and search
+                             silently matches nothing. Dry-run first.
   --dry-run                  report planned writes/skips without touching Firestore. Still reads
                              existing docs (categories: to evaluate sticky fields; others: to
                              determine skip/write), it just skips the write call itself.
