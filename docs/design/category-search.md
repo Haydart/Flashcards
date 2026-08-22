@@ -1,6 +1,6 @@
 # Category & Subcategory Search
 
-**Status:** Design only — not yet implemented. Scoped as its own feature branch: touches Firestore schema (ADR-0007), the seed pipeline, `core:data`, `core:domain`, and the Study tab UI.
+**Status:** Implemented.
 
 ## Overview
 
@@ -69,7 +69,7 @@ subcategories/{subcategoryId} → { ..., nameLower: String }
 
 **Backfilling existing docs.** `seed_firestore.py` writes `subcategories` in `--skip-existing` mode by default: a doc is written only if its id is *absent*. Re-running the seed normally therefore leaves `nameLower` off every pre-existing Subcategory doc — and because a Firestore range filter **excludes documents that lack the queried field entirely**, search then returns nothing at all rather than stale results. The same applies to `featuredSubcategoryNames` on Categories, which silently falls back to the placeholder chip line.
 
-The rollout is `scripts/seed/backfill_search_fields.py` (dry-run first), which `set(merge=True)`s just these fields onto documents that already exist. It exists because the blunt alternative — a full `--overwrite` reseed — rewrites all ~18k card documents to repair a few dozen, and bypasses the `iconSvg`/`color` sticky-field check on Categories. Documents in the fixture but absent from Firestore are reported and skipped rather than half-created; creating them properly remains `seed_firestore.py`'s job. Both scripts read the same fixture, so the sequence is always `build_fixture.py` first.
+Existing Subcategory and Category documents were backfilled with a one-off script, run once and not checked in. No repeatable backfill path is needed going forward: `seed_firestore.py` writes both fields on every new or `--overwrite`-reseeded document.
 
 ## Read budget
 
@@ -95,17 +95,17 @@ Cost: at most 20 docs, and in practice exactly the number of matched Subcategory
 - **Debounce:** 500ms after the last keystroke before firing a query.
 - **Query cache:** exact-string keyed (`"testing" → [matched docs]`), in-memory, scoped to the search ViewModel/use case lifetime — cleared on leaving the screen or process death. Not persisted. Not prefix-aware (a query for `"testin"` after already having fetched `"testing"` results is a fresh live query, not a local filter of the cached superset) — deliberately the simplest option that satisfies "don't repeat a query we already ran"; a prefix-refinement cache (exploiting that `"testin"` results ⊇ `"testing"` results) is a viable future optimization if read volume warrants it.
 
-**Entering and leaving search.** Search is inline on the Browse screen — it is not a separate route and takes no back-stack entry. The field's leading icon flips from a search glyph to a back arrow once search is active, and a clear (✕) affordance appears trailing. The two are not redundant:
+**Entering and leaving search.** The field uses Material 3's intended pairing: a collapsed `TopSearchBar` sits above the category list, and tapping it expands into an `ExpandedFullScreenSearchBar` — a dialog window that takes over the screen, hiding the bottom navigation bar while it's up. The field's leading icon flips from a search glyph to a back arrow once expanded, and a clear (✕) affordance appears trailing. The two are not redundant:
 
-- **✕** clears the query text but keeps search mode and focus, so a long query can be retyped without losing the mode.
-- **Back arrow** leaves search mode entirely: clears the query, drops focus, restores the default category list.
-- **System back** mirrors the back arrow, via a `BackHandler` enabled only while search is active. Without it, a system back press mid-search would yank the user off the Study tab, which reads as a bug on Android.
+- **✕** clears the query text but keeps the dialog open and focus intact, so a long query can be retyped without losing the mode.
+- **Back arrow** collapses the dialog: clears focus and hides the keyboard, then animates `SearchBarState` back to collapsed, which restores the default category list.
+- **System back and predictive back** are handled by the dialog itself — M3 owns both, so no `BackHandler` is needed on the screen.
 
 There is **no voice/mic affordance** in v1. Speech-to-text into the search field is a separate feature with its own permission, consent, and listening-state surface, and shipping a visible-but-inert mic button is worse than shipping none.
 
-**The field is Material 3's `SearchBarDefaults.InputField`, used without the `SearchBar` wrapper.** M3's intended pairing is a collapsed `SearchBar` plus an `ExpandedFullScreenSearchBar` (or `ExpandedDockedSearchBar`) that animates the pill into a full-screen surface owning the results. This design does not expand that way: the bar stays put, the bottom tab bar stays visible, and results render as ordinary page content below. Since a collapsed `SearchBar` is only a `Surface` around the input field, and the input field already draws its own pill container, omitting the wrapper costs nothing.
+**The field is Material 3's `SearchBarDefaults.InputField`, shared between the collapsed `TopSearchBar` and the expanded dialog** — one composable lambda passed to both, so the query text and cursor position survive the transition between them. `SearchBarState` owns expansion, `TextFieldState` owns the query text; both are synced to `BrowseViewModel` state one-way (state → ViewModel), so the debounce, minimum length, cache, and matching rules are untouched by the M3 plumbing.
 
-Taken from M3 rather than re-implemented: the pill container and colors (`SurfaceContainerHigh`, `CornerFull`, 56dp), the IME "search" action, the search/suggestions-available accessibility semantics, and the two-way coupling between focus and active state. Two consequences follow from skipping the expanded composables: **back handling is not inherited** — the `BackHandler` described above is the screen's own, not M3's — and neither is M3's predictive-back animation. The input field also carries a 720dp max width, so on a tablet the bar stops short of the full window even though the results below it do not.
+Taken from M3 as-is: the pill container and colors, the IME "search" action, the search/suggestions-available accessibility semantics, the two-way coupling between focus and expansion, back and predictive-back handling, and the keyboard insets on the expanded results (no `imePadding()` needed — that's the dialog's problem). M3 1.4.0 ships only the edge-to-edge full-screen expanded style; the "contained" look (a `Surface` distinct from the input field's own container, an inset field, a transparent divider) is achieved with `SearchBarColors`/`Modifier` configuration at the call site, not a supported style flag.
 
 ## Chip-line construction
 
