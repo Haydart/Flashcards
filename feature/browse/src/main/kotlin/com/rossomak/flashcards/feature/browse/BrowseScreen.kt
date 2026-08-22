@@ -46,7 +46,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.launch
 import com.rossomak.flashcards.core.domain.model.Category
 import com.rossomak.flashcards.core.domain.model.CategorySearchResults
 import com.rossomak.flashcards.core.domain.model.CategoryWithSubcategorySummary
@@ -61,6 +60,7 @@ import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListGroup
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListGroupItem
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import com.rossomak.flashcards.core.ui.theme.spacing
+import kotlinx.coroutines.launch
 
 /** Separator between Subcategory names in a category's chip line: `Compose · Coroutines · Testing`. */
 private const val SUBCATEGORY_SUMMARY_SEPARATOR = " · "
