@@ -109,7 +109,7 @@ fun FlashcardsProgressRingShowcase() {
 private fun FlashcardsProgressRingPreview() {
     FlashcardsTheme {
         Surface {
-            Box(modifier = Modifier.size(64.dp), contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.size(MaterialTheme.sizes.listRowMinHeight), contentAlignment = Alignment.Center) {
                 FlashcardsProgressRing(progress = 0.86f, contentDescription = "86% mastered")
             }
         }
