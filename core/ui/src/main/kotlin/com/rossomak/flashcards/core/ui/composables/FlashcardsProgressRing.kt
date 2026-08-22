@@ -13,8 +13,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
@@ -52,7 +52,7 @@ fun FlashcardsProgressRing(
     Box(
         modifier = modifier
             .size(MaterialTheme.sizes.progressRing)
-            .semantics { this.contentDescription = contentDescription },
+            .clearAndSetSemantics { this.contentDescription = contentDescription },
         contentAlignment = Alignment.Center,
     ) {
         Canvas(modifier = Modifier.size(MaterialTheme.sizes.progressRing)) {
