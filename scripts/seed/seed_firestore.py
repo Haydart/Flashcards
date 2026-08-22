@@ -30,10 +30,14 @@ Idempotency:
                              write is still `set(merge=True)`, so a field the fixture omits (an
                              uncurated icon) is left alone rather than deleted.
 
-                             Required when a NEW denormalized field is added to an existing
-                             collection: --skip-existing writes only absent doc ids, so a field
-                             like `nameLower` never reaches docs that already exist, and search
-                             silently matches nothing. Dry-run first.
+                             Required when a NEW denormalized field is added to a
+                             --skip-existing collection (subcategories/cards): --skip-existing
+                             writes only absent doc ids, so a field like `subcategories.nameLower`
+                             never reaches docs that already exist, and search silently matches
+                             nothing. Dry-run first. Does NOT apply to `categories` — that
+                             collection is always merge-written regardless of this flag, so a new
+                             category field such as `featuredSubcategoryNames` reaches every
+                             existing doc on a plain re-seed with no flag needed.
   --dry-run                  report planned writes/skips without touching Firestore. Still reads
                              existing docs (categories: to evaluate sticky fields; others: to
                              determine skip/write), it just skips the write call itself.
