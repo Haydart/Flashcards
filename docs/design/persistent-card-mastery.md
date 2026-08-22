@@ -43,7 +43,7 @@ Document fields:
 - `categoryId`: denormalized, so all topics in one Category can be fetched in a single query
 - `masteredCount`: Int, running count of this User's currently-mastered cards in this Subcategory
 
-Percentage shown in the UI = `masteredCount / subcategory.cardCount`. `cardCount` is already denormalized on the `subcategories` doc (ADR-0007) and cached client-side from the Study tab's live listener (see [Search read path](#search-read-path)), so no extra read is needed for the denominator.
+Percentage shown in the UI = `masteredCount / subcategory.cardCount`. `cardCount` is already denormalized on the `subcategories` doc (ADR-0007) and cached client-side from the Study tab's live listener (see [Reading progress](#reading-progress)), so no extra read is needed for the denominator.
 
 ### Write mechanics
 
