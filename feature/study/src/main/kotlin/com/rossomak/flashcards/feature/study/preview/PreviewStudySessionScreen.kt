@@ -53,9 +53,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.rossomak.flashcards.core.domain.model.CardSortOrder
+import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
 import com.rossomak.flashcards.core.domain.model.StudyMode
-import com.rossomak.flashcards.core.ui.composables.CardSortOrderDialog
+import com.rossomak.flashcards.core.ui.composables.FlashcardSortOrderDialog
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import com.rossomak.flashcards.feature.study.StudySessionRoute
 import kotlin.math.roundToInt
@@ -104,11 +104,11 @@ fun PreviewStudySessionContent(
     onStudyModeSelect: (StudyMode) -> Unit,
     onSortDialogShow: () -> Unit,
     onSortDialogDismiss: () -> Unit,
-    onSortOrderSelect: (CardSortOrder) -> Unit,
+    onSortOrderSelect: (FlashcardSortOrder) -> Unit,
     onStartSession: () -> Unit,
 ) {
     if (state.isSortDialogVisible) {
-        CardSortOrderDialog(
+        FlashcardSortOrderDialog(
             selectedSortOrder = state.sortOrder,
             showKeepAsDefaultOption = true,
             onSortOrderSelect = onSortOrderSelect,
@@ -413,10 +413,10 @@ private fun screenTitle(state: PreviewStudySessionScreenState): String = when {
     else -> "${state.categoryName} · Custom session"
 }
 
-private fun sortOrderLabel(sortOrder: CardSortOrder): String = when (sortOrder) {
-    CardSortOrder.Default -> "Default"
-    CardSortOrder.EasiestFirst -> "Easiest first"
-    CardSortOrder.HardestFirst -> "Hardest first"
+private fun sortOrderLabel(sortOrder: FlashcardSortOrder): String = when (sortOrder) {
+    FlashcardSortOrder.Default -> "Default"
+    FlashcardSortOrder.EasiestFirst -> "Easiest first"
+    FlashcardSortOrder.HardestFirst -> "Hardest first"
 }
 
 private fun scopeDescription(state: PreviewStudySessionScreenState): AnnotatedString = buildAnnotatedString {

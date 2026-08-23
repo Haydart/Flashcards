@@ -97,6 +97,10 @@ The flow a user goes through to start a Study Session. All entry points route th
 - **Composite**: tap "Start Composite Session" on Category Details → list enters multi-select → user selects Subcategories → taps Start → Preview Study Session Screen → session begins.
 _Avoid_: Session setup, Session wizard
 
+**Browse Search**:
+The inline search flow on the Browse screen: a query typed into the search box live-queries Subcategories by name prefix and locally prefix-matches loaded Categories, rendering matches as two sections — Subcategories (labelled **Topic** per the Subcategory UI name) above Categories. Not a separate route; takes no back-stack entry. See [docs/design/category-search.md](docs/design/category-search.md).
+_Avoid_: Category search, Topic search (Subcategory is the canonical term outside the UI label; see Subcategory's avoid list)
+
 **Preview Study Session Screen**:
 A full-screen preview shown before every Study Session begins. A read-only hero shows session scope (card count, topic count, estimated duration). Below it, a persistent **no-scrim bottom sheet** presents each adjustable session setting as a summary row — Mode (Rated | Fast), Voice answering (Rated only), Voice/TTS (when TTS applies), Length, Filters, Sort — each showing its current value and opening a focused modal edit sheet; plus a "Start session" button and a "Re-randomize" button (multi-topic and Quick sessions only). Only place in the app where Study Mode (and, up front, Voice answering) is chosen for a concrete session — onboarding and the Settings screen only set the persisted default, they don't start a session. Each Preview setting popup (except Filters) also carries a "keep as default" checkbox to update that persisted default from here. See ADR-0030.
 _Avoid_: Pre-start Screen (retired name), Pre-session screen, Session config, Mode picker

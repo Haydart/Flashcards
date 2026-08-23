@@ -15,6 +15,7 @@ fun CategoryDto.toDomain() = Category(
     subcategoryCount = subcategoryCount,
     iconSvg = iconSvg,
     color = color,
+    featuredSubcategoryNames = featuredSubcategoryNames,
 )
 
 fun SubcategoryDto.toDomain() = Subcategory(

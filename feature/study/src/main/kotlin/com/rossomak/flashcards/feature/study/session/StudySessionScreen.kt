@@ -481,7 +481,7 @@ fun StudySessionContent(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Build,
-                        contentDescription = stringResource(R.string.study_session_curate_card_cd),
+                        contentDescription = stringResource(R.string.study_session_curate_flashcard_cd),
                     )
                 }
             }
@@ -753,7 +753,7 @@ private fun StudySessionSheetContent(
                             imageVector = Icons.Default.SkipNext,
                             contentDescription = stringResource(
                                 if (state.isVoiceAnswerEnabled || state.isAnswerRevealed) {
-                                    R.string.study_session_next_card_cd
+                                    R.string.study_session_next_flashcard_cd
                                 } else {
                                     R.string.study_session_show_answer_cd
                                 }

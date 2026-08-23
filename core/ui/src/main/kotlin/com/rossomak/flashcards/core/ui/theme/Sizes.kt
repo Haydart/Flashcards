@@ -52,7 +52,7 @@ object AppSizes {
     /** Diameter of the circular difficulty badge (leading element of flashcard rows). */
     val difficultyBadge: Dp = 28.dp
 
-    /** Height of the difficulty range pill (filters, session setup summaries). */
+    /** Height of the difficulty range pill (filters, Study Creation summaries). */
     val difficultyRangePillHeight: Dp = 26.dp
 
     /** Height of a [com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentSize.Normal] button. */
@@ -64,6 +64,12 @@ object AppSizes {
      * the M3 `Button`/`FilledTonalButton`/`OutlinedButton`/`TextButton` family.
      */
     val buttonHeightSmall: Dp = 40.dp
+
+    /** Diameter of the circular mastery progress ring used as a leading element of topic rows. */
+    val progressRing: Dp = 40.dp
+
+    /** Stroke width of the [progressRing] track and its filled arc. */
+    val progressRingStroke: Dp = 3.dp
 
     // Button icon size isn't a design-system token: it's androidx.compose.material3.ButtonDefaults.IconSize
     // (18dp), referenced directly in FlashcardsButtonMetrics.kt. Both size tiers share that one M3

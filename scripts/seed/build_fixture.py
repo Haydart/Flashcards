@@ -9,8 +9,10 @@ The fixture is intentionally NOT committed — it is a throwaway hand-off to
 `seed_firestore.py`. Re-run any time; output is deterministic.
 
 Schema (see ADR-0007):
-  categories/{categoryId}                        → { name, order, subcategoryCount, iconSvg, color }
-  subcategories/{categoryId-subSlug}             → { name, categoryId, categoryName, order, cardCount }
+  categories/{categoryId}                        → { name, order, subcategoryCount, iconSvg, color,
+                                                     featuredSubcategoryNames[] }
+  subcategories/{categoryId-subSlug}             → { name, nameLower, categoryId, categoryName,
+                                                     order, cardCount }
   subcategories/{categoryId-subSlug}/flashcards/{cardId} → { question, answer, tags[], createdAt, ... }
 
 Subcategory IDs are namespaced "{categoryId}-{subSlug}" (e.g. "android-compose") to guarantee
@@ -36,6 +38,11 @@ from collections import Counter, defaultdict
 DEFAULT_SRC = os.path.expanduser("~/.claude/flashcards")
 DEFAULT_OUT = os.path.join(os.path.dirname(__file__), ".tmp", "fixture.json")
 DEFAULT_ICON_ASSETS = os.path.join(os.path.dirname(__file__), "assets", "category-icons")
+
+# How many Subcategory display names each Category denormalizes into `featuredSubcategoryNames`, the
+# field behind the Browse screen's topic-summary chip line. Five is what the chip line can hold
+# before width truncation; see docs/design/category-search.md.
+TOP_SUBCATEGORY_NAMES_LIMIT = 5
 
 # Display-name overrides for slugs that do not titlecase nicely. Admin can extend.
 NAME_OVERRIDES = {
@@ -167,6 +174,14 @@ def build(
     # subcategory count per category (for subcategoryCount field)
     cat_sub_counts: Counter = Counter(sub_parent.values())
 
+    # Subcategory ids per parent, ranked by card volume desc then id. One prominence ranking feeds
+    # two fields: each Subcategory's own `order`, and its parent's `featuredSubcategoryNames` prefix.
+    by_parent: dict[str, list[str]] = defaultdict(list)
+    for sid, parent in sub_parent.items():
+        by_parent[parent].append(sid)
+    for parent in by_parent:
+        by_parent[parent].sort(key=lambda s: (-sub_counts[s], s))
+
     # categories: ordered by card volume desc, then slug
     categories = []
     for order, slug in enumerate(sorted(cat_counts, key=lambda s: (-cat_counts[s], s))):
@@ -175,6 +190,12 @@ def build(
             "name": display_name(slug),
             "order": order,
             "subcategoryCount": cat_sub_counts[slug],
+            # Pure derived data with no manual curation, so unlike iconSvg/color this is NOT a
+            # sticky field — every reseed overwrites it as card counts shift the ranking.
+            "featuredSubcategoryNames": [
+                display_name(sub_display[sid])
+                for sid in by_parent[slug][:TOP_SUBCATEGORY_NAMES_LIMIT]
+            ],
         }
         icon_svg = read_icon_asset(slug, "svg", icon_assets_dir)
         if icon_svg is not None:
@@ -185,16 +206,16 @@ def build(
         categories.append(category)
 
     # subcategories: flat collection, namespaced id, ordered per-parent by card volume
-    by_parent: dict[str, list[str]] = defaultdict(list)
-    for sid, parent in sub_parent.items():
-        by_parent[parent].append(sid)
     subcategories = []
     for parent in sorted(by_parent):
-        for order, sid in enumerate(sorted(by_parent[parent],
-                                           key=lambda s: (-sub_counts[s], s))):
+        for order, sid in enumerate(by_parent[parent]):
+            name = display_name(sub_display[sid])
             subcategories.append({
                 "id": sid,
-                "name": display_name(sub_display[sid]),
+                "name": name,
+                # Exists only to make Firestore's case-sensitive prefix-range search queries
+                # case-insensitive — never surfaces in the app's domain model.
+                "nameLower": name.lower(),
                 "categoryId": parent,
                 "categoryName": display_name(parent),
                 "order": order,

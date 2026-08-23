@@ -50,7 +50,7 @@ Intra-feature navigation (e.g. `PreviewStudySessionScreen` → `StudySessionScre
 
 **`BrowseScreen` lives in `:feature:browse`, not `:feature:study`, despite being the bottom-nav "Study" tab's root screen** — the tab label is a UX concern (`:app`'s `MainScreen`), decoupled from module ownership. `BrowseScreen`'s job is listing/searching categories and subcategories, identical in kind to `CategoryDetailsScreen`/`SubcategoryDetailsScreen`, not session logic. `:feature:study` starts only once a subcategory selection reaches `PreviewStudySessionScreen`.
 
-**`:feature:study` holds all three session screens** — `PreviewStudySessionScreen`, `StudySessionScreen`, `SessionSummaryScreen` form one user journey. State is passed between screens via nav arguments — session config from PreviewStudySession into StudySession, summary data from StudySession into SessionSummary. Current session state is small enough that nav arg serialization is safe. Splitting into separate modules buys no isolation.
+**`:feature:study` holds all three session screens** — `PreviewStudySessionScreen`, `StudySessionScreen`, `SessionSummaryScreen` form one user journey. State is passed between screens via nav arguments — session settings from PreviewStudySession into StudySession, summary data from StudySession into SessionSummary. Current session state is small enough that nav arg serialization is safe. Splitting into separate modules buys no isolation.
 
 **`MediaSessionService` and `TtsPlayer` live in `:feature:study`** — Fast Study Mode's TTS service is exclusively consumed by the study flow. No other feature reads or controls playback state. `:app` picks up the service declaration via manifest merger.
 

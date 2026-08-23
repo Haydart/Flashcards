@@ -52,7 +52,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
     private var ttsReady = false
     private var startWhenReady = false
 
-    private var cards: List<VoiceCard> = emptyList()
+    private var cards: List<VoiceFlashcard> = emptyList()
     private var index = 0
     private var phase = VoicePhase.Question
     private var isPlaying = false
@@ -175,7 +175,7 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         return Futures.immediateVoidFuture()
     }
 
-    fun loadAndStartSession(cards: List<VoiceCard>, startIndex: Int, subcategoryName: String) {
+    fun loadAndStartSession(cards: List<VoiceFlashcard>, startIndex: Int, subcategoryName: String) {
         this.cards = cards
         this.subcategoryName = subcategoryName
         this.index = if (cards.isEmpty()) 0 else startIndex.coerceIn(0, cards.lastIndex)

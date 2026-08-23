@@ -44,7 +44,7 @@ class StudySessionVoiceGateway @Inject constructor(
     // system transport surface; commands and state still flow through the binder.
     private var controllerFuture: ListenableFuture<MediaController>? = null
 
-    private var pendingCards: List<VoiceCard> = emptyList()
+    private var pendingCards: List<VoiceFlashcard> = emptyList()
     private var pendingStartIndex: Int = 0
     private var pendingSubcategoryName: String = ""
     private var pendingSpeechRate: Float? = null
@@ -80,7 +80,7 @@ class StudySessionVoiceGateway @Inject constructor(
         startIndex: Int,
         subcategoryName: String,
     ) {
-        pendingCards = cards.toVoiceCards()
+        pendingCards = cards.toVoiceFlashcards()
         pendingStartIndex = startIndex
         pendingSubcategoryName = subcategoryName
         // Bind only: MediaSessionService promotes itself to a foreground service when playback
@@ -181,8 +181,8 @@ class StudySessionVoiceGateway @Inject constructor(
         voiceBinder = null
     }
 
-    private fun List<Flashcard>.toVoiceCards(): List<VoiceCard> = map { card ->
-        VoiceCard(
+    private fun List<Flashcard>.toVoiceFlashcards(): List<VoiceFlashcard> = map { card ->
+        VoiceFlashcard(
             spokenQuestion = (
                 card.questionSpoken?.takeIf { it.isNotBlank() }
                     ?: card.question

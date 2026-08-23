@@ -89,10 +89,10 @@ class VoiceAnswerController @Inject constructor(
     private var listenTimeoutJob: Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
 
-    private var activeCard: VoiceCard? = null
+    private var activeCard: VoiceFlashcard? = null
     private var noticeTts: TextToSpeech? = null
 
-    fun setActiveCard(card: VoiceCard?) {
+    fun setActiveCard(card: VoiceFlashcard?) {
         activeCard = card
     }
 

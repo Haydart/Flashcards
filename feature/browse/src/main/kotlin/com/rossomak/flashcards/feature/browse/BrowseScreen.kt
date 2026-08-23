@@ -1,39 +1,86 @@
 package com.rossomak.flashcards.feature.browse
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExpandedFullScreenSearchBar
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SearchBarColors
+import androidx.compose.material3.SearchBarDefaults
+import androidx.compose.material3.SearchBarState
+import androidx.compose.material3.SearchBarValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopSearchBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.rememberSearchBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.Category
+import com.rossomak.flashcards.core.domain.model.CategorySearchResults
+import com.rossomak.flashcards.core.domain.model.CategoryWithSubcategorySummary
+import com.rossomak.flashcards.core.domain.model.Subcategory
+import com.rossomak.flashcards.core.ui.R as CoreUiR
+import com.rossomak.flashcards.core.ui.composables.FlashcardsOverlineLabel
+import com.rossomak.flashcards.core.ui.composables.FlashcardsPlayButton
+import com.rossomak.flashcards.core.ui.composables.FlashcardsProgressRing
 import com.rossomak.flashcards.core.ui.composables.FlashcardsVectorIconTile
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsChevron
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListGroup
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListGroupItem
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import com.rossomak.flashcards.core.ui.theme.spacing
+import kotlinx.coroutines.launch
+
+/** Separator between Subcategory names in a category's chip line: `Compose · Coroutines · Testing`. */
+private const val SUBCATEGORY_SUMMARY_SEPARATOR = " · "
+
+/**
+ * Mastery shown on every search result until the card-mastery rollup exists. The ring renders at
+ * this value rather than being hidden, so the row's layout is already final when real progress
+ * lands and only this call site has to change. See docs/design/category-search.md.
+ */
+private const val PLACEHOLDER_MASTERY = 0f
+
+private const val PLACEHOLDER_MASTERY_PERCENT = 0
 
 @Composable
 fun BrowseScreen(
     modifier: Modifier = Modifier,
     viewModel: BrowseViewModel = hiltViewModel(),
-    onNavigateToCategoryDetails: (String, String) -> Unit = { _, _ -> },
+    onNavigateToCategoryDetails: (String, String) -> Unit,
+    onNavigateToSubcategoryDetails: (String, String, String, String) -> Unit,
+    onNavigateToPreviewStudySession: (String, String, String, String) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
@@ -41,38 +88,227 @@ fun BrowseScreen(
         when (destination) {
             is BrowseNavigationDestination.CategoryDetails ->
                 onNavigateToCategoryDetails(destination.categoryId, destination.categoryName)
+
+            is BrowseNavigationDestination.SubcategoryDetails -> onNavigateToSubcategoryDetails(
+                destination.categoryId,
+                destination.categoryName,
+                destination.subcategoryId,
+                destination.subcategoryName,
+            )
+
+            is BrowseNavigationDestination.PreviewStudySession -> onNavigateToPreviewStudySession(
+                destination.categoryId,
+                destination.categoryName,
+                destination.subcategoryId,
+                destination.subcategoryName,
+            )
         }
+    }
+
+    val searchActions = remember(viewModel) {
+        BrowseSearchActions(
+            onQueryChange = viewModel::onSearchQueryChange,
+            onActivate = viewModel::onSearchActivate,
+            onDismiss = viewModel::onSearchDismiss,
+        )
     }
 
     BrowseContent(
         modifier = modifier,
         state = state,
         onRefresh = viewModel::onCategoriesRefresh,
+        searchActions = searchActions,
         onCategoryClick = viewModel::onCategorySelected,
+        onSubcategoryClick = viewModel::onSubcategorySelect,
+        onSubcategorySessionStart = viewModel::onSubcategorySessionStart,
     )
 }
 
+/**
+ * Hosts Material 3's search bar in its intended pairing: a collapsed [TopSearchBar] above the
+ * category list, and an [ExpandedFullScreenSearchBar] that takes over the window to show results.
+ *
+ * Expansion is owned by `SearchBarState` and the query text by a `TextFieldState`, both of which
+ * M3 requires; [state] and [searchActions] remain the source of truth for everything downstream of
+ * the query, so the debounce, minimum length, cache and matching rules are untouched by this.
+ *
+ * Consequences of the expanded bar being a dialog window, all deliberate: the bottom navigation
+ * bar is hidden while searching, back and predictive-back are handled by the dialog rather than a
+ * `BackHandler` here, and the keyboard insets are the dialog's problem, so no `imePadding()` is
+ * needed on the results.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BrowseContent(
     modifier: Modifier = Modifier,
     state: BrowseScreenState,
     onRefresh: () -> Unit,
+    searchActions: BrowseSearchActions,
     onCategoryClick: (String, String) -> Unit,
+    onSubcategoryClick: (Subcategory) -> Unit,
+    onSubcategorySessionStart: (Subcategory) -> Unit,
 ) {
-    PullToRefreshBox(
-        isRefreshing = state.isLoading,
-        onRefresh = onRefresh,
-        modifier = modifier.fillMaxSize()
-    ) {
-        when {
-            state.isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            state.error != null -> Text(
-                text = "Error: ${state.error}",
-                modifier = Modifier.align(Alignment.Center)
-            )
-            else -> CategoryList(categories = state.categories, onCategoryClick = onCategoryClick)
+    val searchBarState = rememberSearchBarState()
+    val textFieldState = rememberTextFieldState()
+    val coroutineScope = rememberCoroutineScope()
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+
+    SyncSearchBarState(
+        searchBarState = searchBarState,
+        textFieldState = textFieldState,
+        searchActions = searchActions,
+    )
+
+    val barColors = containedSearchBarColors()
+
+    val inputField = @Composable {
+        SearchBarDefaults.InputField(
+            textFieldState = textFieldState,
+            searchBarState = searchBarState,
+            // Results update as the user types and live inside the expanded bar, so submitting has
+            // nothing to do — collapsing here would hide the very results being asked for.
+            onSearch = {},
+            placeholder = { Text(text = stringResource(R.string.browse_search_hint)) },
+            leadingIcon = {
+                if (searchBarState.currentValue == SearchBarValue.Expanded) {
+                    IconButton(
+                        onClick = {
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
+                            coroutineScope.launch { searchBarState.animateToCollapsed() }
+                        },
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(CoreUiR.string.common_search_dismiss_cd),
+                        )
+                    }
+                } else {
+                    Icon(imageVector = Icons.Default.Search, contentDescription = null)
+                }
+            },
+            trailingIcon = {
+                if (textFieldState.text.isNotEmpty()) {
+                    IconButton(onClick = { textFieldState.clearText() }) {
+                        Icon(
+                            imageVector = Icons.Default.Clear,
+                            contentDescription = stringResource(CoreUiR.string.common_search_clear_cd),
+                        )
+                    }
+                }
+            },
+        )
+    }
+
+    Column(modifier = modifier.fillMaxSize()) {
+        TopSearchBar(state = searchBarState, inputField = inputField, colors = barColors)
+        PullToRefreshBox(
+            isRefreshing = state.isLoading,
+            onRefresh = onRefresh,
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            when {
+                state.isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                state.hasLoadError -> CenteredMessage(stringResource(R.string.browse_categories_error_message))
+                else -> CategoryList(categories = state.categories, onCategoryClick = onCategoryClick)
+            }
         }
+    }
+
+    // Renders nothing until expanded — it early-returns on the collapsed state — so calling it
+    // unconditionally is safe.
+    ExpandedFullScreenSearchBar(
+        state = searchBarState,
+        inputField = inputField,
+        colors = barColors,
+    ) {
+        ExpandedSearchContent(
+            state = state,
+            onCategoryClick = onCategoryClick,
+            onSubcategoryClick = onSubcategoryClick,
+            onSubcategorySessionStart = onSubcategorySessionStart,
+        )
+    }
+}
+
+/**
+ * Material 3 owns two pieces of state this screen does not: the query text lives in a
+ * [TextFieldState] and expansion in a [SearchBarState]. Both are forwarded to the ViewModel here,
+ * so the debounce, minimum length, cache and matching rules keep running off screen state rather
+ * than a second, parallel copy.
+ *
+ * Emptying the field on collapse stops a stale query surviving out of sight and repopulating the
+ * results the next time the bar is opened.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SyncSearchBarState(
+    searchBarState: SearchBarState,
+    textFieldState: TextFieldState,
+    searchActions: BrowseSearchActions,
+) {
+    LaunchedEffect(textFieldState) {
+        snapshotFlow { textFieldState.text.toString() }.collect(searchActions.onQueryChange)
+    }
+    LaunchedEffect(searchBarState.currentValue) {
+        if (searchBarState.currentValue == SearchBarValue.Expanded) {
+            searchActions.onActivate()
+        } else {
+            textFieldState.clearText()
+            searchActions.onDismiss()
+        }
+    }
+}
+
+/**
+ * Material 3 1.4.0 ships only the edge-to-edge full-screen style: `FullScreenSearchBarLayout` pads
+ * the input field by window insets alone and always emits a `HorizontalDivider` above the content.
+ * The "contained" style is reached with three adjustments — a transparent divider, since it cannot
+ * be opted out of; a bar surface distinct from the input field's container, which
+ * `SearchBarDefaults.colors()` otherwise paints identically and so dissolves the expanded pill into
+ * a flat bar; and a horizontal inset on the input field, applied at the call site.
+ *
+ * Configuration rather than a supported style flag: if a later Material 3 release adds a real
+ * contained variant, this is what it replaces.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun containedSearchBarColors(): SearchBarColors = SearchBarDefaults.colors(
+    containerColor = MaterialTheme.colorScheme.surface,
+    dividerColor = Color.Transparent,
+    inputFieldColors = SearchBarDefaults.inputFieldColors(
+        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+    ),
+)
+
+/** The three things the expanded bar can show: a failed query, results, or nothing typed yet. */
+@Composable
+private fun ExpandedSearchContent(
+    state: BrowseScreenState,
+    onCategoryClick: (String, String) -> Unit,
+    onSubcategoryClick: (Subcategory) -> Unit,
+    onSubcategorySessionStart: (Subcategory) -> Unit,
+) {
+    val searchResults = state.searchResults
+    when {
+        state.hasSearchError -> CenteredMessage(stringResource(R.string.browse_search_error_message))
+        searchResults != null -> SearchResults(
+            results = searchResults,
+            onCategoryClick = onCategoryClick,
+            onSubcategoryClick = onSubcategoryClick,
+            onSubcategorySessionStart = onSubcategorySessionStart,
+        )
+
+        else -> CenteredMessage(stringResource(R.string.browse_search_prompt_message))
+    }
+}
+
+@Composable
+internal fun CenteredMessage(text: String) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text(text = text, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
@@ -84,75 +320,272 @@ fun BrowseContent(
  * `flashcardsListGroupItems` inside a `LazyColumn` instead.
  */
 @Composable
-private fun CategoryList(
+internal fun CategoryList(
     categories: List<Category>,
     onCategoryClick: (String, String) -> Unit,
 ) {
     if (categories.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(text = "No categories found")
-        }
+        CenteredMessage(stringResource(R.string.browse_categories_empty_message))
         return
     }
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(MaterialTheme.spacing.normal),
-    ) {
-        FlashcardsListGroup(
-            items = categories.map { category ->
-                category.toListGroupItem(
-                    subcategoryCountText = pluralStringResource(
-                        R.plurals.browse_category_subcategory_count,
-                        category.subcategoryCount,
-                        category.subcategoryCount,
-                    ),
-                    placeholderSubtitle = stringResource(R.string.browse_category_placeholder_subtitle),
-                    onCategoryClick = onCategoryClick,
-                )
+    ScrollableSectionColumn {
+        FlashcardsOverlineLabel(text = stringResource(R.string.browse_categories_label))
+        CategoryListGroup(
+            // Outside search there is nothing to hoist, so a category's chip line is exactly its
+            // stored prominence order.
+            categories = categories.map { category ->
+                CategoryWithSubcategorySummary(category = category, subcategorySummary = category.featuredSubcategoryNames)
             },
+            onCategoryClick = onCategoryClick,
         )
     }
 }
 
 /**
- * [FlashcardsListGroupItem.DetailedRow]'s subtitle line is the same static
- * `R.string.browse_category_placeholder_subtitle` copy on every row — there is no backend
- * topic-summary field yet to show instead. See docs/design/category-icon-color.md.
+ * Matched Subcategories above matched categories, each under its own section header. Both
+ * sections are bounded — Subcategories by the search query's page limit, categories by how many
+ * exist — so neither needs a lazy container.
  */
-private fun Category.toListGroupItem(
+@Composable
+internal fun SearchResults(
+    results: CategorySearchResults,
+    onCategoryClick: (String, String) -> Unit,
+    onSubcategoryClick: (Subcategory) -> Unit,
+    onSubcategorySessionStart: (Subcategory) -> Unit,
+) {
+    if (results.isEmpty) {
+        CenteredMessage(stringResource(R.string.browse_search_no_results_message))
+        return
+    }
+    ScrollableSectionColumn {
+        if (results.subcategories.isNotEmpty()) {
+            FlashcardsOverlineLabel(text = stringResource(R.string.browse_topics_label))
+            val masteryContentDescription = stringResource(
+                CoreUiR.string.common_mastery_progress_cd,
+                PLACEHOLDER_MASTERY_PERCENT,
+            )
+            FlashcardsListGroup(
+                modifier = Modifier.padding(horizontal = MaterialTheme.spacing.normal),
+                items = results.subcategories.map { subcategory ->
+                    subcategory.toListGroupItem(
+                        parentLabel = stringResource(
+                            R.string.browse_search_topic_parent_label,
+                            subcategory.categoryName,
+                        ),
+                        masteryContentDescription = masteryContentDescription,
+                        startSessionContentDescription = stringResource(
+                            R.string.browse_search_start_session_cd,
+                            subcategory.name,
+                        ),
+                        onSubcategoryClick = onSubcategoryClick,
+                        onSubcategorySessionStart = onSubcategorySessionStart,
+                    )
+                },
+            )
+        }
+        if (results.categories.isNotEmpty()) {
+            FlashcardsOverlineLabel(text = stringResource(R.string.browse_categories_label))
+            CategoryListGroup(categories = results.categories, onCategoryClick = onCategoryClick)
+        }
+    }
+}
+
+@Composable
+private fun ScrollableSectionColumn(content: @Composable () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .padding(vertical = MaterialTheme.spacing.xsmall),
+        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall),
+    ) {
+        content()
+    }
+}
+
+@Composable
+private fun CategoryListGroup(
+    categories: List<CategoryWithSubcategorySummary>,
+    onCategoryClick: (String, String) -> Unit,
+) {
+    FlashcardsListGroup(
+        modifier = Modifier.padding(horizontal = MaterialTheme.spacing.normal),
+        items = categories.map { categoryWithSummary ->
+            categoryWithSummary.toListGroupItem(
+                subcategoryCountText = pluralStringResource(
+                    R.plurals.browse_category_subcategory_count,
+                    categoryWithSummary.category.subcategoryCount,
+                    categoryWithSummary.category.subcategoryCount,
+                ),
+                placeholderSubtitle = stringResource(R.string.browse_category_placeholder_subtitle),
+                onCategoryClick = onCategoryClick,
+            )
+        },
+    )
+}
+
+/**
+ * The subtitle line is the category's subcategory-summary chip line. [placeholderSubtitle] only
+ * shows for a category with no Subcategories to name at all — every other row names its most
+ * prominent Subcategories.
+ */
+private fun CategoryWithSubcategorySummary.toListGroupItem(
     subcategoryCountText: String,
     placeholderSubtitle: String,
     onCategoryClick: (String, String) -> Unit,
 ): FlashcardsListGroupItem = FlashcardsListGroupItem.DetailedRow(
-    key = id,
-    title = name,
-    subtitle = placeholderSubtitle,
+    key = category.id,
+    title = category.name,
+    subtitle = subcategorySummary.joinToString(SUBCATEGORY_SUMMARY_SEPARATOR).ifEmpty { placeholderSubtitle },
     secondaryText = subcategoryCountText,
-    onClick = { onCategoryClick(id, name) },
+    onClick = { onCategoryClick(category.id, category.name) },
     leading = {
         FlashcardsVectorIconTile(
-            iconSvg = iconSvg,
-            color = color,
+            iconSvg = category.iconSvg,
+            color = category.color,
             contentDescription = null,
         )
     },
     trailing = { FlashcardsChevron() },
 )
 
+/**
+ * A matched Subcategory: mastery ring leading, its parent category named on the secondary line,
+ * and two separate destinations trailing — the play button jumps straight into Study Creation
+ * while the row itself drills into the Subcategory.
+ */
+private fun Subcategory.toListGroupItem(
+    parentLabel: String,
+    masteryContentDescription: String,
+    startSessionContentDescription: String,
+    onSubcategoryClick: (Subcategory) -> Unit,
+    onSubcategorySessionStart: (Subcategory) -> Unit,
+): FlashcardsListGroupItem {
+    val subcategory = this
+    return FlashcardsListGroupItem.Row(
+        key = subcategory.id,
+        title = subcategory.name,
+        secondaryText = parentLabel,
+        onClick = { onSubcategoryClick(subcategory) },
+        leading = {
+            FlashcardsProgressRing(
+                progress = PLACEHOLDER_MASTERY,
+                contentDescription = masteryContentDescription,
+            )
+        },
+        trailing = {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                FlashcardsPlayButton(
+                    onClick = { onSubcategorySessionStart(subcategory) },
+                    contentDescription = startSessionContentDescription,
+                )
+                FlashcardsChevron()
+            }
+        },
+    )
+}
+
+private val previewSearchActions = BrowseSearchActions(
+    onQueryChange = {},
+    onActivate = {},
+    onDismiss = {},
+)
+
+private val previewCategories = listOf(
+    Category(
+        id = "android",
+        name = "Android",
+        order = 0,
+        subcategoryCount = 13,
+        iconSvg = null,
+        color = "#6B2FA0",
+        featuredSubcategoryNames = listOf("Compose", "Coroutines", "Compose Navigation"),
+    ),
+    Category(
+        id = "python",
+        name = "Python",
+        order = 1,
+        subcategoryCount = 20,
+        iconSvg = null,
+        color = "#0277BD",
+        featuredSubcategoryNames = listOf("Async", "Typing", "Standard Library"),
+    ),
+    Category(
+        id = "ios",
+        name = "iOS",
+        order = 2,
+        subcategoryCount = 8,
+        iconSvg = null,
+        color = "#00838F",
+        featuredSubcategoryNames = listOf("SwiftUI", "Combine", "Core Data"),
+    ),
+)
+
+private val previewAndroidSubcategories = listOf(
+    Subcategory(
+        id = "android-compose",
+        name = "Compose",
+        categoryId = "android",
+        categoryName = "Android",
+        order = 0,
+        cardCount = 120,
+    ),
+    Subcategory(
+        id = "android-compose-navigation",
+        name = "Compose Navigation",
+        categoryId = "android",
+        categoryName = "Android",
+        order = 2,
+        cardCount = 34,
+    ),
+)
+
 @Preview(showBackground = true)
 @Composable
 private fun BrowseContentPreview() {
     BrowseContent(
-        state = BrowseScreenState(
+        state = BrowseScreenState(categories = previewCategories),
+        onRefresh = {},
+        searchActions = previewSearchActions,
+        onCategoryClick = { _, _ -> },
+        onSubcategoryClick = {},
+        onSubcategorySessionStart = {},
+    )
+}
+
+/**
+ * Results preview the sections directly rather than through [BrowseContent]: they render inside
+ * [ExpandedFullScreenSearchBar]'s dialog window at runtime, which a `@Preview` cannot show.
+ */
+@Preview(showBackground = true)
+@Composable
+private fun SearchResultsPreview() {
+    SearchResults(
+        results = CategorySearchResults(
+            subcategories = previewAndroidSubcategories,
             categories = listOf(
-                Category(id = "android", name = "Android", order = 0, subcategoryCount = 13, iconSvg = null, color = "#6B2FA0"),
-                Category(id = "python", name = "Python", order = 1, subcategoryCount = 20, iconSvg = null, color = "#0277BD"),
-                Category(id = "ios", name = "iOS", order = 2, subcategoryCount = 8, iconSvg = null, color = "#00838F"),
+                CategoryWithSubcategorySummary(
+                    category = previewCategories.first(),
+                    subcategorySummary = listOf("Compose", "Compose Navigation", "Coroutines"),
+                ),
             ),
         ),
-        onRefresh = {},
         onCategoryClick = { _, _ -> },
+        onSubcategoryClick = {},
+        onSubcategorySessionStart = {},
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun SearchResultsNoMatchesPreview() {
+    SearchResults(
+        results = CategorySearchResults.EMPTY,
+        onCategoryClick = { _, _ -> },
+        onSubcategoryClick = {},
+        onSubcategorySessionStart = {},
     )
 }
