@@ -4,7 +4,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -32,10 +34,15 @@ import com.rossomak.flashcards.core.ui.theme.spacing
  *
  * Building on [AlertDialog] rather than a raw `Dialog` + `Surface` means M3 already provides the
  * behavior this scaffold would otherwise reimplement: min/max dialog width, the pinned action row,
- * a scrolling `text` region so long content never pushes the action off-screen, dialog semantics
- * for accessibility, and — the reason [icon] carries no companion alignment parameter — a header
- * that **centers itself when an icon is present** and start-aligns when it isn't. Every dialog in
- * the design language follows that pairing, so there is nothing to configure.
+ * dialog semantics for accessibility, and — the reason [icon] carries no companion alignment
+ * parameter — a header that **centers itself when an icon is present** and start-aligns when it
+ * isn't. Every dialog in the design language follows that pairing, so there is nothing to
+ * configure.
+ *
+ * M3 does **not** scroll the `text` slot on its own, so this scaffold wraps [content] in
+ * [Modifier.verticalScroll] itself — the one place content that grows past the viewport (a long
+ * [supportingText], a dialog with many rows, extended context) is kept from pushing the pinned
+ * action row off-screen.
  *
  * The one place M3's default differs from the design language is [supportingText], which M3 always
  * start-aligns; it is aligned here to match the title instead.
@@ -67,7 +74,9 @@ internal fun FlashcardsDialog(
         title = { Text(text = title, style = MaterialTheme.typography.headlineSmall) },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
             ) {
                 if (supportingText != null) {
