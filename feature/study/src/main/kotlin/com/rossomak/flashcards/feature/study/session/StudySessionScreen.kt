@@ -96,6 +96,7 @@ import com.rossomak.flashcards.core.ui.composables.dialogs.VoiceSettingsDialog
 import com.rossomak.flashcards.core.ui.composables.withInlineCode
 import com.rossomak.flashcards.feature.study.BuildConfig
 import com.rossomak.flashcards.feature.study.R
+import com.rossomak.flashcards.feature.study.dialogs.ExtendedContextDialog
 import com.rossomak.flashcards.feature.study.voice.VoiceAnswerPhase
 import java.time.Instant
 import kotlinx.coroutines.launch
@@ -336,26 +337,12 @@ fun StudySessionContent(
                     val syntaxEngine = remember { SyntaxTokenizer() }
 
                     if (isExtendedContextDialogOpen && !card.extendedContext.isNullOrBlank()) {
-                        AlertDialog(
-                            onDismissRequest = {
+                        ExtendedContextDialog(
+                            extendedContext = card.extendedContext.orEmpty(),
+                            onDismiss = {
                                 isExtendedContextDialogOpen = false
                                 onExtendedContextDialogDismissed()
                             },
-                            confirmButton = {
-                                TextButton(onClick = {
-                                    isExtendedContextDialogOpen = false
-                                    onExtendedContextDialogDismissed()
-                                }) { Text("Close") }
-                            },
-                            title = { Text("Extended context") },
-                            text = {
-                                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                                    Text(
-                                        text = card.extendedContext.orEmpty().withInlineCode(),
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                }
-                            }
                         )
                     }
 

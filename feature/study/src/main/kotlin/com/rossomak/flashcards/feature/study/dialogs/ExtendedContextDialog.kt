@@ -13,6 +13,7 @@ import com.gallatinapps.syntaxmp.tokenizer.SyntaxTokenizer
 import com.rossomak.flashcards.core.domain.model.CodeBlock
 import com.rossomak.flashcards.core.ui.composables.SyntaxCodeBlock
 import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardsSingleActionDialog
+import com.rossomak.flashcards.core.ui.composables.withInlineCode
 import com.rossomak.flashcards.core.ui.theme.spacing
 import com.rossomak.flashcards.feature.study.R
 
@@ -38,7 +39,7 @@ fun ExtendedContextDialog(
         actionLabel = stringResource(R.string.extended_context_acknowledge_button),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small)) {
-            Text(text = extendedContext, style = MaterialTheme.typography.bodyMedium)
+            Text(text = extendedContext.withInlineCode(), style = MaterialTheme.typography.bodyMedium)
             codeBlocks.forEach { codeBlock ->
                 SyntaxCodeBlock(code = codeBlock.code, language = codeBlock.language, engine = engine)
             }
