@@ -15,10 +15,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -28,7 +25,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.ui.composables.dialogs.VoiceSettingsDialog
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import com.rossomak.flashcards.core.ui.showcase.Showcase
-import com.rossomak.flashcards.feature.settings.gallery.DialogGallery
 
 @Composable
 fun SettingsScreen(
@@ -58,20 +54,12 @@ fun SettingsScreen(
     }
 
     val showcaseIntent = remember { Showcase.intentOrNull(context) }
-    var isDialogGalleryOpen by rememberSaveable { mutableStateOf(false) }
-
-    if (isDialogGalleryOpen) {
-        DialogGallery.Content(onClose = { isDialogGalleryOpen = false })
-        return
-    }
 
     SettingsContent(
         modifier = modifier,
         isSigningOut = state.isSigningOut,
         showcaseIntent = showcaseIntent,
-        isDialogGalleryAvailable = DialogGallery.IS_AVAILABLE,
         onVoicePlaybackSettingsClick = viewModel::onVoicePlaybackSettingsClick,
-        onDialogGalleryClick = { isDialogGalleryOpen = true },
         onSignOutClick = viewModel::onSignOutClick,
     )
 }
@@ -81,9 +69,7 @@ private fun SettingsContent(
     modifier: Modifier = Modifier,
     isSigningOut: Boolean,
     showcaseIntent: Intent?,
-    isDialogGalleryAvailable: Boolean,
     onVoicePlaybackSettingsClick: () -> Unit,
-    onDialogGalleryClick: () -> Unit,
     onSignOutClick: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -102,12 +88,6 @@ private fun SettingsContent(
             Spacer(modifier = Modifier.height(16.dp))
             OutlinedButton(onClick = { context.startActivity(showcaseIntent) }) {
                 Text(text = "UI component showcase")
-            }
-        }
-        if (isDialogGalleryAvailable) {
-            Spacer(modifier = Modifier.height(16.dp))
-            OutlinedButton(onClick = onDialogGalleryClick) {
-                Text(text = DialogGallery.EntryLabel())
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
