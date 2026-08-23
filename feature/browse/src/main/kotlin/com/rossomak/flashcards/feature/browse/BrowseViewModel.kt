@@ -76,7 +76,13 @@ class BrowseViewModel @Inject constructor(
     }
 
     fun onSearchQueryChange(query: String) {
-        _state.update { it.copy(searchQuery = query) }
+        _state.update {
+            it.copy(
+                searchQuery = query,
+                searchResults = null,
+                hasSearchError = false,
+            )
+        }
     }
 
     fun onSearchActivate() {
@@ -85,7 +91,14 @@ class BrowseViewModel @Inject constructor(
 
     /** Leaves search entirely. Clearing the text alone is the search field's own concern. */
     fun onSearchDismiss() {
-        _state.update { it.copy(searchQuery = "", isSearchActive = false) }
+        _state.update {
+            it.copy(
+                searchQuery = "",
+                isSearchActive = false,
+                searchResults = null,
+                hasSearchError = false,
+            )
+        }
     }
 
     /**
@@ -120,10 +133,22 @@ class BrowseViewModel @Inject constructor(
             getCategories()
                 .onSuccess { categories ->
                     _state.update { it.copy(isLoading = false, categories = categories) }
+                    // A query typed before this load completed ran against an empty category
+                    // list, so it matched Subcategories but never their parent Categories. Rerun
+                    // it now that categories are in state — distinctUntilChanged() upstream won't,
+                    // since the query text itself hasn't changed.
+                    rerunActiveSearch()
                 }
                 .onFailure {
                     _state.update { it.copy(isLoading = false, hasLoadError = true) }
                 }
+        }
+    }
+
+    private suspend fun rerunActiveSearch() {
+        val query = _state.value.searchQuery
+        if (_state.value.isSearchActive && query.trim().length >= SearchCategoriesUseCase.MIN_QUERY_LENGTH) {
+            runSearch(query)
         }
     }
 

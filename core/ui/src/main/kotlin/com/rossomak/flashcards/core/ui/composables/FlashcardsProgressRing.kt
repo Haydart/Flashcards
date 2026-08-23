@@ -13,11 +13,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.PreviewLightDark
-import androidx.compose.ui.unit.dp
 import com.airbnb.android.showkase.annotation.ShowkaseComposable
 import com.rossomak.flashcards.core.ui.R
 import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
@@ -52,7 +51,7 @@ fun FlashcardsProgressRing(
     Box(
         modifier = modifier
             .size(MaterialTheme.sizes.progressRing)
-            .semantics { this.contentDescription = contentDescription },
+            .clearAndSetSemantics { this.contentDescription = contentDescription },
         contentAlignment = Alignment.Center,
     ) {
         Canvas(modifier = Modifier.size(MaterialTheme.sizes.progressRing)) {
@@ -109,7 +108,7 @@ fun FlashcardsProgressRingShowcase() {
 private fun FlashcardsProgressRingPreview() {
     FlashcardsTheme {
         Surface {
-            Box(modifier = Modifier.size(64.dp), contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.size(MaterialTheme.sizes.listRowMinHeight), contentAlignment = Alignment.Center) {
                 FlashcardsProgressRing(progress = 0.86f, contentDescription = "86% mastered")
             }
         }

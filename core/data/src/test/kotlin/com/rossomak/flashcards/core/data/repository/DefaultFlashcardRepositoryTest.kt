@@ -126,4 +126,51 @@ class DefaultFlashcardRepositoryTest {
         result.exceptionOrNull() shouldBe error
         coVerify(exactly = 1) { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId) }
     }
+
+    @Test
+    fun `searchSubcategories forwards prefix and maps dtos to domain`() = runTest {
+        val namePrefix = "compo"
+        val subcategoryDto = SubcategoryDto(
+            id = "sub-1",
+            name = "Compose",
+            categoryId = "cat-1",
+            categoryName = "Android",
+            order = 1,
+            cardCount = 12,
+        )
+        coEvery { remoteDataSource.searchSubcategoriesByNamePrefix(namePrefix) } returns listOf(subcategoryDto)
+
+        val result = createRepository().searchSubcategories(namePrefix)
+
+        result.isSuccess shouldBe true
+        val subcategory = result.getOrThrow().single()
+        subcategory.id shouldBe subcategoryDto.id
+        subcategory.name shouldBe subcategoryDto.name
+        subcategory.categoryId shouldBe subcategoryDto.categoryId
+        coVerify(exactly = 1) { remoteDataSource.searchSubcategoriesByNamePrefix(namePrefix) }
+    }
+
+    @Test
+    fun `searchSubcategories wraps data source failure in failure result`() = runTest {
+        val namePrefix = "compo"
+        val error = IllegalStateException("firestore down")
+        coEvery { remoteDataSource.searchSubcategoriesByNamePrefix(namePrefix) } throws error
+
+        val result = createRepository().searchSubcategories(namePrefix)
+
+        result.isFailure shouldBe true
+        result.exceptionOrNull() shouldBe error
+        coVerify(exactly = 1) { remoteDataSource.searchSubcategoriesByNamePrefix(namePrefix) }
+    }
+
+    @Test
+    fun `searchSubcategories rethrows cancellation instead of wrapping it`() = runTest {
+        val namePrefix = "compo"
+        coEvery { remoteDataSource.searchSubcategoriesByNamePrefix(namePrefix) } throws CancellationException("cancelled")
+
+        val thrown = runCatching { createRepository().searchSubcategories(namePrefix) }.exceptionOrNull()
+
+        (thrown is CancellationException) shouldBe true
+        coVerify(exactly = 1) { remoteDataSource.searchSubcategoriesByNamePrefix(namePrefix) }
+    }
 }

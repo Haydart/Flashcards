@@ -1,7 +1,5 @@
 package com.rossomak.flashcards.feature.browse
 
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,10 +34,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -58,8 +59,8 @@ import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsChevron
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListGroup
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListGroupItem
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
-import com.rossomak.flashcards.core.ui.theme.FlashcardsMotion
 import com.rossomak.flashcards.core.ui.theme.spacing
+import kotlinx.coroutines.launch
 
 /** Separator between Subcategory names in a category's chip line: `Compose · Coroutines · Testing`. */
 private const val SUBCATEGORY_SUMMARY_SEPARATOR = " · "
@@ -149,6 +150,9 @@ fun BrowseContent(
 ) {
     val searchBarState = rememberSearchBarState()
     val textFieldState = rememberTextFieldState()
+    val coroutineScope = rememberCoroutineScope()
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
 
     SyncSearchBarState(
         searchBarState = searchBarState,
@@ -158,21 +162,6 @@ fun BrowseContent(
 
     val barColors = containedSearchBarColors()
 
-    // Collapsed, TopSearchBar contributes its own 8dp, so the pill reads as inset by the same
-    // amount in both states instead of jumping as it expands.
-    val fieldInset by animateDpAsState(
-        targetValue = if (searchBarState.currentValue == SearchBarValue.Expanded) {
-            MaterialTheme.spacing.normal
-        } else {
-            MaterialTheme.spacing.xsmall
-        },
-        animationSpec = tween(
-            durationMillis = FlashcardsMotion.DURATION_MEDIUM_MS,
-            easing = FlashcardsMotion.EmphasizedEasing,
-        ),
-        label = "searchFieldInset",
-    )
-
     val inputField = @Composable {
         SearchBarDefaults.InputField(
             textFieldState = textFieldState,
@@ -180,14 +169,21 @@ fun BrowseContent(
             // Results update as the user types and live inside the expanded bar, so submitting has
             // nothing to do — collapsing here would hide the very results being asked for.
             onSearch = {},
-            modifier = Modifier.padding(horizontal = fieldInset),
             placeholder = { Text(text = stringResource(R.string.browse_search_hint)) },
             leadingIcon = {
                 if (searchBarState.currentValue == SearchBarValue.Expanded) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = null,
-                    )
+                    IconButton(
+                        onClick = {
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
+                            coroutineScope.launch { searchBarState.animateToCollapsed() }
+                        },
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(CoreUiR.string.common_search_dismiss_cd),
+                        )
+                    }
                 } else {
                     Icon(imageVector = Icons.Default.Search, contentDescription = null)
                 }

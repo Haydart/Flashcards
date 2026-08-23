@@ -26,7 +26,7 @@ current value and opens a focused edit popup.
 ## Hero (read-only scope)
 
 Keeps: play icon, "Ready to start?", one-line scope sentence, and read-only chips —
-estimated minutes + card count (+ topic count for multi-topic sessions).
+estimated minutes + card count (+ Subcategory count for multi-subcategory sessions).
 
 Removed from the hero: the Sort chip and the "Filtered by …" line — both are rows now.
 
@@ -41,10 +41,10 @@ affordance hint. Each row shows its current value.
 | Voice answering | On \| Off | Rated only |
 | Voice (TTS voice + speed) | popup | Fast **or** Rated + Voice-answering On (hidden for Rated-manual) |
 | Length | card count | always |
-| Filters | tags + difficulty | always (tags part single-topic only) |
+| Filters | tags + difficulty | always (tags part single-subcategory only) |
 | Sort | Default \| Easiest first \| Hardest first | always |
 
-Actions at the sheet bottom: **Re-randomize** (multi-topic & Quick sessions only) beside
+Actions at the sheet bottom: **Re-randomize** (multi-subcategory & Quick sessions only) beside
 **Start session**.
 
 ## Study Mode model
@@ -64,7 +64,7 @@ Status quo retained — no intermediate "TTS reads question, rate by hand" mode.
 One **merged filter popup**, shared with Subcategory Details (ADR-0022 shape): tag
 multi-select (OR within tags) + difficulty `RangeSlider`, the two facets combined with
 AND. Tags are derived per subcategory, so the tag section appears for **single-subcategory
-sessions only**; multi-topic (Quick / Composite) sessions show **difficulty only**.
+sessions only**; multi-subcategory (Quick / Composite) sessions show **difficulty only**.
 
 ## Persistence
 
@@ -74,7 +74,7 @@ unchecked, the change is session-scoped. Voice's "keep as default" writes the ex
 global voice preference.
 
 **Filters is the one exception**: no "keep as default" — tag and difficulty selections are
-always session-scoped (a per-subcategory tag set can't carry to a different topic).
+always session-scoped (a per-subcategory tag set can't carry to a different Subcategory).
 
 ## Popup form & sharing
 
@@ -98,4 +98,4 @@ Filters popup, being a sheet in both places, can be shared whole with Subcategor
 
 See the copy-ready brief handed to Claude Design (screen rework instruction). It specifies
 the container, hero, row list + visibility, edit-popup inventory, and the state matrix to
-deliver (single-topic Rated manual / Rated+VA / Fast, multi-topic/Quick, one popup open).
+deliver (single-subcategory Rated manual / Rated+VA / Fast, multi-subcategory/Quick, one popup open).
