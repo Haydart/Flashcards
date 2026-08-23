@@ -119,7 +119,7 @@ internal object FlashcardsDialogDefaults {
  * wider than the slot allows on each side, while still reporting the slot-sized width upwards.
  *
  * M3 hardcodes the `text` slot's horizontal inset (`AlertDialogDefaults`' private `TextPadding`,
- * 24.dp) with no parameter to widen it, so a row that wants its press indication to extend past
+ * 24dp) with no parameter to widen it, so a row that wants its press indication to extend past
  * the prose margin — the way a list row does against a screen's margin — has no way to ask for the
  * width. It has to take it. The row hands the width straight back as inner padding, so only the
  * band grows; the row's own children stay on the prose margin.
