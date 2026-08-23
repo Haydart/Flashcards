@@ -56,8 +56,8 @@ internal object DialogGallery {
         var activeDialog by remember { mutableStateOf<GalleryDialog?>(null) }
         var lastResult by remember { mutableStateOf<String?>(null) }
 
-        val confirmedLabel = stringResource(R.string.dialog_gallery_result_confirmed)
-        val dismissedLabel = stringResource(R.string.dialog_gallery_result_dismissed)
+        val confirmedLabel = stringResource(R.string.dialog_gallery_result_confirmed_label)
+        val dismissedLabel = stringResource(R.string.dialog_gallery_result_dismissed_label)
 
         val onDialogEvent: (GalleryDialogEvent) -> Unit = { event ->
             when (event) {

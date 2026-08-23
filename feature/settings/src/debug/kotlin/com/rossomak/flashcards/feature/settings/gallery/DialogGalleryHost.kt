@@ -111,7 +111,7 @@ internal fun DialogGalleryHost(
         )
 
         GalleryDialog.ExtendedContext -> ExtendedContextDialog(
-            extendedContext = stringResource(R.string.dialog_gallery_extended_context_body),
+            extendedContext = stringResource(R.string.dialog_gallery_extended_context_message),
             onDismiss = onDismiss,
             codeBlocks = listOf(CodeBlock(language = "kotlin", code = GalleryFixtures.CODE_SAMPLE)),
         )

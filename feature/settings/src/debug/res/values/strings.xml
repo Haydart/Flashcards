@@ -9,8 +9,8 @@
     <string name="dialog_gallery_message">Every dialog in the design system, rendered against the real primitives. Drafts are discarded on dismiss and applied on the action button, exactly as in production.</string>
     <string name="dialog_gallery_close_button">Close</string>
     <string name="dialog_gallery_last_result_label">Last result: %1$s</string>
-    <string name="dialog_gallery_result_confirmed">confirmed</string>
-    <string name="dialog_gallery_result_dismissed">dismissed</string>
+    <string name="dialog_gallery_result_confirmed_label">confirmed</string>
+    <string name="dialog_gallery_result_dismissed_label">dismissed</string>
 
     <string name="dialog_gallery_sort_button">Sort by — single action, radio rows</string>
     <string name="dialog_gallery_mode_button">Study mode — single action, option cards</string>
@@ -25,5 +25,5 @@
     <string name="dialog_gallery_exit_title">Exit session?</string>
     <string name="dialog_gallery_exit_message">All progress for this session will be lost. This can\'t be undone.</string>
     <string name="dialog_gallery_exit_confirm_button">Exit</string>
-    <string name="dialog_gallery_extended_context_body">For a custom data type, pair state with a Saver so only the fields you need get persisted:</string>
+    <string name="dialog_gallery_extended_context_message">For a custom data type, pair state with a Saver so only the fields you need get persisted:</string>
 </resources>
