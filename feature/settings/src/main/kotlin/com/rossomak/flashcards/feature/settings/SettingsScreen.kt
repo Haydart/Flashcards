@@ -15,16 +15,20 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.rossomak.flashcards.core.ui.composables.VoiceSettingsDialog
+import com.rossomak.flashcards.core.ui.composables.dialogs.VoiceSettingsDialog
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import com.rossomak.flashcards.core.ui.showcase.Showcase
+import com.rossomak.flashcards.feature.settings.gallery.DialogGallery
 
 @Composable
 fun SettingsScreen(
@@ -44,22 +48,30 @@ fun SettingsScreen(
     if (state.voiceSettingsState.isVisible) {
         VoiceSettingsDialog(
             availableVoices = state.voiceSettingsState.availableVoices,
-            selectedVoiceId = state.voiceSettingsState.draftVoiceId,
-            speechRate = state.voiceSettingsState.draftSpeed,
-            onVoiceSelected = viewModel::onVoiceSettingsDraftVoiceChanged,
-            onSpeedChanged = viewModel::onVoiceSettingsDraftSpeedChanged,
-            onSave = viewModel::onVoiceSettingsSave,
+            draftVoiceId = state.voiceSettingsState.draftVoiceId,
+            draftSpeechRate = state.voiceSettingsState.draftSpeed,
+            onDraftVoiceChange = viewModel::onVoiceSettingsDraftVoiceChanged,
+            onDraftSpeechRateChange = viewModel::onVoiceSettingsDraftSpeedChanged,
+            onConfirm = viewModel::onVoiceSettingsSave,
             onDismiss = viewModel::onVoiceSettingsDismiss,
         )
     }
 
     val showcaseIntent = remember { Showcase.intentOrNull(context) }
+    var isDialogGalleryOpen by rememberSaveable { mutableStateOf(false) }
+
+    if (isDialogGalleryOpen) {
+        DialogGallery.Content(onClose = { isDialogGalleryOpen = false })
+        return
+    }
 
     SettingsContent(
         modifier = modifier,
         isSigningOut = state.isSigningOut,
         showcaseIntent = showcaseIntent,
+        isDialogGalleryAvailable = DialogGallery.IS_AVAILABLE,
         onVoicePlaybackSettingsClick = viewModel::onVoicePlaybackSettingsClick,
+        onDialogGalleryClick = { isDialogGalleryOpen = true },
         onSignOutClick = viewModel::onSignOutClick,
     )
 }
@@ -69,7 +81,9 @@ private fun SettingsContent(
     modifier: Modifier = Modifier,
     isSigningOut: Boolean,
     showcaseIntent: Intent?,
+    isDialogGalleryAvailable: Boolean,
     onVoicePlaybackSettingsClick: () -> Unit,
+    onDialogGalleryClick: () -> Unit,
     onSignOutClick: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -88,6 +102,12 @@ private fun SettingsContent(
             Spacer(modifier = Modifier.height(16.dp))
             OutlinedButton(onClick = { context.startActivity(showcaseIntent) }) {
                 Text(text = "UI component showcase")
+            }
+        }
+        if (isDialogGalleryAvailable) {
+            Spacer(modifier = Modifier.height(16.dp))
+            OutlinedButton(onClick = onDialogGalleryClick) {
+                Text(text = DialogGallery.EntryLabel())
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
