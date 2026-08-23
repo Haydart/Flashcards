@@ -45,7 +45,7 @@ import com.rossomak.flashcards.core.ui.theme.spacing
  * path, and "keep this permanently" has no coherent meaning next to a Cancel button.
  *
  * @param onConfirm applies the draft. Fired by the action button only.
- * @param onDismiss discards the draft. Fired by the action button, the scrim and the back press.
+ * @param onDismiss discards the draft. Fired by the scrim and the back press only.
  */
 @Composable
 fun FlashcardsSingleActionDialog(
