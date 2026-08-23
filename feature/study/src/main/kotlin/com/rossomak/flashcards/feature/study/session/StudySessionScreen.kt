@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
@@ -91,7 +92,7 @@ import com.rossomak.flashcards.core.domain.model.CurationAction
 import com.rossomak.flashcards.core.domain.model.FlashcardRating
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.ui.composables.SyntaxCodeBlock
-import com.rossomak.flashcards.core.ui.composables.VoiceSettingsDialog
+import com.rossomak.flashcards.core.ui.composables.dialogs.VoiceSettingsDialog
 import com.rossomak.flashcards.core.ui.composables.withInlineCode
 import com.rossomak.flashcards.feature.study.BuildConfig
 import com.rossomak.flashcards.feature.study.R
@@ -311,11 +312,11 @@ fun StudySessionContent(
             if (state.voiceSettingsState.isVisible) {
                 VoiceSettingsDialog(
                     availableVoices = state.voiceSettingsState.availableVoices,
-                    selectedVoiceId = state.voiceSettingsState.draftVoiceId,
-                    speechRate = state.voiceSettingsState.draftSpeed,
-                    onVoiceSelected = onVoiceSettingsDraftVoiceChanged,
-                    onSpeedChanged = onVoiceSettingsDraftSpeedChanged,
-                    onSave = onVoiceSettingsSave,
+                    draftVoiceId = state.voiceSettingsState.draftVoiceId,
+                    draftSpeechRate = state.voiceSettingsState.draftSpeed,
+                    onDraftVoiceChange = onVoiceSettingsDraftVoiceChanged,
+                    onDraftSpeechRateChange = onVoiceSettingsDraftSpeedChanged,
+                    onConfirm = onVoiceSettingsSave,
                     onDismiss = onVoiceSettingsDismiss,
                 )
             }
@@ -587,6 +588,7 @@ private fun CurationAction.dialogIcon(): ImageVector = when (this) {
     CurationAction.DifficultyTooHard -> Icons.Default.ArrowDownward
     CurationAction.Delete -> Icons.Default.Delete
     CurationAction.BacktickRedo -> Icons.Default.Code
+    CurationAction.WrongTags -> Icons.Default.Tag
     CurationAction.NeedsCodeExample -> Icons.Default.DataObject
     CurationAction.FullRedo -> Icons.Default.Refresh
 }
@@ -596,6 +598,7 @@ private fun CurationAction.dialogLabel(): String = when (this) {
     CurationAction.DifficultyTooHard -> "Too hard — lower difficulty"
     CurationAction.Delete -> "Delete — duplicate or worthless"
     CurationAction.BacktickRedo -> "Fix backtick formatting"
+    CurationAction.WrongTags -> "Wrong tags"
     CurationAction.NeedsCodeExample -> "Needs code example"
     CurationAction.FullRedo -> "Full rewrite needed"
 }
