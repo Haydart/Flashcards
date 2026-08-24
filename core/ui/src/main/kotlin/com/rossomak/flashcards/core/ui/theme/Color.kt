@@ -38,8 +38,12 @@ val surfaceContainerLight = Color(0xFFF0ECF5)
 val surfaceContainerHighLight = Color(0xFFEAE7F0)
 val surfaceContainerHighestLight = Color(0xFFE4E1EA)
 
-val primaryDark = Color(0xFFBFC1FF)
-val onPrimaryDark = Color(0xFF1D2184)
+// Hue-corrected: the previous values (0xFFBFC1FF / 0xFF1D2184) sat at ~238° hue — matching
+// primaryContainerDark's indigo, not primaryLight's ~268° violet — so colorScheme.primary read
+// blue in dark mode (visible in Checkbox/RadioButton's checked fill) despite reading purple in
+// light mode. Retuned to primaryLight's violet hue at the same saturation/lightness.
+val primaryDark = Color(0xFFDDBFFF)
+val onPrimaryDark = Color(0xFF4E1D84)
 val primaryContainerDark = Color(0xFF2A2E8F)
 val onPrimaryContainerDark = Color(0xFF989DFF)
 val secondaryDark = Color(0xFFDEB7FF)
