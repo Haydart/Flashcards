@@ -2,7 +2,9 @@ package com.rossomak.flashcards.presentation.splash
 
 import app.cash.turbine.test
 import com.rossomak.flashcards.core.domain.model.AuthUser
+import com.rossomak.flashcards.core.domain.repository.FakeUserPreferencesRepository
 import com.rossomak.flashcards.core.domain.usecase.GetCurrentAuthUserUseCase
+import com.rossomak.flashcards.core.domain.usecase.ObserveUserPreferencesUseCase
 import com.rossomak.flashcards.testutil.MainDispatcherRule
 import io.kotest.matchers.longs.shouldBeLessThan
 import io.kotest.matchers.shouldBe
@@ -20,11 +22,44 @@ class SplashViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     private val getCurrentAuthUserUseCase: GetCurrentAuthUserUseCase = mockk()
+    private val userPreferencesRepository = FakeUserPreferencesRepository()
 
     private val testUser = AuthUser("u1", "a@b.com", "Alex", null)
 
-    private fun createViewModel(): SplashViewModel =
-        SplashViewModel(getCurrentAuthUserUseCase)
+    private fun createViewModel(hasSeenOnboarding: Boolean = true): SplashViewModel {
+        userPreferencesRepository.preferences.value =
+            userPreferencesRepository.preferences.value.copy(hasSeenOnboarding = hasSeenOnboarding)
+        return SplashViewModel(
+            getCurrentAuthUserUseCase,
+            ObserveUserPreferencesUseCase(userPreferencesRepository),
+        )
+    }
+
+    @Test
+    fun `authenticated user who has not seen onboarding emits Onboarding`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            coEvery { getCurrentAuthUserUseCase() } returns testUser
+
+            val viewModel = createViewModel(hasSeenOnboarding = false)
+            viewModel.onAnimationCompleted()
+
+            viewModel.events.test {
+                awaitItem() shouldBe SplashDestination.Onboarding
+            }
+        }
+
+    @Test
+    fun `unauthenticated user who has not seen onboarding still emits Login first`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            coEvery { getCurrentAuthUserUseCase() } returns null
+
+            val viewModel = createViewModel(hasSeenOnboarding = false)
+            viewModel.onAnimationCompleted()
+
+            viewModel.events.test {
+                awaitItem() shouldBe SplashDestination.Login
+            }
+        }
 
     @Test
     fun `animation completed before timeout with user emits Main`() = runTest(mainDispatcherRule.testDispatcher) {

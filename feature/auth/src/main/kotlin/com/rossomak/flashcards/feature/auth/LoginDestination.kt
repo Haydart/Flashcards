@@ -4,4 +4,5 @@ import com.rossomak.flashcards.core.ui.navigation.NavigationEvent
 
 sealed interface LoginDestination : NavigationEvent {
     data object Main : LoginDestination
+    data object Onboarding : LoginDestination
 }

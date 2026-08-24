@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,8 +24,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -35,16 +34,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
+import com.rossomak.flashcards.core.ui.theme.brandColors
 import kotlinx.coroutines.launch
-
-private val LoginGradientStart = Color(0xFF7B2FBE)
-private val LoginGradientEnd = Color(0xFF2979FF)
-
-private val loginGradient = Brush.linearGradient(
-    colors = listOf(LoginGradientStart, LoginGradientEnd),
-    start = Offset.Zero,
-    end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
-)
 
 private val LogoWidth = 200.dp
 
@@ -53,6 +44,7 @@ fun LoginScreen(
     modifier: Modifier = Modifier,
     viewModel: LoginViewModel = hiltViewModel(),
     onNavigateToMain: () -> Unit,
+    onNavigateToOnboarding: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -62,6 +54,7 @@ fun LoginScreen(
     observeAsEvents(viewModel.events) { destination ->
         when (destination) {
             LoginDestination.Main -> onNavigateToMain()
+            LoginDestination.Onboarding -> onNavigateToOnboarding()
         }
     }
 
@@ -88,7 +81,7 @@ fun LoginContent(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(loginGradient)
+            .background(MaterialTheme.brandColors.screenGradient)
             .padding(horizontal = 32.dp),
         contentAlignment = Alignment.Center
     ) {

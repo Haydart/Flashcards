@@ -2,6 +2,7 @@ package com.rossomak.flashcards.ui.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -11,6 +12,8 @@ import com.rossomak.flashcards.feature.browse.CategoryDetailsRoute
 import com.rossomak.flashcards.feature.browse.CategoryDetailsScreen
 import com.rossomak.flashcards.feature.browse.SubcategoryDetailsRoute
 import com.rossomak.flashcards.feature.browse.SubcategoryDetailsScreen
+import com.rossomak.flashcards.feature.onboarding.OnboardingRoute
+import com.rossomak.flashcards.feature.onboarding.OnboardingScreen
 import com.rossomak.flashcards.feature.study.PreviewStudySessionRoute
 import com.rossomak.flashcards.feature.study.StudySessionRoute
 import com.rossomak.flashcards.feature.study.preview.PreviewStudySessionScreen
@@ -69,6 +72,57 @@ private fun NavHostController.navigateToPreviewStudySession(
     )
 }
 
+/**
+ * Splash, Login and Onboarding — the three screens a user passes through before reaching [Main].
+ * Each pops itself off the back stack on the way out, so [Main] is never reachable "back" into a
+ * launch screen. Extracted from [FlashcardsNavGraph] to keep that function readable as the flow
+ * grew a third pre-Main step.
+ */
+private fun NavGraphBuilder.launchDestinations(navController: NavHostController) {
+    composable<Splash> {
+        SplashScreen(
+            onNavigateToMain = {
+                navController.navigate(Main) {
+                    popUpTo(Splash) { inclusive = true }
+                }
+            },
+            onNavigateToOnboarding = {
+                navController.navigate(OnboardingRoute) {
+                    popUpTo(Splash) { inclusive = true }
+                }
+            },
+            onNavigateToLogin = {
+                navController.navigate(AuthRoute) {
+                    popUpTo(Splash) { inclusive = true }
+                }
+            },
+        )
+    }
+    composable<AuthRoute> {
+        LoginScreen(
+            onNavigateToMain = {
+                navController.navigate(Main) {
+                    popUpTo(AuthRoute) { inclusive = true }
+                }
+            },
+            onNavigateToOnboarding = {
+                navController.navigate(OnboardingRoute) {
+                    popUpTo(AuthRoute) { inclusive = true }
+                }
+            },
+        )
+    }
+    composable<OnboardingRoute> {
+        OnboardingScreen(
+            onNavigateToMain = {
+                navController.navigate(Main) {
+                    popUpTo(OnboardingRoute) { inclusive = true }
+                }
+            },
+        )
+    }
+}
+
 @Composable
 fun FlashcardsNavGraph(
     navController: NavHostController,
@@ -79,29 +133,7 @@ fun FlashcardsNavGraph(
         startDestination = Splash,
         modifier = modifier
     ) {
-        composable<Splash> {
-            SplashScreen(
-                onNavigateToMain = {
-                    navController.navigate(Main) {
-                        popUpTo(Splash) { inclusive = true }
-                    }
-                },
-                onNavigateToLogin = {
-                    navController.navigate(AuthRoute) {
-                        popUpTo(Splash) { inclusive = true }
-                    }
-                }
-            )
-        }
-        composable<AuthRoute> {
-            LoginScreen(
-                onNavigateToMain = {
-                    navController.navigate(Main) {
-                        popUpTo(AuthRoute) { inclusive = true }
-                    }
-                }
-            )
-        }
+        launchDestinations(navController)
         composable<Main> {
             MainScreen(
                 onNavigateToLogin = {
