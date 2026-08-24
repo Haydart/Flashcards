@@ -40,9 +40,6 @@ import com.rossomak.flashcards.core.ui.theme.cornerRadius
 import com.rossomak.flashcards.core.ui.theme.sizes
 import com.rossomak.flashcards.core.ui.theme.spacing
 
-private const val GRADIENT_CONTAINER_ALPHA = 0.16f
-private const val GRADIENT_BORDER_ALPHA = 0.22f
-
 /** Geometry for [FlashcardsMetadataBadge] at a given [FlashcardsComponentSize]. */
 private data class FlashcardsMetadataBadgeMetrics(
     val height: Dp,
@@ -91,10 +88,11 @@ fun FlashcardsMetadataBadge(
 ) {
     val shape = RoundedCornerShape(MaterialTheme.cornerRadius.full)
     val metrics = size.metadataBadgeMetrics()
-    val onGradient = MaterialTheme.brandColors.onTopBarGradient
+    val brandColors = MaterialTheme.brandColors
+    val onGradient = brandColors.onGradientContent
     val containerColor = when (style) {
         FlashcardsComponentStyle.OnSurface -> MaterialTheme.colorScheme.surfaceVariant
-        FlashcardsComponentStyle.OnGradient -> onGradient.copy(alpha = GRADIENT_CONTAINER_ALPHA)
+        FlashcardsComponentStyle.OnGradient -> brandColors.onGradientContainer
     }
     val contentColor = when (style) {
         FlashcardsComponentStyle.OnSurface -> MaterialTheme.colorScheme.onSurface
@@ -107,8 +105,8 @@ fun FlashcardsMetadataBadge(
     val border = when (style) {
         FlashcardsComponentStyle.OnSurface -> null
         FlashcardsComponentStyle.OnGradient -> BorderStroke(
-            width = MaterialTheme.sizes.hairline,
-            color = onGradient.copy(alpha = GRADIENT_BORDER_ALPHA),
+            width = MaterialTheme.sizes.onGradientBorder,
+            color = brandColors.onGradientBorder,
         )
     }
 

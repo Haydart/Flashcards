@@ -17,7 +17,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewLightDark
@@ -31,8 +30,6 @@ import com.rossomak.flashcards.core.ui.theme.sizes
 import com.rossomak.flashcards.core.ui.theme.spacing
 
 /** Border alpha for [FlashcardsComponentStyle.OnGradient]'s white outline. */
-private const val ON_GRADIENT_BORDER_ALPHA = 0.55f
-
 /**
  * The border-only button — transparent fill, [MaterialTheme.colorScheme.primary] border and
  * content ("Cancel", "Share"). Use for a secondary action that should read lighter than
@@ -50,7 +47,7 @@ fun FlashcardsOutlinedButton(
     style: FlashcardsComponentStyle = FlashcardsComponentStyle.OnSurface,
 ) {
     val onGradient = style == FlashcardsComponentStyle.OnGradient
-    val contentColor = if (onGradient) MaterialTheme.brandColors.onTopBarGradient else MaterialTheme.colorScheme.primary
+    val contentColor = if (onGradient) MaterialTheme.brandColors.onGradientContent else MaterialTheme.colorScheme.primary
     val metrics = size.metrics()
 
     OutlinedButton(
@@ -64,11 +61,11 @@ fun FlashcardsOutlinedButton(
         ),
         border = if (enabled) {
             BorderStroke(
-                width = MaterialTheme.sizes.tagChipBorder,
-                color = if (onGradient) Color.White.copy(alpha = ON_GRADIENT_BORDER_ALPHA) else contentColor,
+                width = MaterialTheme.sizes.onGradientBorder,
+                color = if (onGradient) MaterialTheme.brandColors.onGradientOutline else contentColor,
             )
         } else {
-            BorderStroke(MaterialTheme.sizes.tagChipBorder, disabledButtonContentColorFor(style))
+            BorderStroke(MaterialTheme.sizes.onGradientBorder, disabledButtonContentColorFor(style))
         },
         contentPadding = PaddingValues(horizontal = metrics.horizontalPadding, vertical = MaterialTheme.spacing.none),
     ) {
