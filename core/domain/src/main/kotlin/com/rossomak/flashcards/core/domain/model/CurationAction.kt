@@ -5,6 +5,7 @@ enum class CurationAction {
     DifficultyTooHard,
     Delete,
     BacktickRedo,
+    WrongTags,
     NeedsCodeExample,
     FullRedo;
 

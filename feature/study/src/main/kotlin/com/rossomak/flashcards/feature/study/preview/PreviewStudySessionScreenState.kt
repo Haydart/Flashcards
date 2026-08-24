@@ -17,6 +17,9 @@ data class PreviewStudySessionScreenState(
     val difficultyRange: IntRange = MIN_DIFFICULTY..MAX_DIFFICULTY,
     val sortOrder: FlashcardSortOrder = FlashcardSortOrder.Default,
     val isSortDialogVisible: Boolean = false,
+    // Deferred commit: the dialog edits this draft, and `sortOrder` only changes on confirm.
+    val sortOrderDraft: FlashcardSortOrder = FlashcardSortOrder.Default,
+    val isSortKeepAsDefaultChecked: Boolean = false,
 ) {
     val isSingleTopic: Boolean get() = subcategoryNames.size == 1
     val topicCount: Int get() = subcategoryNames.size

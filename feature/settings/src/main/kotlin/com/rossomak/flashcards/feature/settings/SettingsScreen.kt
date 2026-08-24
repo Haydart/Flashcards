@@ -22,7 +22,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.rossomak.flashcards.core.ui.composables.VoiceSettingsDialog
+import com.rossomak.flashcards.core.ui.composables.dialogs.VoiceSettingsDialog
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import com.rossomak.flashcards.core.ui.showcase.Showcase
 
@@ -44,11 +44,11 @@ fun SettingsScreen(
     if (state.voiceSettingsState.isVisible) {
         VoiceSettingsDialog(
             availableVoices = state.voiceSettingsState.availableVoices,
-            selectedVoiceId = state.voiceSettingsState.draftVoiceId,
-            speechRate = state.voiceSettingsState.draftSpeed,
-            onVoiceSelected = viewModel::onVoiceSettingsDraftVoiceChanged,
-            onSpeedChanged = viewModel::onVoiceSettingsDraftSpeedChanged,
-            onSave = viewModel::onVoiceSettingsSave,
+            draftVoiceId = state.voiceSettingsState.draftVoiceId,
+            draftSpeechRate = state.voiceSettingsState.draftSpeed,
+            onDraftVoiceChange = viewModel::onVoiceSettingsDraftVoiceChanged,
+            onDraftSpeechRateChange = viewModel::onVoiceSettingsDraftSpeedChanged,
+            onConfirm = viewModel::onVoiceSettingsSave,
             onDismiss = viewModel::onVoiceSettingsDismiss,
         )
     }
