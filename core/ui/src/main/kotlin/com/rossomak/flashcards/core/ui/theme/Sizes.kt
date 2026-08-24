@@ -65,6 +65,9 @@ object AppSizes {
      */
     val buttonHeightSmall: Dp = 40.dp
 
+    /** Diameter of the circular self-rating button (Failed / Partial / Correct). */
+    val ratingButton: Dp = 56.dp
+
     /** Diameter of the circular mastery progress ring used as a leading element of topic rows. */
     val progressRing: Dp = 40.dp
 
