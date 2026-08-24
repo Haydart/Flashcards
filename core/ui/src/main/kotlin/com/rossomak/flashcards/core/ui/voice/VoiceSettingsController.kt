@@ -14,8 +14,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/**
+ * The dialog's in-flight draft. Deliberately carries no visibility flag: which dialog is up is
+ * owned by the screen's single sealed `activeDialog` field, so a second source of truth here
+ * would let two dialogs claim to be open at once.
+ */
 data class VoiceSettingsDraftState(
-    val isVisible: Boolean = false,
     val availableVoices: List<VoiceOption> = emptyList(),
     val draftVoiceId: String? = null,
     val draftSpeed: Float = 1f,
@@ -50,7 +54,6 @@ class VoiceSettingsController @Inject constructor(
     fun open(scope: CoroutineScope) {
         _draftState.update {
             it.copy(
-                isVisible = true,
                 draftVoiceId = savedSettings.voiceId ?: cachedVoices?.firstOrNull()?.id,
                 draftSpeed = savedSettings.speechRate,
             )
@@ -89,12 +92,10 @@ class VoiceSettingsController @Inject constructor(
         )
         scope.launch { runCatching { saveVoiceSettings(settings) } }
         previewGateway.stop()
-        _draftState.update { it.copy(isVisible = false) }
         return settings
     }
 
     fun dismiss() {
         previewGateway.stop()
-        _draftState.update { it.copy(isVisible = false) }
     }
 }
