@@ -11,8 +11,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.filled.LocalFireDepartment
-import androidx.compose.material.icons.filled.TrendingDown
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -29,14 +29,15 @@ import com.airbnb.android.showkase.annotation.ShowkaseComposable
 import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.brandColors
 import com.rossomak.flashcards.core.ui.theme.cornerRadius
+import com.rossomak.flashcards.core.ui.theme.semanticColors
 import com.rossomak.flashcards.core.ui.theme.sizes
 import com.rossomak.flashcards.core.ui.theme.spacing
 
 /** Container fill alpha for the [FlashcardsXpBreakdownTone.Loss] row's red tint. */
-private const val LOSS_CONTAINER_ALPHA = 0.22f
+private const val LOSS_CONTAINER_ALPHA = 0.33f
 
 /** Border alpha for the [FlashcardsXpBreakdownTone.Loss] row. */
-private const val LOSS_BORDER_ALPHA = 0.40f
+private const val LOSS_BORDER_ALPHA = 0.5f
 
 /** Alpha of the [label] line — recessed so the XP value reads first. */
 private const val LABEL_ALPHA = 0.70f
@@ -66,9 +67,10 @@ fun FlashcardsXpBreakdownRow(
     tone: FlashcardsXpBreakdownTone = FlashcardsXpBreakdownTone.Gain,
 ) {
     val brandColors = MaterialTheme.brandColors
+    val semanticColors = MaterialTheme.semanticColors
     val containerColor = when (tone) {
         FlashcardsXpBreakdownTone.Gain -> brandColors.onGradientContainer
-        FlashcardsXpBreakdownTone.Loss -> brandColors.onGradientLoss.copy(alpha = LOSS_CONTAINER_ALPHA)
+        FlashcardsXpBreakdownTone.Loss -> semanticColors.onGradientLossContainer.copy(alpha = LOSS_CONTAINER_ALPHA)
     }
     val contentColor = when (tone) {
         FlashcardsXpBreakdownTone.Gain -> brandColors.onGradientContent
@@ -76,7 +78,7 @@ fun FlashcardsXpBreakdownRow(
     }
     val borderColor = when (tone) {
         FlashcardsXpBreakdownTone.Gain -> brandColors.onGradientBorder
-        FlashcardsXpBreakdownTone.Loss -> brandColors.onGradientLoss.copy(alpha = LOSS_BORDER_ALPHA)
+        FlashcardsXpBreakdownTone.Loss -> semanticColors.onGradientLossContainer.copy(alpha = LOSS_BORDER_ALPHA)
     }
 
     Surface(
@@ -130,20 +132,20 @@ fun FlashcardsXpBreakdownRowShowcase() {
                 FlashcardsXpBreakdownRow(
                     label = "Card Mastery",
                     value = "11 cards × 100 = +1,100 XP",
-                    icon = Icons.Default.WorkspacePremium,
+                    icon = Icons.Filled.WorkspacePremium,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 FlashcardsXpBreakdownRow(
                     label = "De-mastery",
                     value = "4 cards × 80 = −320 XP",
-                    icon = Icons.Default.TrendingDown,
+                    icon = Icons.AutoMirrored.Filled.TrendingDown,
                     modifier = Modifier.fillMaxWidth(),
                     tone = FlashcardsXpBreakdownTone.Loss,
                 )
                 FlashcardsXpBreakdownRow(
                     label = "Streak",
                     value = "8 day streak × 250 = +2,000 XP",
-                    icon = Icons.Default.LocalFireDepartment,
+                    icon = Icons.Filled.LocalFireDepartment,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }

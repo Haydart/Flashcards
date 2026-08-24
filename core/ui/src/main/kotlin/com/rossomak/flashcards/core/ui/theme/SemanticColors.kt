@@ -32,7 +32,21 @@ data class SemanticColors(
     val onNeutralContainer: Color,
     val negativeContainer: Color,
     val onNegativeContainer: Color,
+    val onGradientLossContainer: Color,
 )
+
+/**
+ * The container fill/border base for a `Loss` row on the brand gradient — currently
+ * [com.rossomak.flashcards.core.ui.composables.banners.FlashcardsXpBreakdownRow]. Reuses
+ * [errorContainerDark] (the same saturated maroon in both themes): unlike every other pair in this
+ * file, it does **not** flip light/dark, because the gradient it sits on doesn't either — it lives
+ * here rather than in [BrandColors] because it is still a valence color, grouped with this file's
+ * other container/on-container pairs rather than the fixed brand-asset tokens.
+ *
+ * Deliberately not [negativeContainer]: that pair is tuned for a themed surface and reads too
+ * washed-out once tinted onto the gradient at a usable alpha.
+ */
+private val onGradientLossContainerColor = errorContainerDark
 
 val lightSemanticColors = SemanticColors(
     positiveContainer = positiveContainerLight,
@@ -41,6 +55,7 @@ val lightSemanticColors = SemanticColors(
     onNeutralContainer = onNeutralContainerLight,
     negativeContainer = negativeContainerLight,
     onNegativeContainer = onNegativeContainerLight,
+    onGradientLossContainer = onGradientLossContainerColor,
 )
 
 val darkSemanticColors = SemanticColors(
@@ -50,6 +65,7 @@ val darkSemanticColors = SemanticColors(
     onNeutralContainer = onNeutralContainerDark,
     negativeContainer = negativeContainerDark,
     onNegativeContainer = onNegativeContainerDark,
+    onGradientLossContainer = onGradientLossContainerColor,
 )
 
 val LocalSemanticColors = staticCompositionLocalOf { lightSemanticColors }
