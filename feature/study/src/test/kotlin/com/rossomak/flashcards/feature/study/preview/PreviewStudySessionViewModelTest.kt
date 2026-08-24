@@ -207,15 +207,15 @@ class PreviewStudySessionViewModelTest {
 
         val viewModel = createViewModel()
         advanceUntilIdle()
-        viewModel.onSortDialogShow()
+        viewModel.onDialogEvent(PreviewDialogEvent.SortOpen)
         viewModel.state.value.isSortDialogVisible shouldBe true
 
-        viewModel.onSortDialogDismiss()
+        viewModel.onDialogEvent(PreviewDialogEvent.Dismiss)
         viewModel.state.value.isSortDialogVisible shouldBe false
     }
 
     @Test
-    fun `onSortOrderSelect orders session cards easiest first`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `onSortDialogConfirm orders session cards easiest first`() = runTest(mainDispatcherRule.testDispatcher) {
         stubRoute(singleTopicRoute)
         flashcardRepository.flashcardsToReturn = Result.success(
             listOf(
@@ -227,7 +227,9 @@ class PreviewStudySessionViewModelTest {
 
         val viewModel = createViewModel()
         advanceUntilIdle()
-        viewModel.onSortOrderSelect(FlashcardSortOrder.EasiestFirst)
+        viewModel.onDialogEvent(PreviewDialogEvent.SortOpen)
+        viewModel.onDialogEvent(PreviewDialogEvent.SortDraftChange(FlashcardSortOrder.EasiestFirst))
+        viewModel.onDialogEvent(PreviewDialogEvent.Confirm)
         viewModel.onStartSession()
 
         viewModel.state.value.sortOrder shouldBe FlashcardSortOrder.EasiestFirst
@@ -238,7 +240,7 @@ class PreviewStudySessionViewModelTest {
     }
 
     @Test
-    fun `onSortOrderSelect orders session cards hardest first`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `onSortDialogConfirm orders session cards hardest first`() = runTest(mainDispatcherRule.testDispatcher) {
         stubRoute(singleTopicRoute)
         flashcardRepository.flashcardsToReturn = Result.success(
             listOf(
@@ -250,7 +252,9 @@ class PreviewStudySessionViewModelTest {
 
         val viewModel = createViewModel()
         advanceUntilIdle()
-        viewModel.onSortOrderSelect(FlashcardSortOrder.HardestFirst)
+        viewModel.onDialogEvent(PreviewDialogEvent.SortOpen)
+        viewModel.onDialogEvent(PreviewDialogEvent.SortDraftChange(FlashcardSortOrder.HardestFirst))
+        viewModel.onDialogEvent(PreviewDialogEvent.Confirm)
         viewModel.onStartSession()
 
         viewModel.events.test {
@@ -258,6 +262,66 @@ class PreviewStudySessionViewModelTest {
             destination.route.cardIds shouldBe listOf("card-1", "card-3", "card-2")
         }
     }
+
+    @Test
+    fun `onSortOrderDraftChange leaves the applied sort order untouched until confirmed`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(singleTopicRoute)
+            flashcardRepository.flashcardsToReturn = Result.success(
+                listOf(
+                    flashcard(id = "card-1", difficulty = 8),
+                    flashcard(id = "card-2", difficulty = 2),
+                )
+            )
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onDialogEvent(PreviewDialogEvent.SortOpen)
+            viewModel.onDialogEvent(PreviewDialogEvent.SortDraftChange(FlashcardSortOrder.EasiestFirst))
+
+            viewModel.state.value.sortOrderDraft shouldBe FlashcardSortOrder.EasiestFirst
+            viewModel.state.value.sortOrder shouldBe FlashcardSortOrder.Default
+        }
+
+    @Test
+    fun `onSortDialogDismiss discards the draft`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleTopicRoute)
+        flashcardRepository.flashcardsToReturn = Result.success(
+            listOf(
+                flashcard(id = "card-1", difficulty = 8),
+                flashcard(id = "card-2", difficulty = 2),
+            )
+        )
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDialogEvent(PreviewDialogEvent.SortOpen)
+        viewModel.onDialogEvent(PreviewDialogEvent.SortDraftChange(FlashcardSortOrder.HardestFirst))
+        viewModel.onDialogEvent(PreviewDialogEvent.Dismiss)
+
+        viewModel.state.value.isSortDialogVisible shouldBe false
+        viewModel.state.value.sortOrder shouldBe FlashcardSortOrder.Default
+    }
+
+    @Test
+    fun `onSortDialogShow seeds the draft from the applied sort order and clears keep as default`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(singleTopicRoute)
+            flashcardRepository.flashcardsToReturn = Result.success(
+                listOf(flashcard(id = "card-1", difficulty = 8))
+            )
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onDialogEvent(PreviewDialogEvent.SortOpen)
+            viewModel.onDialogEvent(PreviewDialogEvent.SortDraftChange(FlashcardSortOrder.HardestFirst))
+            viewModel.onDialogEvent(PreviewDialogEvent.KeepAsDefaultChange(true))
+            viewModel.onDialogEvent(PreviewDialogEvent.Confirm)
+            viewModel.onDialogEvent(PreviewDialogEvent.SortOpen)
+
+            viewModel.state.value.sortOrderDraft shouldBe FlashcardSortOrder.HardestFirst
+            viewModel.state.value.isSortKeepAsDefaultChecked shouldBe false
+        }
 
     @Test
     fun `onStartSession emits StudySession route with selected cards and mode`() = runTest(mainDispatcherRule.testDispatcher) {

@@ -76,16 +76,53 @@ class PreviewStudySessionViewModel @Inject constructor(
         selectCards()
     }
 
-    fun onSortDialogShow() {
-        _state.update { it.copy(isSortDialogVisible = true) }
+    /** Single entry point for every dialog on this screen. */
+    fun onDialogEvent(event: PreviewDialogEvent) {
+        when (event) {
+            PreviewDialogEvent.SortOpen -> onSortDialogShow()
+            PreviewDialogEvent.Confirm -> onSortDialogConfirm()
+            PreviewDialogEvent.Dismiss -> onSortDialogDismiss()
+            is PreviewDialogEvent.SortDraftChange -> onSortOrderDraftChange(event.sortOrder)
+            is PreviewDialogEvent.KeepAsDefaultChange -> onSortKeepAsDefaultChange(event.enabled)
+        }
     }
 
-    fun onSortDialogDismiss() {
+    private fun onSortDialogShow() {
+        _state.update {
+            it.copy(
+                isSortDialogVisible = true,
+                sortOrderDraft = it.sortOrder,
+                isSortKeepAsDefaultChecked = false,
+            )
+        }
+    }
+
+    /** Discards the draft — dismissing is the discard path, so nothing is applied. */
+    private fun onSortDialogDismiss() {
         _state.update { it.copy(isSortDialogVisible = false) }
     }
 
-    fun onSortOrderSelect(sortOrder: FlashcardSortOrder) {
-        _state.update { it.copy(sortOrder = sortOrder) }
+    private fun onSortOrderDraftChange(sortOrder: FlashcardSortOrder) {
+        _state.update { it.copy(sortOrderDraft = sortOrder) }
+    }
+
+    private fun onSortKeepAsDefaultChange(keepAsDefault: Boolean) {
+        _state.update { it.copy(isSortKeepAsDefaultChecked = keepAsDefault) }
+    }
+
+    /**
+     * The only commit path for the sort dialog. Persisting the choice as a global default when
+     * [PreviewStudySessionScreenState.isSortKeepAsDefaultChecked] is set needs a preferences
+     * store that does not exist yet — see §10 of `docs/temp/dialog-system-plan.md`. Until then
+     * the checkbox affects nothing beyond this session.
+     */
+    private fun onSortDialogConfirm() {
+        _state.update {
+            it.copy(
+                sortOrder = it.sortOrderDraft,
+                isSortDialogVisible = false,
+            )
+        }
         selectCards()
     }
 
