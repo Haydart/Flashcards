@@ -9,6 +9,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
 data class BrandColors(
+    val screenGradient: Brush,
+    val screenGradientBase: Color,
     val topBarGradient: Brush,
     val onTopBarGradient: Color,
     val ctaButtonGradient: Brush,
@@ -50,6 +52,36 @@ private val brandCtaButtonGradient = Brush.linearGradient(
     end = Offset.Infinite,
 )
 
+/** Blue stop of [brandScreenGradient] — distinct from [ctaGradientIndigo]; ground truth is splash's original hue. */
+private val screenGradientBlue = Color(0xFF2A2E8F)
+
+/** Purple stop of [brandScreenGradient] — distinct from [ctaGradientPurple]; ground truth is splash's original hue. */
+private val screenGradientPurple = Color(0xFF6B2FA0)
+
+/**
+ * The full-bleed brand gradient behind an entire screen — splash, login, and onboarding. Splash is
+ * the ground truth this was unified from: rotated (diagonal, top-left to bottom-right via
+ * [Offset.Zero]/[Offset.Infinite]) and phase-shifted (stops at 0.25/0.99, not 0/1, so the blue holds
+ * longer before the sweep into purple starts). Deliberately its own colours, not [brandCtaButtonGradient]'s
+ * — the CTA gradient stays a separate brand asset for buttons. Fixed across themes like every other
+ * gradient in this file.
+ */
+private val brandScreenGradient = Brush.linearGradient(
+    colorStops = arrayOf(
+        0.25f to screenGradientBlue,
+        0.99f to screenGradientPurple,
+    ),
+    start = Offset.Zero,
+    end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
+)
+
+/**
+ * Flat fill matching [brandScreenGradient]'s leading colour — for `t < 0.25` the gradient is a
+ * constant [screenGradientBlue], so a layer sitting *beneath* it (splash paints this first, then
+ * slides the gradient in over it) must start from the same colour or the transition shows a seam.
+ */
+private val brandScreenGradientBase = screenGradientBlue
+
 /**
  * Content colour for a [com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsFilledButton]
  * rendered on top of [brandTopBarGradient] (white container, so this is the text/icon colour).
@@ -89,6 +121,8 @@ private const val PROGRESS_BAR_TRACK_ON_GRADIENT_ALPHA = 0.20f
 private val progressBarTrackOnGradientColor = Color.White.copy(alpha = PROGRESS_BAR_TRACK_ON_GRADIENT_ALPHA)
 
 val lightBrandColors = BrandColors(
+    screenGradient = brandScreenGradient,
+    screenGradientBase = brandScreenGradientBase,
     topBarGradient = brandTopBarGradient,
     onTopBarGradient = onBrandTopBarGradient,
     ctaButtonGradient = brandCtaButtonGradient,
@@ -109,6 +143,8 @@ val lightBrandColors = BrandColors(
 // onPrimaryContainerDark) keeps the content color pixel-identical to those two, not just
 // same-family.
 val darkBrandColors = BrandColors(
+    screenGradient = brandScreenGradient,
+    screenGradientBase = brandScreenGradientBase,
     topBarGradient = brandTopBarGradient,
     onTopBarGradient = onBrandTopBarGradient,
     ctaButtonGradient = brandCtaButtonGradient,
