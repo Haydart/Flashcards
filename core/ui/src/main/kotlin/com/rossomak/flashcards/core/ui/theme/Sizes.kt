@@ -107,6 +107,12 @@ object AppSizes {
 
     /** Rating icon inside a graded [attemptIndicatorSlot]. */
     val attemptIndicatorIcon: Dp = 12.dp
+
+    /** Diameter of the tinted circle behind a [com.rossomak.flashcards.core.ui.composables.FlashcardsEmptyState]'s icon. */
+    val emptyStateIconCircle: Dp = 80.dp
+
+    /** Glyph size inside [emptyStateIconCircle]. */
+    val emptyStateIcon: Dp = 40.dp
 }
 
 val MaterialTheme.sizes: AppSizes

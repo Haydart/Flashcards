@@ -44,7 +44,14 @@ val primaryContainerDark = Color(0xFF2A2E8F)
 val onPrimaryContainerDark = Color(0xFF989DFF)
 val secondaryDark = Color(0xFFDEB7FF)
 val onSecondaryDark = Color(0xFF4A007F)
-val secondaryContainerDark = Color(0xFF6B2FA0)
+
+// Dark-tuned like SemanticColors' dark pairs (see that section below): a muted, near-surface
+// purple rather than a punchy mid-tone accent, so full-opacity consumers (FlashcardsTagChip's
+// selected fill, FlashcardsIconTile, FlashcardsEmptyState's Info tone, …) read as a subtle tint
+// on dark surfaces the same way secondaryContainerLight reads as a subtle tint on light ones,
+// instead of a solid saturated color-block. onSecondaryContainerDark is unchanged — already
+// bright/contrasty enough against this darker container.
+val secondaryContainerDark = Color(0xFF33204A)
 val onSecondaryContainerDark = Color(0xFFDAAFFF)
 val tertiaryDark = Color(0xFFFFE0F0)
 val onTertiaryDark = Color(0xFF501D42)
