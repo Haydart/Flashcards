@@ -1,6 +1,5 @@
 package com.rossomak.flashcards.feature.study.session
 
-import com.rossomak.flashcards.core.domain.model.CurationRequest
 import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
@@ -22,8 +21,6 @@ data class StudySessionScreenState(
     val isVoiceAutoStartPending: Boolean = false,
     val speechRate: Float = VoicePlaybackState.DEFAULT_SPEECH_RATE,
     val voiceError: String? = null,
-    val isCurationDialogVisible: Boolean = false,
-    val curationRequests: Map<String, CurationRequest> = emptyMap(),
     val curationError: String? = null,
     val voiceSettingsState: VoiceSettingsDraftState = VoiceSettingsDraftState(),
     val isVoiceAnswerEnabled: Boolean = false,
@@ -31,6 +28,8 @@ data class StudySessionScreenState(
     val voiceAnswerSanitizedTranscript: String? = null,
     val lastVoiceAnswerGrade: VoiceAnswerGrade? = null,
     val voiceAnswerError: String? = null,
-    val isVoiceAnswerConsentDialogVisible: Boolean = false,
     val isMicPermissionRequestPending: Boolean = false,
-)
+    val activeDialog: StudySessionDialog? = null,
+) {
+    val currentCard: Flashcard? get() = flashcards.getOrNull(currentCardIndex)
+}

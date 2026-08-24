@@ -8,7 +8,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,41 +20,31 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.DataObject
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material.icons.filled.Tag
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -63,7 +52,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
@@ -71,7 +59,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -88,17 +75,12 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gallatinapps.syntaxmp.tokenizer.SyntaxTokenizer
-import com.rossomak.flashcards.core.domain.model.CurationAction
 import com.rossomak.flashcards.core.domain.model.FlashcardRating
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.ui.composables.SyntaxCodeBlock
-import com.rossomak.flashcards.core.ui.composables.dialogs.VoiceSettingsDialog
 import com.rossomak.flashcards.core.ui.composables.withInlineCode
-import com.rossomak.flashcards.feature.study.BuildConfig
 import com.rossomak.flashcards.feature.study.R
-import com.rossomak.flashcards.feature.study.dialogs.ExtendedContextDialog
 import com.rossomak.flashcards.feature.study.voice.VoiceAnswerPhase
-import java.time.Instant
 import kotlinx.coroutines.launch
 
 @Composable
@@ -217,19 +199,8 @@ fun StudySessionScreen(
         onVoicePlayPause = viewModel::onVoicePlayPause,
         onVoiceNext = viewModel::onVoiceNext,
         onVoicePrevious = viewModel::onVoicePrevious,
-        onVoiceSettingsCogClick = viewModel::onVoiceSettingsCogClick,
-        onVoiceSettingsDraftVoiceChanged = viewModel::onVoiceSettingsDraftVoiceChanged,
-        onVoiceSettingsDraftSpeedChanged = viewModel::onVoiceSettingsDraftSpeedChanged,
-        onVoiceSettingsSave = viewModel::onVoiceSettingsSave,
-        onVoiceSettingsDismiss = viewModel::onVoiceSettingsDismiss,
         onVoiceAnswerToggle = viewModel::onVoiceAnswerToggle,
-        onVoiceAnswerConsentAccept = viewModel::onVoiceAnswerConsentAccept,
-        onVoiceAnswerConsentDecline = viewModel::onVoiceAnswerConsentDecline,
-        onCurationFabClick = viewModel::onCurationFabClick,
-        onCurationActionToggle = viewModel::onCurationActionToggle,
-        onCurationDialogDismiss = viewModel::onCurationDialogDismiss,
-        onExtendedContextDialogOpen = viewModel::onExtendedContextDialogOpen,
-        onExtendedContextDialogDismissed = viewModel::onExtendedContextDialogDismissed,
+        onDialogEvent = viewModel::onDialogEvent,
     )
 }
 
@@ -246,19 +217,8 @@ fun StudySessionContent(
     onVoicePlayPause: () -> Unit,
     onVoiceNext: () -> Unit,
     onVoicePrevious: () -> Unit,
-    onVoiceSettingsCogClick: () -> Unit,
-    onVoiceSettingsDraftVoiceChanged: (String?) -> Unit,
-    onVoiceSettingsDraftSpeedChanged: (Float) -> Unit,
-    onVoiceSettingsSave: () -> Unit,
-    onVoiceSettingsDismiss: () -> Unit,
     onVoiceAnswerToggle: () -> Unit,
-    onVoiceAnswerConsentAccept: () -> Unit,
-    onVoiceAnswerConsentDecline: () -> Unit,
-    onCurationFabClick: () -> Unit,
-    onCurationActionToggle: (CurationAction) -> Unit,
-    onCurationDialogDismiss: () -> Unit,
-    onExtendedContextDialogOpen: () -> Unit,
-    onExtendedContextDialogDismissed: () -> Unit,
+    onDialogEvent: (StudySessionDialogEvent) -> Unit,
 ) {
     val scaffoldState = rememberBottomSheetScaffoldState(
         bottomSheetState = rememberStandardBottomSheetState(skipHiddenState = true),
@@ -281,14 +241,24 @@ fun StudySessionContent(
             TopAppBar(
                 title = { Text(text = state.sessionTitle) },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = { onDialogEvent(StudySessionDialogEvent.Open.ExitSession) }) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Exit session",
+                            contentDescription = stringResource(R.string.exit_session_dialog_title),
                         )
                     }
                 },
                 actions = {
+                    // The sheet is already crowded with mic, cog and transport controls, so
+                    // reporting lives in the top bar (ADR-0017).
+                    if (state.currentCard != null) {
+                        IconButton(onClick = { onDialogEvent(StudySessionDialogEvent.Open.ReportProblem) }) {
+                            Icon(
+                                imageVector = Icons.Default.Flag,
+                                contentDescription = stringResource(R.string.report_problem_dialog_title),
+                            )
+                        }
+                    }
                     if (state.flashcards.isNotEmpty()) {
                         Text(
                             text = "${state.currentCardIndex + 1} / ${state.flashcards.size}",
@@ -307,20 +277,9 @@ fun StudySessionContent(
                 onVoicePlayPause = onVoicePlayPause,
                 onVoiceNext = onVoiceNext,
                 onVoicePrevious = onVoicePrevious,
-                onVoiceSettingsCogClick = onVoiceSettingsCogClick,
+                onVoiceSettingsCogClick = { onDialogEvent(StudySessionDialogEvent.Open.VoiceSettings) },
                 onVoiceAnswerToggle = onVoiceAnswerToggle,
             )
-            if (state.voiceSettingsState.isVisible) {
-                VoiceSettingsDialog(
-                    availableVoices = state.voiceSettingsState.availableVoices,
-                    draftVoiceId = state.voiceSettingsState.draftVoiceId,
-                    draftSpeechRate = state.voiceSettingsState.draftSpeed,
-                    onDraftVoiceChange = onVoiceSettingsDraftVoiceChanged,
-                    onDraftSpeechRateChange = onVoiceSettingsDraftSpeedChanged,
-                    onConfirm = onVoiceSettingsSave,
-                    onDismiss = onVoiceSettingsDismiss,
-                )
-            }
         },
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize()) {
@@ -333,18 +292,7 @@ fun StudySessionContent(
 
                 else -> {
                     val card = state.flashcards[state.currentCardIndex]
-                    var isExtendedContextDialogOpen by remember(card.id) { mutableStateOf(false) }
                     val syntaxEngine = remember { SyntaxTokenizer() }
-
-                    if (isExtendedContextDialogOpen && !card.extendedContext.isNullOrBlank()) {
-                        ExtendedContextDialog(
-                            extendedContext = card.extendedContext.orEmpty(),
-                            onDismiss = {
-                                isExtendedContextDialogOpen = false
-                                onExtendedContextDialogDismissed()
-                            },
-                        )
-                    }
 
                     @OptIn(ExperimentalLayoutApi::class)
                     Column(
@@ -437,10 +385,7 @@ fun StudySessionContent(
                                     HorizontalDivider()
                                     Spacer(modifier = Modifier.height(8.dp))
                                     SuggestionChip(
-                                        onClick = {
-                                            isExtendedContextDialogOpen = true
-                                            onExtendedContextDialogOpen()
-                                        },
+                                        onClick = { onDialogEvent(StudySessionDialogEvent.Open.ExtendedContext) },
                                         label = { Text("Extended context") },
                                         icon = {
                                             Icon(
@@ -456,138 +401,16 @@ fun StudySessionContent(
                     }
                 }
             }
-
-            if (BuildConfig.DEBUG && state.flashcards.getOrNull(state.currentCardIndex) != null) {
-                FloatingActionButton(
-                    onClick = onCurationFabClick,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(
-                            end = 16.dp,
-                            bottom = innerPadding.calculateBottomPadding() + 16.dp
-                        )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Build,
-                        contentDescription = stringResource(R.string.study_session_curate_flashcard_cd),
-                    )
-                }
-            }
         } // end Box
 
-        if (state.isVoiceAnswerConsentDialogVisible) {
-            VoiceAnswerConsentDialog(
-                onAccept = onVoiceAnswerConsentAccept,
-                onDecline = onVoiceAnswerConsentDecline,
-            )
-        }
-
-        if (BuildConfig.DEBUG && state.isCurationDialogVisible) {
-            val currentCard = state.flashcards.getOrNull(state.currentCardIndex)
-            if (currentCard != null) {
-                CurationDialog(
-                    currentActions = state.curationRequests[currentCard.id]?.actions ?: emptyMap(),
-                    onActionToggle = onCurationActionToggle,
-                    onDismiss = onCurationDialogDismiss,
-                )
-            }
-        }
+        StudySessionDialogHost(
+            activeDialog = state.activeDialog,
+            currentCard = state.currentCard,
+            voiceSettingsState = state.voiceSettingsState,
+            onDialogEvent = onDialogEvent,
+            onExitSession = onNavigateBack,
+        )
     }
-}
-
-@Composable
-private fun VoiceAnswerConsentDialog(
-    onAccept: () -> Unit,
-    onDecline: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDecline,
-        title = { Text(stringResource(R.string.study_session_voice_answer_consent_title)) },
-        text = {
-            Text(
-                text = stringResource(R.string.study_session_voice_answer_consent_message),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = onAccept) {
-                Text(stringResource(R.string.study_session_voice_answer_consent_accept_button))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDecline) {
-                Text(stringResource(R.string.study_session_voice_answer_consent_decline_button))
-            }
-        },
-    )
-}
-
-@Composable
-private fun CurationDialog(
-    currentActions: Map<CurationAction, Instant>,
-    onActionToggle: (CurationAction) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Curate Card") },
-        text = {
-            Column {
-                CurationAction.entries.forEach { action ->
-                    val isActive = currentActions.containsKey(action)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onActionToggle(action) }
-                            .padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            imageVector = action.dialogIcon(),
-                            contentDescription = null,
-                            tint = if (isActive) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = action.dialogLabel(),
-                            modifier = Modifier.weight(1f),
-                            color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                        )
-                        if (isActive) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = "Active",
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Done") }
-        },
-    )
-}
-
-private fun CurationAction.dialogIcon(): ImageVector = when (this) {
-    CurationAction.DifficultyTooEasy -> Icons.Default.ArrowUpward
-    CurationAction.DifficultyTooHard -> Icons.Default.ArrowDownward
-    CurationAction.Delete -> Icons.Default.Delete
-    CurationAction.BacktickRedo -> Icons.Default.Code
-    CurationAction.WrongTags -> Icons.Default.Tag
-    CurationAction.NeedsCodeExample -> Icons.Default.DataObject
-    CurationAction.FullRedo -> Icons.Default.Refresh
-}
-
-private fun CurationAction.dialogLabel(): String = when (this) {
-    CurationAction.DifficultyTooEasy -> "Too easy — raise difficulty"
-    CurationAction.DifficultyTooHard -> "Too hard — lower difficulty"
-    CurationAction.Delete -> "Delete — duplicate or worthless"
-    CurationAction.BacktickRedo -> "Fix backtick formatting"
-    CurationAction.WrongTags -> "Wrong tags"
-    CurationAction.NeedsCodeExample -> "Needs code example"
-    CurationAction.FullRedo -> "Full rewrite needed"
 }
 
 @Composable
@@ -888,19 +711,8 @@ private fun StudySessionVoiceActivePreview() {
         onVoicePlayPause = {},
         onVoiceNext = {},
         onVoicePrevious = {},
-        onVoiceSettingsCogClick = {},
-        onVoiceSettingsDraftVoiceChanged = {},
-        onVoiceSettingsDraftSpeedChanged = {},
-        onVoiceSettingsSave = {},
-        onVoiceSettingsDismiss = {},
         onVoiceAnswerToggle = {},
-        onVoiceAnswerConsentAccept = {},
-        onVoiceAnswerConsentDecline = {},
-        onCurationFabClick = {},
-        onCurationActionToggle = {},
-        onCurationDialogDismiss = {},
-        onExtendedContextDialogOpen = {},
-        onExtendedContextDialogDismissed = {},
+        onDialogEvent = {},
     )
 }
 
@@ -937,18 +749,7 @@ private fun StudySessionRatedManualPreview() {
         onVoicePlayPause = {},
         onVoiceNext = {},
         onVoicePrevious = {},
-        onVoiceSettingsCogClick = {},
-        onVoiceSettingsDraftVoiceChanged = {},
-        onVoiceSettingsDraftSpeedChanged = {},
-        onVoiceSettingsSave = {},
-        onVoiceSettingsDismiss = {},
         onVoiceAnswerToggle = {},
-        onVoiceAnswerConsentAccept = {},
-        onVoiceAnswerConsentDecline = {},
-        onCurationFabClick = {},
-        onCurationActionToggle = {},
-        onCurationDialogDismiss = {},
-        onExtendedContextDialogOpen = {},
-        onExtendedContextDialogDismissed = {},
+        onDialogEvent = {},
     )
 }

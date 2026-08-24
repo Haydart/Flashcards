@@ -11,11 +11,10 @@ import com.rossomak.flashcards.core.domain.repository.CurationRepository
 import com.rossomak.flashcards.core.domain.repository.FakeCurationRepository
 import com.rossomak.flashcards.core.domain.repository.FakeFlashcardRepository
 import com.rossomak.flashcards.core.domain.repository.VoiceAnswerConsentRepository
-import com.rossomak.flashcards.core.domain.usecase.GetCurationRequestsUseCase
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.ObserveVoiceAnswerConsentUseCase
 import com.rossomak.flashcards.core.domain.usecase.SetVoiceAnswerConsentUseCase
-import com.rossomak.flashcards.core.domain.usecase.ToggleCurationActionUseCase
+import com.rossomak.flashcards.core.domain.usecase.SubmitCurationReportUseCase
 import com.rossomak.flashcards.core.ui.navigation.RouteDecoder
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsController
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsDraftState
@@ -26,11 +25,11 @@ import com.rossomak.flashcards.feature.study.voice.VoicePhase
 import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 import com.rossomak.flashcards.testutil.MainDispatcherRule
 import io.kotest.matchers.shouldBe
-import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
+import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -87,8 +86,7 @@ class StudySessionViewModelTest {
         StudySessionViewModel(
             savedStateHandle,
             getFlashcards,
-            GetCurationRequestsUseCase(curationRepository),
-            ToggleCurationActionUseCase(curationRepository),
+            SubmitCurationReportUseCase(curationRepository),
             ObserveVoiceAnswerConsentUseCase(voiceAnswerConsentRepository),
             SetVoiceAnswerConsentUseCase(voiceAnswerConsentRepository),
             voiceGateway,
@@ -328,107 +326,271 @@ class StudySessionViewModelTest {
     }
 
     @Test
-    fun `onCurationFabClick loads the curation cache and shows the dialog`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `ReportProblemOpen opens an empty draft bound to the current card`() = runTest(mainDispatcherRule.testDispatcher) {
         loadThreeCards()
-        val curationRepository = FakeCurationRepository()
-
-        val viewModel = createViewModel(curationRepository)
-        advanceUntilIdle()
-        viewModel.onCurationFabClick()
+        val viewModel = createViewModel()
         advanceUntilIdle()
 
-        viewModel.state.value.isCurationDialogVisible shouldBe true
+        viewModel.onDialogEvent(StudySessionDialogEvent.Open.ReportProblem)
+
+        viewModel.state.value.activeDialog shouldBe StudySessionDialog.ReportProblem(
+            cardId = "card-1",
+            subcategoryId = subcategoryId,
+        )
     }
 
     @Test
-    fun `onCurationFabClick pauses playback when voice is playing`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `ReportProblemOpen pauses playback when voice is playing`() = runTest(mainDispatcherRule.testDispatcher) {
         loadThreeCards()
         val viewModel = createViewModel()
         advanceUntilIdle()
         voiceGateway.stateFlow.value = VoicePlaybackState(isActive = true, isPlaying = true)
         advanceUntilIdle()
 
-        viewModel.onCurationFabClick()
+        viewModel.onDialogEvent(StudySessionDialogEvent.Open.ReportProblem)
         advanceUntilIdle()
 
         voiceGateway.togglePlayPauseCalls shouldBe 1
     }
 
     @Test
-    fun `onCurationActionToggle optimistically flags the current card and persists it`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `report draft is submittable only once an action is checked`() = runTest(mainDispatcherRule.testDispatcher) {
+        loadThreeCards()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDialogEvent(StudySessionDialogEvent.Open.ReportProblem)
+
+        reportDraft(viewModel).canSubmit shouldBe false
+
+        viewModel.onDialogEvent(
+            StudySessionDialogEvent.DraftChange.ReportProblemAction(CurationAction.Delete, isChecked = true)
+        )
+
+        reportDraft(viewModel).canSubmit shouldBe true
+    }
+
+    @Test
+    fun `checking a difficulty action clears its opposite in the report draft`() = runTest(mainDispatcherRule.testDispatcher) {
+        loadThreeCards()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDialogEvent(StudySessionDialogEvent.Open.ReportProblem)
+
+        viewModel.onDialogEvent(
+            StudySessionDialogEvent.DraftChange.ReportProblemAction(CurationAction.DifficultyTooHard, isChecked = true)
+        )
+        viewModel.onDialogEvent(
+            StudySessionDialogEvent.DraftChange.ReportProblemAction(CurationAction.DifficultyTooEasy, isChecked = true)
+        )
+
+        reportDraft(viewModel).selectedActions shouldBe setOf(CurationAction.DifficultyTooEasy)
+    }
+
+    @Test
+    fun `unchecking an action removes it from the report draft`() = runTest(mainDispatcherRule.testDispatcher) {
+        loadThreeCards()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDialogEvent(StudySessionDialogEvent.Open.ReportProblem)
+
+        viewModel.onDialogEvent(
+            StudySessionDialogEvent.DraftChange.ReportProblemAction(CurationAction.WrongTags, isChecked = true)
+        )
+        viewModel.onDialogEvent(
+            StudySessionDialogEvent.DraftChange.ReportProblemAction(CurationAction.WrongTags, isChecked = false)
+        )
+
+        reportDraft(viewModel).selectedActions shouldBe emptySet()
+    }
+
+    @Test
+    fun `Confirm submits the whole checked set in one call and closes the dialog`() = runTest(mainDispatcherRule.testDispatcher) {
         loadThreeCards()
         val curationRepository = FakeCurationRepository()
-
         val viewModel = createViewModel(curationRepository)
         advanceUntilIdle()
-        viewModel.onCurationActionToggle(CurationAction.Delete)
+        viewModel.onDialogEvent(StudySessionDialogEvent.Open.ReportProblem)
+        viewModel.onDialogEvent(
+            StudySessionDialogEvent.DraftChange.ReportProblemAction(CurationAction.Delete, isChecked = true)
+        )
+        viewModel.onDialogEvent(
+            StudySessionDialogEvent.DraftChange.ReportProblemAction(CurationAction.WrongTags, isChecked = true)
+        )
 
-        viewModel.state.value.curationRequests.getValue("card-1").actions.keys shouldBe setOf(CurationAction.Delete)
-
+        viewModel.onDialogEvent(StudySessionDialogEvent.Confirm)
         advanceUntilIdle()
-        curationRepository.upsertedActions shouldBe listOf(Triple("card-1", subcategoryId, CurationAction.Delete))
+
+        curationRepository.submittedReports shouldBe listOf(
+            Triple("card-1", subcategoryId, setOf(CurationAction.Delete, CurationAction.WrongTags))
+        )
+        viewModel.state.value.activeDialog shouldBe null
     }
 
     @Test
-    fun `onCurationActionToggle replaces the opposite difficulty flag`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `Dismiss discards the report draft without submitting`() = runTest(mainDispatcherRule.testDispatcher) {
         loadThreeCards()
+        val curationRepository = FakeCurationRepository()
+        val viewModel = createViewModel(curationRepository)
+        advanceUntilIdle()
+        viewModel.onDialogEvent(StudySessionDialogEvent.Open.ReportProblem)
+        viewModel.onDialogEvent(
+            StudySessionDialogEvent.DraftChange.ReportProblemAction(CurationAction.Delete, isChecked = true)
+        )
 
+        viewModel.onDialogEvent(StudySessionDialogEvent.Dismiss)
+        advanceUntilIdle()
+
+        curationRepository.submittedReports shouldBe emptyList()
+        viewModel.state.value.activeDialog shouldBe null
+    }
+
+    @Test
+    fun `reopening the report dialog starts from an empty draft`() = runTest(mainDispatcherRule.testDispatcher) {
+        loadThreeCards()
         val viewModel = createViewModel()
         advanceUntilIdle()
-        viewModel.onCurationActionToggle(CurationAction.DifficultyTooHard)
-        viewModel.onCurationActionToggle(CurationAction.DifficultyTooEasy)
+        viewModel.onDialogEvent(StudySessionDialogEvent.Open.ReportProblem)
+        viewModel.onDialogEvent(
+            StudySessionDialogEvent.DraftChange.ReportProblemAction(CurationAction.Delete, isChecked = true)
+        )
+        viewModel.onDialogEvent(StudySessionDialogEvent.Confirm)
+        advanceUntilIdle()
 
-        viewModel.state.value.curationRequests.getValue("card-1").actions.keys shouldBe
-            setOf(CurationAction.DifficultyTooEasy)
+        viewModel.onDialogEvent(StudySessionDialogEvent.Open.ReportProblem)
+
+        reportDraft(viewModel).selectedActions shouldBe emptySet()
     }
 
     @Test
-    fun `onCurationActionToggle reverts optimistic state and surfaces error on failure`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `Confirm surfaces an error when the submission fails`() = runTest(mainDispatcherRule.testDispatcher) {
         loadThreeCards()
-        val curationRepository: CurationRepository = mockk {
-            coEvery { getCurationRequests(any()) } returns Result.success(emptyMap())
-            coEvery { upsertCurationAction(any(), any(), any()) } returns Result.failure(IllegalStateException("boom"))
+        val curationRepository = FakeCurationRepository().apply {
+            upsertResultToReturn = Result.failure(IllegalStateException("boom"))
         }
-
         val viewModel = createViewModel(curationRepository)
         advanceUntilIdle()
-        viewModel.onCurationActionToggle(CurationAction.Delete)
+        viewModel.onDialogEvent(StudySessionDialogEvent.Open.ReportProblem)
+        viewModel.onDialogEvent(
+            StudySessionDialogEvent.DraftChange.ReportProblemAction(CurationAction.Delete, isChecked = true)
+        )
+
+        viewModel.onDialogEvent(StudySessionDialogEvent.Confirm)
         advanceUntilIdle()
 
-        viewModel.state.value.curationRequests.containsKey("card-1") shouldBe false
-        viewModel.state.value.curationError shouldBe "Failed to save curation request"
-    }
-
-    @Test
-    fun `onCurationDialogDismiss hides the curation dialog`() = runTest(mainDispatcherRule.testDispatcher) {
-        loadThreeCards()
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-        viewModel.onCurationFabClick()
-        advanceUntilIdle()
-
-        viewModel.onCurationDialogDismiss()
-
-        viewModel.state.value.isCurationDialogVisible shouldBe false
+        viewModel.state.value.curationError shouldBe "Failed to submit report"
     }
 
     @Test
     fun `onCurationErrorDismissed clears the curation error`() = runTest(mainDispatcherRule.testDispatcher) {
         loadThreeCards()
-        val curationRepository: CurationRepository = mockk {
-            coEvery { getCurationRequests(any()) } returns Result.success(emptyMap())
-            coEvery { upsertCurationAction(any(), any(), any()) } returns Result.failure(IllegalStateException("boom"))
+        val curationRepository = FakeCurationRepository().apply {
+            upsertResultToReturn = Result.failure(IllegalStateException("boom"))
         }
-
         val viewModel = createViewModel(curationRepository)
         advanceUntilIdle()
-        viewModel.onCurationActionToggle(CurationAction.Delete)
+        viewModel.onDialogEvent(StudySessionDialogEvent.Open.ReportProblem)
+        viewModel.onDialogEvent(
+            StudySessionDialogEvent.DraftChange.ReportProblemAction(CurationAction.Delete, isChecked = true)
+        )
+        viewModel.onDialogEvent(StudySessionDialogEvent.Confirm)
         advanceUntilIdle()
 
         viewModel.onCurationErrorDismissed()
 
         viewModel.state.value.curationError shouldBe null
     }
+
+    @Test
+    fun `ExtendedContextOpen and Dismiss move the sealed dialog field`() = runTest(mainDispatcherRule.testDispatcher) {
+        loadThreeCards()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onDialogEvent(StudySessionDialogEvent.Open.ExtendedContext)
+        viewModel.state.value.activeDialog shouldBe StudySessionDialog.ExtendedContext
+
+        viewModel.onDialogEvent(StudySessionDialogEvent.Dismiss)
+        viewModel.state.value.activeDialog shouldBe null
+    }
+
+    @Test
+    fun `VoiceSettingsOpen opens the controller and Confirm saves it`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onDialogEvent(StudySessionDialogEvent.Open.VoiceSettings)
+        viewModel.state.value.activeDialog shouldBe StudySessionDialog.VoiceSettings
+
+        viewModel.onDialogEvent(StudySessionDialogEvent.Confirm)
+
+        verify(exactly = 1) { voiceSettingsController.save(any()) }
+        viewModel.state.value.activeDialog shouldBe null
+    }
+
+    @Test
+    fun `VoiceSettings Dismiss discards the draft through the controller`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDialogEvent(StudySessionDialogEvent.Open.VoiceSettings)
+
+        viewModel.onDialogEvent(StudySessionDialogEvent.Dismiss)
+
+        verify(exactly = 1) { voiceSettingsController.dismiss() }
+        verify(exactly = 0) { voiceSettingsController.save(any()) }
+        viewModel.state.value.activeDialog shouldBe null
+    }
+
+    @Test
+    fun `ExitSessionOpen shows the confirmation and Dismiss cancels it`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onDialogEvent(StudySessionDialogEvent.Open.ExitSession)
+        viewModel.state.value.activeDialog shouldBe StudySessionDialog.ExitSession
+
+        viewModel.onDialogEvent(StudySessionDialogEvent.Dismiss)
+        viewModel.state.value.activeDialog shouldBe null
+    }
+
+    @Test
+    fun `a routed voice-answering choice without consent opens the consent dialog on entry`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(route.copy(voiceAnsweringEnabled = true))
+            loadThreeCards()
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.state.value.activeDialog shouldBe StudySessionDialog.VoiceAnswerConsent
+        }
+
+    @Test
+    fun `a routed voice-answering choice with consent requests the mic permission on entry`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(route.copy(voiceAnsweringEnabled = true))
+            voiceAnswerConsentRepository.consentFlow.value = true
+            loadThreeCards()
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.state.value.isMicPermissionRequestPending shouldBe true
+        }
+
+    @Test
+    fun `a routed voice-answering choice is ignored in Fast mode`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(route.copy(studyMode = StudyMode.Fast, voiceAnsweringEnabled = true))
+        loadThreeCards()
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.state.value.activeDialog shouldBe null
+        viewModel.state.value.isMicPermissionRequestPending shouldBe false
+    }
+
+    private fun reportDraft(viewModel: StudySessionViewModel): StudySessionDialog.ReportProblem =
+        viewModel.state.value.activeDialog as StudySessionDialog.ReportProblem
 
     @Test
     fun `onCleared stops the voice gateway`() = runTest(mainDispatcherRule.testDispatcher) {
@@ -450,7 +612,7 @@ class StudySessionViewModelTest {
 
             viewModel.onVoiceAnswerToggle()
 
-            viewModel.state.value.isVoiceAnswerConsentDialogVisible shouldBe true
+            viewModel.state.value.activeDialog shouldBe StudySessionDialog.VoiceAnswerConsent
             voiceGateway.lastVoiceAnswering shouldBe null
         }
 
@@ -464,7 +626,7 @@ class StudySessionViewModelTest {
             viewModel.onVoiceAnswerToggle()
 
             viewModel.state.value.isMicPermissionRequestPending shouldBe true
-            viewModel.state.value.isVoiceAnswerConsentDialogVisible shouldBe false
+            viewModel.state.value.activeDialog shouldBe null
         }
 
     @Test
@@ -475,7 +637,7 @@ class StudySessionViewModelTest {
 
         viewModel.onVoiceAnswerToggle()
 
-        viewModel.state.value.isVoiceAnswerConsentDialogVisible shouldBe false
+        viewModel.state.value.activeDialog shouldBe null
         viewModel.state.value.isMicPermissionRequestPending shouldBe false
     }
 
@@ -492,15 +654,16 @@ class StudySessionViewModelTest {
     }
 
     @Test
-    fun `onVoiceAnswerConsentAccept persists consent and requests the mic permission`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `accepting voice-answer consent persists it and requests the mic permission`() = runTest(mainDispatcherRule.testDispatcher) {
         val viewModel = createViewModel()
         advanceUntilIdle()
+        viewModel.onVoiceAnswerToggle()
 
-        viewModel.onVoiceAnswerConsentAccept()
+        viewModel.onDialogEvent(StudySessionDialogEvent.Confirm)
         advanceUntilIdle()
 
         voiceAnswerConsentRepository.consentFlow.value shouldBe true
-        viewModel.state.value.isVoiceAnswerConsentDialogVisible shouldBe false
+        viewModel.state.value.activeDialog shouldBe null
         viewModel.state.value.isMicPermissionRequestPending shouldBe true
     }
 
