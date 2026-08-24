@@ -22,9 +22,6 @@ object AppSizes {
     /** Rounded, tinted leading icon container used in settings and category rows. */
     val iconTile: Dp = 40.dp
 
-    /** Circular numbered badge used as the leading element of flashcard rows. */
-    val numberBadge: Dp = 28.dp
-
     /** 1px hairline used for card borders and dividers. */
     val hairline: Dp = 1.dp
 
@@ -50,10 +47,10 @@ object AppSizes {
     val metadataBadgeIconCompact: Dp = 14.dp
 
     /** Diameter of the circular difficulty badge (leading element of flashcard rows). */
-    val difficultyBadge: Dp = 28.dp
+    val difficultyBadge: Dp = 24.dp
 
     /** Height of the difficulty range pill (filters, Study Creation summaries). */
-    val difficultyRangePillHeight: Dp = 26.dp
+    val difficultyRangePillHeight: Dp = 24.dp
 
     /** Height of a [com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentSize.Normal] button. */
     val buttonHeightNormal: Dp = 56.dp
