@@ -101,6 +101,12 @@ object AppSizes {
 
     /** Leading icon inside a [com.rossomak.flashcards.core.ui.composables.banners.FlashcardsXpBreakdownRow]. */
     val xpBreakdownRowIcon: Dp = 20.dp
+
+    /** Side of one slot in a [com.rossomak.flashcards.core.ui.composables.FlashcardsAttemptIndicator]. */
+    val attemptIndicatorSlot: Dp = 20.dp
+
+    /** Rating icon inside a graded [attemptIndicatorSlot]. */
+    val attemptIndicatorIcon: Dp = 12.dp
 }
 
 val MaterialTheme.sizes: AppSizes
