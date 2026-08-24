@@ -91,6 +91,19 @@ object AppSizes {
 
     /** Diameter of [com.rossomak.flashcards.core.ui.composables.progress.FlashcardsCircularProgressRing] at `Small` (list rows). */
     val progressRingDiameterSmall: Dp = 40.dp
+
+    /**
+     * Border width of any component drawn on a brand gradient — the one width paired with
+     * [BrandColors.onGradientBorder] / [BrandColors.onGradientOutline]. Matches [tagChipBorder]
+     * rather than [hairline]: a 1dp translucent white edge disappears against the gradient.
+     */
+    val onGradientBorder: Dp = 1.5.dp
+
+    /** Leading icon inside a [com.rossomak.flashcards.core.ui.composables.banners.FlashcardsInfoBanner]. */
+    val infoBannerIcon: Dp = 16.dp
+
+    /** Leading icon inside a [com.rossomak.flashcards.core.ui.composables.banners.FlashcardsXpBreakdownRow]. */
+    val xpBreakdownRowIcon: Dp = 20.dp
 }
 
 val MaterialTheme.sizes: AppSizes

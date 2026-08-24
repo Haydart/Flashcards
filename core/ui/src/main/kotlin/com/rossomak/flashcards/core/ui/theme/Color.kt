@@ -83,3 +83,20 @@ object CodeBlockColors {
     val background = Color(0xFF1E1E1E)
     val foreground = Color(0xFFFFFFFF)
 }
+
+// Valence palette backing [SemanticColors] — see that file for why these are hand-authored
+// container/content pairs rather than one accent tinted at an alpha. The light values are the
+// study screen's shipped rating-button palette, promoted to tokens; the dark values are new.
+val positiveContainerLight = Color(0xFFD3EBD6)
+val onPositiveContainerLight = Color(0xFF3E9556)
+val neutralContainerLight = Color(0xFFF6E8C8)
+val onNeutralContainerLight = Color(0xFFC98F2B)
+val negativeContainerLight = Color(0xFFF6D9DA)
+val onNegativeContainerLight = Color(0xFFC94F4F)
+
+val positiveContainerDark = Color(0xFF1E3524)
+val onPositiveContainerDark = Color(0xFF7BD98A)
+val neutralContainerDark = Color(0xFF3A2F16)
+val onNeutralContainerDark = Color(0xFFE8B84B)
+val negativeContainerDark = Color(0xFF3A1F20)
+val onNegativeContainerDark = Color(0xFFE88C8C)
