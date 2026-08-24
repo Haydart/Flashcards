@@ -36,24 +36,26 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun onVoicePlaybackSettingsClick() {
-        voiceSettingsController.open(viewModelScope)
-    }
-
-    fun onVoiceSettingsDraftVoiceChanged(voiceId: String?) {
-        voiceSettingsController.onDraftVoiceChanged(voiceId)
-    }
-
-    fun onVoiceSettingsDraftSpeedChanged(speed: Float) {
-        voiceSettingsController.onDraftSpeedChanged(speed)
-    }
-
-    fun onVoiceSettingsSave() {
-        voiceSettingsController.save(viewModelScope)
-    }
-
-    fun onVoiceSettingsDismiss() {
-        voiceSettingsController.dismiss()
+    /** Single entry point for every dialog on this screen. */
+    fun onDialogEvent(event: SettingsDialogEvent) {
+        when (event) {
+            SettingsDialogEvent.Open.VoiceSettings -> {
+                voiceSettingsController.open(viewModelScope)
+                _state.update { it.copy(activeDialog = SettingsDialog.VoiceSettings) }
+            }
+            is SettingsDialogEvent.DraftChange.VoiceSettingsVoice ->
+                voiceSettingsController.onDraftVoiceChanged(event.voiceId)
+            is SettingsDialogEvent.DraftChange.VoiceSettingsSpeechRate ->
+                voiceSettingsController.onDraftSpeedChanged(event.speechRate)
+            SettingsDialogEvent.Confirm -> {
+                voiceSettingsController.save(viewModelScope)
+                _state.update { it.copy(activeDialog = null) }
+            }
+            SettingsDialogEvent.Dismiss -> {
+                voiceSettingsController.dismiss()
+                _state.update { it.copy(activeDialog = null) }
+            }
+        }
     }
 
     fun onSignOutClick() {
