@@ -1,5 +1,25 @@
 # Report a problem: single collection, action map per card, universal in-session entry point
 
+> **Amended when the dialog system landed.** Three clauses below changed:
+> 1. **The draft always starts empty and Submit is additive.** The sheet no longer seeds from the
+>    card's stored report, so unchecking a row means "not reporting this now", never "withdraw".
+>    Submit upserts the checked actions and removes nothing. **There is consequently no in-app way
+>    to withdraw a report** — `CurationRepository.removeCurationAction` survives as the primitive,
+>    with no caller. Withdrawal is an admin/sync-tooling concern until a screen needs it.
+>    Rationale: seeding makes an unchecked box ambiguous between "not a problem" and "already
+>    reported", and lazily fetching every card's report state to populate it costs a read for a
+>    feature most sessions never touch.
+> 2. **It is a dialog, not a bottom sheet**, built on `FlashcardsDecisionDialog` — Cancel discards
+>    the whole draft, Submit commits it.
+> 3. **The entry point is a flag `IconButton` in the study session top bar**, left of the card
+>    counter, enabled only while a card is displayed — the bottom sheet is already crowded with the
+>    mic toggle, the cog and the transport controls. It ships to production; the previous
+>    `BuildConfig.DEBUG` FAB and its dialog are deleted.
+>
+> Also: `WrongTags` joined the `CurationAction` enum (seven actions, all reportable), and Submit
+> writes them through `SubmitCurationReportUseCase` -> `CurationRepository.upsertCurationActions`,
+> preserving this ADR's "one write on Submit".
+
 ## Decision
 
 Any user can flag a Flashcard for a content fix via the flag icon on a study session card (Rated and
