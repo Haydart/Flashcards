@@ -76,6 +76,7 @@ dependencies {
     implementation(project(":core:voice"))
     implementation(project(":feature:auth"))
     implementation(project(":feature:home"))
+    implementation(project(":feature:onboarding"))
     implementation(project(":feature:browse"))
     implementation(project(":feature:study"))
     implementation(project(":feature:settings"))

@@ -1,0 +1,166 @@
+package com.rossomak.flashcards.feature.onboarding.step
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import com.rossomak.flashcards.core.domain.model.FlashcardRating
+import com.rossomak.flashcards.core.ui.R as CoreUiR
+import com.rossomak.flashcards.core.ui.composables.FlashcardsDifficultyBadge
+import com.rossomak.flashcards.core.ui.composables.rating.FlashcardsRatingButtonRow
+import com.rossomak.flashcards.core.ui.theme.cornerRadius
+import com.rossomak.flashcards.core.ui.theme.spacing
+import com.rossomak.flashcards.feature.onboarding.R
+import com.rossomak.flashcards.feature.onboarding.component.OnboardingAttemptsIndicator
+import com.rossomak.flashcards.feature.onboarding.component.OnboardingInfoBanner
+import com.rossomak.flashcards.feature.onboarding.component.OnboardingStepColumn
+import com.rossomak.flashcards.feature.onboarding.component.OnboardingStepHeader
+
+/**
+ * Attempts and Ratings on the illustrated card. Deliberately generic about how many Attempts a card
+ * gets: the limit is user-configurable in Settings (default 3, max 5), so neither the copy nor this
+ * illustration may state a fixed number as a rule.
+ */
+private val ILLUSTRATED_ATTEMPTS = listOf(FlashcardRating.Failed, FlashcardRating.PartiallyCorrect, null)
+
+/** XP awarded for mastering one card, per docs/design/xp-leveling-system.md. */
+private const val CARD_MASTERY_XP = 100
+
+/** Difficulty shown on the illustrated card — mid-range, so the badge reads as neither extreme. */
+private const val ILLUSTRATED_DIFFICULTY = 4
+
+/**
+ * Explains the Attempt → Rating → Terminal State mechanic. Presentation only: the rating row is
+ * rendered read-only, since there is nothing here to actually rate.
+ */
+@Composable
+internal fun MasteryStep(modifier: Modifier = Modifier) {
+    OnboardingStepColumn(modifier = modifier) {
+        OnboardingStepHeader(
+            eyebrow = stringResource(R.string.mastery_eyebrow_label),
+            headline = stringResource(R.string.mastery_headline_title),
+            message = stringResource(R.string.mastery_intro_message),
+        )
+        Spacer(modifier = Modifier.height(MaterialTheme.spacing.medium))
+        MasteryExampleCard()
+        Spacer(modifier = Modifier.height(MaterialTheme.spacing.normal))
+        OnboardingInfoBanner(text = stringResource(R.string.mastery_xp_banner_message))
+    }
+}
+
+@Composable
+private fun MasteryExampleCard(modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(MaterialTheme.cornerRadius.card),
+        color = MaterialTheme.colorScheme.surface,
+    ) {
+        Column(
+            modifier = Modifier.padding(MaterialTheme.spacing.normal),
+            verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                LabelledSlot(label = stringResource(R.string.mastery_attempts_label)) {
+                    OnboardingAttemptsIndicator(attemptRatings = ILLUSTRATED_ATTEMPTS)
+                }
+                LabelledSlot(
+                    label = stringResource(R.string.mastery_difficulty_label),
+                    horizontalAlignment = Alignment.End,
+                ) {
+                    FlashcardsDifficultyBadge(level = ILLUSTRATED_DIFFICULTY)
+                }
+            }
+            Text(
+                text = stringResource(R.string.mastery_example_question_title),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center,
+            )
+            HorizontalDivider()
+            Text(
+                text = stringResource(CoreUiR.string.common_rating_prompt_label),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center,
+            )
+            FlashcardsRatingButtonRow()
+            HorizontalDivider()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(
+                    space = MaterialTheme.spacing.small,
+                    alignment = Alignment.CenterHorizontally,
+                ),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                MasteredBadge()
+                Text(
+                    text = stringResource(R.string.mastery_xp_reward_label, CARD_MASTERY_XP),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MasteredBadge(modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(MaterialTheme.cornerRadius.full),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+    ) {
+        Text(
+            text = stringResource(R.string.mastery_mastered_label),
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(
+                horizontal = MaterialTheme.spacing.small,
+                vertical = MaterialTheme.spacing.xxsmall,
+            ),
+        )
+    }
+}
+
+@Composable
+private fun LabelledSlot(
+    label: String,
+    modifier: Modifier = Modifier,
+    horizontalAlignment: Alignment.Horizontal = Alignment.Start,
+    content: @Composable () -> Unit,
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = horizontalAlignment,
+        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xxsmall),
+    ) {
+        Text(
+            text = label.uppercase(),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        content()
+    }
+}
