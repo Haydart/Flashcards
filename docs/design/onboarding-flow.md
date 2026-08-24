@@ -2,7 +2,7 @@
 
 First-run panned gallery: one step per page, swipe (or tap Continue) to advance, explains structure/session modes/mastery, then captures daily goal, session default, and favorites — with a free voice-answering preview along the way as a premium-feature teaser.
 
-Status: design in progress, grilled iteratively. This doc is updated as decisions are made; unresolved items are listed under Open Items.
+Status: **built** (first release, UI-complete). This doc is updated as decisions are made; what the first release deliberately leaves unwired is listed under [Deferred to follow-ups](#deferred-to-follow-ups).
 
 ## Navigation placement
 
@@ -10,7 +10,17 @@ Status: design in progress, grilled iteratively. This doc is updated as decision
 Splash → Login → Onboarding (8 screens) → Main
 ```
 
-- **Login precedes onboarding.** Screen 7 (Favorites) writes to `users/{uid}/favorites`, so a uid must exist first. No guest mode exists yet — see [ADR pending] Auth architecture note below.
+- **Login precedes onboarding.** Screen 7 (Favorites) will write to `users/{uid}/favorites`, and Screen 8 greets the user by `displayName`, so a uid must exist first. No guest mode exists yet — see [ADR pending] Auth architecture note below.
+  - Onboarding-first (value-before-ask) was weighed and rejected for now: it would force staging every captured preference across the login boundary and drop Screen 8's name greeting, and the ask here is a single Google tap rather than a form, which is where value-before-ask pays least. Revisit if signup conversion becomes a measured concern — the staged-write mechanism it needs has to be built anyway once favourites persist.
+- **Implemented branching** (`SplashViewModel`, `LoginViewModel`), both reading the same device-scoped flag:
+
+  | Splash | | Login (after sign-in success) | |
+  |---|---|---|---|
+  | not authenticated | → Login | onboarding seen | → Main |
+  | authenticated, onboarding not seen | → Onboarding | onboarding not seen | → Onboarding |
+  | authenticated, onboarding seen | → Main | | |
+
+  Splash reads the flag under a 1s timeout alongside the auth check and falls back to *seen* if the read stalls — a slow local read must not hold the splash open, and wrongly re-showing onboarding to an existing user is the worse of the two failures.
 - **Onboarding-seen flag**: stored in local DataStore, not Firestore. Device-scoped, not uid-scoped.
   - Consequence (accepted): same device + new account login → onboarding skipped. New device + same account → onboarding shown again.
 - **Future guest mode**: build on Firebase Anonymous Auth, not a separate local-only mode. Anonymous sign-in still returns a non-null uid, so it satisfies `SplashViewModel`'s existing `getCurrentAuthUser() != null` check, ADR-0002's sign-out `popUpTo<AuthedGraph>` logic, and Firestore rules (`request.auth != null`, no provider check) without any rework. This keeps Login-before-Onboarding valid even after guest mode ships — a future anonymous user still has a uid by the time onboarding's Favorites screen runs.
@@ -20,7 +30,8 @@ Splash → Login → Onboarding (8 screens) → Main
 
 ### 1. Welcome
 - No progress dots — cover screens are conventionally exempt from progress chrome (showing "step 1 of 9" upfront can deter starting).
-- Forward-only: swipe right or tap "Get started" advances. Swiping left from Screen 2 back to Screen 1 does nothing (one-way door) — add a rubber-band/bounce feedback on that gesture attempt so it reads as "this is the start," not a dead gesture. Trivial to implement, not blocking.
+- ~~Forward-only (one-way door)~~ — **dropped as built.** The "no progress bar upfront" rationale above is about *first impression* only, and it has already expired by the time a user on Screen 3 could swipe back. Enforcing it needed a custom `NestedScrollConnection` consuming backward drags, i.e. real gesture code whose only payoff was preventing a harmless revisit. All eight pages are therefore ordinary pager pages, and `pagerState.currentPage` is the flow's only navigation state.
+  - Consequence: the progress bar appears and disappears when crossing 1↔2 and 7↔8. Read as a rule the user can observe in both directions ("the cover and the outro carry no chrome"), not as a glitch.
 - Subcopy fixed: *"...how sessions work, how content is organized, and what it takes to master a card."* (generic; avoids naming Category/Topic prematurely — Screen 2 handles that payoff).
 - CTA: "Get started"
 
@@ -33,7 +44,8 @@ Splash → Login → Onboarding (8 screens) → Main
 - **Reordering**: swapped with Session modes. Two reasons: (1) this screen is pure presentation — no decision, no input, just teaches a concept — and cover-to-decision screens generally read better than decision-to-concept; (2) mastery is the natural setup for the Rated-vs-Fast choice — Rated is defined by rating cards toward mastery, so explaining mastery first makes the next screen's Rated card land immediately instead of introducing an unexplained term.
 - Explains Attempts → Rating → Terminal State (Mastered) mechanic. Presentation-only, no user decision — CTA is just "Continue."
 - **Attempts limit is becoming Settings-customizable** (default 3, max 5 — see `CONTEXT.md` Attempt/Terminal State entries and `SYSTEMDESIGN.md` Settings Screen, both updated). Copy must not hardcode a specific attempt number (e.g. "the third") since it's no longer a fixed constant.
-- **Headline, shortened**: "Cards graduate as you get them right" → **"Get it right, cards graduate."** Same metaphor, same claim, cut from 7 words to 5.
+- **Headline**: shipped as **"Master cards and level up"** (eyebrow: GAMIFIED PROGRESS TRACKING), per the latest mockup. Supersedes the earlier "Get it right, cards graduate" round recorded here.
+- **XP figure corrected**: the mockup drew "+150 XP"; `docs/design/xp-leveling-system.md` says **100 XP** per mastered card, and the illustration ships that number.
 - **Subcopy, shortened and reworked** — three changes from the prior round: (1) cut the "on the first try or the third" phrasing entirely — disliked, and would've hardcoded a number that's now configurable anyway; (2) now names the three Rating values (**Failed, Partial, Correct**) since this is Rating's natural introduction point, freeing Screen 4's Rated card to drop them (see Screen 4 below); (3) dropped the explicit "next, pick how you want to run yours" bridge sentence — it was the third sentence bloating the previous draft, and the screen sequence + Continue button already implies "what's next" without spelling it out. This is a judgment call, reversible if the forward-pointer is missed in review.
   *"Rate each answer Failed, Partial, or Correct. Nail it and the card's mastered — it resurfaces less so you focus on what's shaky."*
 - Sample card mock (Attempts dots + "Mastered" badge) unchanged — already terminology-correct.
@@ -45,7 +57,7 @@ Splash → Login → Onboarding (8 screens) → Main
 ### 4. Session modes (merged with former defaults screen) — moved down from Screen 3
 - Explains Rated vs Fast, **and** captures the user's default Study Mode in the same screen — see rationale under Open Items history (former Screen 5 shrank to a single control once session-size and shuffle were dropped, no longer justified as its own screen).
 - Eyebrow: SESSION MODES
-- Headline: "Two ways to run a session"
+- Headline: shipped as **"Pick your studying mode"** (eyebrow: TWO STUDY SESSION MODES), per the latest mockup; supersedes "Two ways to run a session".
 - Subcopy: "Choose your mode each time you start. Pick your default below — change it anytime in Settings."
 - Body: reuses the radio-card group component from the Preview Study Session Screen mockup (Rated / Fast cards, Rated pre-selected), but with **taller cards and more explanatory copy per card** — onboarding is a first-time explanation, not a quick pre-session reminder, so it can diverge from the Preview screen's terser text:
   - **Rated**: *"Reveal each answer, then rate yourself — or speak your answer and let the app grade it automatically. Progress is saved."*
@@ -66,9 +78,10 @@ Splash → Login → Onboarding (8 screens) → Main
 - Combined into one screen rather than two — goal-setting is the functional half, XP/streak is a one-line payoff for why the goal matters.
 - Position: fifth in the flow, right after Session modes (Screen 4). No longer directly adjacent to Mastery (Screen 3) after the reorder above, but the XP teaser still conceptually traces back to it — Card Mastery is the XP system's top source — so the link survives one screen removed.
 - Eyebrow: YOUR GOAL
-- Headline: "Set your daily goal"
+- Headline: shipped as **"Keep yourself engaged"** (eyebrow: TIME GOALS AND STREAKS), per the latest mockup; supersedes "Set your daily goal".
 - Subcopy: "A few minutes a day beats a big session once a week. Change this anytime in Settings."
-- Widget: Daily goal stepper/slider, minutes/day, default 20, step 5, range 5–120. Value display: "20 min / day".
+- Widget: Daily goal stepper, minutes/day, default 20, step 5, range 5–120 (`DailyGoal` in `:core:domain`). Shipped as the shared `FlashcardsStepper` with a "minutes per day" caption, rather than repeating the number in a second label.
+- **Streak block split out and marked EXAMPLE.** The mockup drew "🔥 8 days · Best: 14d" inside the same surface as the live goal stepper. A brand-new user's real streak is zero, and a fabricated figure rendered in the same visual language as a control reads as *their* statistic. It now sits on its own card above the goal card, under an EXAMPLE overline. This is the same objection that removed the session-size recap badge on Screen 8 — illustration and live value must not share a surface unlabelled.
 - XP teaser line below widget: "Hit your goal → earn XP, build your streak 🔥"
 - CTA: "Continue"
 - Skippable (top-right "Skip"): goal defaults to 20 min if skipped.
@@ -84,7 +97,8 @@ Splash → Login → Onboarding (8 screens) → Main
 - "Private voice" card, its description, and the "Test your voice" button/interaction: unchanged — still a free, fully working preview of capture + on-device obfuscation only.
 
 ### 7. Favorites — formerly Screen 8
-- Headline fixed: "Star a few topics" → **"Favorite a few topics"**.
+- Headline: shipped as **"Make it truly yours"** (eyebrow: CONVENIENT BOOKMARKS), per the latest mockup; supersedes "Favorite a few topics". The terminology note below still holds — "Starred" remains banned wherever favourites are named.
+- Earlier headline fix, retained for the record: "Star a few topics" → **"Favorite a few topics"**.
   - Terminology fix: `CONTEXT.md`'s Favorite entity explicitly bans "Starred" as a synonym (line 43). The screen's own subcopy already correctly said "Favorites get pinned to your home screen" — headline contradicted it.
 - Subcopy unchanged.
 
@@ -92,7 +106,43 @@ Splash → Login → Onboarding (8 screens) → Main
 - Recap badges rework: must reflect the actual decisions the user made during onboarding, in the order they made them — not a mix of real decisions and silent defaults.
   - **Before**: "20 cards/session" (never user-set — session size stays a silent Settings-only default, per Screen 4's note) + "Rated by default" + "2 favorites". Recap showed an untouched default while omitting a setting the user had just actively configured.
   - **After**: three badges, one per real decision, ordered by when the user made it — **Study mode** (Screen 4: "Rated by default" / "Fast by default") → **Daily goal** (Screen 5: e.g. "20 min/day") → **Favorites** (Screen 7: "N favorites"). Session-size badge removed entirely.
-- Headline/subcopy/CTA unchanged ("You're all set, {name}!" / "Start studying").
+- Headline/subcopy/CTA unchanged ("You're all set, {name}!" / "Start studying"). `{name}` is `AuthUser.displayName` falling back to email — the same fallback `MainViewModel` already uses; the greeting drops the name entirely when neither exists.
+- **This screen is the flow's only exit**, and the single place preferences are written. See [Skip and commit](#skip-and-commit).
+
+## Skip and commit
+
+- **Skip does not leave the flow — it jumps to Screen 8.** Rejected alternatives were "Skip exits to Main" (two exit paths, both of which have to remember to save) and "Skip advances one step" (not what Skip means).
+- Consequences, all deliberate:
+  - Exactly one code path commits, so a skipped run and a completed run cannot diverge.
+  - The recap on Screen 8 needs no "was this skipped?" branch: badges read state, and after a Skip that state is the defaults the app is about to save. The user sees the assumed values rather than having them applied silently.
+  - Process death mid-flow discards everything *and* leaves the flag unset, so the user restarts at Screen 1. No half-committed state exists.
+- **Commit order**: write `StudyPreferences` → only on success set `hasSeenOnboarding = true` → navigate. The flag doubles as an "everything was written" gate, so a failed write re-shows the flow next launch instead of silently losing the user's choices.
+- **Navigation happens even if the write fails.** Nothing the user can do from Screen 8 fixes local storage, and trapping them on the last page of onboarding is worse than re-showing the flow.
+- Repeat taps on "Start studying" are ignored while a commit is in flight.
+- ⚠️ **When favourites become real, this gate needs care.** Firestore's offline persistence applies a write to the local cache immediately but leaves the returned `Task` pending until the server acks, so `await()`-ing a favourites write would hang an offline user on Screen 8 forever. Use a timeout, or treat the local write as success. A `TODO(favorites)` in `OnboardingViewModel.onFinish` records this.
+
+## As built
+
+- **Module**: `:feature:onboarding` (`android-feature` convention plugin), depending only on `:core:ui`, `:core:domain`, `:core:data`.
+- **Navigation**: one `OnboardingRoute` destination hosting a `HorizontalPager` of all eight steps. Gradient, progress bar, Skip and the CTA are fixed chrome outside the pager, so a swipe moves content only. Skip uses an instant `scrollToPage`, not an animated one — animating a jump of up to seven pages would fling the user through every screen they just chose to skip.
+- **Progress bar**: six segments over Screens 2–7; the two bookends show none. The Skip and progress slots keep their height on the steps that hide them, so content never shifts between steps.
+- **Persistence**: a new device-scoped `user_preferences` DataStore in `:core:data` holding `hasSeenOnboarding`, `defaultStudyMode` and `dailyGoalMinutes`. Note that `VoiceDataModule` already provided an *unqualified* `DataStore<Preferences>`; both stores are now behind `@VoiceDataStore` / `@UserPreferencesDataStore` qualifiers, since a second unqualified binding would not compile.
+- **Debug entry point**: Settings carries a debug-only "Replay onboarding" button. It clears the flag before navigating, so the replay behaves exactly like a first run — including committing preferences again — rather than being a read-only walkthrough that behaves differently from the real thing.
+- **Design-system work pulled in by this flow**:
+  - `FlashcardsRatingButton` / `FlashcardsRatingButtonRow` + `RatingColors` promoted to `:core:ui` out of `StudySessionScreen`'s private copies (which carried raw hex and raw dp). A `null` `onClick` renders the read-only form Voice Answering will use to display the grade it assigned, so a grade badge cannot drift from the button the user would have tapped for the same rating.
+  - `BrandColors.screenGradient` (+ `screenGradientBase`) added, and the ad-hoc `splashGradient` and `loginGradient` collapsed into it. It reuses the existing CTA gradient's two stops, so the whole brand now resolves to one colour pair: diagonal on a button, vertical full-bleed behind a screen.
+
+## Deferred to follow-ups
+
+The first release is UI-complete; three things are deliberately not wired.
+
+| Deferred | Shipped instead | Notes |
+|---|---|---|
+| Favourites persistence (`users/{uid}/favorites`) | Selections held in screen state; Screen 8's badge counts them | Needs the domain model, repository, subcollection **and** a `firestore.rules` change — favourites currently default-deny. See the side finding under Navigation placement. |
+| Real Subcategory fetch for Screen 7's grid | Hardcoded option list in `OnboardingViewModel` | Deliberate while favourites go nowhere: a real query would add loading/error/empty states to a screen whose selections are discarded. `Category.featuredSubcategoryNames` cannot back this — it holds names, not ids. |
+| Voice capture on Screen 6's "Test your voice" | Button renders but does nothing | Keeps `RECORD_AUDIO` out of onboarding for now. The intended demo is on-device only — capture → `PitchShiftVoiceObfuscator` → play back — and must **not** show a transcript: `TranscribeAndSanitizeUseCase` is a server callable, which would contradict this screen's own "runs on-device, always free" copy. The consent flag stays owned by `StudySessionViewModel`. |
+
+Three `:core:ui` components are also stubbed locally in `:feature:onboarding` pending their real versions: the attempts indicator, the info banner, and the extended radio card. Each call site already matches the expected signature, so adoption should be an import change.
 
 ## Open items (pending further grilling)
 
