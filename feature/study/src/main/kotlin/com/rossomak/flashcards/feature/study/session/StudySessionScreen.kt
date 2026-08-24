@@ -39,7 +39,6 @@ import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
@@ -53,7 +52,6 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
@@ -75,7 +73,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -90,8 +87,10 @@ import com.gallatinapps.syntaxmp.tokenizer.SyntaxTokenizer
 import com.rossomak.flashcards.core.domain.model.CurationAction
 import com.rossomak.flashcards.core.domain.model.FlashcardRating
 import com.rossomak.flashcards.core.domain.model.StudyMode
+import com.rossomak.flashcards.core.ui.R as CoreUiR
 import com.rossomak.flashcards.core.ui.composables.SyntaxCodeBlock
 import com.rossomak.flashcards.core.ui.composables.VoiceSettingsDialog
+import com.rossomak.flashcards.core.ui.composables.rating.FlashcardsRatingButtonRow
 import com.rossomak.flashcards.core.ui.composables.withInlineCode
 import com.rossomak.flashcards.feature.study.BuildConfig
 import com.rossomak.flashcards.feature.study.R
@@ -804,62 +803,13 @@ private fun RatingButtons(
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = "How well did you answer it?",
+            text = stringResource(CoreUiR.string.common_rating_prompt_label),
             modifier = Modifier.fillMaxWidth(),
             style = MaterialTheme.typography.titleSmall,
             textAlign = TextAlign.Center,
         )
         Spacer(modifier = Modifier.height(16.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-        ) {
-            RatingOption(
-                label = "Not at all",
-                icon = Icons.Default.Close,
-                containerColor = Color(0xFFF6D9DA),
-                contentColor = Color(0xFFC94F4F),
-                onClick = { onRating(FlashcardRating.Failed) },
-            )
-            RatingOption(
-                label = "Somewhat",
-                icon = Icons.Default.Remove,
-                containerColor = Color(0xFFF6E8C8),
-                contentColor = Color(0xFFC98F2B),
-                onClick = { onRating(FlashcardRating.PartiallyCorrect) },
-            )
-            RatingOption(
-                label = "Very well",
-                icon = Icons.Default.Check,
-                containerColor = Color(0xFFD3EBD6),
-                contentColor = Color(0xFF3E9556),
-                onClick = { onRating(FlashcardRating.Correct) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun RatingOption(
-    label: String,
-    icon: ImageVector,
-    containerColor: Color,
-    contentColor: Color,
-    onClick: () -> Unit,
-) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        FilledIconButton(
-            onClick = onClick,
-            modifier = Modifier.size(56.dp),
-            colors = IconButtonDefaults.filledIconButtonColors(
-                containerColor = containerColor,
-                contentColor = contentColor,
-            ),
-        ) {
-            Icon(imageVector = icon, contentDescription = label)
-        }
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(text = label, style = MaterialTheme.typography.labelSmall)
+        FlashcardsRatingButtonRow(onRatingSelect = onRating)
     }
 }
 
