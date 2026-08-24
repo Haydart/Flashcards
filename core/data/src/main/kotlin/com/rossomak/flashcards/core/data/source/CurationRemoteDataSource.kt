@@ -22,7 +22,7 @@ class CurationRemoteDataSource @Inject constructor(
     private val uid: String
         get() = requireNotNull(firebaseAuth.currentUser?.uid) { "No authenticated user" }
 
-    private fun collection() = firestore.collection("users/$uid/curationRequests")
+    private fun collection() = firestore.collection(COLLECTION_PATH_TEMPLATE.format(uid))
 
     suspend fun getCurationRequests(cardIds: List<String>): Map<String, CurationRequestDto> {
         if (cardIds.isEmpty()) return emptyMap()
@@ -35,14 +35,14 @@ class CurationRemoteDataSource @Inject constructor(
                     .await()
                     .documents
                     .mapNotNull { document ->
-                        val subcategoryId = document.getString("subcategoryId") ?: return@mapNotNull null
+                        val subcategoryId = document.getString(FIELD_SUBCATEGORY_ID) ?: return@mapNotNull null
 
                         @Suppress("UNCHECKED_CAST")
-                        val actionsRaw = document.get("actions") as? Map<String, Any> ?: emptyMap()
+                        val actionsRaw = document.get(FIELD_ACTIONS) as? Map<String, Any> ?: emptyMap()
                         val actions = actionsRaw.mapNotNull { (key, value) ->
                             @Suppress("UNCHECKED_CAST")
                             val entryMap = value as? Map<String, Any> ?: return@mapNotNull null
-                            val flaggedAt = entryMap["flaggedAt"] as? Timestamp
+                            val flaggedAt = entryMap[FIELD_FLAGGED_AT] as? Timestamp
                             key to CurationActionEntryDto(flaggedAt = flaggedAt)
                         }.toMap()
                         document.id to CurationRequestDto(subcategoryId = subcategoryId, actions = actions)
@@ -51,16 +51,22 @@ class CurationRemoteDataSource @Inject constructor(
             .toMap()
     }
 
-    suspend fun upsertCurationAction(cardId: String, subcategoryId: String, action: CurationAction) {
-        val docRef = collection().document(cardId)
-        val updates = mutableMapOf<String, Any>(
-            "subcategoryId" to subcategoryId,
-            "actions.${action.name}" to mapOf("flaggedAt" to FieldValue.serverTimestamp()),
-        )
-        action.difficultyOpposite()?.let { opposite ->
-            updates["actions.${opposite.name}"] = FieldValue.delete()
+    /**
+     * One `set(merge)` for the whole submission. Dotted field paths address individual map keys,
+     * so untouched actions on the document survive; a difficulty action additionally deletes its
+     * opposite, keeping the pair mutually exclusive in storage as well as in the draft.
+     */
+    suspend fun upsertCurationActions(cardId: String, subcategoryId: String, actions: Set<CurationAction>) {
+        if (actions.isEmpty()) return
+        val updates = mutableMapOf<String, Any>(FIELD_SUBCATEGORY_ID to subcategoryId)
+        actions.forEach { action ->
+            updates[actionFieldPath(action)] = mapOf(FIELD_FLAGGED_AT to FieldValue.serverTimestamp())
         }
-        docRef.set(updates, SetOptions.merge()).await()
+        actions.forEach { action ->
+            val opposite = action.difficultyOpposite() ?: return@forEach
+            if (opposite !in actions) updates[actionFieldPath(opposite)] = FieldValue.delete()
+        }
+        collection().document(cardId).set(updates, SetOptions.merge()).await()
     }
 
     suspend fun removeCurationAction(cardId: String, action: CurationAction) {
@@ -69,13 +75,22 @@ class CurationRemoteDataSource @Inject constructor(
             val snapshot = transaction.get(docRef)
             if (!snapshot.exists()) return@runTransaction
             @Suppress("UNCHECKED_CAST")
-            val actionsMap = snapshot.get("actions") as? Map<String, Any> ?: emptyMap()
+            val actionsMap = snapshot.get(FIELD_ACTIONS) as? Map<String, Any> ?: emptyMap()
             if (!actionsMap.containsKey(action.name)) return@runTransaction
             if (actionsMap.size <= 1) {
                 transaction.delete(docRef)
             } else {
-                transaction.update(docRef, "actions.${action.name}", FieldValue.delete())
+                transaction.update(docRef, actionFieldPath(action), FieldValue.delete())
             }
         }.await()
+    }
+
+    private fun actionFieldPath(action: CurationAction): String = "$FIELD_ACTIONS.${action.name}"
+
+    private companion object {
+        const val COLLECTION_PATH_TEMPLATE = "users/%s/curationRequests"
+        const val FIELD_SUBCATEGORY_ID = "subcategoryId"
+        const val FIELD_ACTIONS = "actions"
+        const val FIELD_FLAGGED_AT = "flaggedAt"
     }
 }

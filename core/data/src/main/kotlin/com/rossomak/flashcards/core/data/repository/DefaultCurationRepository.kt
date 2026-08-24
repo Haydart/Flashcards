@@ -27,16 +27,19 @@ class DefaultCurationRepository @Inject constructor(
         }
     }
 
-    override suspend fun upsertCurationAction(cardId: String, subcategoryId: String, action: CurationAction): Result<Unit> =
-        withContext(Dispatchers.IO) {
-            try {
-                Result.success(remoteDataSource.upsertCurationAction(cardId, subcategoryId, action))
-            } catch (exception: CancellationException) {
-                throw exception
-            } catch (exception: Exception) {
-                Result.failure(exception)
-            }
+    override suspend fun upsertCurationActions(
+        cardId: String,
+        subcategoryId: String,
+        actions: Set<CurationAction>,
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            Result.success(remoteDataSource.upsertCurationActions(cardId, subcategoryId, actions))
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: Exception) {
+            Result.failure(exception)
         }
+    }
 
     override suspend fun removeCurationAction(cardId: String, action: CurationAction): Result<Unit> = withContext(Dispatchers.IO) {
         try {

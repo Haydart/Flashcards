@@ -5,19 +5,22 @@ import com.rossomak.flashcards.core.domain.model.CurationRequest
 
 class FakeCurationRepository : CurationRepository {
     var curationRequestsToReturn: Result<Map<String, CurationRequest>> = Result.success(emptyMap())
-    val upsertedActions: MutableList<Triple<String, String, CurationAction>> = mutableListOf()
+    var upsertResultToReturn: Result<Unit> = Result.success(Unit)
+
+    /** Every submission, in call order: card id, subcategory id, the whole reported set. */
+    val submittedReports: MutableList<Triple<String, String, Set<CurationAction>>> = mutableListOf()
     val removedActions: MutableList<Pair<String, CurationAction>> = mutableListOf()
 
     override suspend fun getCurationRequests(cardIds: List<String>): Result<Map<String, CurationRequest>> =
         curationRequestsToReturn
 
-    override suspend fun upsertCurationAction(
+    override suspend fun upsertCurationActions(
         cardId: String,
         subcategoryId: String,
-        action: CurationAction
+        actions: Set<CurationAction>,
     ): Result<Unit> {
-        upsertedActions.add(Triple(cardId, subcategoryId, action))
-        return Result.success(Unit)
+        submittedReports.add(Triple(cardId, subcategoryId, actions))
+        return upsertResultToReturn
     }
 
     override suspend fun removeCurationAction(cardId: String, action: CurationAction): Result<Unit> {

@@ -71,31 +71,31 @@ class DefaultCurationRepositoryTest {
     }
 
     @Test
-    fun `upsertCurationAction forwards identifiers and action to data source`() = runTest {
+    fun `upsertCurationActions forwards identifiers and the whole action set to data source`() = runTest {
         val cardId = "card-1"
         val subcategoryId = "sub-1"
-        val action = CurationAction.DifficultyTooHard
-        coEvery { remoteDataSource.upsertCurationAction(cardId, subcategoryId, action) } just Runs
+        val actions = setOf(CurationAction.DifficultyTooHard, CurationAction.WrongTags)
+        coEvery { remoteDataSource.upsertCurationActions(cardId, subcategoryId, actions) } just Runs
 
-        val result = createRepository().upsertCurationAction(cardId, subcategoryId, action)
+        val result = createRepository().upsertCurationActions(cardId, subcategoryId, actions)
 
         result.isSuccess shouldBe true
-        coVerify(exactly = 1) { remoteDataSource.upsertCurationAction(cardId, subcategoryId, action) }
+        coVerify(exactly = 1) { remoteDataSource.upsertCurationActions(cardId, subcategoryId, actions) }
     }
 
     @Test
-    fun `upsertCurationAction wraps data source failure in failure result`() = runTest {
+    fun `upsertCurationActions wraps data source failure in failure result`() = runTest {
         val cardId = "card-1"
         val subcategoryId = "sub-1"
-        val action = CurationAction.DifficultyTooHard
+        val actions = setOf(CurationAction.DifficultyTooHard)
         val error = IllegalStateException("firestore down")
-        coEvery { remoteDataSource.upsertCurationAction(cardId, subcategoryId, action) } throws error
+        coEvery { remoteDataSource.upsertCurationActions(cardId, subcategoryId, actions) } throws error
 
-        val result = createRepository().upsertCurationAction(cardId, subcategoryId, action)
+        val result = createRepository().upsertCurationActions(cardId, subcategoryId, actions)
 
         result.isFailure shouldBe true
         result.exceptionOrNull() shouldBe error
-        coVerify(exactly = 1) { remoteDataSource.upsertCurationAction(cardId, subcategoryId, action) }
+        coVerify(exactly = 1) { remoteDataSource.upsertCurationActions(cardId, subcategoryId, actions) }
     }
 
     @Test
