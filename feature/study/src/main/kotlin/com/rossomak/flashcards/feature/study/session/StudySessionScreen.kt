@@ -94,6 +94,7 @@ import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.ui.composables.SyntaxCodeBlock
 import com.rossomak.flashcards.core.ui.composables.dialogs.VoiceSettingsDialog
 import com.rossomak.flashcards.core.ui.composables.withInlineCode
+import com.rossomak.flashcards.core.ui.theme.semanticColors
 import com.rossomak.flashcards.feature.study.BuildConfig
 import com.rossomak.flashcards.feature.study.R
 import com.rossomak.flashcards.feature.study.dialogs.ExtendedContextDialog
@@ -807,22 +808,22 @@ private fun RatingButtons(
             RatingOption(
                 label = "Not at all",
                 icon = Icons.Default.Close,
-                containerColor = Color(0xFFF6D9DA),
-                contentColor = Color(0xFFC94F4F),
+                containerColor = MaterialTheme.semanticColors.negativeContainer,
+                contentColor = MaterialTheme.semanticColors.onNegativeContainer,
                 onClick = { onRating(FlashcardRating.Failed) },
             )
             RatingOption(
                 label = "Somewhat",
                 icon = Icons.Default.Remove,
-                containerColor = Color(0xFFF6E8C8),
-                contentColor = Color(0xFFC98F2B),
+                containerColor = MaterialTheme.semanticColors.neutralContainer,
+                contentColor = MaterialTheme.semanticColors.onNeutralContainer,
                 onClick = { onRating(FlashcardRating.PartiallyCorrect) },
             )
             RatingOption(
                 label = "Very well",
                 icon = Icons.Default.Check,
-                containerColor = Color(0xFFD3EBD6),
-                contentColor = Color(0xFF3E9556),
+                containerColor = MaterialTheme.semanticColors.positiveContainer,
+                contentColor = MaterialTheme.semanticColors.onPositiveContainer,
                 onClick = { onRating(FlashcardRating.Correct) },
             )
         }
