@@ -108,11 +108,17 @@ internal fun AllSetStep(
                 icon = Icons.Default.Schedule,
                 style = FlashcardsComponentStyle.OnGradient,
             )
-            FlashcardsMetadataBadge(
-                label = pluralStringResource(R.plurals.all_set_favorites_badge_label, favoriteCount, favoriteCount),
-                icon = Icons.Default.FavoriteBorder,
-                style = FlashcardsComponentStyle.OnGradient,
-            )
+            if (favoriteCount > 0) {
+                FlashcardsMetadataBadge(
+                    label = pluralStringResource(
+                        R.plurals.all_set_favorites_badge_label,
+                        favoriteCount,
+                        favoriteCount,
+                    ),
+                    icon = Icons.Default.FavoriteBorder,
+                    style = FlashcardsComponentStyle.OnGradient,
+                )
+            }
         }
     }
 }
