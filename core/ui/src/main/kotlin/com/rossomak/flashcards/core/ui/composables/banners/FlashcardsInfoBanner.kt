@@ -26,7 +26,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.airbnb.android.showkase.annotation.ShowkaseComposable
+import com.rossomak.flashcards.core.ui.composables.banners.FlashcardsInfoBannerTone.Info
+import com.rossomak.flashcards.core.ui.composables.banners.FlashcardsInfoBannerTone.Positive
+import com.rossomak.flashcards.core.ui.composables.banners.FlashcardsInfoBannerTone.Warning
 import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle.OnGradient
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle.OnSurface
 import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.brandColors
 import com.rossomak.flashcards.core.ui.theme.cornerRadius
@@ -59,30 +64,30 @@ fun FlashcardsInfoBanner(
     text: String,
     icon: ImageVector,
     modifier: Modifier = Modifier,
-    tone: FlashcardsInfoBannerTone = FlashcardsInfoBannerTone.Info,
-    style: FlashcardsComponentStyle = FlashcardsComponentStyle.OnSurface,
+    tone: FlashcardsInfoBannerTone = Info,
+    style: FlashcardsComponentStyle = OnSurface,
 ) {
     val semanticColors = MaterialTheme.semanticColors
     val brandColors = MaterialTheme.brandColors
     val containerColor = when (style) {
-        FlashcardsComponentStyle.OnSurface -> when (tone) {
-            FlashcardsInfoBannerTone.Positive -> semanticColors.positiveContainer
-            FlashcardsInfoBannerTone.Info -> semanticColors.neutralContainer
-            FlashcardsInfoBannerTone.Warning -> semanticColors.negativeContainer
+        OnSurface -> when (tone) {
+            Positive -> semanticColors.positiveContainer
+            Info -> semanticColors.neutralContainer
+            Warning -> semanticColors.negativeContainer
         }
-        FlashcardsComponentStyle.OnGradient -> brandColors.onGradientContainer
+        OnGradient -> brandColors.onGradientContainer
     }
     val contentColor = when (style) {
-        FlashcardsComponentStyle.OnSurface -> when (tone) {
-            FlashcardsInfoBannerTone.Positive -> semanticColors.onPositiveContainer
-            FlashcardsInfoBannerTone.Info -> semanticColors.onNeutralContainer
-            FlashcardsInfoBannerTone.Warning -> semanticColors.onNegativeContainer
+        OnSurface -> when (tone) {
+            Positive -> semanticColors.onPositiveContainer
+            Info -> semanticColors.onNeutralContainer
+            Warning -> semanticColors.onNegativeContainer
         }
-        FlashcardsComponentStyle.OnGradient -> brandColors.onGradientContent
+        OnGradient -> brandColors.onGradientContent
     }
     val border = when (style) {
-        FlashcardsComponentStyle.OnSurface -> null
-        FlashcardsComponentStyle.OnGradient -> BorderStroke(
+        OnSurface -> null
+        OnGradient -> BorderStroke(
             width = MaterialTheme.sizes.onGradientBorder,
             color = brandColors.onGradientBorder,
         )
@@ -141,7 +146,7 @@ fun FlashcardsInfoBannerWarningShowcase() {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(MaterialTheme.spacing.small),
-                tone = FlashcardsInfoBannerTone.Warning,
+                tone = Warning,
             )
         }
     }
@@ -161,7 +166,7 @@ fun FlashcardsInfoBannerOnGradientShowcase() {
                 text = "Both modes can go hands-off — great for a walk, commute or other daily activities.",
                 icon = Icons.Default.Mic,
                 modifier = Modifier.fillMaxWidth(),
-                style = FlashcardsComponentStyle.OnGradient,
+                style = OnGradient,
             )
         }
     }
@@ -180,7 +185,7 @@ private fun FlashcardsInfoBannerPreview() {
                     text = "Every mastered card earns XP — climb Levels and track progress per topic.",
                     icon = Icons.Default.WorkspacePremium,
                     modifier = Modifier.fillMaxWidth(),
-                    tone = FlashcardsInfoBannerTone.Positive,
+                    tone = Positive,
                 )
                 FlashcardsInfoBanner(
                     text = "Your performance updates the card scores used to plan future sessions.",
@@ -191,7 +196,7 @@ private fun FlashcardsInfoBannerPreview() {
                     text = "Private flashcards are reviewed before being added to the global pool.",
                     icon = Icons.Default.Lock,
                     modifier = Modifier.fillMaxWidth(),
-                    tone = FlashcardsInfoBannerTone.Warning,
+                    tone = Warning,
                 )
             }
         }

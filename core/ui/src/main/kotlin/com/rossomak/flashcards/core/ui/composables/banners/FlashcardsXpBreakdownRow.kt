@@ -26,6 +26,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import com.airbnb.android.showkase.annotation.ShowkaseComposable
+import com.rossomak.flashcards.core.ui.composables.banners.FlashcardsXpBreakdownTone.Gain
+import com.rossomak.flashcards.core.ui.composables.banners.FlashcardsXpBreakdownTone.Loss
 import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.brandColors
 import com.rossomak.flashcards.core.ui.theme.cornerRadius
@@ -64,21 +66,21 @@ fun FlashcardsXpBreakdownRow(
     value: String,
     icon: ImageVector,
     modifier: Modifier = Modifier,
-    tone: FlashcardsXpBreakdownTone = FlashcardsXpBreakdownTone.Gain,
+    tone: FlashcardsXpBreakdownTone = Gain,
 ) {
     val brandColors = MaterialTheme.brandColors
     val semanticColors = MaterialTheme.semanticColors
     val containerColor = when (tone) {
-        FlashcardsXpBreakdownTone.Gain -> brandColors.onGradientContainer
-        FlashcardsXpBreakdownTone.Loss -> semanticColors.onGradientLossContainer.copy(alpha = LOSS_CONTAINER_ALPHA)
+        Gain -> brandColors.onGradientContainer
+        Loss -> semanticColors.onGradientLossContainer.copy(alpha = LOSS_CONTAINER_ALPHA)
     }
     val contentColor = when (tone) {
-        FlashcardsXpBreakdownTone.Gain -> brandColors.onGradientContent
-        FlashcardsXpBreakdownTone.Loss -> brandColors.onGradientLoss
+        Gain -> brandColors.onGradientContent
+        Loss -> brandColors.onGradientLoss
     }
     val borderColor = when (tone) {
-        FlashcardsXpBreakdownTone.Gain -> brandColors.onGradientBorder
-        FlashcardsXpBreakdownTone.Loss -> semanticColors.onGradientLossContainer.copy(alpha = LOSS_BORDER_ALPHA)
+        Gain -> brandColors.onGradientBorder
+        Loss -> semanticColors.onGradientLossContainer.copy(alpha = LOSS_BORDER_ALPHA)
     }
 
     Surface(
@@ -140,7 +142,7 @@ fun FlashcardsXpBreakdownRowShowcase() {
                     value = "4 cards × 80 = −320 XP",
                     icon = Icons.AutoMirrored.Filled.TrendingDown,
                     modifier = Modifier.fillMaxWidth(),
-                    tone = FlashcardsXpBreakdownTone.Loss,
+                    tone = Loss,
                 )
                 FlashcardsXpBreakdownRow(
                     label = "Streak",

@@ -23,6 +23,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.airbnb.android.showkase.annotation.ShowkaseComposable
+import com.rossomak.flashcards.core.ui.composables.FlashcardsEmptyStateTone.Error
+import com.rossomak.flashcards.core.ui.composables.FlashcardsEmptyStateTone.Info
 import com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsFilledButton
 import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.semanticColors
@@ -51,15 +53,15 @@ fun FlashcardsEmptyState(
     title: String,
     supportingText: String,
     modifier: Modifier = Modifier,
-    tone: FlashcardsEmptyStateTone = FlashcardsEmptyStateTone.Info,
+    tone: FlashcardsEmptyStateTone = Info,
     ctaLabel: String? = null,
     ctaIcon: ImageVector? = null,
     onCtaClick: (() -> Unit)? = null,
 ) {
     val semanticColors = MaterialTheme.semanticColors
     val (containerColor, contentColor) = when (tone) {
-        FlashcardsEmptyStateTone.Info -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
-        FlashcardsEmptyStateTone.Error -> semanticColors.negativeContainer to semanticColors.onNegativeContainer
+        Info -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
+        Error -> semanticColors.negativeContainer to semanticColors.onNegativeContainer
     }
 
     Column(
@@ -157,7 +159,7 @@ private fun FlashcardsEmptyStateErrorShowcase() {
                     icon = Icons.Filled.ErrorOutline,
                     title = "Something went wrong",
                     supportingText = "Couldn't load your categories. Check your connection and try again.",
-                    tone = FlashcardsEmptyStateTone.Error,
+                    tone = Error,
                     ctaLabel = "Retry",
                     onCtaClick = {},
                 )
