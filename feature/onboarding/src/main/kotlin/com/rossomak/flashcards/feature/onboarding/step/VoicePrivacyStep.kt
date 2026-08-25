@@ -22,13 +22,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import com.rossomak.flashcards.core.ui.composables.banners.FlashcardsInfoBanner
 import com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsFilledButton
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle
 import com.rossomak.flashcards.core.ui.theme.cornerRadius
 import com.rossomak.flashcards.core.ui.theme.sizes
 import com.rossomak.flashcards.core.ui.theme.spacing
 import com.rossomak.flashcards.feature.onboarding.R
 import com.rossomak.flashcards.feature.onboarding.component.OnboardingContentColors
-import com.rossomak.flashcards.feature.onboarding.component.OnboardingInfoBanner
 import com.rossomak.flashcards.feature.onboarding.component.OnboardingStepColumn
 import com.rossomak.flashcards.feature.onboarding.component.OnboardingStepHeader
 
@@ -55,9 +56,11 @@ internal fun VoicePrivacyStep(
         Spacer(modifier = Modifier.height(MaterialTheme.spacing.medium))
         VoiceTestCard(onTestVoice = onTestVoice)
         Spacer(modifier = Modifier.height(MaterialTheme.spacing.normal))
-        OnboardingInfoBanner(
+        FlashcardsInfoBanner(
             text = stringResource(R.string.voice_privacy_banner_message),
             icon = Icons.Default.Lock,
+            modifier = Modifier.fillMaxWidth(),
+            style = FlashcardsComponentStyle.OnGradient,
         )
     }
 }

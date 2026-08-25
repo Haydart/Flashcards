@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -22,10 +23,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import com.rossomak.flashcards.core.ui.composables.FlashcardsOverlineLabel
 import com.rossomak.flashcards.core.ui.composables.FlashcardsStepper
+import com.rossomak.flashcards.core.ui.composables.banners.FlashcardsInfoBanner
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle
 import com.rossomak.flashcards.core.ui.theme.cornerRadius
 import com.rossomak.flashcards.core.ui.theme.spacing
 import com.rossomak.flashcards.feature.onboarding.R
-import com.rossomak.flashcards.feature.onboarding.component.OnboardingInfoBanner
 import com.rossomak.flashcards.feature.onboarding.component.OnboardingStepColumn
 import com.rossomak.flashcards.feature.onboarding.component.OnboardingStepHeader
 
@@ -62,7 +64,12 @@ internal fun DailyGoalStep(
             onIncrement = onIncrement,
         )
         Spacer(modifier = Modifier.height(MaterialTheme.spacing.normal))
-        OnboardingInfoBanner(text = stringResource(R.string.daily_goal_xp_banner_message))
+        FlashcardsInfoBanner(
+            text = stringResource(R.string.daily_goal_xp_banner_message),
+            icon = Icons.Default.EmojiEvents,
+            modifier = Modifier.fillMaxWidth(),
+            style = FlashcardsComponentStyle.OnGradient,
+        )
     }
 }
 
