@@ -107,7 +107,7 @@ fun FlashcardsXpBreakdownRow(
             Column {
                 Text(
                     text = label,
-                    color = contentColor.copy(alpha = LABEL_ALPHA),
+                    color = contentColor,
                     style = MaterialTheme.typography.labelMedium,
                 )
                 Text(
