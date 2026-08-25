@@ -9,7 +9,6 @@ class FakeCurationRepository : CurationRepository {
 
     /** Every submission, in call order: card id, subcategory id, the whole reported set. */
     val submittedReports: MutableList<Triple<String, String, Set<CurationAction>>> = mutableListOf()
-    val removedActions: MutableList<Pair<String, CurationAction>> = mutableListOf()
 
     override suspend fun getCurationRequests(cardIds: List<String>): Result<Map<String, CurationRequest>> =
         curationRequestsToReturn
@@ -21,10 +20,5 @@ class FakeCurationRepository : CurationRepository {
     ): Result<Unit> {
         submittedReports.add(Triple(cardId, subcategoryId, actions))
         return upsertResultToReturn
-    }
-
-    override suspend fun removeCurationAction(cardId: String, action: CurationAction): Result<Unit> {
-        removedActions.add(Pair(cardId, action))
-        return Result.success(Unit)
     }
 }

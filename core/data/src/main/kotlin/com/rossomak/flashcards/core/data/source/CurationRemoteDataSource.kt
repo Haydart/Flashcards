@@ -69,22 +69,6 @@ class CurationRemoteDataSource @Inject constructor(
         collection().document(cardId).set(updates, SetOptions.merge()).await()
     }
 
-    suspend fun removeCurationAction(cardId: String, action: CurationAction) {
-        val docRef = collection().document(cardId)
-        firestore.runTransaction { transaction ->
-            val snapshot = transaction.get(docRef)
-            if (!snapshot.exists()) return@runTransaction
-            @Suppress("UNCHECKED_CAST")
-            val actionsMap = snapshot.get(FIELD_ACTIONS) as? Map<String, Any> ?: emptyMap()
-            if (!actionsMap.containsKey(action.name)) return@runTransaction
-            if (actionsMap.size <= 1) {
-                transaction.delete(docRef)
-            } else {
-                transaction.update(docRef, actionFieldPath(action), FieldValue.delete())
-            }
-        }.await()
-    }
-
     private fun actionFieldPath(action: CurationAction): String = "$FIELD_ACTIONS.${action.name}"
 
     private companion object {
