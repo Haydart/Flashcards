@@ -22,9 +22,6 @@ object AppSizes {
     /** Rounded, tinted leading icon container used in settings and category rows. */
     val iconTile: Dp = 40.dp
 
-    /** Circular numbered badge used as the leading element of flashcard rows. */
-    val numberBadge: Dp = 28.dp
-
     /** 1px hairline used for card borders and dividers. */
     val hairline: Dp = 1.dp
 
@@ -50,10 +47,10 @@ object AppSizes {
     val metadataBadgeIconCompact: Dp = 14.dp
 
     /** Diameter of the circular difficulty badge (leading element of flashcard rows). */
-    val difficultyBadge: Dp = 28.dp
+    val difficultyBadge: Dp = 24.dp
 
     /** Height of the difficulty range pill (filters, Study Creation summaries). */
-    val difficultyRangePillHeight: Dp = 26.dp
+    val difficultyRangePillHeight: Dp = 24.dp
 
     /** Height of a [com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentSize.Normal] button. */
     val buttonHeightNormal: Dp = 56.dp
@@ -94,6 +91,31 @@ object AppSizes {
 
     /** Diameter of [com.rossomak.flashcards.core.ui.composables.progress.FlashcardsCircularProgressRing] at `Small` (list rows). */
     val progressRingDiameterSmall: Dp = 40.dp
+
+    /**
+     * Border width of any component drawn on a brand gradient — the one width paired with
+     * [BrandColors.onGradientBorder] / [BrandColors.onGradientOutline]. Matches [tagChipBorder]
+     * rather than [hairline]: a 1dp translucent white edge disappears against the gradient.
+     */
+    val onGradientBorder: Dp = 1.5.dp
+
+    /** Leading icon inside a [com.rossomak.flashcards.core.ui.composables.banners.FlashcardsInfoBanner]. */
+    val infoBannerIcon: Dp = 16.dp
+
+    /** Leading icon inside a [com.rossomak.flashcards.core.ui.composables.banners.FlashcardsXpBreakdownRow]. */
+    val xpBreakdownRowIcon: Dp = 20.dp
+
+    /** Side of one slot in a [com.rossomak.flashcards.core.ui.composables.FlashcardsAttemptIndicator]. */
+    val attemptIndicatorSlot: Dp = 20.dp
+
+    /** Rating icon inside a graded [attemptIndicatorSlot]. */
+    val attemptIndicatorIcon: Dp = 12.dp
+
+    /** Diameter of the tinted circle behind a [com.rossomak.flashcards.core.ui.composables.FlashcardsEmptyState]'s icon. */
+    val emptyStateIconCircle: Dp = 80.dp
+
+    /** Glyph size inside [emptyStateIconCircle]. */
+    val emptyStateIcon: Dp = 40.dp
 }
 
 val MaterialTheme.sizes: AppSizes

@@ -103,9 +103,11 @@ fun FlashcardsTheme(
     }
 
     val brandColors = if (darkTheme) darkBrandColors else lightBrandColors
+    val semanticColors = if (darkTheme) darkSemanticColors else lightSemanticColors
 
     CompositionLocalProvider(
         LocalBrandColors provides brandColors,
+        LocalSemanticColors provides semanticColors,
     ) {
         MaterialTheme(
             colorScheme = colorScheme,

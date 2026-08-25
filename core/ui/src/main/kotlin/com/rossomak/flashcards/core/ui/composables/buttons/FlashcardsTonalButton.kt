@@ -18,7 +18,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewLightDark
@@ -30,12 +29,6 @@ import com.rossomak.flashcards.core.ui.theme.brandColors
 import com.rossomak.flashcards.core.ui.theme.cornerRadius
 import com.rossomak.flashcards.core.ui.theme.sizes
 import com.rossomak.flashcards.core.ui.theme.spacing
-
-/** Container fill alpha for [FlashcardsComponentStyle.OnGradient]'s translucent white pill. */
-private const val ON_GRADIENT_CONTAINER_ALPHA = 0.18f
-
-/** Border alpha for [FlashcardsComponentStyle.OnGradient]'s translucent white pill. */
-private const val ON_GRADIENT_BORDER_ALPHA = 0.35f
 
 /**
  * The secondary-emphasis button — a tinted fill without the [FlashcardsFilledButton]'s gradient
@@ -63,18 +56,18 @@ fun FlashcardsTonalButton(
         shape = RoundedCornerShape(MaterialTheme.cornerRadius.full),
         colors = ButtonDefaults.filledTonalButtonColors(
             containerColor = if (onGradient) {
-                Color.White.copy(alpha = ON_GRADIENT_CONTAINER_ALPHA)
+                MaterialTheme.brandColors.onGradientContainer
             } else {
                 MaterialTheme.brandColors.tonalButtonContainer
             },
-            contentColor = if (onGradient) MaterialTheme.brandColors.onTopBarGradient else MaterialTheme.brandColors.onTonalButtonContainer,
+            contentColor = if (onGradient) MaterialTheme.brandColors.onGradientContent else MaterialTheme.brandColors.onTonalButtonContainer,
             disabledContainerColor = disabledButtonContainerColorFor(style),
             disabledContentColor = disabledButtonContentColorFor(style),
         ),
         border = when {
             !onGradient -> null
-            !enabled -> BorderStroke(MaterialTheme.sizes.tagChipBorder, disabledButtonContentColorFor(style))
-            else -> BorderStroke(MaterialTheme.sizes.tagChipBorder, Color.White.copy(alpha = ON_GRADIENT_BORDER_ALPHA))
+            !enabled -> BorderStroke(MaterialTheme.sizes.onGradientBorder, disabledButtonContentColorFor(style))
+            else -> BorderStroke(MaterialTheme.sizes.onGradientBorder, MaterialTheme.brandColors.onGradientBorder)
         },
         contentPadding = PaddingValues(horizontal = metrics.horizontalPadding, vertical = MaterialTheme.spacing.none),
     ) {

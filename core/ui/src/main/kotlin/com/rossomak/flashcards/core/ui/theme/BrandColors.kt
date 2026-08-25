@@ -21,6 +21,11 @@ data class BrandColors(
     val progressBarTrackOnSurface: Color,
     val progressBarFillOnGradient: Color,
     val progressBarTrackOnGradient: Color,
+    val onGradientContainer: Color,
+    val onGradientBorder: Color,
+    val onGradientOutline: Color,
+    val onGradientContent: Color,
+    val onGradientLoss: Color,
 )
 
 /**
@@ -120,6 +125,46 @@ private val progressBarFillOnGradientColor = Color.White
 private const val PROGRESS_BAR_TRACK_ON_GRADIENT_ALPHA = 0.20f
 private val progressBarTrackOnGradientColor = Color.White.copy(alpha = PROGRESS_BAR_TRACK_ON_GRADIENT_ALPHA)
 
+/**
+ * The translucent white treatment every filled component uses on a brand gradient — the pill
+ * behind a [com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsTonalButton], a
+ * [com.rossomak.flashcards.core.ui.composables.FlashcardsMetadataBadge], a
+ * [com.rossomak.flashcards.core.ui.composables.banners.FlashcardsInfoBanner]. One fill and one
+ * border for all of them: before these tokens existed each component carried its own private
+ * alpha constants and they had drifted three ways (0.18/0.35, 0.16/0.22, and a lone 0.55), so the
+ * same "white on gradient" surface read differently per component.
+ *
+ * Fixed across themes like every other on-gradient color here — the gradients they sit on never
+ * flip either.
+ */
+private const val ON_GRADIENT_CONTAINER_ALPHA = 0.18f
+private const val ON_GRADIENT_BORDER_ALPHA = 0.35f
+
+/**
+ * Border alpha for a component with **no fill** behind it — currently only
+ * [com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsOutlinedButton]. Deliberately
+ * heavier than [ON_GRADIENT_BORDER_ALPHA]: with no container to define the shape the outline is
+ * doing that job alone, and 0.35 reads mushy against the gradient.
+ */
+private const val ON_GRADIENT_OUTLINE_ALPHA = 0.55f
+
+private val onGradientContainerColor = Color.White.copy(alpha = ON_GRADIENT_CONTAINER_ALPHA)
+private val onGradientBorderColor = Color.White.copy(alpha = ON_GRADIENT_BORDER_ALPHA)
+private val onGradientOutlineColor = Color.White.copy(alpha = ON_GRADIENT_OUTLINE_ALPHA)
+
+/**
+ * The red a negative row uses on a brand gradient — currently
+ * [com.rossomak.flashcards.core.ui.composables.banners.FlashcardsXpBreakdownRow]'s `Loss` tone.
+ * Reuses the existing [errorDark] constant and pins it in **both** themes, because the gradient
+ * behind it does not flip.
+ *
+ * Deliberately not [SemanticColors]' negative pair: that one is tuned for a themed surface and
+ * measures roughly 3.3:1 against the gradient's mid purple, below the body-text floor, whereas
+ * this reaches roughly 4.8:1. Two reds is the correct outcome — one for surfaces, one for the
+ * gradient.
+ */
+private val onGradientLossColor = errorDark
+
 val lightBrandColors = BrandColors(
     screenGradient = brandScreenGradient,
     screenGradientBase = brandScreenGradientBase,
@@ -133,6 +178,11 @@ val lightBrandColors = BrandColors(
     progressBarTrackOnSurface = progressBarTrackOnSurfaceLight,
     progressBarFillOnGradient = progressBarFillOnGradientColor,
     progressBarTrackOnGradient = progressBarTrackOnGradientColor,
+    onGradientContainer = onGradientContainerColor,
+    onGradientBorder = onGradientBorderColor,
+    onGradientOutline = onGradientOutlineColor,
+    onGradientContent = onBrandTopBarGradient,
+    onGradientLoss = onGradientLossColor,
 )
 
 // Dark uses a neutral elevated-surface container (surfaceContainerHighDark) with primaryDark as
@@ -155,6 +205,11 @@ val darkBrandColors = BrandColors(
     progressBarTrackOnSurface = progressBarTrackOnSurfaceDark,
     progressBarFillOnGradient = progressBarFillOnGradientColor,
     progressBarTrackOnGradient = progressBarTrackOnGradientColor,
+    onGradientContainer = onGradientContainerColor,
+    onGradientBorder = onGradientBorderColor,
+    onGradientOutline = onGradientOutlineColor,
+    onGradientContent = onBrandTopBarGradient,
+    onGradientLoss = onGradientLossColor,
 )
 
 val LocalBrandColors = staticCompositionLocalOf { lightBrandColors }

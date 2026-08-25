@@ -17,6 +17,11 @@
     <string name="common_rating_failed_label">Not at all</string>
     <string name="common_rating_partially_correct_label">Somewhat</string>
     <string name="common_rating_correct_label">Very well</string>
+    <string name="common_attempt_indicator_failed_cd">Attempt %1$d: incorrect.</string>
+    <string name="common_attempt_indicator_partial_cd">Attempt %1$d: partially correct.</string>
+    <string name="common_attempt_indicator_correct_cd">Attempt %1$d: correct.</string>
+    <string name="common_attempt_indicator_current_cd">Attempt %1$d: current, not yet graded.</string>
+    <string name="common_attempt_indicator_future_cd">Attempt %1$d: not yet attempted.</string>
 
     <string name="voice_settings_dialog_title">Voice playback settings</string>
     <string name="voice_settings_voice_label">VOICE</string>
