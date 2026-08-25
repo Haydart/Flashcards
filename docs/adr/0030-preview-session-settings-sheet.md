@@ -14,7 +14,7 @@ glance, while deferring each control to its own popup.
 
 ## Consequences
 
-- **Voice answering is now selectable on the Preview screen**, amending
+- **Voice answering is selectable on the Preview screen**, amending
   [ADR-0025](0025-voice-answering-rated-mode-only.md) (which had restricted it to an
   in-session toggle). The in-session toggle remains; the Rated interaction model itself is
   unchanged (manual self-rate, or full voice answering — no intermediate TTS-manual mode).
@@ -35,11 +35,3 @@ glance, while deferring each control to its own popup.
   `core:ui` dialog primitives, shell included, keyed on action count rather than on which
   screen opened them. A setting's popup shape therefore never depends on where it was
   opened from, and the merged Filters popup is shared whole with Subcategory Details.
-
-## Implementation status
-
-The rows and their dialogs are built; the persistent no-scrim sheet **chrome** is not. The
-rows currently render as a plain column inside the Preview screen's existing scroll body —
-the behavior is finished, the sheet is layout around it. The **Voice/TTS row** is likewise
-not built yet: voice playback settings still open from the study session's cog and from the
-Settings screen, and the Preview row for it lands with the sheet chrome.

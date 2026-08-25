@@ -1,37 +1,23 @@
 # Report a problem: single collection, action map per card, universal in-session entry point
 
-> **Amended when the dialog system landed.** Three clauses below changed:
-> 1. **The draft always starts empty and Submit is additive.** The sheet no longer seeds from the
->    card's stored report, so unchecking a row means "not reporting this now", never "withdraw".
->    Submit upserts the checked actions and removes nothing. **There is consequently no in-app way
->    to withdraw a report** — `CurationRepository.removeCurationAction` survives as the primitive,
->    with no caller. Withdrawal is an admin/sync-tooling concern until a screen needs it.
->    Rationale: seeding makes an unchecked box ambiguous between "not a problem" and "already
->    reported", and lazily fetching every card's report state to populate it costs a read for a
->    feature most sessions never touch.
-> 2. **It is a dialog, not a bottom sheet**, built on `FlashcardsDecisionDialog` — Cancel discards
->    the whole draft, Submit commits it.
-> 3. **The entry point is a flag `IconButton` in the study session top bar**, left of the card
->    counter, enabled only while a card is displayed — the bottom sheet is already crowded with the
->    mic toggle, the cog and the transport controls. It ships to production; the previous
->    `BuildConfig.DEBUG` FAB and its dialog are deleted.
->
-> Also: `WrongTags` joined the `CurationAction` enum (seven actions, all reportable), and Submit
-> writes them through `SubmitCurationReportUseCase` -> `CurationRepository.upsertCurationActions`,
-> preserving this ADR's "one write on Submit".
-
 ## Decision
 
-Any user can flag a Flashcard for a content fix via the flag icon on a study session card (Rated and
-Fast alike). Tapping it opens a **"Report a problem"** sheet listing 6 Curation Actions the user can
-toggle on/off for the current card, plus Cancel/Submit. Toggling only updates local sheet state;
-Submit writes the checked actions to `users/{uid}/curationRequests/{cardId}` as a map of action key →
-`{ flaggedAt: Timestamp }` in one write, Cancel discards the local changes. Multiple actions can be
-active on a single card simultaneously, each independently toggleable — unchecking one and submitting
-withdraws it, and the document is deleted once the last action is removed. Reported Flashcards are
-**not suppressed** — they continue appearing in Study Sessions normally. Curation Requests are
-consumed by admin sync scripts; there is no user-facing management or withdraw screen — withdrawing a
-reason is done only by reopening the sheet on that card, unchecking it, and submitting.
+Any user can flag a Flashcard for a content fix via a flag `IconButton` in the study session top
+app bar (Rated and Fast alike), left of the card counter, enabled only while a card is displayed —
+the session's bottom sheet is already crowded with the mic toggle, cog and transport controls.
+Tapping it opens a **"Report a problem"** dialog listing all 7 Curation Actions the user can toggle
+on for the current card, plus Cancel/Submit.
+
+The draft always starts **empty** — it never seeds from the card's stored report — so a checked row
+means only "report this now," never "already reported." Cancel discards the draft; Submit upserts
+the checked actions to `users/{uid}/curationRequests/{cardId}` as a map of action key →
+`{ flaggedAt: Timestamp }` in one write. Multiple actions can be active on a single card
+simultaneously. Reported Flashcards are **not suppressed** — they continue appearing in Study
+Sessions normally.
+
+Curation Requests are consumed by admin sync scripts. There is no user-facing management screen,
+and because the draft never seeds, there is **no in-app way to withdraw a report** — withdrawal, if
+ever needed, is an admin/sync-tooling concern operating on Firestore directly.
 
 ## Context
 
@@ -52,34 +38,38 @@ taxonomy, one admin pipeline; splitting them doubles the sync-script surface for
 gain.
 
 **Bulk report action from a card list (multi-select multiple cards, apply one action to all)** —
-rejected. A single bulk action can't express "this subset needs X, that subset needs Y" across six
+rejected. A single bulk action can't express "this subset needs X, that subset needs Y" across seven
 independent per-card reasons; reporting stays a per-card, in-session action only.
 
-**Speed-dial mini-FABs instead of a sheet** — rejected. 6 actions exceed the practical limit for
-speed-dial (typically ≤5), and labels are essential to distinguish similar-sounding actions. A sheet
-with icon + label per action is cleaner.
+**Speed-dial mini-FABs instead of a list dialog** — rejected. 7 actions exceed the practical limit
+for speed-dial (typically ≤5), and labels are essential to distinguish similar-sounding actions. A
+dialog with icon + label per action is cleaner.
 
-**Eager per-card fetch of report state** — rejected. One Firestore read per card advance is wasteful
-when the feature may never be used in a session. Lazy batch fetch on first flag-icon tap amortizes
-cost to a single read only when needed.
+**Seeding the draft from the card's stored report state** — rejected, whether fetched eagerly per
+card or lazily batched on first flag-icon tap. Pre-checking rows from prior state makes an unchecked
+box ambiguous between "not a problem" and "already reported, now un-reporting it" — and even a lazy
+batched fetch costs a read for a feature most sessions never touch. The draft starts empty every
+time; Submit is additive only.
 
 **Delta-based difficulty change (`+1`/`-1`)** — rejected. A card may be severely mismatched. Storing
-direction only (`DIFFICULTY_TOO_EASY` / `DIFFICULTY_TOO_HARD`) lets the AI agent assign an appropriate
+direction only (`DifficultyTooEasy` / `DifficultyTooHard`) lets the AI agent assign an appropriate
 new value rather than nudging incrementally.
 
-**Auto-resume voice after sheet dismiss** (Fast/voice-answering sessions) — rejected. User paused to
+**Auto-resume voice after dialog dismiss** (Fast/voice-answering sessions) — rejected. User paused to
 report a card; auto-resuming overrides that intent. One manual tap to resume is an acceptable UX cost.
 
-**Empty document when all actions removed** — rejected. Empty report docs have no meaning and create
-noise in the sync script's query results. Delete doc on last action removal.
+**Deleting the document on empty vs. never deleting** — the document is deleted once every action on
+it is removed, so empty report docs never linger and pollute the sync script's query results. The app
+itself has no path that removes a single action (see Decision), so in practice this only fires from
+admin/sync tooling; `CurationRepository.removeCurationAction` exists for that caller.
 
 ## Consequences
 
 - `users/{uid}/curationRequests/{cardId}` → `{ subcategoryId: String, actions: { "<CurationAction>": { flaggedAt: Timestamp } } }`
-- `CurationAction` values: `DIFFICULTY_TOO_EASY`, `DIFFICULTY_TOO_HARD`, `DELETE`, `BACKTICK_REDO`, `NEEDS_CODE_EXAMPLE`, `FULL_REDO`. Presented to users as: "Too easy," "Too hard," "Duplicate or low quality," "Formatting looks broken," "Needs a code example," "Needs a full rewrite."
-- `DIFFICULTY_TOO_EASY` and `DIFFICULTY_TOO_HARD` are mutually exclusive — map key semantics enforce this (writing one overwrites the other). All other actions can coexist.
-- Report state is loaded lazily on first flag-icon tap via a batched `whereIn` query (chunks of 30 due to Firestore limit) and cached in `StudySessionViewModel` for the session.
-- Writes happen on Submit: checked Curation Actions are upserted to Firestore in one write; Cancel discards local toggle changes; snackbar error shown on write failure.
+- `CurationAction` values: `DifficultyTooEasy`, `DifficultyTooHard`, `WrongTags`, `NeedsCodeExample`, `BacktickRedo`, `FullRedo`, `Delete`. Presented to users as: "Raise the difficulty," "Lower the difficulty," "Wrong tags," "Needs a code example," "Formatting looks broken," "Needs a full rewrite," "Duplicate or low quality." Every value gets a row in the dialog, enforced by a `check()` against `CurationAction.entries` so a new action can't be added without a row.
+- `DifficultyTooEasy` and `DifficultyTooHard` are mutually exclusive — enforced in the draft: checking one clears the other via `CurationAction.difficultyOpposite()`, so contradictory data never reaches Firestore.
+- No report state is fetched to seed the dialog. Writes happen only on Submit: the checked Curation Actions are upserted to Firestore in one write via `SubmitCurationReportUseCase` → `CurationRepository.upsertCurationActions`; Cancel makes no write; a snackbar shows on write failure.
+- Resubmitting a set of actions already on record is a no-op: `DefaultCurationRepository` caches each card's last known flagged actions and skips the Firestore write when the requested set is already a subset of it.
 - `CurationRepository` is the sole interface for this concern — separate from `FlashcardRepository`.
-- No management screen: Curation Requests are invisible to users anywhere outside the report sheet itself.
+- No management screen: Curation Requests are invisible to users anywhere outside the report dialog itself, and cannot be withdrawn from within the app.
 - No bulk report action anywhere in the app (e.g. Subcategory Details has no multiselect report toolbar).
