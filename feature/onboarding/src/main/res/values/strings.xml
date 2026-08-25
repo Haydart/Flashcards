@@ -75,7 +75,7 @@
     <!-- 8 · All set -->
     <string name="all_set_headline_title">You\'re all set, %1$s!</string>
     <string name="all_set_headline_anonymous_title">You\'re all set!</string>
-    <string name="all_set_intro_message">Your sessions are dialled in. Jump into your first deck whenever you\'re ready.</string>
+    <string name="all_set_intro_message">Your sessions are dialed in. Jump into your first deck whenever you\'re ready.</string>
     <string name="all_set_mode_badge_label">%1$s by default</string>
     <string name="all_set_daily_goal_badge_label">%1$d min/day</string>
     <plurals name="all_set_favorites_badge_label">
