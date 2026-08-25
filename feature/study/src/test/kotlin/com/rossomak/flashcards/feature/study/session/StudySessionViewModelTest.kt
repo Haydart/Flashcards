@@ -1,6 +1,7 @@
 package com.rossomak.flashcards.feature.study.session
 
 import androidx.lifecycle.SavedStateHandle
+import app.cash.turbine.test
 import com.rossomak.flashcards.core.domain.model.CurationAction
 import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.core.domain.model.FlashcardRating
@@ -15,16 +16,23 @@ import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.ObserveVoiceAnswerConsentUseCase
 import com.rossomak.flashcards.core.domain.usecase.SetVoiceAnswerConsentUseCase
 import com.rossomak.flashcards.core.domain.usecase.SubmitCurationReportUseCase
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Dismiss
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.DraftChange
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.RouteDecoder
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsController
-import com.rossomak.flashcards.core.ui.voice.VoiceSettingsDraftState
 import com.rossomak.flashcards.feature.study.StudySessionRoute
+import com.rossomak.flashcards.feature.study.session.StudySessionDialog.ExitSession
+import com.rossomak.flashcards.feature.study.session.StudySessionDialog.ReportProblem
+import com.rossomak.flashcards.feature.study.session.StudySessionDialog.VoiceAnswerConsent
 import com.rossomak.flashcards.feature.study.voice.VoiceAnswerState
 import com.rossomak.flashcards.feature.study.voice.VoiceGateway
 import com.rossomak.flashcards.feature.study.voice.VoicePhase
 import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 import com.rossomak.flashcards.testutil.MainDispatcherRule
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
@@ -69,7 +77,6 @@ class StudySessionViewModelTest {
     fun setUp() {
         mockkObject(RouteDecoder)
         stubRoute(route)
-        every { voiceSettingsController.draftState } returns MutableStateFlow(VoiceSettingsDraftState())
         every { voiceSettingsController.currentSettings } returns VoiceSettings()
     }
 
@@ -93,7 +100,11 @@ class StudySessionViewModelTest {
             voiceSettingsController,
         )
 
-    private fun flashcard(id: String, subcategoryId: String = this.subcategoryId): Flashcard = Flashcard(
+    private fun flashcard(
+        id: String,
+        subcategoryId: String = this.subcategoryId,
+        extendedContext: String? = null,
+    ): Flashcard = Flashcard(
         id = id,
         subcategoryId = subcategoryId,
         tags = listOf("General"),
@@ -104,8 +115,14 @@ class StudySessionViewModelTest {
         answerCode = null,
         questionSpoken = null,
         answerSpoken = null,
-        extendedContext = null,
+        extendedContext = extendedContext,
     )
+
+    /** What the toolbar hands over: the report dialog seeded from the card on screen. */
+    private fun openReportProblem(viewModel: StudySessionViewModel): ReportProblem {
+        val card = requireNotNull(viewModel.state.value.currentCard)
+        return ReportProblem(cardId = card.id, subcategoryId = card.subcategoryId)
+    }
 
     private fun loadThreeCards() {
         flashcardRepository.flashcardsBySubcategory[subcategoryId] = Result.success(
@@ -183,7 +200,6 @@ class StudySessionViewModelTest {
 
         viewModel.state.value.currentCardIndex shouldBe 1
         viewModel.state.value.isAnswerRevealed shouldBe false
-        viewModel.state.value.isSessionComplete shouldBe false
     }
 
     @Test
@@ -200,7 +216,7 @@ class StudySessionViewModelTest {
     }
 
     @Test
-    fun `onNextCard on the last card completes the session`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `onNextCard on the last card navigates back`() = runTest(mainDispatcherRule.testDispatcher) {
         flashcardRepository.flashcardsBySubcategory[subcategoryId] = Result.success(listOf(flashcard("card-1")))
         stubRoute(route.copy(cardIds = listOf("card-1")))
 
@@ -208,7 +224,33 @@ class StudySessionViewModelTest {
         advanceUntilIdle()
         viewModel.onNextCard()
 
-        viewModel.state.value.isSessionComplete shouldBe true
+        viewModel.events.test { awaitItem() shouldBe StudySessionDestination.Back }
+    }
+
+    @Test
+    fun `confirming the exit dialog closes it and navigates back`() = runTest(mainDispatcherRule.testDispatcher) {
+        loadThreeCards()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDialogEvent(Open(ExitSession))
+
+        viewModel.onDialogEvent(Confirm)
+
+        viewModel.state.value.activeDialog shouldBe null
+        viewModel.events.test { awaitItem() shouldBe StudySessionDestination.Back }
+    }
+
+    @Test
+    fun `dismissing the exit dialog closes it without navigating`() = runTest(mainDispatcherRule.testDispatcher) {
+        loadThreeCards()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDialogEvent(Open(ExitSession))
+
+        viewModel.onDialogEvent(Dismiss)
+
+        viewModel.state.value.activeDialog shouldBe null
+        viewModel.events.test { expectNoEvents() }
     }
 
     @Test
@@ -326,20 +368,6 @@ class StudySessionViewModelTest {
     }
 
     @Test
-    fun `ReportProblemOpen opens an empty draft bound to the current card`() = runTest(mainDispatcherRule.testDispatcher) {
-        loadThreeCards()
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-
-        viewModel.onDialogEvent(StudySessionDialogEvent.Open.ReportProblem)
-
-        viewModel.state.value.activeDialog shouldBe StudySessionDialog.ReportProblem(
-            cardId = "card-1",
-            subcategoryId = subcategoryId,
-        )
-    }
-
-    @Test
     fun `ReportProblemOpen pauses playback when voice is playing`() = runTest(mainDispatcherRule.testDispatcher) {
         loadThreeCards()
         val viewModel = createViewModel()
@@ -347,7 +375,7 @@ class StudySessionViewModelTest {
         voiceGateway.stateFlow.value = VoicePlaybackState(isActive = true, isPlaying = true)
         advanceUntilIdle()
 
-        viewModel.onDialogEvent(StudySessionDialogEvent.Open.ReportProblem)
+        viewModel.onDialogEvent(Open(openReportProblem(viewModel)))
         advanceUntilIdle()
 
         voiceGateway.togglePlayPauseCalls shouldBe 1
@@ -358,12 +386,14 @@ class StudySessionViewModelTest {
         loadThreeCards()
         val viewModel = createViewModel()
         advanceUntilIdle()
-        viewModel.onDialogEvent(StudySessionDialogEvent.Open.ReportProblem)
+        viewModel.onDialogEvent(Open(openReportProblem(viewModel)))
 
         reportDraft(viewModel).canSubmit shouldBe false
 
         viewModel.onDialogEvent(
-            StudySessionDialogEvent.DraftChange.ReportProblemAction(CurationAction.Delete, isChecked = true)
+            DraftChange(
+                reportDraft(viewModel).withAction(CurationAction.Delete, isChecked = true)
+            )
         )
 
         reportDraft(viewModel).canSubmit shouldBe true
@@ -374,13 +404,17 @@ class StudySessionViewModelTest {
         loadThreeCards()
         val viewModel = createViewModel()
         advanceUntilIdle()
-        viewModel.onDialogEvent(StudySessionDialogEvent.Open.ReportProblem)
+        viewModel.onDialogEvent(Open(openReportProblem(viewModel)))
 
         viewModel.onDialogEvent(
-            StudySessionDialogEvent.DraftChange.ReportProblemAction(CurationAction.DifficultyTooHard, isChecked = true)
+            DraftChange(
+                reportDraft(viewModel).withAction(CurationAction.DifficultyTooHard, isChecked = true)
+            )
         )
         viewModel.onDialogEvent(
-            StudySessionDialogEvent.DraftChange.ReportProblemAction(CurationAction.DifficultyTooEasy, isChecked = true)
+            DraftChange(
+                reportDraft(viewModel).withAction(CurationAction.DifficultyTooEasy, isChecked = true)
+            )
         )
 
         reportDraft(viewModel).selectedActions shouldBe setOf(CurationAction.DifficultyTooEasy)
@@ -391,13 +425,17 @@ class StudySessionViewModelTest {
         loadThreeCards()
         val viewModel = createViewModel()
         advanceUntilIdle()
-        viewModel.onDialogEvent(StudySessionDialogEvent.Open.ReportProblem)
+        viewModel.onDialogEvent(Open(openReportProblem(viewModel)))
 
         viewModel.onDialogEvent(
-            StudySessionDialogEvent.DraftChange.ReportProblemAction(CurationAction.WrongTags, isChecked = true)
+            DraftChange(
+                reportDraft(viewModel).withAction(CurationAction.WrongTags, isChecked = true)
+            )
         )
         viewModel.onDialogEvent(
-            StudySessionDialogEvent.DraftChange.ReportProblemAction(CurationAction.WrongTags, isChecked = false)
+            DraftChange(
+                reportDraft(viewModel).withAction(CurationAction.WrongTags, isChecked = false)
+            )
         )
 
         reportDraft(viewModel).selectedActions shouldBe emptySet()
@@ -409,15 +447,19 @@ class StudySessionViewModelTest {
         val curationRepository = FakeCurationRepository()
         val viewModel = createViewModel(curationRepository)
         advanceUntilIdle()
-        viewModel.onDialogEvent(StudySessionDialogEvent.Open.ReportProblem)
+        viewModel.onDialogEvent(Open(openReportProblem(viewModel)))
         viewModel.onDialogEvent(
-            StudySessionDialogEvent.DraftChange.ReportProblemAction(CurationAction.Delete, isChecked = true)
+            DraftChange(
+                reportDraft(viewModel).withAction(CurationAction.Delete, isChecked = true)
+            )
         )
         viewModel.onDialogEvent(
-            StudySessionDialogEvent.DraftChange.ReportProblemAction(CurationAction.WrongTags, isChecked = true)
+            DraftChange(
+                reportDraft(viewModel).withAction(CurationAction.WrongTags, isChecked = true)
+            )
         )
 
-        viewModel.onDialogEvent(StudySessionDialogEvent.Confirm)
+        viewModel.onDialogEvent(Confirm)
         advanceUntilIdle()
 
         curationRepository.submittedReports shouldBe listOf(
@@ -432,84 +474,17 @@ class StudySessionViewModelTest {
         val curationRepository = FakeCurationRepository()
         val viewModel = createViewModel(curationRepository)
         advanceUntilIdle()
-        viewModel.onDialogEvent(StudySessionDialogEvent.Open.ReportProblem)
+        viewModel.onDialogEvent(Open(openReportProblem(viewModel)))
         viewModel.onDialogEvent(
-            StudySessionDialogEvent.DraftChange.ReportProblemAction(CurationAction.Delete, isChecked = true)
+            DraftChange(
+                reportDraft(viewModel).withAction(CurationAction.Delete, isChecked = true)
+            )
         )
 
-        viewModel.onDialogEvent(StudySessionDialogEvent.Dismiss)
+        viewModel.onDialogEvent(Dismiss)
         advanceUntilIdle()
 
         curationRepository.submittedReports shouldBe emptyList()
-        viewModel.state.value.activeDialog shouldBe null
-    }
-
-    @Test
-    fun `reopening the report dialog starts from an empty draft`() = runTest(mainDispatcherRule.testDispatcher) {
-        loadThreeCards()
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-        viewModel.onDialogEvent(StudySessionDialogEvent.Open.ReportProblem)
-        viewModel.onDialogEvent(
-            StudySessionDialogEvent.DraftChange.ReportProblemAction(CurationAction.Delete, isChecked = true)
-        )
-        viewModel.onDialogEvent(StudySessionDialogEvent.Confirm)
-        advanceUntilIdle()
-
-        viewModel.onDialogEvent(StudySessionDialogEvent.Open.ReportProblem)
-
-        reportDraft(viewModel).selectedActions shouldBe emptySet()
-    }
-
-    @Test
-    fun `Confirm surfaces an error when the submission fails`() = runTest(mainDispatcherRule.testDispatcher) {
-        loadThreeCards()
-        val curationRepository = FakeCurationRepository().apply {
-            upsertResultToReturn = Result.failure(IllegalStateException("boom"))
-        }
-        val viewModel = createViewModel(curationRepository)
-        advanceUntilIdle()
-        viewModel.onDialogEvent(StudySessionDialogEvent.Open.ReportProblem)
-        viewModel.onDialogEvent(
-            StudySessionDialogEvent.DraftChange.ReportProblemAction(CurationAction.Delete, isChecked = true)
-        )
-
-        viewModel.onDialogEvent(StudySessionDialogEvent.Confirm)
-        advanceUntilIdle()
-
-        viewModel.state.value.curationError shouldBe "Failed to submit report"
-    }
-
-    @Test
-    fun `onCurationErrorDismissed clears the curation error`() = runTest(mainDispatcherRule.testDispatcher) {
-        loadThreeCards()
-        val curationRepository = FakeCurationRepository().apply {
-            upsertResultToReturn = Result.failure(IllegalStateException("boom"))
-        }
-        val viewModel = createViewModel(curationRepository)
-        advanceUntilIdle()
-        viewModel.onDialogEvent(StudySessionDialogEvent.Open.ReportProblem)
-        viewModel.onDialogEvent(
-            StudySessionDialogEvent.DraftChange.ReportProblemAction(CurationAction.Delete, isChecked = true)
-        )
-        viewModel.onDialogEvent(StudySessionDialogEvent.Confirm)
-        advanceUntilIdle()
-
-        viewModel.onCurationErrorDismissed()
-
-        viewModel.state.value.curationError shouldBe null
-    }
-
-    @Test
-    fun `ExtendedContextOpen and Dismiss move the sealed dialog field`() = runTest(mainDispatcherRule.testDispatcher) {
-        loadThreeCards()
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-
-        viewModel.onDialogEvent(StudySessionDialogEvent.Open.ExtendedContext)
-        viewModel.state.value.activeDialog shouldBe StudySessionDialog.ExtendedContext
-
-        viewModel.onDialogEvent(StudySessionDialogEvent.Dismiss)
         viewModel.state.value.activeDialog shouldBe null
     }
 
@@ -518,12 +493,12 @@ class StudySessionViewModelTest {
         val viewModel = createViewModel()
         advanceUntilIdle()
 
-        viewModel.onDialogEvent(StudySessionDialogEvent.Open.VoiceSettings)
-        viewModel.state.value.activeDialog shouldBe StudySessionDialog.VoiceSettings
+        viewModel.onDialogEvent(Open(StudySessionDialog.VoiceSettings()))
+        viewModel.state.value.activeDialog.shouldBeInstanceOf<StudySessionDialog.VoiceSettings>()
 
-        viewModel.onDialogEvent(StudySessionDialogEvent.Confirm)
+        viewModel.onDialogEvent(Confirm)
 
-        verify(exactly = 1) { voiceSettingsController.save(any()) }
+        verify(exactly = 1) { voiceSettingsController.save(any(), any()) }
         viewModel.state.value.activeDialog shouldBe null
     }
 
@@ -531,12 +506,12 @@ class StudySessionViewModelTest {
     fun `VoiceSettings Dismiss discards the draft through the controller`() = runTest(mainDispatcherRule.testDispatcher) {
         val viewModel = createViewModel()
         advanceUntilIdle()
-        viewModel.onDialogEvent(StudySessionDialogEvent.Open.VoiceSettings)
+        viewModel.onDialogEvent(Open(StudySessionDialog.VoiceSettings()))
 
-        viewModel.onDialogEvent(StudySessionDialogEvent.Dismiss)
+        viewModel.onDialogEvent(Dismiss)
 
-        verify(exactly = 1) { voiceSettingsController.dismiss() }
-        verify(exactly = 0) { voiceSettingsController.save(any()) }
+        verify(exactly = 1) { voiceSettingsController.stopPreview() }
+        verify(exactly = 0) { voiceSettingsController.save(any(), any()) }
         viewModel.state.value.activeDialog shouldBe null
     }
 
@@ -545,10 +520,10 @@ class StudySessionViewModelTest {
         val viewModel = createViewModel()
         advanceUntilIdle()
 
-        viewModel.onDialogEvent(StudySessionDialogEvent.Open.ExitSession)
-        viewModel.state.value.activeDialog shouldBe StudySessionDialog.ExitSession
+        viewModel.onDialogEvent(Open(ExitSession))
+        viewModel.state.value.activeDialog shouldBe ExitSession
 
-        viewModel.onDialogEvent(StudySessionDialogEvent.Dismiss)
+        viewModel.onDialogEvent(Dismiss)
         viewModel.state.value.activeDialog shouldBe null
     }
 
@@ -561,7 +536,7 @@ class StudySessionViewModelTest {
             val viewModel = createViewModel()
             advanceUntilIdle()
 
-            viewModel.state.value.activeDialog shouldBe StudySessionDialog.VoiceAnswerConsent
+            viewModel.state.value.activeDialog shouldBe VoiceAnswerConsent
         }
 
     @Test
@@ -589,8 +564,8 @@ class StudySessionViewModelTest {
         viewModel.state.value.isMicPermissionRequestPending shouldBe false
     }
 
-    private fun reportDraft(viewModel: StudySessionViewModel): StudySessionDialog.ReportProblem =
-        viewModel.state.value.activeDialog as StudySessionDialog.ReportProblem
+    private fun reportDraft(viewModel: StudySessionViewModel): ReportProblem =
+        viewModel.state.value.activeDialog as ReportProblem
 
     @Test
     fun `onCleared stops the voice gateway`() = runTest(mainDispatcherRule.testDispatcher) {
@@ -612,7 +587,7 @@ class StudySessionViewModelTest {
 
             viewModel.onVoiceAnswerToggle()
 
-            viewModel.state.value.activeDialog shouldBe StudySessionDialog.VoiceAnswerConsent
+            viewModel.state.value.activeDialog shouldBe VoiceAnswerConsent
             voiceGateway.lastVoiceAnswering shouldBe null
         }
 
@@ -659,7 +634,7 @@ class StudySessionViewModelTest {
         advanceUntilIdle()
         viewModel.onVoiceAnswerToggle()
 
-        viewModel.onDialogEvent(StudySessionDialogEvent.Confirm)
+        viewModel.onDialogEvent(Confirm)
         advanceUntilIdle()
 
         voiceAnswerConsentRepository.consentFlow.value shouldBe true

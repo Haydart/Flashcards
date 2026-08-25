@@ -77,8 +77,14 @@ import com.rossomak.flashcards.core.domain.model.FlashcardRating
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.ui.composables.SyntaxCodeBlock
 import com.rossomak.flashcards.core.ui.composables.withInlineCode
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
+import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import com.rossomak.flashcards.core.ui.theme.semanticColors
 import com.rossomak.flashcards.feature.study.R
+import com.rossomak.flashcards.feature.study.session.StudySessionDialog.ExitSession
+import com.rossomak.flashcards.feature.study.session.StudySessionDialog.ExtendedContext
+import com.rossomak.flashcards.feature.study.session.StudySessionDialog.ReportProblem
+import com.rossomak.flashcards.feature.study.session.StudySessionDialog.VoiceSettings
 import com.rossomak.flashcards.feature.study.voice.VoiceAnswerPhase
 import kotlinx.coroutines.launch
 
@@ -89,6 +95,13 @@ fun StudySessionScreen(
     onNavigateBack: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    observeAsEvents(viewModel.events) { destination ->
+        when (destination) {
+            StudySessionDestination.Back -> onNavigateBack()
+        }
+    }
+
     val context = LocalContext.current
     val view = LocalView.current
 
@@ -158,10 +171,6 @@ fun StudySessionScreen(
         )
     }
 
-    LaunchedEffect(state.isSessionComplete) {
-        if (state.isSessionComplete) onNavigateBack()
-    }
-
     LaunchedEffect(state.voiceError) {
         val error = state.voiceError ?: return@LaunchedEffect
         launch {
@@ -191,7 +200,6 @@ fun StudySessionScreen(
         modifier = modifier,
         state = state,
         snackbarHostState = snackbarHostState,
-        onNavigateBack = onNavigateBack,
         onShowAnswer = viewModel::onShowAnswer,
         onNextCard = viewModel::onNextCard,
         onRating = viewModel::onRating,
@@ -209,7 +217,6 @@ fun StudySessionContent(
     modifier: Modifier = Modifier,
     state: StudySessionScreenState,
     snackbarHostState: SnackbarHostState,
-    onNavigateBack: () -> Unit,
     onShowAnswer: () -> Unit,
     onNextCard: () -> Unit,
     onRating: (FlashcardRating) -> Unit,
@@ -240,7 +247,7 @@ fun StudySessionContent(
             TopAppBar(
                 title = { Text(text = state.sessionTitle) },
                 navigationIcon = {
-                    IconButton(onClick = { onDialogEvent(StudySessionDialogEvent.Open.ExitSession) }) {
+                    IconButton(onClick = { onDialogEvent(Open(ExitSession)) }) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = stringResource(R.string.exit_session_dialog_title),
@@ -248,8 +255,20 @@ fun StudySessionContent(
                     }
                 },
                 actions = {
-                    if (state.currentCard != null) {
-                        IconButton(onClick = { onDialogEvent(StudySessionDialogEvent.Open.ReportProblem) }) {
+                    val reportableCard = state.currentCard
+                    if (reportableCard != null) {
+                        IconButton(
+                            onClick = {
+                                onDialogEvent(
+                                    Open(
+                                        ReportProblem(
+                                            cardId = reportableCard.id,
+                                            subcategoryId = reportableCard.subcategoryId,
+                                        )
+                                    )
+                                )
+                            },
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Flag,
                                 contentDescription = stringResource(R.string.report_problem_dialog_title),
@@ -274,7 +293,7 @@ fun StudySessionContent(
                 onVoicePlayPause = onVoicePlayPause,
                 onVoiceNext = onVoiceNext,
                 onVoicePrevious = onVoicePrevious,
-                onVoiceSettingsCogClick = { onDialogEvent(StudySessionDialogEvent.Open.VoiceSettings) },
+                onVoiceSettingsCogClick = { onDialogEvent(Open(VoiceSettings())) },
                 onVoiceAnswerToggle = onVoiceAnswerToggle,
             )
         },
@@ -377,12 +396,13 @@ fun StudySessionContent(
                                         engine = syntaxEngine
                                     )
                                 }
-                                if (!card.extendedContext.isNullOrBlank()) {
+                                val extendedContext = card.extendedContext
+                                if (!extendedContext.isNullOrBlank()) {
                                     Spacer(modifier = Modifier.height(16.dp))
                                     HorizontalDivider()
                                     Spacer(modifier = Modifier.height(8.dp))
                                     SuggestionChip(
-                                        onClick = { onDialogEvent(StudySessionDialogEvent.Open.ExtendedContext) },
+                                        onClick = { onDialogEvent(Open(ExtendedContext(extendedContext))) },
                                         label = { Text("Extended context") },
                                         icon = {
                                             Icon(
@@ -402,10 +422,7 @@ fun StudySessionContent(
 
         StudySessionDialogHost(
             activeDialog = state.activeDialog,
-            currentCard = state.currentCard,
-            voiceSettingsState = state.voiceSettingsState,
             onDialogEvent = onDialogEvent,
-            onExitSession = onNavigateBack,
         )
     }
 }
@@ -701,7 +718,6 @@ private fun StudySessionVoiceActivePreview() {
             speechRate = 1.25f,
         ),
         snackbarHostState = remember { SnackbarHostState() },
-        onNavigateBack = {},
         onShowAnswer = {},
         onNextCard = {},
         onRating = {},
@@ -739,7 +755,6 @@ private fun StudySessionRatedManualPreview() {
             isAnswerRevealed = true,
         ),
         snackbarHostState = remember { SnackbarHostState() },
-        onNavigateBack = {},
         onShowAnswer = {},
         onNextCard = {},
         onRating = {},

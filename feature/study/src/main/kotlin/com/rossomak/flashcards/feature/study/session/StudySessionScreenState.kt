@@ -3,7 +3,6 @@ package com.rossomak.flashcards.feature.study.session
 import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
-import com.rossomak.flashcards.core.ui.voice.VoiceSettingsDraftState
 import com.rossomak.flashcards.feature.study.voice.VoiceAnswerPhase
 import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 
@@ -14,7 +13,6 @@ data class StudySessionScreenState(
     val flashcards: List<Flashcard> = emptyList(),
     val currentCardIndex: Int = 0,
     val isAnswerRevealed: Boolean = false,
-    val isSessionComplete: Boolean = false,
     val error: String? = null,
     val isVoiceActive: Boolean = false,
     val isVoicePlaying: Boolean = false,
@@ -22,7 +20,6 @@ data class StudySessionScreenState(
     val speechRate: Float = VoicePlaybackState.DEFAULT_SPEECH_RATE,
     val voiceError: String? = null,
     val curationError: String? = null,
-    val voiceSettingsState: VoiceSettingsDraftState = VoiceSettingsDraftState(),
     val isVoiceAnswerEnabled: Boolean = false,
     val voiceAnswerPhase: VoiceAnswerPhase = VoiceAnswerPhase.Idle,
     val voiceAnswerSanitizedTranscript: String? = null,
