@@ -248,8 +248,6 @@ fun StudySessionContent(
                     }
                 },
                 actions = {
-                    // The sheet is already crowded with mic, cog and transport controls, so
-                    // reporting lives in the top bar (ADR-0017).
                     if (state.currentCard != null) {
                         IconButton(onClick = { onDialogEvent(StudySessionDialogEvent.Open.ReportProblem) }) {
                             Icon(
