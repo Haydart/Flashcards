@@ -8,16 +8,14 @@ import com.rossomak.flashcards.core.domain.usecase.ObserveVoiceSettingsUseCase
 import com.rossomak.flashcards.core.domain.usecase.SaveVoiceSettingsUseCase
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * The dialog's in-flight draft. Deliberately carries no visibility flag: which dialog is up is
- * owned by the screen's single sealed `activeDialog` field, so a second source of truth here
- * would let two dialogs claim to be open at once.
+ * The voice-settings dialog's draft.
+ *
+ * Lives in the screen's `activeDialog` field like every other dialog's draft (ADR-0036), which is
+ * why this controller neither holds nor exposes it — a second copy here would be a second source of
+ * truth, and would let the draft outlive the dialog that owns it.
  */
 data class VoiceSettingsDraftState(
     val availableVoices: List<VoiceOption> = emptyList(),
@@ -26,9 +24,9 @@ data class VoiceSettingsDraftState(
 )
 
 /**
- * Owns the voice-settings dialog's draft state, voice list cache, and preview/save plumbing.
- * Shared by feature:study and feature:settings. Each ViewModel injects its own instance
- * (unscoped) and is responsible for binding it to its own viewModelScope.
+ * Owns the voice list cache, preview playback and saving for the voice-settings dialog. Shared by
+ * feature:study and feature:settings; each ViewModel injects its own instance (unscoped) and binds
+ * it to its own viewModelScope.
  */
 class VoiceSettingsController @Inject constructor(
     private val observeVoiceSettings: ObserveVoiceSettingsUseCase,
@@ -36,9 +34,6 @@ class VoiceSettingsController @Inject constructor(
     private val getAvailableVoices: GetAvailableVoicesUseCase,
     private val previewGateway: VoicePreviewGateway,
 ) {
-
-    private val _draftState = MutableStateFlow(VoiceSettingsDraftState())
-    val draftState: StateFlow<VoiceSettingsDraftState> = _draftState.asStateFlow()
 
     private var savedSettings = VoiceSettings()
     private var cachedVoices: List<VoiceOption>? = null
@@ -51,51 +46,41 @@ class VoiceSettingsController @Inject constructor(
         }
     }
 
-    fun open(scope: CoroutineScope) {
-        _draftState.update {
-            it.copy(
-                draftVoiceId = savedSettings.voiceId ?: cachedVoices?.firstOrNull()?.id,
-                draftSpeed = savedSettings.speechRate,
-            )
-        }
-        val cached = cachedVoices
-        if (cached != null) {
-            _draftState.update { it.copy(availableVoices = cached) }
-        } else {
-            scope.launch {
-                val voices = runCatching { getAvailableVoices() }.getOrDefault(emptyList())
-                cachedVoices = voices
-                _draftState.update {
-                    it.copy(
-                        availableVoices = voices,
-                        draftVoiceId = it.draftVoiceId ?: voices.firstOrNull()?.id,
-                    )
-                }
-            }
-        }
-    }
-
-    fun onDraftVoiceChanged(voiceId: String?) {
-        _draftState.update { it.copy(draftVoiceId = voiceId) }
-        previewGateway.preview(voiceId, _draftState.value.draftSpeed)
-    }
-
-    fun onDraftSpeedChanged(speed: Float) {
-        _draftState.update { it.copy(draftSpeed = speed) }
-        previewGateway.preview(_draftState.value.draftVoiceId, speed)
-    }
-
-    fun save(scope: CoroutineScope): VoiceSettings {
-        val settings = VoiceSettings(
-            speechRate = _draftState.value.draftSpeed,
-            voiceId = _draftState.value.draftVoiceId,
+    /**
+     * The draft a newly opened dialog starts from — the saved settings, plus the voice list if it
+     * is already cached. When it is not, [loadVoices] fills it in afterwards.
+     */
+    fun seedDraft(): VoiceSettingsDraftState {
+        val voices = cachedVoices.orEmpty()
+        return VoiceSettingsDraftState(
+            availableVoices = voices,
+            draftVoiceId = savedSettings.voiceId ?: voices.firstOrNull()?.id,
+            draftSpeed = savedSettings.speechRate,
         )
+    }
+
+    /** No-op when the list is already cached, so an open never re-queries the platform. */
+    fun loadVoices(scope: CoroutineScope, onLoaded: (List<VoiceOption>) -> Unit) {
+        if (cachedVoices != null) return
+        scope.launch {
+            val voices = runCatching { getAvailableVoices() }.getOrDefault(emptyList())
+            cachedVoices = voices
+            onLoaded(voices)
+        }
+    }
+
+    fun preview(draft: VoiceSettingsDraftState) {
+        previewGateway.preview(draft.draftVoiceId, draft.draftSpeed)
+    }
+
+    fun save(scope: CoroutineScope, draft: VoiceSettingsDraftState): VoiceSettings {
+        val settings = VoiceSettings(speechRate = draft.draftSpeed, voiceId = draft.draftVoiceId)
         scope.launch { runCatching { saveVoiceSettings(settings) } }
         previewGateway.stop()
         return settings
     }
 
-    fun dismiss() {
+    fun stopPreview() {
         previewGateway.stop()
     }
 }
