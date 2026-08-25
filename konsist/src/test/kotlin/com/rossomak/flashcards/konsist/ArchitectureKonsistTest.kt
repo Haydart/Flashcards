@@ -55,12 +55,15 @@ class ArchitectureKonsistTest {
         // tokens (spacing / sizes / cornerRadius), never hardcode `dp` (see core/ui/README.md
         // and ADR-0020). Opt out per-function with @RawDimensions("reason"). Colors are never
         // exempt. Token *definitions* live in the theme/ package, so scoping to composables/
-        // keeps them out of this check.
+        // keeps them out of this check. @Preview/@PreviewLightDark functions are exempt too:
+        // their job is to show one illustrative example, not to model a reusable token.
         val rawDpLiteral = Regex("""\b\d+(\.\d+)?\.dp\b""")
+        val previewAnnotations = setOf("Preview", "PreviewLightDark")
         projectScope
             .functions()
             .filter { function -> function.path.contains("/core/ui/") && function.path.contains("/composables/") }
             .filter { function -> function.annotations.none { it.name == "RawDimensions" } }
+            .filter { function -> function.annotations.none { it.name in previewAnnotations } }
             .assertFalse { function -> rawDpLiteral.containsMatchIn(function.text) }
     }
 

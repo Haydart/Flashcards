@@ -16,7 +16,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentSize
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentSize.Normal
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentSize.Small
 import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle.OnGradient
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle.OnSurface
 import com.rossomak.flashcards.core.ui.theme.AppSizes
 import com.rossomak.flashcards.core.ui.theme.AppSpacing
 import com.rossomak.flashcards.core.ui.theme.sizes
@@ -40,12 +44,12 @@ internal fun FlashcardsComponentSize.metrics(
     spacing: AppSpacing = MaterialTheme.spacing,
     typography: Typography = MaterialTheme.typography,
 ): FlashcardsButtonMetrics = when (this) {
-    FlashcardsComponentSize.Normal -> FlashcardsButtonMetrics(
+    Normal -> FlashcardsButtonMetrics(
         height = sizes.buttonHeightNormal,
         horizontalPadding = spacing.medium,
         textStyle = typography.labelLarge,
     )
-    FlashcardsComponentSize.Small -> FlashcardsButtonMetrics(
+    Small -> FlashcardsButtonMetrics(
         height = sizes.buttonHeightSmall,
         horizontalPadding = spacing.normal,
         textStyle = typography.labelMedium,
@@ -72,16 +76,16 @@ private const val ON_GRADIENT_DISABLED_CONTENT_ALPHA = 0.50f
 @Composable
 @ReadOnlyComposable
 internal fun disabledButtonContainerColorFor(style: FlashcardsComponentStyle): Color = when (style) {
-    FlashcardsComponentStyle.OnSurface -> MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_CONTAINER_ALPHA)
-    FlashcardsComponentStyle.OnGradient -> Color.White.copy(alpha = ON_GRADIENT_DISABLED_CONTAINER_ALPHA)
+    OnSurface -> MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_CONTAINER_ALPHA)
+    OnGradient -> Color.White.copy(alpha = ON_GRADIENT_DISABLED_CONTAINER_ALPHA)
 }
 
 /** Disabled content color for the given [style], shared by every `Flashcards*Button`. */
 @Composable
 @ReadOnlyComposable
 internal fun disabledButtonContentColorFor(style: FlashcardsComponentStyle): Color = when (style) {
-    FlashcardsComponentStyle.OnSurface -> MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_CONTENT_ALPHA)
-    FlashcardsComponentStyle.OnGradient -> Color.White.copy(alpha = ON_GRADIENT_DISABLED_CONTENT_ALPHA)
+    OnSurface -> MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_CONTENT_ALPHA)
+    OnGradient -> Color.White.copy(alpha = ON_GRADIENT_DISABLED_CONTENT_ALPHA)
 }
 
 /**
