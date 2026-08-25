@@ -22,8 +22,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import com.rossomak.flashcards.core.ui.showcase.Showcase
+import com.rossomak.flashcards.feature.settings.SettingsDialog.VoiceSettings
 
 @Composable
 fun SettingsScreen(
@@ -42,7 +44,6 @@ fun SettingsScreen(
 
     SettingsDialogHost(
         activeDialog = state.activeDialog,
-        voiceSettingsState = state.voiceSettingsState,
         onDialogEvent = viewModel::onDialogEvent,
     )
 
@@ -52,7 +53,7 @@ fun SettingsScreen(
         modifier = modifier,
         isSigningOut = state.isSigningOut,
         showcaseIntent = showcaseIntent,
-        onVoicePlaybackSettingsClick = { viewModel.onDialogEvent(SettingsDialogEvent.Open.VoiceSettings) },
+        onVoicePlaybackSettingsClick = { viewModel.onDialogEvent(Open(VoiceSettings())) },
         onSignOutClick = viewModel::onSignOutClick,
     )
 }

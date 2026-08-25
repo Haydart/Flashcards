@@ -2,8 +2,14 @@ package com.rossomak.flashcards.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.rossomak.flashcards.core.domain.model.VoiceOption
 import com.rossomak.flashcards.core.domain.usecase.SignOutUseCase
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Dismiss
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.DraftChange
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsController
+import com.rossomak.flashcards.feature.settings.SettingsDialog.VoiceSettings
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -29,33 +35,75 @@ class SettingsViewModel @Inject constructor(
 
     init {
         voiceSettingsController.bind(viewModelScope)
-        viewModelScope.launch {
-            voiceSettingsController.draftState.collect { draft ->
-                _state.update { it.copy(voiceSettingsState = draft) }
-            }
-        }
     }
 
     /** Single entry point for every dialog on this screen. */
     fun onDialogEvent(event: SettingsDialogEvent) {
         when (event) {
-            SettingsDialogEvent.Open.VoiceSettings -> {
-                voiceSettingsController.open(viewModelScope)
-                _state.update { it.copy(activeDialog = SettingsDialog.VoiceSettings) }
-            }
-            is SettingsDialogEvent.DraftChange.VoiceSettingsVoice ->
-                voiceSettingsController.onDraftVoiceChanged(event.voiceId)
-            is SettingsDialogEvent.DraftChange.VoiceSettingsSpeechRate ->
-                voiceSettingsController.onDraftSpeedChanged(event.speechRate)
-            SettingsDialogEvent.Confirm -> {
-                voiceSettingsController.save(viewModelScope)
-                _state.update { it.copy(activeDialog = null) }
-            }
-            SettingsDialogEvent.Dismiss -> {
-                voiceSettingsController.dismiss()
+            is Open -> onDialogOpen(event.dialog)
+            is DraftChange -> onDraftChange(event.dialog)
+            Confirm -> onDialogConfirm()
+            Dismiss -> {
+                voiceSettingsController.stopPreview()
                 _state.update { it.copy(activeDialog = null) }
             }
         }
+    }
+
+    /**
+     * The caller hands over the dialog it wants shown. Voice settings is the one this screen cannot
+     * seed at the call site, so the ViewModel replaces the draft it is handed.
+     */
+    private fun onDialogOpen(dialog: SettingsDialog) {
+        when (dialog) {
+            is VoiceSettings -> onVoiceSettingsOpen()
+        }
+    }
+
+    private fun onVoiceSettingsOpen() {
+        _state.update { it.copy(activeDialog = VoiceSettings(voiceSettingsController.seedDraft())) }
+        voiceSettingsController.loadVoices(viewModelScope, ::onVoicesLoaded)
+    }
+
+    /**
+     * The voice list arrives after the dialog is already up, so it has to find the open dialog to
+     * fill in — the one narrowing cast left in the dialog path, once per open rather than once per
+     * edit. A dismissal in the meantime correctly drops it.
+     */
+    private fun onVoicesLoaded(voices: List<VoiceOption>) {
+        _state.update { state ->
+            val dialog = state.activeDialog as? VoiceSettings ?: return@update state
+            state.copy(
+                activeDialog = dialog.copy(
+                    draft = dialog.draft.copy(
+                        availableVoices = voices,
+                        draftVoiceId = dialog.draft.draftVoiceId ?: voices.firstOrNull()?.id,
+                    ),
+                ),
+            )
+        }
+    }
+
+    /**
+     * Stores the draft the host built, then previews the edit. The trigger is a diff rather than a
+     * typed per-field event, so every dialog stays on the one generic
+     * [SettingsDialogEvent.DraftChange] and the preview stays unit-testable (ADR-0036).
+     */
+    private fun onDraftChange(dialog: SettingsDialog) {
+        val previous = _state.value.activeDialog
+        _state.update { it.copy(activeDialog = dialog) }
+        if (previous is VoiceSettings &&
+            dialog is VoiceSettings &&
+            dialog.draft != previous.draft
+        ) {
+            voiceSettingsController.preview(dialog.draft)
+        }
+    }
+
+    private fun onDialogConfirm() {
+        val dialog = _state.value.activeDialog as? VoiceSettings ?: return
+        voiceSettingsController.save(viewModelScope, dialog.draft)
+        _state.update { it.copy(activeDialog = null) }
     }
 
     fun onSignOutClick() {
