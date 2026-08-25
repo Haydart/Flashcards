@@ -31,9 +31,6 @@ import com.rossomak.flashcards.core.ui.theme.semanticColors
 import com.rossomak.flashcards.core.ui.theme.sizes
 import com.rossomak.flashcards.core.ui.theme.spacing
 
-/** Max lines of [FlashcardsEmptyState]'s supporting text, per the design's "max 2-line body" spec. */
-private const val SUPPORTING_TEXT_MAX_LINES = 2
-
 /**
  * The shared layout for "nothing to show" and "something went wrong" screens: a tinted, color-coded
  * icon circle, a title, up to two lines of supporting copy, and an optional [FlashcardsFilledButton]
@@ -98,7 +95,6 @@ fun FlashcardsEmptyState(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
-                maxLines = SUPPORTING_TEXT_MAX_LINES,
                 overflow = TextOverflow.Ellipsis,
             )
         }
