@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Flag
@@ -60,7 +59,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -79,6 +77,7 @@ import com.rossomak.flashcards.core.domain.model.FlashcardRating
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.ui.composables.SyntaxCodeBlock
 import com.rossomak.flashcards.core.ui.composables.withInlineCode
+import com.rossomak.flashcards.core.ui.theme.semanticColors
 import com.rossomak.flashcards.feature.study.R
 import com.rossomak.flashcards.feature.study.voice.VoiceAnswerPhase
 import kotlinx.coroutines.launch
@@ -630,22 +629,22 @@ private fun RatingButtons(
             RatingOption(
                 label = "Not at all",
                 icon = Icons.Default.Close,
-                containerColor = Color(0xFFF6D9DA),
-                contentColor = Color(0xFFC94F4F),
+                containerColor = MaterialTheme.semanticColors.negativeContainer,
+                contentColor = MaterialTheme.semanticColors.onNegativeContainer,
                 onClick = { onRating(FlashcardRating.Failed) },
             )
             RatingOption(
                 label = "Somewhat",
                 icon = Icons.Default.Remove,
-                containerColor = Color(0xFFF6E8C8),
-                contentColor = Color(0xFFC98F2B),
+                containerColor = MaterialTheme.semanticColors.neutralContainer,
+                contentColor = MaterialTheme.semanticColors.onNeutralContainer,
                 onClick = { onRating(FlashcardRating.PartiallyCorrect) },
             )
             RatingOption(
                 label = "Very well",
                 icon = Icons.Default.Check,
-                containerColor = Color(0xFFD3EBD6),
-                contentColor = Color(0xFF3E9556),
+                containerColor = MaterialTheme.semanticColors.positiveContainer,
+                contentColor = MaterialTheme.semanticColors.onPositiveContainer,
                 onClick = { onRating(FlashcardRating.Correct) },
             )
         }
