@@ -3,7 +3,6 @@ package com.rossomak.flashcards.core.domain.usecase
 import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
-import com.rossomak.flashcards.core.domain.model.StudySessionPlan
 import com.rossomak.flashcards.core.domain.repository.FakeFlashcardRepository
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -237,7 +236,7 @@ class SelectSessionFlashcardsUseCaseTest {
         val plan = createUseCase().invoke(config()).getOrThrow()
 
         // 5 cards * 40s = 200s -> ceil(200 / 60) = 4
-        StudySessionPlan.SECONDS_PER_CARD shouldBe 40
+        SelectSessionFlashcardsUseCase.SECONDS_PER_CARD shouldBe 40
         plan.estimatedMinutes shouldBe 4
     }
 

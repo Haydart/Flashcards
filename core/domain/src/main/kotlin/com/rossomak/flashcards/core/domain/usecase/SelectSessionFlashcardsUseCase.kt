@@ -38,7 +38,22 @@ class SelectSessionFlashcardsUseCase @Inject constructor(
     private val cachedCardsBySubcategoryId = mutableMapOf<String, List<Flashcard>>()
 
     override suspend fun invoke(params: StudySessionConfig): Result<StudySessionPlan> =
-        loadPool(params.subcategoryIds).map { pool -> StudySessionPlan.of(select(pool, params), pool) }
+        loadPool(params.subcategoryIds).map { pool -> buildPlan(select(pool, params), pool) }
+
+    /**
+     * [poolTags] comes from the whole pool rather than from [cards]: it is what a filter UI offers
+     * as options, and deriving it from the drawn cards would make tags disappear from the picker
+     * precisely because the user filtered them out.
+     */
+    private fun buildPlan(cards: List<Flashcard>, pool: List<Flashcard>): StudySessionPlan = StudySessionPlan(
+        cards = cards,
+        estimatedMinutes = estimateMinutes(cards.size),
+        poolTags = pool.flatMap { it.tags }.distinct().sorted(),
+    )
+
+    /** Rounds up so a plan with any cards at all never reads as "~0 min". */
+    private fun estimateMinutes(cardCount: Int): Int =
+        ((cardCount * SECONDS_PER_CARD) + SECONDS_PER_MINUTE - 1) / SECONDS_PER_MINUTE
 
     private suspend fun loadPool(subcategoryIds: List<String>): Result<List<Flashcard>> = coroutineScope {
         val results = subcategoryIds
@@ -74,5 +89,11 @@ class SelectSessionFlashcardsUseCase @Inject constructor(
             FlashcardSortOrder.EasiestFirst -> drawnCards.sortedBy { it.difficulty }
             FlashcardSortOrder.HardestFirst -> drawnCards.sortedByDescending { it.difficulty }
         }
+    }
+
+    companion object {
+        /** Rough pace of a Rated card: read, think, reveal, rate. */
+        const val SECONDS_PER_CARD = 40
+        private const val SECONDS_PER_MINUTE = 60
     }
 }
