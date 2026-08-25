@@ -51,9 +51,16 @@ import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.ui.R as CoreUiR
+import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardFilters
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import com.rossomak.flashcards.feature.study.R
 import com.rossomak.flashcards.feature.study.StudySessionRoute
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Filters
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Length
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Mode
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Sort
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceAnswering
 
 @Composable
 fun PreviewStudySessionScreen(
@@ -94,7 +101,6 @@ fun PreviewStudySessionContent(
 ) {
     PreviewDialogHost(
         activeDialog = state.activeDialog,
-        availableTags = state.availableTags,
         onDialogEvent = onDialogEvent,
     )
     Scaffold(
@@ -249,13 +255,17 @@ private fun SessionSettingRows(
         SessionSettingRow(
             label = stringResource(R.string.preview_session_mode_label),
             value = studyModeLabel(state.config.mode),
-            onClick = { onDialogEvent(PreviewDialogEvent.Open.Mode) },
+            onClick = { onDialogEvent(Open(Mode(draft = state.config.mode))) },
         )
         if (state.config.mode == StudyMode.Rated) {
             SessionSettingRow(
                 label = stringResource(R.string.preview_session_voice_answering_label),
                 value = voiceAnsweringLabel(state.config.voiceAnsweringEnabled),
-                onClick = { onDialogEvent(PreviewDialogEvent.Open.VoiceAnswering) },
+                onClick = {
+                    onDialogEvent(
+                        Open(VoiceAnswering(draft = state.config.voiceAnsweringEnabled))
+                    )
+                },
             )
         }
         SessionSettingRow(
@@ -265,17 +275,29 @@ private fun SessionSettingRows(
                 state.config.length,
                 state.config.length,
             ),
-            onClick = { onDialogEvent(PreviewDialogEvent.Open.Length) },
+            onClick = { onDialogEvent(Open(Length(draft = state.config.length))) },
         )
         SessionSettingRow(
             label = stringResource(R.string.preview_session_filters_label),
             value = filtersLabel(state.config),
-            onClick = { onDialogEvent(PreviewDialogEvent.Open.Filters) },
+            onClick = {
+                onDialogEvent(
+                    Open(
+                        Filters(
+                            draft = FlashcardFilters(
+                                selectedTags = state.config.tagIds,
+                                difficultyRange = state.config.difficultyRange,
+                            ),
+                            availableTags = state.availableTags,
+                        )
+                    )
+                )
+            },
         )
         SessionSettingRow(
             label = stringResource(R.string.preview_session_sort_label),
             value = sortOrderLabel(state.config.sortOrder),
-            onClick = { onDialogEvent(PreviewDialogEvent.Open.Sort) },
+            onClick = { onDialogEvent(Open(Sort(draft = state.config.sortOrder))) },
         )
     }
 }

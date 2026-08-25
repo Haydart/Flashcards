@@ -7,8 +7,18 @@ import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.repository.FakeFlashcardRepository
 import com.rossomak.flashcards.core.domain.usecase.SelectSessionFlashcardsUseCase
+import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardFilters
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Dismiss
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.DraftChange
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.RouteDecoder
 import com.rossomak.flashcards.feature.study.PreviewStudySessionRoute
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Filters
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Length
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Mode
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Sort
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceAnswering
 import com.rossomak.flashcards.testutil.MainDispatcherRule
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.collections.shouldContainAll
@@ -186,39 +196,18 @@ class PreviewStudySessionViewModelTest {
     }
 
     @Test
-    fun `opening a dialog seeds its draft from the committed config`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute.copy(filterTagIds = listOf("State")))
-        flashcardRepository.flashcardsToReturn = Result.success(listOf(flashcard(id = "card-1")))
-
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-
-        viewModel.onDialogEvent(PreviewDialogEvent.Open.Mode)
-        viewModel.state.value.activeDialog shouldBe PreviewDialog.Mode(draft = StudyMode.Rated)
-
-        viewModel.onDialogEvent(PreviewDialogEvent.Open.Length)
-        viewModel.state.value.activeDialog shouldBe PreviewDialog.Length(draft = 20)
-
-        viewModel.onDialogEvent(PreviewDialogEvent.Open.Sort)
-        viewModel.state.value.activeDialog shouldBe PreviewDialog.Sort(draft = FlashcardSortOrder.Default)
-
-        viewModel.onDialogEvent(PreviewDialogEvent.Open.Filters)
-        val filtersDialog = viewModel.state.value.activeDialog as PreviewDialog.Filters
-        filtersDialog.draft.selectedTags shouldBe setOf("State")
-        filtersDialog.draft.difficultyRange shouldBe 1..10
-    }
-
-    @Test
     fun `a draft change leaves the committed config untouched until confirm`() = runTest(mainDispatcherRule.testDispatcher) {
         stubRoute(singleTopicRoute)
         flashcardRepository.flashcardsToReturn = Result.success(listOf(flashcard(id = "card-1")))
 
         val viewModel = createViewModel()
         advanceUntilIdle()
-        viewModel.onDialogEvent(PreviewDialogEvent.Open.Mode)
-        viewModel.onDialogEvent(PreviewDialogEvent.DraftChange.Mode(StudyMode.Fast))
+        viewModel.onDialogEvent(Open(Mode(draft = viewModel.state.value.config.mode)))
+        viewModel.onDialogEvent(
+            DraftChange(Mode(draft = StudyMode.Fast))
+        )
 
-        viewModel.state.value.activeDialog shouldBe PreviewDialog.Mode(draft = StudyMode.Fast)
+        viewModel.state.value.activeDialog shouldBe Mode(draft = StudyMode.Fast)
         viewModel.state.value.config.mode shouldBe StudyMode.Rated
     }
 
@@ -229,48 +218,14 @@ class PreviewStudySessionViewModelTest {
 
         val viewModel = createViewModel()
         advanceUntilIdle()
-        viewModel.onDialogEvent(PreviewDialogEvent.Open.Sort)
-        viewModel.onDialogEvent(PreviewDialogEvent.DraftChange.SortOrder(FlashcardSortOrder.HardestFirst))
-        viewModel.onDialogEvent(PreviewDialogEvent.Dismiss)
+        viewModel.onDialogEvent(Open(Sort(draft = viewModel.state.value.config.sortOrder)))
+        viewModel.onDialogEvent(
+            DraftChange(Sort(draft = FlashcardSortOrder.HardestFirst))
+        )
+        viewModel.onDialogEvent(Dismiss)
 
         viewModel.state.value.activeDialog shouldBe null
         viewModel.state.value.config.sortOrder shouldBe FlashcardSortOrder.Default
-    }
-
-    @Test
-    fun `reopening a dialog seeds a fresh draft and clears keep as default`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
-        flashcardRepository.flashcardsToReturn = Result.success(listOf(flashcard(id = "card-1")))
-
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-        viewModel.onDialogEvent(PreviewDialogEvent.Open.Sort)
-        viewModel.onDialogEvent(PreviewDialogEvent.DraftChange.SortOrder(FlashcardSortOrder.HardestFirst))
-        viewModel.onDialogEvent(PreviewDialogEvent.DraftChange.KeepAsDefault(true))
-        viewModel.onDialogEvent(PreviewDialogEvent.Confirm)
-        advanceUntilIdle()
-
-        viewModel.onDialogEvent(PreviewDialogEvent.Open.Sort)
-
-        viewModel.state.value.activeDialog shouldBe PreviewDialog.Sort(
-            draft = FlashcardSortOrder.HardestFirst,
-            keepAsDefault = false,
-        )
-    }
-
-    @Test
-    fun `keep as default is ignored while the filters dialog is open`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
-        flashcardRepository.flashcardsToReturn = Result.success(listOf(flashcard(id = "card-1")))
-
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-        viewModel.onDialogEvent(PreviewDialogEvent.Open.Filters)
-        val dialogBefore = viewModel.state.value.activeDialog
-
-        viewModel.onDialogEvent(PreviewDialogEvent.DraftChange.KeepAsDefault(true))
-
-        viewModel.state.value.activeDialog shouldBe dialogBefore
     }
 
     @Test
@@ -280,9 +235,11 @@ class PreviewStudySessionViewModelTest {
 
         val viewModel = createViewModel()
         advanceUntilIdle()
-        viewModel.onDialogEvent(PreviewDialogEvent.Open.Mode)
-        viewModel.onDialogEvent(PreviewDialogEvent.DraftChange.Mode(StudyMode.Fast))
-        viewModel.onDialogEvent(PreviewDialogEvent.Confirm)
+        viewModel.onDialogEvent(Open(Mode(draft = viewModel.state.value.config.mode)))
+        viewModel.onDialogEvent(
+            DraftChange(Mode(draft = StudyMode.Fast))
+        )
+        viewModel.onDialogEvent(Confirm)
         advanceUntilIdle()
 
         viewModel.state.value.config.mode shouldBe StudyMode.Fast
@@ -297,9 +254,9 @@ class PreviewStudySessionViewModelTest {
 
         val viewModel = createViewModel()
         advanceUntilIdle()
-        viewModel.onDialogEvent(PreviewDialogEvent.Open.Length)
-        viewModel.onDialogEvent(PreviewDialogEvent.DraftChange.Length(10))
-        viewModel.onDialogEvent(PreviewDialogEvent.Confirm)
+        viewModel.onDialogEvent(Open(Length(draft = viewModel.state.value.config.length)))
+        viewModel.onDialogEvent(DraftChange(Length(draft = 10)))
+        viewModel.onDialogEvent(Confirm)
         advanceUntilIdle()
 
         viewModel.state.value.config.length shouldBe 10
@@ -319,30 +276,27 @@ class PreviewStudySessionViewModelTest {
 
         val viewModel = createViewModel()
         advanceUntilIdle()
-        viewModel.onDialogEvent(PreviewDialogEvent.Open.Filters)
-        viewModel.onDialogEvent(PreviewDialogEvent.DraftChange.FilterTag("State", isSelected = true))
-        viewModel.onDialogEvent(PreviewDialogEvent.DraftChange.FilterDifficulty(4..6))
-        viewModel.onDialogEvent(PreviewDialogEvent.Confirm)
+        viewModel.onDialogEvent(Open(
+            Filters(
+                draft = FlashcardFilters(
+                    selectedTags = viewModel.state.value.config.tagIds,
+                    difficultyRange = viewModel.state.value.config.difficultyRange,
+                ),
+                availableTags = viewModel.state.value.availableTags,
+            )
+        ))
+        val filtersDialog = viewModel.state.value.activeDialog as Filters
+        viewModel.onDialogEvent(
+            DraftChange(
+                filtersDialog.copy(draft = FlashcardFilters(selectedTags = setOf("State"), difficultyRange = 4..6))
+            )
+        )
+        viewModel.onDialogEvent(Confirm)
         advanceUntilIdle()
 
         viewModel.state.value.config.tagIds shouldBe setOf("State")
         viewModel.state.value.config.difficultyRange shouldBe 4..6
         viewModel.state.value.selectedCardCount shouldBe 1
-    }
-
-    @Test
-    fun `unselecting a tag in the filters draft removes it`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute.copy(filterTagIds = listOf("State")))
-        flashcardRepository.flashcardsToReturn = Result.success(listOf(flashcard(id = "card-1", tags = listOf("State"))))
-
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-        viewModel.onDialogEvent(PreviewDialogEvent.Open.Filters)
-        viewModel.onDialogEvent(PreviewDialogEvent.DraftChange.FilterTag("State", isSelected = false))
-        viewModel.onDialogEvent(PreviewDialogEvent.Confirm)
-        advanceUntilIdle()
-
-        viewModel.state.value.config.tagIds shouldBe emptySet()
     }
 
     @Test
@@ -358,9 +312,11 @@ class PreviewStudySessionViewModelTest {
 
         val viewModel = createViewModel()
         advanceUntilIdle()
-        viewModel.onDialogEvent(PreviewDialogEvent.Open.Sort)
-        viewModel.onDialogEvent(PreviewDialogEvent.DraftChange.SortOrder(FlashcardSortOrder.EasiestFirst))
-        viewModel.onDialogEvent(PreviewDialogEvent.Confirm)
+        viewModel.onDialogEvent(Open(Sort(draft = viewModel.state.value.config.sortOrder)))
+        viewModel.onDialogEvent(
+            DraftChange(Sort(draft = FlashcardSortOrder.EasiestFirst))
+        )
+        viewModel.onDialogEvent(Confirm)
         advanceUntilIdle()
         viewModel.onStartSession()
 
@@ -384,9 +340,11 @@ class PreviewStudySessionViewModelTest {
 
         val viewModel = createViewModel()
         advanceUntilIdle()
-        viewModel.onDialogEvent(PreviewDialogEvent.Open.Sort)
-        viewModel.onDialogEvent(PreviewDialogEvent.DraftChange.SortOrder(FlashcardSortOrder.HardestFirst))
-        viewModel.onDialogEvent(PreviewDialogEvent.Confirm)
+        viewModel.onDialogEvent(Open(Sort(draft = viewModel.state.value.config.sortOrder)))
+        viewModel.onDialogEvent(
+            DraftChange(Sort(draft = FlashcardSortOrder.HardestFirst))
+        )
+        viewModel.onDialogEvent(Confirm)
         advanceUntilIdle()
         viewModel.onStartSession()
 
@@ -406,9 +364,11 @@ class PreviewStudySessionViewModelTest {
 
             val viewModel = createViewModel()
             advanceUntilIdle()
-            viewModel.onDialogEvent(PreviewDialogEvent.Open.VoiceAnswering)
-            viewModel.onDialogEvent(PreviewDialogEvent.DraftChange.VoiceAnswering(true))
-            viewModel.onDialogEvent(PreviewDialogEvent.Confirm)
+            viewModel.onDialogEvent(Open(VoiceAnswering(draft = viewModel.state.value.config.voiceAnsweringEnabled)))
+            viewModel.onDialogEvent(
+                DraftChange(VoiceAnswering(draft = true))
+            )
+            viewModel.onDialogEvent(Confirm)
             advanceUntilIdle()
             viewModel.onStartSession()
 

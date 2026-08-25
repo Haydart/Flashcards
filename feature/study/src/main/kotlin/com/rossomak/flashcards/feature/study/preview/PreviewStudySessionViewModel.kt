@@ -5,10 +5,19 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.domain.usecase.SelectSessionFlashcardsUseCase
-import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardFilters
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Dismiss
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.DraftChange
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.decodeRoute
 import com.rossomak.flashcards.feature.study.PreviewStudySessionRoute
 import com.rossomak.flashcards.feature.study.StudySessionRoute
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Filters
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Length
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Mode
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Sort
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceAnswering
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlin.random.Random
@@ -64,80 +73,29 @@ class PreviewStudySessionViewModel @Inject constructor(
         selectCards()
     }
 
-    /** Single entry point for every dialog on this screen. */
+    /**
+     * Single entry point for every dialog on this screen.
+     *
+     * Opening and editing land on the same assignment here because no dialog on this screen has a
+     * side effect on open; they stay separate cases in [DialogEvent] for the screens that do.
+     */
     fun onDialogEvent(event: PreviewDialogEvent) {
         when (event) {
-            is PreviewDialogEvent.Open -> onDialogOpen(event)
-            is PreviewDialogEvent.DraftChange -> onDraftChange(event)
-            PreviewDialogEvent.Confirm -> onDialogConfirm()
-            PreviewDialogEvent.Dismiss -> onDialogDismiss()
+            is Open -> _state.update { it.copy(activeDialog = event.dialog) }
+            is DraftChange -> _state.update { it.copy(activeDialog = event.dialog) }
+            Confirm -> onDialogConfirm()
+            Dismiss -> onDialogDismiss()
         }
     }
-
-    /** Every dialog opens seeded from the committed config, never from the last draft. */
-    private fun onDialogOpen(event: PreviewDialogEvent.Open) {
-        val dialog = with(currentConfig) {
-            when (event) {
-                PreviewDialogEvent.Open.Mode -> PreviewDialog.Mode(draft = mode)
-                PreviewDialogEvent.Open.VoiceAnswering -> PreviewDialog.VoiceAnswering(draft = voiceAnsweringEnabled)
-                PreviewDialogEvent.Open.Length -> PreviewDialog.Length(draft = length)
-                PreviewDialogEvent.Open.Sort -> PreviewDialog.Sort(draft = sortOrder)
-                PreviewDialogEvent.Open.Filters -> PreviewDialog.Filters(
-                    draft = FlashcardFilters(selectedTags = tagIds, difficultyRange = difficultyRange),
-                )
-            }
-        }
-        _state.update { it.copy(activeDialog = dialog) }
-    }
-
-    private fun onDraftChange(event: PreviewDialogEvent.DraftChange) {
-        when (event) {
-            is PreviewDialogEvent.DraftChange.Mode ->
-                updateActiveDialog<PreviewDialog.Mode> { it.copy(draft = event.mode) }
-            is PreviewDialogEvent.DraftChange.VoiceAnswering ->
-                updateActiveDialog<PreviewDialog.VoiceAnswering> { it.copy(draft = event.isEnabled) }
-            is PreviewDialogEvent.DraftChange.Length ->
-                updateActiveDialog<PreviewDialog.Length> { it.copy(draft = event.length) }
-            is PreviewDialogEvent.DraftChange.SortOrder ->
-                updateActiveDialog<PreviewDialog.Sort> { it.copy(draft = event.sortOrder) }
-            is PreviewDialogEvent.DraftChange.FilterTag -> updateActiveDialog<PreviewDialog.Filters> { dialog ->
-                val selectedTags = if (event.isSelected) {
-                    dialog.draft.selectedTags + event.tag
-                } else {
-                    dialog.draft.selectedTags - event.tag
-                }
-                dialog.copy(draft = dialog.draft.copy(selectedTags = selectedTags))
-            }
-            is PreviewDialogEvent.DraftChange.FilterDifficulty -> updateActiveDialog<PreviewDialog.Filters> { dialog ->
-                dialog.copy(draft = dialog.draft.copy(difficultyRange = event.difficultyRange))
-            }
-            is PreviewDialogEvent.DraftChange.KeepAsDefault -> onKeepAsDefaultChange(event.isEnabled)
-        }
-    }
-
-    private val currentConfig: StudySessionConfig get() = _state.value.config
 
     /** Dismissal is the discard path: the draft dies with the field, so nothing is applied. */
     private fun onDialogDismiss() {
         _state.update { it.copy(activeDialog = null) }
     }
 
-    private fun onKeepAsDefaultChange(isEnabled: Boolean) {
-        _state.update { state ->
-            val updatedDialog = when (val dialog = state.activeDialog) {
-                is PreviewDialog.Mode -> dialog.copy(keepAsDefault = isEnabled)
-                is PreviewDialog.VoiceAnswering -> dialog.copy(keepAsDefault = isEnabled)
-                is PreviewDialog.Length -> dialog.copy(keepAsDefault = isEnabled)
-                is PreviewDialog.Sort -> dialog.copy(keepAsDefault = isEnabled)
-                is PreviewDialog.Filters, null -> return@update state
-            }
-            state.copy(activeDialog = updatedDialog)
-        }
-    }
-
     /**
-     * The only commit path. Every dialog does the same three things: fold the draft into the
-     * session config, persist it as a global default iff the user asked, and close.
+     * The only dialog state commit path. Every dialog does the same three things: fold the draft into the
+     * session config, persist it as a global default if the user asked, and close.
      *
      * Selection re-runs on every confirm regardless of "keep as my default" — the header reads
      * "18 cards · ~12 min", and length, filters and sort all move it.
@@ -146,11 +104,11 @@ class PreviewStudySessionViewModel @Inject constructor(
         val dialog = _state.value.activeDialog ?: return
         val updatedConfig = with(_state.value.config) {
             when (dialog) {
-                is PreviewDialog.Mode -> copy(mode = dialog.draft)
-                is PreviewDialog.VoiceAnswering -> copy(voiceAnsweringEnabled = dialog.draft)
-                is PreviewDialog.Length -> copy(length = dialog.draft)
-                is PreviewDialog.Sort -> copy(sortOrder = dialog.draft)
-                is PreviewDialog.Filters -> copy(
+                is Mode -> copy(mode = dialog.draft)
+                is VoiceAnswering -> copy(voiceAnsweringEnabled = dialog.draft)
+                is Length -> copy(length = dialog.draft)
+                is Sort -> copy(sortOrder = dialog.draft)
+                is Filters -> copy(
                     tagIds = dialog.draft.selectedTags,
                     difficultyRange = dialog.draft.difficultyRange,
                 )
@@ -163,19 +121,6 @@ class PreviewStudySessionViewModel @Inject constructor(
         //  it sits under: confirm still applies the draft, it just does not outlive the screen.
         _state.update { it.copy(config = updatedConfig, activeDialog = null) }
         selectCards()
-    }
-
-    /**
-     * Narrows the open dialog to the case an event belongs to, ignoring the event when it does not
-     * match. The cast is the price of one sealed field instead of one nullable field per dialog —
-     * an event can only arrive from a dialog that is currently on screen, so a mismatch means a
-     * race with dismissal, and dropping it is correct.
-     */
-    private inline fun <reified T : PreviewDialog> updateActiveDialog(transform: (T) -> T) {
-        _state.update { state ->
-            val dialog = state.activeDialog as? T ?: return@update state
-            state.copy(activeDialog = transform(dialog))
-        }
     }
 
     fun onStartSession() {
