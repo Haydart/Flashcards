@@ -38,13 +38,24 @@ val surfaceContainerLight = Color(0xFFF0ECF5)
 val surfaceContainerHighLight = Color(0xFFEAE7F0)
 val surfaceContainerHighestLight = Color(0xFFE4E1EA)
 
-val primaryDark = Color(0xFFBFC1FF)
-val onPrimaryDark = Color(0xFF1D2184)
+// Hue-corrected: the previous values (0xFFBFC1FF / 0xFF1D2184) sat at ~238° hue — matching
+// primaryContainerDark's indigo, not primaryLight's ~268° violet — so colorScheme.primary read
+// blue in dark mode (visible in Checkbox/RadioButton's checked fill) despite reading purple in
+// light mode. Retuned to primaryLight's violet hue at the same saturation/lightness.
+val primaryDark = Color(0xFFDDBFFF)
+val onPrimaryDark = Color(0xFF4E1D84)
 val primaryContainerDark = Color(0xFF2A2E8F)
 val onPrimaryContainerDark = Color(0xFF989DFF)
 val secondaryDark = Color(0xFFDEB7FF)
 val onSecondaryDark = Color(0xFF4A007F)
-val secondaryContainerDark = Color(0xFF6B2FA0)
+
+// Dark-tuned like SemanticColors' dark pairs (see that section below): a muted, near-surface
+// purple rather than a punchy mid-tone accent, so full-opacity consumers (FlashcardsTagChip's
+// selected fill, FlashcardsIconTile, FlashcardsEmptyState's Info tone, …) read as a subtle tint
+// on dark surfaces the same way secondaryContainerLight reads as a subtle tint on light ones,
+// instead of a solid saturated color-block. onSecondaryContainerDark is unchanged — already
+// bright/contrasty enough against this darker container.
+val secondaryContainerDark = Color(0xFF33204A)
 val onSecondaryContainerDark = Color(0xFFDAAFFF)
 val tertiaryDark = Color(0xFFFFE0F0)
 val onTertiaryDark = Color(0xFF501D42)
@@ -83,3 +94,24 @@ object CodeBlockColors {
     val background = Color(0xFF1E1E1E)
     val foreground = Color(0xFFFFFFFF)
 }
+
+// Valence palette backing [SemanticColors] — see that file for why these are hand-authored
+// container/content pairs rather than one accent tinted at an alpha. The light values are the
+// study screen's shipped rating-button palette, promoted to tokens; the dark values are new.
+//
+// onXContainerLight are darkened from the original rating-button palette (3E9556/C98F2B/C94F4F):
+// those only hit 2.3:1-3.4:1 against their containers, well under the 4.5:1 WCAG AA text minimum
+// FlashcardsInfoBanner's body text needs. Same hue/saturation, lower lightness — now 4.8:1+.
+val positiveContainerLight = Color(0xFFD3EBD6)
+val onPositiveContainerLight = Color(0xFF2E6E40)
+val neutralContainerLight = Color(0xFFF6E8C8)
+val onNeutralContainerLight = Color(0xFF845E1C)
+val negativeContainerLight = Color(0xFFF6D9DA)
+val onNegativeContainerLight = Color(0xFFAB3434)
+
+val positiveContainerDark = Color(0xFF1E3524)
+val onPositiveContainerDark = Color(0xFF7BD98A)
+val neutralContainerDark = Color(0xFF3A2F16)
+val onNeutralContainerDark = Color(0xFFE8B84B)
+val negativeContainerDark = Color(0xFF3A1F20)
+val onNegativeContainerDark = Color(0xFFE88C8C)

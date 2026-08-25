@@ -54,7 +54,7 @@ fun FlashcardsTextButton(
         enabled = enabled,
         shape = RoundedCornerShape(MaterialTheme.cornerRadius.full),
         colors = ButtonDefaults.textButtonColors(
-            contentColor = if (onGradient) MaterialTheme.brandColors.onTopBarGradient else MaterialTheme.colorScheme.primary,
+            contentColor = if (onGradient) MaterialTheme.brandColors.onGradientContent else MaterialTheme.colorScheme.primary,
             disabledContentColor = disabledButtonContentColorFor(style),
         ),
     ) {
