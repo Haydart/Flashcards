@@ -4,6 +4,10 @@ plugins {
 
 android {
     namespace = "com.rossomak.flashcards.feature.settings"
+
+    buildFeatures {
+        buildConfig = true
+    }
 }
 
 dependencies {

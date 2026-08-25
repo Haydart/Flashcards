@@ -141,6 +141,11 @@ fun FlashcardsNavGraph(
                         popUpTo(Main) { inclusive = true }
                     }
                 },
+                onNavigateToOnboarding = {
+                    navController.navigate(OnboardingRoute) {
+                        popUpTo(Main) { inclusive = true }
+                    }
+                },
                 onNavigateToCategoryDetails = { categoryId, categoryName ->
                     navController.navigate(CategoryDetailsRoute(categoryId, categoryName))
                 },
