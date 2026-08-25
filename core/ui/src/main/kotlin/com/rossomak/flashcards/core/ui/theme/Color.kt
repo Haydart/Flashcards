@@ -98,12 +98,16 @@ object CodeBlockColors {
 // Valence palette backing [SemanticColors] — see that file for why these are hand-authored
 // container/content pairs rather than one accent tinted at an alpha. The light values are the
 // study screen's shipped rating-button palette, promoted to tokens; the dark values are new.
+//
+// onXContainerLight are darkened from the original rating-button palette (3E9556/C98F2B/C94F4F):
+// those only hit 2.3:1-3.4:1 against their containers, well under the 4.5:1 WCAG AA text minimum
+// FlashcardsInfoBanner's body text needs. Same hue/saturation, lower lightness — now 4.8:1+.
 val positiveContainerLight = Color(0xFFD3EBD6)
-val onPositiveContainerLight = Color(0xFF3E9556)
+val onPositiveContainerLight = Color(0xFF2E6E40)
 val neutralContainerLight = Color(0xFFF6E8C8)
-val onNeutralContainerLight = Color(0xFFC98F2B)
+val onNeutralContainerLight = Color(0xFF845E1C)
 val negativeContainerLight = Color(0xFFF6D9DA)
-val onNegativeContainerLight = Color(0xFFC94F4F)
+val onNegativeContainerLight = Color(0xFFAB3434)
 
 val positiveContainerDark = Color(0xFF1E3524)
 val onPositiveContainerDark = Color(0xFF7BD98A)
