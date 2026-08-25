@@ -41,9 +41,6 @@ private const val LOSS_CONTAINER_ALPHA = 0.33f
 /** Border alpha for the [FlashcardsXpBreakdownTone.Loss] row. */
 private const val LOSS_BORDER_ALPHA = 0.5f
 
-/** Alpha of the [label] line — recessed so the XP value reads first. */
-private const val LABEL_ALPHA = 0.70f
-
 /**
  * One line of a session's XP breakdown, drawn on the brand gradient: a leading icon, a recessed
  * [label] naming the rule that fired ("Card Mastery", "Streak"), and the [value] line that shows
