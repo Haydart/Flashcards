@@ -1,8 +1,7 @@
 package com.rossomak.flashcards.feature.onboarding.component
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,39 +12,47 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.rossomak.flashcards.core.ui.composables.FlashcardsIconTile
-import com.rossomak.flashcards.core.ui.theme.FlashcardsMotion
+import com.rossomak.flashcards.core.ui.theme.brandColors
 import com.rossomak.flashcards.core.ui.theme.cornerRadius
 import com.rossomak.flashcards.core.ui.theme.sizes
 import com.rossomak.flashcards.core.ui.theme.spacing
 
-/** Border width of a favourited card — heavier than the hairline so selection reads at a glance. */
-private val SelectedBorderWidth = 2.dp
-
-/** Side of the square selection indicator in the card's top-right corner. */
-private val SelectionIndicatorSize = 20.dp
+/**
+ * Side of this card's leading glyph tile — smaller than the shared
+ * [com.rossomak.flashcards.core.ui.composables.FlashcardsIconTile] (40dp): the grid packs six-plus
+ * cards on screen at once, so the standard tile reads oversized here.
+ */
+private val TopicIconTileSize = 28.dp
 
 /**
  * A topic the user can favourite during onboarding: a leading category glyph, the topic name, its
- * parent category, and a square selection indicator that fills once picked.
+ * parent category, and a trailing bookmark that fills once picked.
+ *
+ * Unselected cards sit in the same translucent-on-gradient treatment as
+ * [com.rossomak.flashcards.core.ui.composables.banners.FlashcardsInfoBanner]'s `OnGradient` style —
+ * they read as glass panes over the brand background. A picked card switches to an opaque themed
+ * surface so it visibly pops off the grid instead of only gaining a border.
  *
  * A toggleable card rather than a row with a checkbox — the Favorites step lays these out as a
  * two-column grid, and the whole card is the target. One `toggleable` node with [Role.Checkbox], so
- * the indicator is decoration and TalkBack announces the card once.
+ * the bookmark is decoration and TalkBack announces the card once.
  */
 @Composable
 fun FavoriteTopicCard(
@@ -56,15 +63,7 @@ fun FavoriteTopicCard(
     onSelectedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val borderColor by animateColorAsState(
-        targetValue = if (selected) {
-            MaterialTheme.colorScheme.primary
-        } else {
-            MaterialTheme.colorScheme.outlineVariant
-        },
-        animationSpec = tween(FlashcardsMotion.DURATION_SHORT_MS, easing = FlashcardsMotion.StandardEasing),
-        label = "favoriteTopicCardBorder",
-    )
+    val brandColors = MaterialTheme.brandColors
 
     Surface(
         modifier = modifier.toggleable(
@@ -73,23 +72,38 @@ fun FavoriteTopicCard(
             onValueChange = onSelectedChange,
         ),
         shape = RoundedCornerShape(MaterialTheme.cornerRadius.card),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(
-            width = if (selected) SelectedBorderWidth else MaterialTheme.sizes.hairline,
-            color = borderColor,
-        ),
+        color = if (selected) MaterialTheme.colorScheme.surface else brandColors.onGradientContainer,
+        contentColor = if (selected) MaterialTheme.colorScheme.onSurface else brandColors.onGradientContent,
+        border = if (selected) {
+            null
+        } else {
+            BorderStroke(MaterialTheme.sizes.onGradientBorder, brandColors.onGradientBorder)
+        },
     ) {
         Column(
-            modifier = Modifier.padding(MaterialTheme.spacing.small),
-            verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall),
+            modifier = Modifier.padding(MaterialTheme.spacing.xsmall),
+            verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xxsmall),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top,
             ) {
-                FlashcardsIconTile(icon = icon, contentDescription = null)
-                SelectionIndicator(selected = selected)
+                if (selected) {
+                    TopicIconTile(icon = icon)
+                } else {
+                    TopicIconTile(
+                        icon = icon,
+                        contentColor = brandColors.onGradientContent,
+                        containerColor = brandColors.onGradientBorder,
+                    )
+                }
+                Icon(
+                    imageVector = if (selected) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                    contentDescription = null,
+                    modifier = Modifier.size(MaterialTheme.sizes.metadataBadgeIcon),
+                    tint = if (selected) MaterialTheme.colorScheme.primary else brandColors.onGradientContent,
+                )
             }
             Text(
                 text = name,
@@ -101,7 +115,7 @@ fun FavoriteTopicCard(
             Text(
                 text = categoryName,
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (selected) MaterialTheme.colorScheme.onSurfaceVariant else brandColors.onGradientContent,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -109,23 +123,32 @@ fun FavoriteTopicCard(
     }
 }
 
+/** A [TopicIconTileSize] glyph tile — see that constant for why this isn't [FlashcardsIconTile]. */
 @Composable
-private fun SelectionIndicator(selected: Boolean) {
-    val shape = RoundedCornerShape(MaterialTheme.cornerRadius.xsmall)
-    Surface(
-        modifier = Modifier.size(SelectionIndicatorSize),
-        shape = shape,
-        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-        border = BorderStroke(MaterialTheme.sizes.hairline, MaterialTheme.colorScheme.outlineVariant),
+private fun TopicIconTile(
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    contentColor: Color = MaterialTheme.colorScheme.onSecondaryContainer,
+    containerColor: Color = contentColor.copy(alpha = DEFAULT_CONTAINER_ALPHA),
+) {
+    Box(
+        modifier = modifier
+            .size(TopicIconTileSize)
+            .background(
+                color = containerColor,
+                shape = RoundedCornerShape(MaterialTheme.cornerRadius.small),
+            ),
+        contentAlignment = Alignment.Center,
     ) {
-        if (selected) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Default.Check,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                )
-            }
+        CompositionLocalProvider(LocalContentColor provides contentColor) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(MaterialTheme.sizes.metadataBadgeIcon),
+            )
         }
     }
 }
+
+/** Opacity of [MaterialTheme.colorScheme.secondaryContainer] used as [TopicIconTile]'s default fill. */
+private const val DEFAULT_CONTAINER_ALPHA = 0.12f
