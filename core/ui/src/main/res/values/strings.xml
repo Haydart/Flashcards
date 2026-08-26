@@ -57,7 +57,7 @@
     <string name="session_length_decrement_cd">Fewer cards</string>
     <string name="session_length_increment_cd">More cards</string>
 
-    <string name="rated_attempts_dialog_title">Rated session card attempts</string>
+    <string name="rated_attempts_dialog_title">Rated flashcard attempts</string>
     <string name="rated_attempts_dialog_message">How many attempts do you get per flashcard before it\'s marked as failed?</string>
     <string name="rated_attempts_decrement_cd">Fewer attempts</string>
     <string name="rated_attempts_increment_cd">More attempts</string>
