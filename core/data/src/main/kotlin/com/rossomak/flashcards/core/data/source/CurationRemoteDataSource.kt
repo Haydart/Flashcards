@@ -52,24 +52,26 @@ class CurationRemoteDataSource @Inject constructor(
     }
 
     /**
-     * One `set(merge)` for the whole submission. Dotted field paths address individual map keys,
-     * so untouched actions on the document survive; a difficulty action additionally deletes its
-     * opposite, keeping the pair mutually exclusive in storage as well as in the draft.
+     * One `set(merge)` for the whole submission. `set(merge)` does not treat dotted keys as nested
+     * field paths the way `update()` does — a key like `"actions.Delete"` would be written as a
+     * literal top-level field — so the `actions` submap is built as a real nested [Map] instead;
+     * Firestore merges nested maps key-by-key, leaving untouched actions on the document intact. A
+     * difficulty action additionally deletes its opposite's key, keeping the pair mutually
+     * exclusive in storage as well as in the draft.
      */
     suspend fun upsertCurationActions(cardId: String, subcategoryId: String, actions: Set<CurationAction>) {
         if (actions.isEmpty()) return
-        val updates = mutableMapOf<String, Any>(FIELD_SUBCATEGORY_ID to subcategoryId)
+        val actionUpdates = mutableMapOf<String, Any>()
         actions.forEach { action ->
-            updates[actionFieldPath(action)] = mapOf(FIELD_FLAGGED_AT to FieldValue.serverTimestamp())
+            actionUpdates[action.name] = mapOf(FIELD_FLAGGED_AT to FieldValue.serverTimestamp())
         }
         actions.forEach { action ->
             val opposite = action.difficultyOpposite() ?: return@forEach
-            if (opposite !in actions) updates[actionFieldPath(opposite)] = FieldValue.delete()
+            if (opposite !in actions) actionUpdates[opposite.name] = FieldValue.delete()
         }
+        val updates = mapOf(FIELD_SUBCATEGORY_ID to subcategoryId, FIELD_ACTIONS to actionUpdates)
         collection().document(cardId).set(updates, SetOptions.merge()).await()
     }
-
-    private fun actionFieldPath(action: CurationAction): String = "$FIELD_ACTIONS.${action.name}"
 
     private companion object {
         const val COLLECTION_PATH_TEMPLATE = "users/%s/curationRequests"
