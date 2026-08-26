@@ -61,7 +61,7 @@ report a card; auto-resuming overrides that intent. One manual tap to resume is 
 **Deleting the document on empty vs. never deleting** — the document is deleted once every action on
 it is removed, so empty report docs never linger and pollute the sync script's query results. The app
 itself has no path that removes a single action (see Decision), so in practice this only fires from
-admin/sync tooling; `CurationRepository.removeCurationAction` exists for that caller.
+admin/sync tooling operating on Firestore directly, not through a `CurationRepository` method.
 
 ## Consequences
 
