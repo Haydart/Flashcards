@@ -46,13 +46,29 @@
     <string name="voice_answering_off_label">Off</string>
     <string name="voice_answering_off_message">Reveal and rate each card by tapping.</string>
 
+    <string name="read_aloud_dialog_title">Enable auto-play in Fast mode?</string>
+    <string name="read_aloud_on_label">On</string>
+    <string name="read_aloud_on_message">Answers are read aloud automatically; cards advance hands-free.</string>
+    <string name="read_aloud_off_label">Off</string>
+    <string name="read_aloud_off_message">Tap to reveal the answer and advance at your own pace.</string>
+
     <string name="session_length_dialog_title">Study session length</string>
     <string name="session_length_dialog_message">How many flashcards should a session draw?</string>
     <string name="session_length_decrement_cd">Fewer cards</string>
     <string name="session_length_increment_cd">More cards</string>
 
+    <string name="rated_attempts_dialog_title">Rated session card attempts</string>
+    <string name="rated_attempts_dialog_message">How many attempts do you get per flashcard before it\'s marked as failed?</string>
+    <string name="rated_attempts_decrement_cd">Fewer attempts</string>
+    <string name="rated_attempts_increment_cd">More attempts</string>
+
     <plurals name="session_length_cards_label">
         <item quantity="one">%1$d card</item>
         <item quantity="other">%1$d cards</item>
+    </plurals>
+
+    <plurals name="rated_attempts_label">
+        <item quantity="one">%1$d attempt</item>
+        <item quantity="other">%1$d attempts</item>
     </plurals>
 </resources>
