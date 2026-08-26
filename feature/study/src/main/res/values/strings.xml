@@ -21,11 +21,6 @@
     <string name="study_session_no_cards_message">No cards available</string>
     <string name="study_session_curate_flashcard_cd">Curate flashcard</string>
 
-    <string name="session_length_dialog_title">Session length</string>
-    <string name="session_length_dialog_message">How many cards this session draws.</string>
-    <string name="session_length_decrement_cd">Fewer cards</string>
-    <string name="session_length_increment_cd">More cards</string>
-
     <string name="extended_context_dialog_title">More info</string>
     <string name="extended_context_acknowledge_button">Got it</string>
 
@@ -56,10 +51,5 @@
     <plurals name="preview_session_filters_tags_value_label">
         <item quantity="one">%1$d tag</item>
         <item quantity="other">%1$d tags</item>
-    </plurals>
-
-    <plurals name="session_length_cards_label">
-        <item quantity="one">%1$d card</item>
-        <item quantity="other">%1$d cards</item>
     </plurals>
 </resources>
