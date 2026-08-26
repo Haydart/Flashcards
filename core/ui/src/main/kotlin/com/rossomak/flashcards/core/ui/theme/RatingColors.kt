@@ -16,9 +16,9 @@ object RatingColors {
     private val failedContainer = Color(0xFFF6D9DA)
     private val failedContent = Color(0xFFC94F4F)
     private val partiallyCorrectContainer = Color(0xFFF6E8C8)
-    private val partiallyCorrectContent = Color(0xFFC98F2B)
+    private val partiallyCorrectContent = Color(0xFF9F7122)
     private val correctContainer = Color(0xFFD3EBD6)
-    private val correctContent = Color(0xFF3E9556)
+    private val correctContent = Color(0xFF38874E)
 
     fun containerColorFor(rating: FlashcardRating): Color = when (rating) {
         FlashcardRating.Failed -> failedContainer
