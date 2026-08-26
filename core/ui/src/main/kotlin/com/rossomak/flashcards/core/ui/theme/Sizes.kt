@@ -110,6 +110,9 @@ object AppSizes {
     /** Diameter of the tinted circle behind a [com.rossomak.flashcards.core.ui.composables.FlashcardsEmptyState]'s icon. */
     val emptyStateIconCircle: Dp = 80.dp
 
+    /** Diameter of a [com.rossomak.flashcards.core.ui.composables.FlashcardsIconCircle]. */
+    val iconCircle: Dp = 72.dp
+
     /** Glyph size inside [emptyStateIconCircle]. */
     val emptyStateIcon: Dp = 40.dp
 }

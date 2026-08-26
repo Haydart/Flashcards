@@ -1,45 +1,33 @@
 package com.rossomak.flashcards.feature.onboarding.step
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Celebration
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Grading
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import com.rossomak.flashcards.core.domain.model.StudyMode
+import com.rossomak.flashcards.core.ui.composables.FlashcardsIconCircle
 import com.rossomak.flashcards.core.ui.composables.FlashcardsMetadataBadge
 import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle
-import com.rossomak.flashcards.core.ui.theme.cornerRadius
 import com.rossomak.flashcards.core.ui.theme.spacing
 import com.rossomak.flashcards.feature.onboarding.R
 import com.rossomak.flashcards.feature.onboarding.component.OnboardingContentColors
 import com.rossomak.flashcards.feature.onboarding.component.OnboardingStepColumn
-
-private val CelebrationTileSize = 96.dp
-
-/** Fill opacity of the celebration tile against the brand screen gradient. */
-private const val CELEBRATION_TILE_ALPHA = 0.16f
 
 /**
  * The outro and the flow's only exit.
@@ -58,16 +46,11 @@ internal fun AllSetStep(
     modifier: Modifier = Modifier,
 ) {
     OnboardingStepColumn(modifier = modifier) {
-        Surface(
-            modifier = Modifier.size(CelebrationTileSize),
-            shape = RoundedCornerShape(MaterialTheme.cornerRadius.full),
-            color = Color.White.copy(alpha = CELEBRATION_TILE_ALPHA),
-            contentColor = OnboardingContentColors.primary,
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(imageVector = Icons.Default.Celebration, contentDescription = null)
-            }
-        }
+        FlashcardsIconCircle(
+            icon = Icons.Default.Celebration,
+            contentDescription = null,
+            style = FlashcardsComponentStyle.OnGradient,
+        )
         Spacer(modifier = Modifier.height(MaterialTheme.spacing.medium))
         Text(
             text = if (userName != null) {
