@@ -73,7 +73,7 @@ fun FlashcardsIconCircle(
 fun FlashcardsIconCircleOnSurfaceShowcase() {
     FlashcardsTheme {
         Surface {
-            Box(modifier = Modifier.size(96.dp), contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.size(MaterialTheme.sizes.iconCircle), contentAlignment = Alignment.Center) {
                 FlashcardsIconCircle(icon = Icons.Default.Celebration, contentDescription = null)
             }
         }
@@ -88,7 +88,7 @@ fun FlashcardsIconCircleOnGradientShowcase() {
             Box(
                 modifier = Modifier
                     .background(MaterialTheme.brandColors.screenGradient)
-                    .size(96.dp),
+                    .size(MaterialTheme.sizes.iconCircle),
                 contentAlignment = Alignment.Center,
             ) {
                 FlashcardsIconCircle(
@@ -106,7 +106,7 @@ fun FlashcardsIconCircleOnGradientShowcase() {
 private fun FlashcardsIconCirclePreview() {
     FlashcardsTheme {
         Surface {
-            Box(modifier = Modifier.size(96.dp), contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.size(MaterialTheme.sizes.iconCircle), contentAlignment = Alignment.Center) {
                 FlashcardsIconCircle(icon = Icons.Default.Celebration, contentDescription = null)
             }
         }
