@@ -39,6 +39,7 @@ import com.rossomak.flashcards.core.ui.composables.FlashcardsOverlineLabel
 import com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsTextButton
 import com.rossomak.flashcards.core.ui.composables.dialogs.label
 import com.rossomak.flashcards.core.ui.composables.dialogs.readAloudLabel
+import com.rossomak.flashcards.core.ui.composables.dialogs.speechRateLabel
 import com.rossomak.flashcards.core.ui.composables.dialogs.voiceAnsweringLabel
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsChevron
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListGroup
@@ -245,7 +246,7 @@ private fun voiceRows(
  */
 @Composable
 private fun voicePlaybackSummary(state: SettingsScreenState): String {
-    val rateLabel = stringResource(R.string.settings_voice_playback_rate_label, state.speechRate)
+    val rateLabel = speechRateLabel(state.speechRate)
     val voiceName = state.voiceName ?: return rateLabel
     return stringResource(R.string.settings_voice_playback_summary_label, voiceName, rateLabel)
 }

@@ -5,6 +5,7 @@ import androidx.compose.ui.res.stringResource
 import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.ui.R
+import java.util.Locale
 
 /**
  * The committed-value labels the rows *above* these dialogs render — "Rated", "Easiest first",
@@ -44,3 +45,14 @@ fun readAloudLabel(isEnabled: Boolean): String = if (isEnabled) {
 } else {
     stringResource(R.string.read_aloud_off_label)
 }
+
+/**
+ * Formats a speech rate as e.g. `1.25×`, capped at 2 decimal places. Fixed [Locale.US] so the
+ * decimal separator is a dot regardless of device locale — the raw [Float] otherwise renders
+ * with its full binary-to-decimal expansion (e.g. `1.0166667`).
+ */
+@Composable
+fun speechRateLabel(speechRate: Float): String = stringResource(
+    R.string.voice_settings_speed_value_label,
+    String.format(Locale.US, "%.2f", speechRate).trimEnd('0').trimEnd('.'),
+)
