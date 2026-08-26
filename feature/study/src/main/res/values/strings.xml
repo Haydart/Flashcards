@@ -41,6 +41,8 @@
 
     <string name="preview_session_mode_label">Mode</string>
     <string name="preview_session_voice_answering_label">Voice answering</string>
+    <string name="preview_session_attempts_label">Attempts</string>
+    <string name="preview_session_read_aloud_label">Read-aloud</string>
     <string name="preview_session_length_label">Length</string>
     <string name="preview_session_filters_label">Filters</string>
     <string name="preview_session_sort_label">Sort</string>
