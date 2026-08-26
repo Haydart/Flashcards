@@ -45,12 +45,6 @@ private const val FAVORITE_GRID_COLUMNS = 2
  */
 private val FavoriteGridHeight = 372.dp
 
-/**
- * Floor the grid never shrinks past — about two rows, so a compact screen still shows a usable
- * grid rather than being squeezed to nothing by an oversized header.
- */
-private val MinFavoriteGridHeight = 220.dp
-
 /** Portion of [FavoriteGridHeight], from the bottom, over which the grid fades to transparent. */
 private val FavoriteGridFadeHeight = 56.dp
 
@@ -105,8 +99,8 @@ internal fun FavoritesStep(
 
 /**
  * Measures [header] first at its natural width and height, then gives [grid] whatever height is
- * left up to [FavoriteGridHeight] — never less than [MinFavoriteGridHeight] — before centering the
- * pair vertically as one block, [spacing] apart.
+ * left, up to [FavoriteGridHeight], before centering the pair vertically as one block, [spacing]
+ * apart.
  *
  * A plain `Column` can't express this: it either sizes the grid to a fixed [FavoriteGridHeight]
  * regardless of how much room the header actually used (the original bug — a compact screen or a
@@ -128,15 +122,18 @@ private fun FavoritesStepLayout(
         modifier = modifier,
     ) { (headerMeasurables, gridMeasurables), constraints ->
         val spacingPx = spacing.roundToPx()
-        val minGridHeightPx = MinFavoriteGridHeight.roundToPx()
-        val maxGridHeightPx = FavoriteGridHeight.roundToPx().coerceAtLeast(minGridHeightPx)
 
         val headerPlaceable = headerMeasurables.first().measure(
             constraints.copy(minWidth = 0, minHeight = 0, maxHeight = Constraints.Infinity),
         )
 
-        val remainingForGrid = constraints.maxHeight - headerPlaceable.height - spacingPx
-        val gridHeightPx = remainingForGrid.coerceIn(minGridHeightPx, maxGridHeightPx)
+        // What is left is a hard ceiling, not a preference: holding the grid to any floor of its
+        // own once the header has eaten the screen would place it past the bottom edge and clip
+        // it, which is the overflow this layout exists to prevent. The grid scrolls, so losing
+        // rows off its end is the milder failure.
+        val remainingForGrid = (constraints.maxHeight - headerPlaceable.height - spacingPx)
+            .coerceAtLeast(0)
+        val gridHeightPx = remainingForGrid.coerceAtMost(FavoriteGridHeight.roundToPx())
         val gridPlaceable = gridMeasurables.first().measure(
             Constraints.fixed(constraints.maxWidth, gridHeightPx),
         )
