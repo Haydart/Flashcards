@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.feature.voicedebug
+package com.rossomak.flashcards.feature.debug.voice
 
 import android.annotation.SuppressLint
 import android.media.AudioDeviceInfo
