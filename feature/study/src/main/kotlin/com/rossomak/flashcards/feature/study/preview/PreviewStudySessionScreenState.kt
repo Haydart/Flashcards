@@ -1,36 +1,25 @@
 package com.rossomak.flashcards.feature.study.preview
 
-import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
-import com.rossomak.flashcards.core.domain.model.StudyMode
+import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 
 data class PreviewStudySessionScreenState(
     val categoryName: String = "",
     val subcategoryNames: List<String> = emptyList(),
     val isQuickSession: Boolean = false,
-    val filterTags: List<String> = emptyList(),
     val isLoading: Boolean = true,
     val error: String? = null,
+    val config: StudySessionConfig = StudySessionConfig(subcategoryIds = emptyList()),
     val selectedCardCount: Int = 0,
     val estimatedMinutes: Int = 0,
-    val selectedStudyMode: StudyMode = StudyMode.Rated,
-    val sessionCardCount: Int = DEFAULT_SESSION_CARD_COUNT,
-    val difficultyRange: IntRange = MIN_DIFFICULTY..MAX_DIFFICULTY,
-    val sortOrder: FlashcardSortOrder = FlashcardSortOrder.Default,
-    val isSortDialogVisible: Boolean = false,
-    // Deferred commit: the dialog edits this draft, and `sortOrder` only changes on confirm.
-    val sortOrderDraft: FlashcardSortOrder = FlashcardSortOrder.Default,
-    val isSortKeepAsDefaultChecked: Boolean = false,
+    /**
+     * Tag vocabulary of the pool, offered by the Filters dialog. Empty for multi-subcategory
+     * sessions, which filter by difficulty only (ADR-0030).
+     */
+    val availableTags: List<String> = emptyList(),
+    val activeDialog: PreviewDialog? = null,
 ) {
     val isSingleTopic: Boolean get() = subcategoryNames.size == 1
     val topicCount: Int get() = subcategoryNames.size
     val canRerandomize: Boolean get() = !isSingleTopic || isQuickSession
     val canStart: Boolean get() = !isLoading && error == null && selectedCardCount > 0
-
-    companion object {
-        const val MIN_SESSION_CARD_COUNT = 10
-        const val MAX_SESSION_CARD_COUNT = 50
-        const val DEFAULT_SESSION_CARD_COUNT = 20
-        const val MIN_DIFFICULTY = 1
-        const val MAX_DIFFICULTY = 10
-    }
 }

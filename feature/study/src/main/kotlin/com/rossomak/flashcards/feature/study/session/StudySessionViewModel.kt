@@ -3,33 +3,42 @@ package com.rossomak.flashcards.feature.study.session
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.rossomak.flashcards.core.domain.model.CurationAction
-import com.rossomak.flashcards.core.domain.model.CurationRequest
 import com.rossomak.flashcards.core.domain.model.FlashcardRating
 import com.rossomak.flashcards.core.domain.model.StudyMode
-import com.rossomak.flashcards.core.domain.usecase.GetCurationRequestsUseCase
+import com.rossomak.flashcards.core.domain.model.VoiceOption
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.ObserveVoiceAnswerConsentUseCase
 import com.rossomak.flashcards.core.domain.usecase.SetVoiceAnswerConsentUseCase
-import com.rossomak.flashcards.core.domain.usecase.ToggleCurationActionUseCase
+import com.rossomak.flashcards.core.domain.usecase.SubmitCurationReportUseCase
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Dismiss
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.DraftChange
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.decodeRoute
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsController
 import com.rossomak.flashcards.feature.study.StudySessionRoute
+import com.rossomak.flashcards.feature.study.session.StudySessionDialog.ExitSession
+import com.rossomak.flashcards.feature.study.session.StudySessionDialog.ExtendedContext
+import com.rossomak.flashcards.feature.study.session.StudySessionDialog.ReportProblem
+import com.rossomak.flashcards.feature.study.session.StudySessionDialog.VoiceAnswerConsent
+import com.rossomak.flashcards.feature.study.session.StudySessionDialog.VoiceSettings
 import com.rossomak.flashcards.feature.study.voice.VoiceAnswerPhase
 import com.rossomak.flashcards.feature.study.voice.VoiceGateway
 import com.rossomak.flashcards.feature.study.voice.VoicePhase
 import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 import dagger.hilt.android.lifecycle.HiltViewModel
-import java.time.Instant
 import javax.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -37,8 +46,7 @@ import kotlinx.coroutines.launch
 class StudySessionViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val getFlashcards: GetFlashcardsUseCase,
-    private val getCurationRequests: GetCurationRequestsUseCase,
-    private val toggleCurationAction: ToggleCurationActionUseCase,
+    private val submitCurationReport: SubmitCurationReportUseCase,
     private val observeVoiceAnswerConsent: ObserveVoiceAnswerConsentUseCase,
     private val setVoiceAnswerConsent: SetVoiceAnswerConsentUseCase,
     private val voiceGateway: VoiceGateway,
@@ -56,15 +64,17 @@ class StudySessionViewModel @Inject constructor(
     // Tracks eagerly so rapid toggles don't race against isVoiceActive propagation.
     private var voiceStarted = false
 
-    private var curationCacheLoadStarted = false
-
     internal var rewindThresholdMs: Long = VoicePlaybackState.REWIND_THRESHOLD_MS
 
     private var rewindJob: Job? = null
     private var isPastRewindThreshold = false
+    private val eventChannel = Channel<StudySessionDestination>(Channel.BUFFERED)
+    val events = eventChannel.receiveAsFlow()
+
     private var lastObservedCardIndex = -1
 
-    private var isExtendedContextDialogOpen = false
+    private val isExtendedContextDialogOpen: Boolean
+        get() = _state.value.activeDialog is ExtendedContext
 
     // True only when the pause was caused by the dialog intercepting a natural between-card advance.
     // Gates auto-advance on dialog dismiss and changes play-button behavior.
@@ -82,11 +92,6 @@ class StudySessionViewModel @Inject constructor(
         observeVoiceAnswerState()
         observeVoiceAnswerConsentState()
         voiceSettingsController.bind(viewModelScope)
-        viewModelScope.launch {
-            voiceSettingsController.draftState.collect { draft ->
-                _state.update { it.copy(voiceSettingsState = draft) }
-            }
-        }
     }
 
     // Card selection happens on the Preview Study Session screen (ADR-0004); the session only
@@ -112,7 +117,21 @@ class StudySessionViewModel @Inject constructor(
                     isVoiceAutoStartPending = route.studyMode == StudyMode.Fast && sessionCards.isNotEmpty(),
                 )
             }
+            honourRoutedVoiceAnswering(hasCards = sessionCards.isNotEmpty())
         }
+    }
+
+    /**
+     * The Preview screen's voice-answering choice (ADR-0030) takes effect on entry, running the
+     * same consent-then-microphone path the in-session toggle uses. Rated only — Fast mode has no
+     * rating step for voice answering to drive (ADR-0025).
+     *
+     * Consent is read as a one-shot rather than from [hasVoiceAnswerConsent], whose collector may
+     * not have emitted yet by the time the cards land.
+     */
+    private suspend fun honourRoutedVoiceAnswering(hasCards: Boolean) {
+        if (!route.voiceAnsweringEnabled || route.studyMode != StudyMode.Rated || !hasCards) return
+        requestVoiceAnswering(observeVoiceAnswerConsent().first())
     }
 
     private fun observeVoiceState() {
@@ -201,27 +220,28 @@ class StudySessionViewModel @Inject constructor(
             voiceGateway.stop()
             return
         }
-        if (hasVoiceAnswerConsent) {
+        requestVoiceAnswering(hasVoiceAnswerConsent)
+    }
+
+    /** Consent first, then the microphone. Both gates are one-time; neither is skippable. */
+    private fun requestVoiceAnswering(hasConsent: Boolean) {
+        if (hasConsent) {
             _state.update { it.copy(isMicPermissionRequestPending = true) }
         } else {
-            _state.update { it.copy(isVoiceAnswerConsentDialogVisible = true) }
+            _state.update { it.copy(activeDialog = VoiceAnswerConsent) }
         }
     }
 
-    fun onVoiceAnswerConsentAccept() {
+    private fun onVoiceAnswerConsentAccept() {
         viewModelScope.launch {
             setVoiceAnswerConsent(true)
             _state.update {
                 it.copy(
-                    isVoiceAnswerConsentDialogVisible = false,
+                    activeDialog = null,
                     isMicPermissionRequestPending = true,
                 )
             }
         }
-    }
-
-    fun onVoiceAnswerConsentDecline() {
-        _state.update { it.copy(isVoiceAnswerConsentDialogVisible = false) }
     }
 
     fun onMicPermissionResult(isGranted: Boolean) {
@@ -248,7 +268,7 @@ class StudySessionViewModel @Inject constructor(
     fun onNextCard() {
         val currentState = _state.value
         if (currentState.currentCardIndex >= currentState.flashcards.lastIndex) {
-            _state.update { it.copy(isSessionComplete = true) }
+            navigateBack()
         } else {
             _state.update {
                 it.copy(
@@ -321,8 +341,8 @@ class StudySessionViewModel @Inject constructor(
         voiceGateway.setSpeechRate(rate)
     }
 
-    fun onExtendedContextDialogOpen() {
-        isExtendedContextDialogOpen = true
+    private fun onExtendedContextDialogOpen(dialog: ExtendedContext) {
+        _state.update { it.copy(activeDialog = dialog) }
         val voiceState = voiceGateway.state.value
         if (voiceState.isInBetweenPause && voiceState.isPlaying) {
             pausedDueToExtendedContext = true
@@ -330,8 +350,7 @@ class StudySessionViewModel @Inject constructor(
         }
     }
 
-    fun onExtendedContextDialogDismissed() {
-        isExtendedContextDialogOpen = false
+    private fun onExtendedContextDialogDismissed() {
         if (pausedDueToExtendedContext) {
             advanceAfterExtendedContextJob = viewModelScope.launch {
                 delay(EXTENDED_CONTEXT_ADVANCE_DELAY_MS)
@@ -355,33 +374,50 @@ class StudySessionViewModel @Inject constructor(
         }
     }
 
-    fun onVoiceSettingsCogClick() {
+    private fun onVoiceSettingsOpen() {
         if (_state.value.isVoicePlaying) {
             pausedForVoiceSettings = true
             voiceGateway.togglePlayPause()
         }
-        voiceSettingsController.open(viewModelScope)
+        _state.update {
+            it.copy(activeDialog = VoiceSettings(voiceSettingsController.seedDraft()))
+        }
+        voiceSettingsController.loadVoices(viewModelScope, ::onVoicesLoaded)
     }
 
-    fun onVoiceSettingsDraftVoiceChanged(voiceId: String?) {
-        voiceSettingsController.onDraftVoiceChanged(voiceId)
+    /**
+     * The voice list arrives after the dialog is already up, so it has to find the open dialog to
+     * fill in — the one narrowing cast left in the dialog path, once per open rather than once per
+     * edit. A dismissal in the meantime correctly drops it.
+     */
+    private fun onVoicesLoaded(voices: List<VoiceOption>) {
+        _state.update { state ->
+            val dialog = state.activeDialog as? VoiceSettings ?: return@update state
+            state.copy(
+                activeDialog = dialog.copy(
+                    draft = dialog.draft.copy(
+                        availableVoices = voices,
+                        draftVoiceId = dialog.draft.draftVoiceId ?: voices.firstOrNull()?.id,
+                    ),
+                ),
+            )
+        }
     }
 
-    fun onVoiceSettingsDraftSpeedChanged(speed: Float) {
-        voiceSettingsController.onDraftSpeedChanged(speed)
-    }
-
-    fun onVoiceSettingsSave() {
-        val settings = voiceSettingsController.save(viewModelScope)
+    private fun onVoiceSettingsSave() {
+        val dialog = _state.value.activeDialog as? VoiceSettings ?: return
+        val settings = voiceSettingsController.save(viewModelScope, dialog.draft)
         if (_state.value.isVoiceActive) {
             voiceGateway.setSpeechRate(settings.speechRate)
             voiceGateway.setVoice(settings.voiceId)
         }
+        _state.update { it.copy(activeDialog = null) }
         resumeIfPausedForVoiceSettings()
     }
 
-    fun onVoiceSettingsDismiss() {
-        voiceSettingsController.dismiss()
+    private fun onVoiceSettingsDismiss() {
+        voiceSettingsController.stopPreview()
+        _state.update { it.copy(activeDialog = null) }
         resumeIfPausedForVoiceSettings()
     }
 
@@ -392,87 +428,107 @@ class StudySessionViewModel @Inject constructor(
         }
     }
 
-    fun onCurationFabClick() {
+    /**
+     * Single entry point for every dialog on this screen. Exit-session confirmation is the one
+     * case with no ViewModel work behind it — the screen navigates and there is nothing to commit.
+     */
+    fun onDialogEvent(event: StudySessionDialogEvent) {
+        when (event) {
+            is Open -> onDialogOpen(event.dialog)
+            is DraftChange -> onDraftChange(event.dialog)
+            Confirm -> onDialogConfirm()
+            Dismiss -> onDialogDismiss()
+        }
+    }
+
+    /**
+     * The caller hands over the dialog it wants shown, already seeded from what it was rendering.
+     * This adds only what the call site could not: the playback side effects, and the voice-settings
+     * draft, which comes from the shared controller rather than screen state.
+     */
+    private fun onDialogOpen(dialog: StudySessionDialog) {
+        when (dialog) {
+            is ReportProblem -> onReportProblemOpen(dialog)
+            is ExtendedContext -> onExtendedContextDialogOpen(dialog)
+            is VoiceSettings -> onVoiceSettingsOpen()
+            VoiceAnswerConsent, ExitSession ->
+                _state.update { it.copy(activeDialog = dialog) }
+        }
+    }
+
+    /**
+     * Stores the draft the host built, then fires any side effect the edit implies.
+     *
+     * The side effect comes from diffing the previous draft against the next rather than from an
+     * event that names the changed field: it keeps every dialog on the one generic
+     * [StudySessionDialogEvent.DraftChange], and puts the trigger somewhere a unit test can reach
+     * (ADR-0036).
+     */
+    private fun onDraftChange(dialog: StudySessionDialog) {
+        val previous = _state.value.activeDialog
+        _state.update { it.copy(activeDialog = dialog) }
+        if (previous is VoiceSettings &&
+            dialog is VoiceSettings &&
+            dialog.draft != previous.draft
+        ) {
+            voiceSettingsController.preview(dialog.draft)
+        }
+    }
+
+    private fun onDialogConfirm() {
+        when (_state.value.activeDialog) {
+            is ReportProblem -> onReportProblemSubmit()
+            VoiceAnswerConsent -> onVoiceAnswerConsentAccept()
+            is VoiceSettings -> onVoiceSettingsSave()
+            ExitSession -> {
+                onDialogDismiss()
+                navigateBack()
+            }
+            // "Got it" and a scrim tap are the same act on a single-action dialog.
+            is ExtendedContext, null -> onDialogDismiss()
+        }
+    }
+
+    /** Always the discard path: the draft dies with the field. */
+    private fun onDialogDismiss() {
+        val dialog = _state.value.activeDialog
+        _state.update { it.copy(activeDialog = null) }
+        when (dialog) {
+            is ExtendedContext -> onExtendedContextDialogDismissed()
+            is VoiceSettings -> onVoiceSettingsDismiss()
+            else -> Unit
+        }
+    }
+
+    /**
+     * Reporting pauses playback the way the old debug FAB did — the user stopped to read the card,
+     * not to be read over. Resuming is a deliberate tap (ADR-0017).
+     */
+    private fun onReportProblemOpen(dialog: ReportProblem) {
         if (_state.value.isVoicePlaying) voiceGateway.togglePlayPause()
-        if (!curationCacheLoadStarted) {
-            curationCacheLoadStarted = true
-            loadCurationCache(showDialogOnSuccess = true)
-        } else {
-            _state.update { it.copy(isCurationDialogVisible = true) }
-        }
+        _state.update { it.copy(activeDialog = dialog) }
     }
 
-    private fun loadCurationCache(showDialogOnSuccess: Boolean = false) {
+    private fun onReportProblemSubmit() {
+        val dialog = _state.value.activeDialog as? ReportProblem ?: return
+        if (!dialog.canSubmit) return
+        _state.update { it.copy(activeDialog = null) }
         viewModelScope.launch {
-            val cardIds = _state.value.flashcards.map { it.id }
-            getCurationRequests(cardIds)
-                .onSuccess { requests ->
-                    _state.update {
-                        it.copy(
-                            curationRequests = requests,
-                            isCurationDialogVisible = it.isCurationDialogVisible || showDialogOnSuccess,
-                        )
-                    }
-                }
-                .onFailure {
-                    curationCacheLoadStarted = false
-                    _state.update { it.copy(curationError = "Failed to load curation requests") }
-                }
-        }
-    }
-
-    fun onCurationActionToggle(action: CurationAction) {
-        val currentCard = _state.value.flashcards.getOrNull(_state.value.currentCardIndex) ?: return
-        val currentRequest = _state.value.curationRequests[currentCard.id]
-        val isCurrentlyActive = currentRequest?.actions?.containsKey(action) == true
-
-        val updatedActions = (currentRequest?.actions ?: emptyMap()).toMutableMap()
-        if (isCurrentlyActive) {
-            updatedActions.remove(action)
-        } else {
-            updatedActions[action] = Instant.now()
-            action.difficultyOpposite()?.let { updatedActions.remove(it) }
-        }
-
-        val updatedRequest = if (updatedActions.isEmpty()) {
-            null
-        } else {
-            CurationRequest(
-                cardId = currentCard.id,
-                subcategoryId = currentCard.subcategoryId,
-                actions = updatedActions,
-            )
-        }
-
-        val optimisticRequests = _state.value.curationRequests.toMutableMap().apply {
-            if (updatedRequest == null) remove(currentCard.id) else put(currentCard.id, updatedRequest)
-        }
-        _state.update { it.copy(curationRequests = optimisticRequests) }
-
-        viewModelScope.launch {
-            toggleCurationAction(
-                ToggleCurationActionUseCase.Params(
-                    cardId = currentCard.id,
-                    subcategoryId = currentCard.subcategoryId,
-                    action = action,
-                    isCurrentlyActive = isCurrentlyActive,
+            submitCurationReport(
+                SubmitCurationReportUseCase.Params(
+                    cardId = dialog.cardId,
+                    subcategoryId = dialog.subcategoryId,
+                    actions = dialog.selectedActions,
                 )
             ).onFailure {
-                val revertedRequests = _state.value.curationRequests.toMutableMap().apply {
-                    if (currentRequest == null) remove(currentCard.id) else put(currentCard.id, currentRequest)
-                }
-                _state.update {
-                    it.copy(
-                        curationRequests = revertedRequests,
-                        curationError = "Failed to save curation request",
-                    )
-                }
+                _state.update { it.copy(curationError = "Failed to submit report") }
             }
         }
     }
 
-    fun onCurationDialogDismiss() {
-        _state.update { it.copy(isCurationDialogVisible = false) }
+    /** Leaving is a one-time event, never a flag in state (ADR-0019). */
+    private fun navigateBack() {
+        viewModelScope.launch { eventChannel.send(StudySessionDestination.Back) }
     }
 
     fun onCurationErrorDismissed() {

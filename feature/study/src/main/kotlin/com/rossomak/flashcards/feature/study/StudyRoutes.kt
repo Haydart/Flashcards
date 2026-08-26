@@ -13,6 +13,10 @@ data class PreviewStudySessionRoute(
     val isQuickSession: Boolean = false,
 )
 
+/**
+ * @param voiceAnsweringEnabled the Preview screen's choice (ADR-0030). Honoured on entry for
+ * Rated sessions only — Fast mode has no rating step for voice answering to drive (ADR-0025).
+ */
 @Serializable
 data class StudySessionRoute(
     val categoryId: String,
@@ -20,6 +24,7 @@ data class StudySessionRoute(
     val subcategoryIds: List<String>,
     val cardIds: List<String>,
     val studyMode: StudyMode,
+    val voiceAnsweringEnabled: Boolean = false,
 )
 
 @Serializable

@@ -5,15 +5,12 @@ import com.rossomak.flashcards.core.domain.repository.FakeUserPreferencesReposit
 import com.rossomak.flashcards.core.domain.usecase.SetHasSeenOnboardingUseCase
 import com.rossomak.flashcards.core.domain.usecase.SignOutUseCase
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsController
-import com.rossomak.flashcards.core.ui.voice.VoiceSettingsDraftState
 import com.rossomak.flashcards.testutil.MainDispatcherRule
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.coVerify
-import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
@@ -28,10 +25,6 @@ class SettingsViewModelTest {
     private val signOutUseCase: SignOutUseCase = mockk()
     private val voiceSettingsController: VoiceSettingsController = mockk(relaxed = true)
     private val userPreferencesRepository = FakeUserPreferencesRepository()
-
-    init {
-        every { voiceSettingsController.draftState } returns MutableStateFlow(VoiceSettingsDraftState())
-    }
 
     private fun createViewModel(): SettingsViewModel = SettingsViewModel(
         signOutUseCase,
