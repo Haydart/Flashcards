@@ -1,5 +1,6 @@
 package com.rossomak.flashcards.core.ui.voice
 
+import android.util.Log
 import com.rossomak.flashcards.core.domain.model.VoiceOption
 import com.rossomak.flashcards.core.domain.model.VoiceSettings
 import com.rossomak.flashcards.core.domain.repository.VoicePreviewGateway
@@ -75,12 +76,19 @@ class VoiceSettingsController @Inject constructor(
 
     fun save(scope: CoroutineScope, draft: VoiceSettingsDraftState): VoiceSettings {
         val settings = VoiceSettings(speechRate = draft.draftSpeed, voiceId = draft.draftVoiceId)
-        scope.launch { runCatching { saveVoiceSettings(settings) } }
+        scope.launch {
+            runCatching { saveVoiceSettings(settings) }
+                .onFailure { Log.e(TAG, "Failed to save voice settings", it) }
+        }
         previewGateway.stop()
         return settings
     }
 
     fun stopPreview() {
         previewGateway.stop()
+    }
+
+    private companion object {
+        const val TAG = "VoiceSettingsController"
     }
 }
