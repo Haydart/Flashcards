@@ -123,6 +123,8 @@ Splash → Login → Onboarding (8 screens) → Main
 
 ## As built
 
+> ⚠️ **Pending persistence.** The two entries below describe the target design. This release binds an in-memory `UserPreferencesRepository` from `:app` instead (see `TemporaryUserPreferencesModule`), and `:feature:onboarding` depends only on `:core:ui` and `:core:domain` — not `:core:data`. Both land together in the follow-up persistence PR.
+
 - **Module**: `:feature:onboarding` (`android-feature` convention plugin), depending only on `:core:ui`, `:core:domain`, `:core:data`.
 - **Navigation**: one `OnboardingRoute` destination hosting a `HorizontalPager` of all eight steps. Gradient, progress bar, Skip and the CTA are fixed chrome outside the pager, so a swipe moves content only. Skip uses an instant `scrollToPage`, not an animated one — animating a jump of up to seven pages would fling the user through every screen they just chose to skip.
 - **Progress bar**: six segments over Screens 2–7; the two bookends show none. The Skip and progress slots keep their height on the steps that hide them, so content never shifts between steps.
