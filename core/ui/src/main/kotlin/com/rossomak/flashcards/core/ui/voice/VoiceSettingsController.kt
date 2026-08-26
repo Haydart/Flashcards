@@ -41,9 +41,21 @@ class VoiceSettingsController @Inject constructor(
 
     val currentSettings: VoiceSettings get() = savedSettings
 
-    fun bind(scope: CoroutineScope) {
+    /**
+     * Starts the one subscription to the saved settings. [onSettingsChange] is how a screen that
+     * *renders* the saved value — the Settings screen's voice row and its summary — reads it,
+     * rather than collecting the same use case a second time: two subscriptions would mean two
+     * copies of the same truth, one of which could be stale while the other is not.
+     *
+     * A screen that only opens the dialog (the study session) omits it and lets [seedDraft] read
+     * the value at open time.
+     */
+    fun bind(scope: CoroutineScope, onSettingsChange: (VoiceSettings) -> Unit = {}) {
         scope.launch {
-            observeVoiceSettings().collect { settings -> savedSettings = settings }
+            observeVoiceSettings().collect { settings ->
+                savedSettings = settings
+                onSettingsChange(settings)
+            }
         }
     }
 
@@ -60,9 +72,16 @@ class VoiceSettingsController @Inject constructor(
         )
     }
 
-    /** No-op when the list is already cached, so an open never re-queries the platform. */
+    /**
+     * Never re-queries the platform once the list is cached — but still calls back with the cache,
+     * so a caller that needs the voices (the Settings row resolves the saved id to a display name)
+     * gets them on every call rather than only on the first.
+     */
     fun loadVoices(scope: CoroutineScope, onLoaded: (List<VoiceOption>) -> Unit) {
-        if (cachedVoices != null) return
+        cachedVoices?.let { voices ->
+            onLoaded(voices)
+            return
+        }
         scope.launch {
             val voices = runCatching { getAvailableVoices() }.getOrDefault(emptyList())
             cachedVoices = voices
