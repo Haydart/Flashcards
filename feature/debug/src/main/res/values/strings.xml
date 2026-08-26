@@ -1,5 +1,14 @@
 <resources>
-    <string name="main_voice_debug_tab_label">Voice</string>
+    <string name="main_debug_tab_label">Debug</string>
+
+    <string name="debug_title">Debug</string>
+    <string name="debug_voice_harness_label">Voice debug harness</string>
+    <string name="debug_voice_harness_message">VAD, capture, obfuscation, transcription</string>
+    <string name="debug_replay_onboarding_label">Replay onboarding</string>
+    <string name="debug_replay_onboarding_message">Clears the flag and runs the real flow</string>
+    <string name="debug_showcase_label">UI component showcase</string>
+    <string name="debug_showcase_message">Browse the design system in Showkase</string>
+    <string name="debug_voice_harness_back_cd">Back to debug tools</string>
 
     <string name="voice_debug_title">🛠️ Voice Debug</string>
     <string name="voice_debug_mic_permission_message">Microphone permission required for capture tests</string>
