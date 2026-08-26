@@ -1,5 +1,9 @@
 package com.rossomak.flashcards.feature.onboarding
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,16 +17,20 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.StudyMode
+import com.rossomak.flashcards.core.ui.animation.SHARED_ELEMENT_DURATION_MS
 import com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsFilledButton
 import com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsTextButton
 import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentSize
@@ -41,7 +49,14 @@ import com.rossomak.flashcards.feature.onboarding.step.SessionModesStep
 import com.rossomak.flashcards.feature.onboarding.step.StructureStep
 import com.rossomak.flashcards.feature.onboarding.step.VoicePrivacyStep
 import com.rossomak.flashcards.feature.onboarding.step.WelcomeStep
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+/** Fade-and-rise of the cover's copy, once the shared logo has landed. */
+private const val COPY_REVEAL_MS = 450
+
+/** Fade-in of Skip and the CTA, the last thing to arrive. */
+private const val CHROME_REVEAL_MS = 300
 
 @Composable
 fun OnboardingScreen(
@@ -90,6 +105,24 @@ private fun OnboardingContent(
     val coroutineScope = rememberCoroutineScope()
     val currentStep = OnboardingStep.atPage(pagerState.currentPage)
 
+    // The entrance runs once per visit to the flow, staged behind the logo the splash screen hands
+    // over: the logo settles first, then the cover's copy rises into place, then the buttons appear.
+    // Both progressions stay at 1f afterwards, so the chrome is simply visible on every later step.
+    val copyReveal = remember { Animatable(0f) }
+    val chromeReveal = remember { Animatable(0f) }
+    val isInspecting = LocalInspectionMode.current
+    LaunchedEffect(Unit) {
+        if (isInspecting) {
+            // A static @Preview renders the first frame only, which would be an empty screen.
+            copyReveal.snapTo(1f)
+            chromeReveal.snapTo(1f)
+            return@LaunchedEffect
+        }
+        delay(SHARED_ELEMENT_DURATION_MS.toLong())
+        copyReveal.animateTo(1f, tween(durationMillis = COPY_REVEAL_MS, easing = FastOutSlowInEasing))
+        chromeReveal.animateTo(1f, tween(durationMillis = CHROME_REVEAL_MS, easing = LinearEasing))
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -103,6 +136,7 @@ private fun OnboardingContent(
         ) {
             OnboardingTopBar(
                 step = currentStep,
+                revealProgress = chromeReveal.value,
                 // Instant rather than animated: animating a jump of up to seven pages would fling
                 // the user through every screen they just chose to skip.
                 onSkip = { coroutineScope.launch { pagerState.scrollToPage(OnboardingStep.entries.lastIndex) } },
@@ -116,6 +150,7 @@ private fun OnboardingContent(
                 OnboardingStepPage(
                     step = OnboardingStep.atPage(page),
                     state = state,
+                    copyRevealProgress = copyReveal.value,
                     onStudyModeSelect = onStudyModeSelect,
                     onDailyGoalDecrement = onDailyGoalDecrement,
                     onDailyGoalIncrement = onDailyGoalIncrement,
@@ -124,7 +159,10 @@ private fun OnboardingContent(
             }
             OnboardingCta(
                 step = currentStep,
-                enabled = !state.isCommitting,
+                revealProgress = chromeReveal.value,
+                // Invisible while the entrance is still running, so it cannot be tapped before it
+                // has been shown.
+                enabled = !state.isCommitting && chromeReveal.value > 0f,
                 onClick = {
                     if (currentStep == OnboardingStep.LAST) {
                         onFinish()
@@ -140,12 +178,14 @@ private fun OnboardingContent(
 @Composable
 private fun OnboardingTopBar(
     step: OnboardingStep,
+    revealProgress: Float,
     onSkip: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .graphicsLayer { alpha = revealProgress }
             .padding(horizontal = MaterialTheme.spacing.medium),
         horizontalAlignment = Alignment.End,
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
@@ -158,6 +198,7 @@ private fun OnboardingTopBar(
                     text = stringResource(R.string.onboarding_skip_button),
                     onClick = onSkip,
                     size = FlashcardsComponentSize.Small,
+                    enabled = revealProgress > 0f,
                     style = FlashcardsComponentStyle.OnGradient,
                 )
             }
@@ -179,6 +220,7 @@ private fun OnboardingTopBar(
 @Composable
 private fun OnboardingCta(
     step: OnboardingStep,
+    revealProgress: Float,
     enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -191,6 +233,7 @@ private fun OnboardingCta(
     Box(
         modifier = modifier
             .fillMaxWidth()
+            .graphicsLayer { alpha = revealProgress }
             .padding(
                 horizontal = MaterialTheme.spacing.medium,
                 vertical = MaterialTheme.spacing.small,
@@ -210,6 +253,7 @@ private fun OnboardingCta(
 private fun OnboardingStepPage(
     step: OnboardingStep,
     state: OnboardingScreenState,
+    copyRevealProgress: Float,
     onStudyModeSelect: (StudyMode) -> Unit,
     onDailyGoalDecrement: () -> Unit,
     onDailyGoalIncrement: () -> Unit,
@@ -217,7 +261,7 @@ private fun OnboardingStepPage(
     modifier: Modifier = Modifier,
 ) {
     when (step) {
-        OnboardingStep.Welcome -> WelcomeStep(modifier = modifier)
+        OnboardingStep.Welcome -> WelcomeStep(copyRevealProgress = copyRevealProgress, modifier = modifier)
         OnboardingStep.Structure -> StructureStep(modifier = modifier)
         OnboardingStep.Mastery -> MasteryStep(modifier = modifier)
         OnboardingStep.SessionModes -> SessionModesStep(

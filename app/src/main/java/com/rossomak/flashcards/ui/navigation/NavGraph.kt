@@ -1,11 +1,20 @@
 package com.rossomak.flashcards.ui.navigation
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.rossomak.flashcards.core.ui.animation.LocalNavAnimatedVisibilityScope
+import com.rossomak.flashcards.core.ui.animation.LocalSharedTransitionScope
+import com.rossomak.flashcards.core.ui.animation.SHARED_ELEMENT_DURATION_MS
 import com.rossomak.flashcards.feature.auth.AuthRoute
 import com.rossomak.flashcards.feature.auth.LoginScreen
 import com.rossomak.flashcards.feature.browse.CategoryDetailsRoute
@@ -79,26 +88,40 @@ private fun NavHostController.navigateToPreviewStudySession(
  * grew a third pre-Main step.
  */
 private fun NavGraphBuilder.launchDestinations(navController: NavHostController) {
-    composable<Splash> {
-        SplashScreen(
-            onNavigateToMain = {
-                navController.navigate(Main) {
-                    popUpTo(Splash) { inclusive = true }
-                }
-            },
-            onNavigateToOnboarding = {
-                navController.navigate(OnboardingRoute) {
-                    popUpTo(Splash) { inclusive = true }
-                }
-            },
-            onNavigateToLogin = {
-                navController.navigate(AuthRoute) {
-                    popUpTo(Splash) { inclusive = true }
-                }
-            },
-        )
+    composable<Splash>(
+        // Every launch handoff is one opaque full-screen gradient replacing another, so there is
+        // nothing to cross-fade. Fading them would briefly leave both around half-opaque and let the
+        // white window background bleed through as a flash. Instead the splash holds at full opacity
+        // until the shared logo has landed — it stays composed that long so the element has both
+        // ends to animate between — and is then cut in a single frame, hidden the whole time under
+        // the incoming screen, which enters with no transition at all.
+        exitTransition = {
+            fadeOut(animationSpec = tween(durationMillis = 1, delayMillis = SHARED_ELEMENT_DURATION_MS))
+        },
+    ) {
+        // Splash and Onboarding hand the brand mark between them as a shared element, so both
+        // publish their AnimatedVisibilityScope for the element to animate against.
+        CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides this) {
+            SplashScreen(
+                onNavigateToMain = {
+                    navController.navigate(Main) {
+                        popUpTo(Splash) { inclusive = true }
+                    }
+                },
+                onNavigateToOnboarding = {
+                    navController.navigate(OnboardingRoute) {
+                        popUpTo(Splash) { inclusive = true }
+                    }
+                },
+                onNavigateToLogin = {
+                    navController.navigate(AuthRoute) {
+                        popUpTo(Splash) { inclusive = true }
+                    }
+                },
+            )
+        }
     }
-    composable<AuthRoute> {
+    composable<AuthRoute>(enterTransition = { EnterTransition.None }) {
         LoginScreen(
             onNavigateToMain = {
                 navController.navigate(Main) {
@@ -112,14 +135,16 @@ private fun NavGraphBuilder.launchDestinations(navController: NavHostController)
             },
         )
     }
-    composable<OnboardingRoute> {
-        OnboardingScreen(
-            onNavigateToMain = {
-                navController.navigate(Main) {
-                    popUpTo(OnboardingRoute) { inclusive = true }
-                }
-            },
-        )
+    composable<OnboardingRoute>(enterTransition = { EnterTransition.None }) {
+        CompositionLocalProvider(LocalNavAnimatedVisibilityScope provides this) {
+            OnboardingScreen(
+                onNavigateToMain = {
+                    navController.navigate(Main) {
+                        popUpTo(OnboardingRoute) { inclusive = true }
+                    }
+                },
+            )
+        }
     }
 }
 
@@ -128,53 +153,61 @@ fun FlashcardsNavGraph(
     navController: NavHostController,
     modifier: Modifier = Modifier
 ) {
-    NavHost(
-        navController = navController,
-        startDestination = Splash,
-        modifier = modifier
-    ) {
-        launchDestinations(navController)
-        composable<Main> {
-            MainScreen(
-                onNavigateToLogin = {
-                    navController.navigate(AuthRoute) {
-                        popUpTo(Main) { inclusive = true }
-                    }
-                },
-                onNavigateToOnboarding = {
-                    navController.navigate(OnboardingRoute) {
-                        popUpTo(Main) { inclusive = true }
-                    }
-                },
-                onNavigateToCategoryDetails = { categoryId, categoryName ->
-                    navController.navigate(CategoryDetailsRoute(categoryId, categoryName))
-                },
-                onNavigateToSubcategoryDetails = navController::navigateToSubcategoryDetails,
-                onNavigateToPreviewStudySession = navController::navigateToPreviewStudySession,
-            )
-        }
-        composable<CategoryDetailsRoute> {
-            CategoryDetailsScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToSubcategoryDetails = navController::navigateToSubcategoryDetails,
-            )
-        }
-        composable<SubcategoryDetailsRoute> {
-            SubcategoryDetailsScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToPreviewStudySession = navController::navigateToPreviewStudySession,
-            )
-        }
-        composable<PreviewStudySessionRoute> {
-            PreviewStudySessionScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToStudySession = { route -> navController.navigate(route) }
-            )
-        }
-        composable<StudySessionRoute> {
-            StudySessionScreen(
-                onNavigateBack = { navController.popBackStack() }
-            )
+    // One SharedTransitionLayout around the whole NavHost: a shared element is matched between the
+    // outgoing and the incoming destination, so both have to sit inside the same scope.
+    SharedTransitionLayout(modifier = modifier) {
+        CompositionLocalProvider(LocalSharedTransitionScope provides this) {
+            NavHost(
+                navController = navController,
+                startDestination = Splash,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                launchDestinations(navController)
+                // Only ever reached from one of the three launch screens, all of which hand over
+                // opaquely — see the comment on Splash.
+                composable<Main>(enterTransition = { EnterTransition.None }) {
+                    MainScreen(
+                        onNavigateToLogin = {
+                            navController.navigate(AuthRoute) {
+                                popUpTo(Main) { inclusive = true }
+                            }
+                        },
+                        onNavigateToOnboarding = {
+                            navController.navigate(OnboardingRoute) {
+                                popUpTo(Main) { inclusive = true }
+                            }
+                        },
+                        onNavigateToCategoryDetails = { categoryId, categoryName ->
+                            navController.navigate(CategoryDetailsRoute(categoryId, categoryName))
+                        },
+                        onNavigateToSubcategoryDetails = navController::navigateToSubcategoryDetails,
+                        onNavigateToPreviewStudySession = navController::navigateToPreviewStudySession,
+                    )
+                }
+                composable<CategoryDetailsRoute> {
+                    CategoryDetailsScreen(
+                        onNavigateBack = { navController.popBackStack() },
+                        onNavigateToSubcategoryDetails = navController::navigateToSubcategoryDetails,
+                    )
+                }
+                composable<SubcategoryDetailsRoute> {
+                    SubcategoryDetailsScreen(
+                        onNavigateBack = { navController.popBackStack() },
+                        onNavigateToPreviewStudySession = navController::navigateToPreviewStudySession,
+                    )
+                }
+                composable<PreviewStudySessionRoute> {
+                    PreviewStudySessionScreen(
+                        onNavigateBack = { navController.popBackStack() },
+                        onNavigateToStudySession = { route -> navController.navigate(route) }
+                    )
+                }
+                composable<StudySessionRoute> {
+                    StudySessionScreen(
+                        onNavigateBack = { navController.popBackStack() }
+                    )
+                }
+            }
         }
     }
 }

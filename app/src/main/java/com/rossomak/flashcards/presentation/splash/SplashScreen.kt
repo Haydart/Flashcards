@@ -32,6 +32,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.rossomak.flashcards.R
+import com.rossomak.flashcards.core.ui.animation.SharedElementKey
+import com.rossomak.flashcards.core.ui.animation.sharedElementByKey
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import com.rossomak.flashcards.core.ui.theme.brandColors
 import kotlinx.coroutines.delay
@@ -123,7 +125,11 @@ fun SplashContent(
         Image(
             painter = logoPainter,
             contentDescription = null,
-            modifier = Modifier.size(width = LogoWidth, height = LogoHeight)
+            // Handed to the onboarding cover as a shared element, so the mark flies into its new
+            // size and position instead of the two screens cross-fading two copies of it.
+            modifier = Modifier
+                .sharedElementByKey(SharedElementKey.APP_LOGO)
+                .size(width = LogoWidth, height = LogoHeight)
         )
         Text(
             text = stringResource(R.string.splash_tagline).uppercase(),
