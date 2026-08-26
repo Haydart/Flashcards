@@ -8,6 +8,7 @@ import com.rossomak.flashcards.core.domain.usecase.GetAvailableVoicesUseCase
 import com.rossomak.flashcards.core.domain.usecase.ObserveVoiceSettingsUseCase
 import com.rossomak.flashcards.core.domain.usecase.SaveVoiceSettingsUseCase
 import javax.inject.Inject
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -36,10 +37,11 @@ class VoiceSettingsController @Inject constructor(
     private val previewGateway: VoicePreviewGateway,
 ) {
 
-    private var savedSettings = VoiceSettings()
+    private var savedSettings: VoiceSettings? = null
     private var cachedVoices: List<VoiceOption>? = null
+    private var loadJob: CompletableDeferred<List<VoiceOption>>? = null
 
-    val currentSettings: VoiceSettings get() = savedSettings
+    val currentSettings: VoiceSettings get() = savedSettings ?: VoiceSettings()
 
     /**
      * Starts the one subscription to the saved settings. [onSettingsChange] is how a screen that
@@ -61,30 +63,55 @@ class VoiceSettingsController @Inject constructor(
 
     /**
      * The draft a newly opened dialog starts from — the saved settings, plus the voice list if it
-     * is already cached. When it is not, [loadVoices] fills it in afterwards.
+     * is already cached. When [bind]'s first emission hasn't landed yet, this seeds a placeholder
+     * (default speed, no voice picked) rather than a guess — same as an uncached voice list
+     * starting empty. [applySavedSettings] fills the real values in once they arrive.
      */
     fun seedDraft(): VoiceSettingsDraftState {
         val voices = cachedVoices.orEmpty()
+        val settings = savedSettings
         return VoiceSettingsDraftState(
             availableVoices = voices,
-            draftVoiceId = savedSettings.voiceId ?: voices.firstOrNull()?.id,
-            draftSpeed = savedSettings.speechRate,
+            draftVoiceId = settings?.voiceId ?: voices.firstOrNull()?.id,
+            draftSpeed = settings?.speechRate ?: DEFAULT_SPEED,
         )
     }
 
     /**
+     * Fills an open dialog in with the real saved values once [bind] delivers them — the
+     * placeholder [seedDraft] seeds when a dialog opens before the first emission lands. Applied
+     * unconditionally rather than guarded against a since-started edit: settings only change here
+     * by this same dialog saving, so a second emission while it is still open does not happen in
+     * practice.
+     */
+    fun applySavedSettings(draft: VoiceSettingsDraftState, settings: VoiceSettings): VoiceSettingsDraftState =
+        draft.copy(
+            draftVoiceId = settings.voiceId ?: draft.draftVoiceId,
+            draftSpeed = settings.speechRate,
+        )
+
+    /**
      * Never re-queries the platform once the list is cached — but still calls back with the cache,
      * so a caller that needs the voices (the Settings row resolves the saved id to a display name)
-     * gets them on every call rather than only on the first.
+     * gets them on every call rather than only on the first. Concurrent callers that land before
+     * the first query resolves share its result rather than each starting their own.
      */
     fun loadVoices(scope: CoroutineScope, onLoaded: (List<VoiceOption>) -> Unit) {
         cachedVoices?.let { voices ->
             onLoaded(voices)
             return
         }
+        loadJob?.let { inFlight ->
+            scope.launch { onLoaded(inFlight.await()) }
+            return
+        }
+        val deferred = CompletableDeferred<List<VoiceOption>>()
+        loadJob = deferred
         scope.launch {
             val voices = runCatching { getAvailableVoices() }.getOrDefault(emptyList())
             cachedVoices = voices
+            loadJob = null
+            deferred.complete(voices)
             onLoaded(voices)
         }
     }
@@ -109,5 +136,6 @@ class VoiceSettingsController @Inject constructor(
 
     private companion object {
         const val TAG = "VoiceSettingsController"
+        const val DEFAULT_SPEED = 1f
     }
 }

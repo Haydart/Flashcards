@@ -51,8 +51,17 @@ class SettingsViewModel @Inject constructor(
         voiceSettingsController.loadVoices(viewModelScope, ::onVoicesLoaded)
     }
 
+    /**
+     * Updates the row, and — since the dialog can open via [onVoiceSettingsOpen]'s
+     * [VoiceSettingsController.seedDraft] before this settings snapshot ever arrives — fills an
+     * already-open dialog's placeholder draft in with the real values too.
+     */
     private fun onVoiceSettingsChange(settings: SavedVoiceSettings) {
-        _state.update { it.copy(speechRate = settings.speechRate, voiceId = settings.voiceId) }
+        _state.update { state ->
+            val withRow = state.copy(speechRate = settings.speechRate, voiceId = settings.voiceId)
+            val dialog = withRow.activeDialog as? VoiceSettings ?: return@update withRow
+            withRow.copy(activeDialog = dialog.copy(draft = voiceSettingsController.applySavedSettings(dialog.draft, settings)))
+        }
     }
 
     /** Single entry point for every dialog on this screen. */
