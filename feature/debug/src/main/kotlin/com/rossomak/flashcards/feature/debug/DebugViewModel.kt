@@ -1,5 +1,6 @@
 package com.rossomak.flashcards.feature.debug
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rossomak.flashcards.core.domain.usecase.SetHasSeenOnboardingUseCase
@@ -25,7 +26,12 @@ class DebugViewModel @Inject constructor(
     fun onReplayOnboardingClick() {
         viewModelScope.launch {
             setHasSeenOnboarding(false)
-            eventChannel.send(DebugDestination.Onboarding)
+                .onSuccess { eventChannel.send(DebugDestination.Onboarding) }
+                .onFailure { Log.e(TAG, "Failed to clear onboarding flag for replay", it) }
         }
+    }
+
+    private companion object {
+        const val TAG = "DebugViewModel"
     }
 }
