@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Info
@@ -31,7 +30,6 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
@@ -43,7 +41,6 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -61,8 +58,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -75,11 +70,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gallatinapps.syntaxmp.tokenizer.SyntaxTokenizer
 import com.rossomak.flashcards.core.domain.model.FlashcardRating
 import com.rossomak.flashcards.core.domain.model.StudyMode
+import com.rossomak.flashcards.core.ui.R as CoreUiR
 import com.rossomak.flashcards.core.ui.composables.SyntaxCodeBlock
+import com.rossomak.flashcards.core.ui.composables.rating.FlashcardsRatingButtonRow
 import com.rossomak.flashcards.core.ui.composables.withInlineCode
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
-import com.rossomak.flashcards.core.ui.theme.semanticColors
 import com.rossomak.flashcards.feature.study.R
 import com.rossomak.flashcards.feature.study.session.StudySessionDialog.ExitSession
 import com.rossomak.flashcards.feature.study.session.StudySessionDialog.ExtendedContext
@@ -631,62 +627,13 @@ private fun RatingButtons(
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = "How well did you answer it?",
+            text = stringResource(CoreUiR.string.common_rating_prompt_label),
             modifier = Modifier.fillMaxWidth(),
             style = MaterialTheme.typography.titleSmall,
             textAlign = TextAlign.Center,
         )
         Spacer(modifier = Modifier.height(16.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-        ) {
-            RatingOption(
-                label = "Not at all",
-                icon = Icons.Default.Close,
-                containerColor = MaterialTheme.semanticColors.negativeContainer,
-                contentColor = MaterialTheme.semanticColors.onNegativeContainer,
-                onClick = { onRating(FlashcardRating.Failed) },
-            )
-            RatingOption(
-                label = "Somewhat",
-                icon = Icons.Default.Remove,
-                containerColor = MaterialTheme.semanticColors.neutralContainer,
-                contentColor = MaterialTheme.semanticColors.onNeutralContainer,
-                onClick = { onRating(FlashcardRating.PartiallyCorrect) },
-            )
-            RatingOption(
-                label = "Very well",
-                icon = Icons.Default.Check,
-                containerColor = MaterialTheme.semanticColors.positiveContainer,
-                contentColor = MaterialTheme.semanticColors.onPositiveContainer,
-                onClick = { onRating(FlashcardRating.Correct) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun RatingOption(
-    label: String,
-    icon: ImageVector,
-    containerColor: Color,
-    contentColor: Color,
-    onClick: () -> Unit,
-) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        FilledIconButton(
-            onClick = onClick,
-            modifier = Modifier.size(56.dp),
-            colors = IconButtonDefaults.filledIconButtonColors(
-                containerColor = containerColor,
-                contentColor = contentColor,
-            ),
-        ) {
-            Icon(imageVector = icon, contentDescription = label)
-        }
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(text = label, style = MaterialTheme.typography.labelSmall)
+        FlashcardsRatingButtonRow(onRatingSelect = onRating)
     }
 }
 

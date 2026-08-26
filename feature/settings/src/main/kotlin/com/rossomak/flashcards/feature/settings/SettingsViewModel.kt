@@ -3,6 +3,7 @@ package com.rossomak.flashcards.feature.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rossomak.flashcards.core.domain.model.VoiceOption
+import com.rossomak.flashcards.core.domain.usecase.SetHasSeenOnboardingUseCase
 import com.rossomak.flashcards.core.domain.usecase.SignOutUseCase
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Dismiss
@@ -24,6 +25,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val signOutUseCase: SignOutUseCase,
+    private val setHasSeenOnboarding: SetHasSeenOnboardingUseCase,
     private val voiceSettingsController: VoiceSettingsController,
 ) : ViewModel() {
 
@@ -104,6 +106,18 @@ class SettingsViewModel @Inject constructor(
         val dialog = _state.value.activeDialog as? VoiceSettings ?: return
         voiceSettingsController.save(viewModelScope, dialog.draft)
         _state.update { it.copy(activeDialog = null) }
+    }
+
+    /**
+     * Debug affordance: clears the completion flag before navigating, so the flow behaves exactly
+     * as it does for a first-run user — including committing preferences again on its final step —
+     * rather than being a read-only walkthrough that behaves differently from the real thing.
+     */
+    fun onReplayOnboardingClick() {
+        viewModelScope.launch {
+            setHasSeenOnboarding(false)
+            eventChannel.send(SettingsDestination.Onboarding)
+        }
     }
 
     fun onSignOutClick() {

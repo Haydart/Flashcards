@@ -3,6 +3,7 @@ package com.rossomak.flashcards.presentation.splash
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rossomak.flashcards.core.domain.usecase.GetCurrentAuthUserUseCase
+import com.rossomak.flashcards.core.domain.usecase.ObserveUserPreferencesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
@@ -16,11 +17,13 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 @HiltViewModel
 class SplashViewModel @Inject constructor(
-    private val getCurrentAuthUser: GetCurrentAuthUserUseCase
+    private val getCurrentAuthUser: GetCurrentAuthUserUseCase,
+    private val observeUserPreferences: ObserveUserPreferencesUseCase,
 ) : ViewModel() {
 
     private val _animationCompleted = MutableStateFlow(false)
     private val _authenticated = MutableStateFlow<Boolean?>(null)
+    private val _hasSeenOnboarding = MutableStateFlow<Boolean?>(null)
 
     private val eventChannel = Channel<SplashDestination>(Channel.BUFFERED)
     val events = eventChannel.receiveAsFlow()
@@ -33,11 +36,27 @@ class SplashViewModel @Inject constructor(
             _authenticated.value = authenticated
         }
         viewModelScope.launch {
-            val destination = combine(_animationCompleted, _authenticated) { animDone, authenticated ->
-                if (animDone && authenticated != null) {
-                    if (authenticated) SplashDestination.Main else SplashDestination.Login
-                } else {
+            // Falls back to "already seen" on a read that stalls, for the same reason the auth read
+            // falls back to unauthenticated: a slow local read must not hold the splash open, and
+            // wrongly re-showing onboarding to an existing user is the worse of the two mistakes.
+            _hasSeenOnboarding.value = withTimeoutOrNull(PREFERENCES_TIMEOUT_MS) {
+                observeUserPreferences().first().hasSeenOnboarding
+            } ?: true
+        }
+        viewModelScope.launch {
+            val destination = combine(
+                _animationCompleted,
+                _authenticated,
+                _hasSeenOnboarding,
+            ) { animationCompleted, authenticated, hasSeenOnboarding ->
+                if (!animationCompleted || authenticated == null || hasSeenOnboarding == null) {
                     null
+                } else {
+                    when {
+                        !authenticated -> SplashDestination.Login
+                        !hasSeenOnboarding -> SplashDestination.Onboarding
+                        else -> SplashDestination.Main
+                    }
                 }
             }.filterNotNull().first()
             eventChannel.send(destination)
@@ -50,5 +69,6 @@ class SplashViewModel @Inject constructor(
 
     private companion object {
         const val AUTH_TIMEOUT_MS = 1000L
+        const val PREFERENCES_TIMEOUT_MS = 1000L
     }
 }

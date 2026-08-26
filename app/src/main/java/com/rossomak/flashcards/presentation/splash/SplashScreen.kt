@@ -23,8 +23,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
@@ -34,21 +32,12 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.rossomak.flashcards.R
+import com.rossomak.flashcards.core.ui.animation.SharedElementKey
+import com.rossomak.flashcards.core.ui.animation.sharedElementByKey
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
+import com.rossomak.flashcards.core.ui.theme.brandColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-
-private val SplashBlue = Color(0xFF2A2E8F)
-private val SplashPurple = Color(0xFF6B2FA0)
-
-private val splashGradient = Brush.linearGradient(
-    colorStops = arrayOf(
-        0.25f to SplashBlue,
-        0.99f to SplashPurple,
-    ),
-    start = Offset.Zero,
-    end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
-)
 
 private val LogoWidth = 240.dp
 private val LogoHeight = LogoWidth * (1000f / 1800f)
@@ -63,11 +52,13 @@ fun SplashScreen(
     modifier: Modifier = Modifier,
     viewModel: SplashViewModel = hiltViewModel(),
     onNavigateToMain: () -> Unit,
+    onNavigateToOnboarding: () -> Unit,
     onNavigateToLogin: () -> Unit,
 ) {
     observeAsEvents(viewModel.events) { destination ->
         when (destination) {
             SplashDestination.Main -> onNavigateToMain()
+            SplashDestination.Onboarding -> onNavigateToOnboarding()
             SplashDestination.Login -> onNavigateToLogin()
         }
     }
@@ -119,7 +110,7 @@ fun SplashContent(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(SplashBlue),
+            .background(MaterialTheme.brandColors.screenGradientBase),
         contentAlignment = Alignment.Center
     ) {
         Box(
@@ -129,12 +120,16 @@ fun SplashContent(
                     alpha = gradientSlide.value
                     translationY = (1f - gradientSlide.value) * size.height
                 }
-                .background(splashGradient)
+                .background(MaterialTheme.brandColors.screenGradient)
         )
         Image(
             painter = logoPainter,
             contentDescription = null,
-            modifier = Modifier.size(width = LogoWidth, height = LogoHeight)
+            // Handed to the onboarding cover as a shared element, so the mark flies into its new
+            // size and position instead of the two screens cross-fading two copies of it.
+            modifier = Modifier
+                .sharedElementByKey(SharedElementKey.APP_LOGO)
+                .size(width = LogoWidth, height = LogoHeight)
         )
         Text(
             text = stringResource(R.string.splash_tagline).uppercase(),
@@ -156,11 +151,11 @@ private fun SplashContentPreview() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(splashGradient),
+            .background(MaterialTheme.brandColors.screenGradient),
         contentAlignment = Alignment.Center
     ) {
         Image(
-            painter = painterResource(R.drawable.flashcards_white),
+            painter = painterResource(com.rossomak.flashcards.core.ui.R.drawable.flashcards_white),
             contentDescription = null,
             modifier = Modifier.size(width = LogoWidth, height = LogoHeight)
         )

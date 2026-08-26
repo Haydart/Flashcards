@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Flow chrome, shared by every step -->
+    <string name="onboarding_skip_button">Skip</string>
+    <string name="onboarding_continue_button">Continue</string>
+
+    <!-- 1 · Welcome -->
+    <string name="welcome_headline_title">Master anything,\none card at a time</string>
+    <string name="welcome_intro_message">A quick tour of how sessions work, how content is organized, and how cards get mastered. Set it up your way — you can change everything later.</string>
+    <string name="welcome_start_button">Get started</string>
+
+    <!-- 2 · Course structure -->
+    <string name="structure_eyebrow_label">Structured knowledge</string>
+    <string name="structure_headline_title">Study granular topics</string>
+    <string name="structure_intro_message">Browse from the top down — pick a category, open a topic, then study its flashcards. Filter cards by tags or difficulty anytime.</string>
+    <string name="structure_category_label">Category</string>
+    <string name="structure_category_example_title">Android</string>
+    <string name="structure_category_example_message">6 categories across the library</string>
+    <string name="structure_topic_label">Topic</string>
+    <string name="structure_topic_example_title">Compose</string>
+    <string name="structure_topic_example_message">80 cards · one of 13 Android topics</string>
+    <string name="structure_flashcard_label">Flashcard</string>
+    <string name="structure_flashcard_example_title">What does @Composable do?</string>
+    <string name="structure_flashcard_example_message">Reveal the answer, then move to the next card</string>
+
+    <!-- 3 · Flashcard mastery -->
+    <string name="mastery_eyebrow_label">Gamified progress tracking</string>
+    <string name="mastery_headline_title">Master cards and level up</string>
+    <string name="mastery_intro_message">Rate each answer Failed, Partial, or Correct. Nail it and the card\'s mastered — it resurfaces less, so you focus on what\'s shaky.</string>
+    <string name="mastery_attempts_label">Attempts</string>
+    <string name="mastery_difficulty_label">Difficulty</string>
+    <string name="mastery_example_question_title">What does mutableStateOf return?</string>
+    <string name="mastery_mastered_label">Mastered</string>
+    <string name="mastery_xp_reward_label">+%1$d XP</string>
+    <string name="mastery_xp_banner_message">Every mastered card earns XP — climb Levels and track progress per topic in the Progress tab.</string>
+
+    <!-- 4 · Session modes -->
+    <string name="session_modes_eyebrow_label">Two study session modes</string>
+    <string name="session_modes_headline_title">Pick your studying mode</string>
+    <string name="session_modes_intro_message">Choose your mode each time you start. Pick your default below — change it anytime in Settings.</string>
+    <string name="session_modes_rated_title">Rated</string>
+    <string name="session_modes_rated_message">Reveal each answer, then rate yourself — or speak your answer and let the app grade it automatically. Progress is saved.</string>
+    <string name="session_modes_fast_title">Fast</string>
+    <string name="session_modes_fast_message">Move through cards at your pace — tap to reveal the answer and advance, or turn on read-aloud to go hands-free.</string>
+    <string name="session_modes_hands_free_banner_message">Both modes can go hands-free — turn on read-aloud in Fast, or Voice Answering in Rated. Great for a walk or commute.</string>
+
+    <!-- 5 · Daily goal -->
+    <string name="daily_goal_eyebrow_label">Time goals and streaks</string>
+    <string name="daily_goal_headline_title">Keep yourself engaged</string>
+    <string name="daily_goal_intro_message">Rome wasn\'t built in a day. Set a time goal and learn consistently. Adjust anytime in the Progress tab.</string>
+    <string name="daily_goal_example_label">Example</string>
+    <string name="daily_goal_streak_label">Streak</string>
+    <string name="daily_goal_streak_example_title">8 days</string>
+    <string name="daily_goal_streak_example_message">Best: 14 days</string>
+    <string name="daily_goal_goal_label">Daily goal</string>
+    <string name="daily_goal_unit_label">minutes per day</string>
+    <string name="daily_goal_decrease_cd">Decrease daily goal</string>
+    <string name="daily_goal_increase_cd">Increase daily goal</string>
+    <string name="daily_goal_xp_banner_message">Hit your goal → earn XP, build your streak</string>
+
+    <!-- 6 · Voice input and privacy -->
+    <string name="voice_privacy_eyebrow_label">Real-time voice processing</string>
+    <string name="voice_privacy_headline_title">Answer out loud, privately</string>
+    <string name="voice_privacy_intro_message">Optional — use your mic to answer hands-free. Capture and the privacy transform run on-device, always free.</string>
+    <string name="voice_privacy_premium_message">Premium: automatic AI grading of your spoken answer.</string>
+    <string name="voice_privacy_try_hint">Try it — say your answer out loud</string>
+    <string name="voice_privacy_test_button">Test your voice</string>
+    <string name="voice_privacy_banner_message">Your voice is always transformed on-device before rating. We never store or hear the real you.</string>
+
+    <!-- 7 · Favorite topics -->
+    <string name="favorites_eyebrow_label">Convenient bookmarks</string>
+    <string name="favorites_headline_title">Make it truly yours</string>
+    <string name="favorites_intro_message">Pin favorite topics for easy access.</string>
+
+    <!-- 8 · All set -->
+    <string name="all_set_headline_title">You\'re all set, %1$s!</string>
+    <string name="all_set_headline_anonymous_title">You\'re all set!</string>
+    <string name="all_set_intro_message">Your sessions are dialed in. Jump into your first deck whenever you\'re ready.</string>
+    <string name="all_set_mode_badge_label">%1$s by default</string>
+    <string name="all_set_daily_goal_badge_label">%1$d min/day</string>
+    <plurals name="all_set_favorites_badge_label">
+        <item quantity="one">%1$d favorite</item>
+        <item quantity="other">%1$d favorites</item>
+    </plurals>
+    <string name="all_set_start_button">Start studying</string>
+</resources>

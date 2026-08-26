@@ -2,7 +2,7 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>MaxLineLength:GradeSpokenAnswerUseCase.kt$GradeSpokenAnswerUseCase$override suspend</ID>
-    <ID>MaxLineLength:SanitizeAndGradeTranscriptUseCase.kt$SanitizeAndGradeTranscriptUseCase$override suspend</ID>
+    <ID>TooGenericExceptionCaught:SaveStudyPreferencesUseCase.kt$SaveStudyPreferencesUseCase$exception: Exception</ID>
+    <ID>TooGenericExceptionCaught:SetHasSeenOnboardingUseCase.kt$SetHasSeenOnboardingUseCase$exception: Exception</ID>
   </CurrentIssues>
 </SmellBaseline>

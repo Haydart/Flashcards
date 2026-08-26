@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.rossomak.flashcards.core.data.di.VoiceDataStore
 import com.rossomak.flashcards.core.domain.model.VoiceSettings
 import java.io.IOException
 import javax.inject.Inject
@@ -14,7 +15,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 
 class DataStoreVoiceSettingsLocalDataSource @Inject constructor(
-    private val dataStore: DataStore<Preferences>,
+    @VoiceDataStore private val dataStore: DataStore<Preferences>,
 ) : VoiceSettingsLocalDataSource {
 
     override fun voiceSettings(): Flow<VoiceSettings> = dataStore.data

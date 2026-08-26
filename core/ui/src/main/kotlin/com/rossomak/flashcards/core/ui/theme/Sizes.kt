@@ -62,6 +62,9 @@ object AppSizes {
      */
     val buttonHeightSmall: Dp = 40.dp
 
+    /** Diameter of the circular self-rating button (Failed / Partial / Correct). */
+    val ratingButton: Dp = 56.dp
+
     /** Diameter of the circular mastery progress ring used as a leading element of topic rows. */
     val progressRing: Dp = 40.dp
 
@@ -89,11 +92,7 @@ object AppSizes {
     /** Diameter of [com.rossomak.flashcards.core.ui.composables.progress.FlashcardsCircularProgressRing] at `Small` (list rows). */
     val progressRingDiameterSmall: Dp = 40.dp
 
-    /**
-     * Border width of any component drawn on a brand gradient — the one width paired with
-     * [BrandColors.onGradientBorder] / [BrandColors.onGradientOutline]. Matches [tagChipBorder]
-     * rather than [hairline]: a 1dp translucent white edge disappears against the gradient.
-     */
+    /** Larger border width of any component drawn on a brand gradient. */
     val onGradientBorder: Dp = 1.5.dp
 
     /** Leading icon inside a [com.rossomak.flashcards.core.ui.composables.banners.FlashcardsInfoBanner]. */
@@ -110,6 +109,9 @@ object AppSizes {
 
     /** Diameter of the tinted circle behind a [com.rossomak.flashcards.core.ui.composables.FlashcardsEmptyState]'s icon. */
     val emptyStateIconCircle: Dp = 80.dp
+
+    /** Diameter of a [com.rossomak.flashcards.core.ui.composables.FlashcardsIconCircle]. */
+    val iconCircle: Dp = 72.dp
 
     /** Glyph size inside [emptyStateIconCircle]. */
     val emptyStateIcon: Dp = 40.dp

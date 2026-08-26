@@ -10,11 +10,14 @@ flowchart TD
     %% ── App Launch ────────────────────────────────────────────────
     AppLaunch([App Launch]) --> Splash(SPLASH SCREEN)
     Splash --> AuthCheck{Authenticated?}
-    AuthCheck -->|yes| NavRoot
+    AuthCheck -->|yes| SeenCheck{Onboarding seen?}
     AuthCheck -->|no| Login(LOGIN SCREEN\nGoogle Sign-In)
+    SeenCheck -->|yes| NavRoot
+    SeenCheck -->|no| Onboarding
 
-    Login -->|sign-in success| Onboarding{{ONBOARDING — NYI\ndaily goal setup · skippable}}
-    Onboarding --> NavRoot
+    Login -->|sign-in success, onboarding seen| NavRoot
+    Login -->|sign-in success, not seen| Onboarding(ONBOARDING\n8-step pager · Skip jumps to the final step)
+    Onboarding -->|Start studying| NavRoot
 
     %% ── Navigation Root ───────────────────────────────────────────
     NavRoot(MAIN SCREEN\nbottom nav)

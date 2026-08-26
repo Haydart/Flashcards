@@ -71,7 +71,7 @@ fun FlashcardsTagChip(
             selected = selected,
             borderColor = MaterialTheme.colorScheme.outlineVariant,
             selectedBorderColor = Color.Transparent,
-            borderWidth = MaterialTheme.sizes.tagChipBorder,
+            borderWidth = MaterialTheme.sizes.hairline,
             selectedBorderWidth = MaterialTheme.spacing.none,
         ),
     )

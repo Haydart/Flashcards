@@ -88,7 +88,7 @@ fun FlashcardsInfoBanner(
     val border = when (style) {
         OnSurface -> null
         OnGradient -> BorderStroke(
-            width = MaterialTheme.sizes.onGradientBorder,
+            width = MaterialTheme.sizes.hairline,
             color = brandColors.onGradientBorder,
         )
     }

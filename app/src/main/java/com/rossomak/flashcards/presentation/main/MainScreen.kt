@@ -116,6 +116,7 @@ fun MainScreen(
     onNavigateToSubcategoryDetails: (String, String, String, String) -> Unit,
     onNavigateToPreviewStudySession: (String, String, String, String) -> Unit,
     onNavigateToLogin: () -> Unit,
+    onNavigateToOnboarding: () -> Unit,
 ) {
     val tabs = mainTabs()
     val tabNavController = rememberNavController()
@@ -169,7 +170,10 @@ fun MainScreen(
             }
             navigation<SettingsGraph>(startDestination = SettingsRoot) {
                 composable<SettingsRoot> {
-                    SettingsScreen(onNavigateToLogin = onNavigateToLogin)
+                    SettingsScreen(
+                        onNavigateToLogin = onNavigateToLogin,
+                        onNavigateToOnboarding = onNavigateToOnboarding,
+                    )
                 }
             }
             debugNavGraphEntries()

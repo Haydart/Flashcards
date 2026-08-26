@@ -19,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -32,6 +33,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
     onNavigateToLogin: () -> Unit,
+    onNavigateToOnboarding: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -39,6 +41,7 @@ fun SettingsScreen(
     observeAsEvents(viewModel.events) { destination ->
         when (destination) {
             SettingsDestination.Login -> onNavigateToLogin()
+            SettingsDestination.Onboarding -> onNavigateToOnboarding()
         }
     }
 
@@ -54,6 +57,7 @@ fun SettingsScreen(
         isSigningOut = state.isSigningOut,
         showcaseIntent = showcaseIntent,
         onVoicePlaybackSettingsClick = { viewModel.onDialogEvent(Open(VoiceSettings())) },
+        onReplayOnboardingClick = viewModel::onReplayOnboardingClick,
         onSignOutClick = viewModel::onSignOutClick,
     )
 }
@@ -64,6 +68,7 @@ private fun SettingsContent(
     isSigningOut: Boolean,
     showcaseIntent: Intent?,
     onVoicePlaybackSettingsClick: () -> Unit,
+    onReplayOnboardingClick: () -> Unit,
     onSignOutClick: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -77,6 +82,12 @@ private fun SettingsContent(
         Spacer(modifier = Modifier.height(24.dp))
         OutlinedButton(onClick = onVoicePlaybackSettingsClick) {
             Text(text = "Voice playback settings")
+        }
+        if (BuildConfig.DEBUG) {
+            Spacer(modifier = Modifier.height(16.dp))
+            OutlinedButton(onClick = onReplayOnboardingClick) {
+                Text(text = stringResource(R.string.settings_replay_onboarding_button))
+            }
         }
         if (showcaseIntent != null) {
             Spacer(modifier = Modifier.height(16.dp))

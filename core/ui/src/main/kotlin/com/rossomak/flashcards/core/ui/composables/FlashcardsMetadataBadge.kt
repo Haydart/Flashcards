@@ -33,6 +33,8 @@ import androidx.compose.ui.unit.Dp
 import com.airbnb.android.showkase.annotation.ShowkaseComposable
 import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentSize
 import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle.OnGradient
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle.OnSurface
 import com.rossomak.flashcards.core.ui.theme.AppSizes
 import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.brandColors
@@ -82,7 +84,7 @@ fun FlashcardsMetadataBadge(
     label: String,
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
-    style: FlashcardsComponentStyle = FlashcardsComponentStyle.OnSurface,
+    style: FlashcardsComponentStyle = OnSurface,
     size: FlashcardsComponentSize = FlashcardsComponentSize.Normal,
     onClick: (() -> Unit)? = null,
 ) {
@@ -91,21 +93,21 @@ fun FlashcardsMetadataBadge(
     val brandColors = MaterialTheme.brandColors
     val onGradient = brandColors.onGradientContent
     val containerColor = when (style) {
-        FlashcardsComponentStyle.OnSurface -> MaterialTheme.colorScheme.surfaceVariant
-        FlashcardsComponentStyle.OnGradient -> brandColors.onGradientContainer
+        OnSurface -> MaterialTheme.colorScheme.surfaceVariant
+        OnGradient -> brandColors.onGradientContainer
     }
     val contentColor = when (style) {
-        FlashcardsComponentStyle.OnSurface -> MaterialTheme.colorScheme.onSurface
-        FlashcardsComponentStyle.OnGradient -> onGradient
+        OnSurface -> MaterialTheme.colorScheme.onSurface
+        OnGradient -> onGradient
     }
     val iconColor = when (style) {
-        FlashcardsComponentStyle.OnSurface -> MaterialTheme.colorScheme.onSurfaceVariant
-        FlashcardsComponentStyle.OnGradient -> onGradient
+        OnSurface -> MaterialTheme.colorScheme.onSurfaceVariant
+        OnGradient -> onGradient
     }
     val border = when (style) {
-        FlashcardsComponentStyle.OnSurface -> null
-        FlashcardsComponentStyle.OnGradient -> BorderStroke(
-            width = MaterialTheme.sizes.onGradientBorder,
+        OnSurface -> null
+        OnGradient -> BorderStroke(
+            width = MaterialTheme.sizes.hairline,
             color = brandColors.onGradientBorder,
         )
     }
@@ -232,17 +234,17 @@ private fun MetadataBadgeGradientSampleRow(modifier: Modifier = Modifier) {
         FlashcardsMetadataBadge(
             label = "~ 12 min",
             icon = Icons.Default.DateRange,
-            style = FlashcardsComponentStyle.OnGradient,
+            style = OnGradient,
         )
         FlashcardsMetadataBadge(
             label = "3 topics",
             icon = Icons.Default.List,
-            style = FlashcardsComponentStyle.OnGradient,
+            style = OnGradient,
         )
         FlashcardsMetadataBadge(
             label = "42 cards",
             icon = Icons.Default.Star,
-            style = FlashcardsComponentStyle.OnGradient,
+            style = OnGradient,
         )
     }
 }

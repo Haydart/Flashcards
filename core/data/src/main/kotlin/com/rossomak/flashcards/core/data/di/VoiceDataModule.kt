@@ -54,6 +54,7 @@ abstract class VoiceDataModule {
 
         @Provides
         @Singleton
+        @VoiceDataStore
         fun provideVoiceDataStore(@ApplicationContext context: Context): DataStore<Preferences> =
             context.voiceDataStore
     }
