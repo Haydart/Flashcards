@@ -56,6 +56,20 @@
     <string name="exit_session_dialog_message">All progress for this session will be lost. This can\'t be undone.</string>
     <string name="exit_session_confirm_button">Exit</string>
 
+    <string name="preview_session_mode_label">Mode</string>
+    <string name="preview_session_voice_answering_label">Voice answering</string>
+    <string name="preview_session_length_label">Length</string>
+    <string name="preview_session_filters_label">Filters</string>
+    <string name="preview_session_sort_label">Sort</string>
+    <string name="preview_session_edit_setting_cd">Edit %1$s</string>
+    <string name="preview_session_filters_difficulty_value_label">Difficulty %1$d\u2013%2$d</string>
+    <string name="preview_session_setting_value_separator_label">%1$s \u00B7 %2$s</string>
+
+    <plurals name="preview_session_filters_tags_value_label">
+        <item quantity="one">%1$d tag</item>
+        <item quantity="other">%1$d tags</item>
+    </plurals>
+
     <plurals name="session_length_cards_label">
         <item quantity="one">%1$d card</item>
         <item quantity="other">%1$d cards</item>

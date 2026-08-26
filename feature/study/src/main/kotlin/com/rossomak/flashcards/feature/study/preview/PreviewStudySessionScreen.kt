@@ -1,6 +1,6 @@
 package com.rossomak.flashcards.feature.study.preview
 
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,10 +13,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Shuffle
@@ -25,25 +24,20 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -55,10 +49,18 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
 import com.rossomak.flashcards.core.domain.model.StudyMode
-import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardSortOrderDialog
+import com.rossomak.flashcards.core.domain.model.StudySessionConfig
+import com.rossomak.flashcards.core.ui.R as CoreUiR
+import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardFilters
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
+import com.rossomak.flashcards.feature.study.R
 import com.rossomak.flashcards.feature.study.StudySessionRoute
-import kotlin.math.roundToInt
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Filters
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Length
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Mode
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Sort
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceAnswering
 
 @Composable
 fun PreviewStudySessionScreen(
@@ -81,9 +83,6 @@ fun PreviewStudySessionScreen(
         onNavigateBack = onNavigateBack,
         onRetry = viewModel::onRetry,
         onRerandomize = viewModel::onRerandomize,
-        onSessionCardCountChange = viewModel::onSessionCardCountChange,
-        onDifficultyRangeChange = viewModel::onDifficultyRangeChange,
-        onStudyModeSelect = viewModel::onStudyModeSelect,
         onDialogEvent = viewModel::onDialogEvent,
         onStartSession = viewModel::onStartSession,
     )
@@ -97,22 +96,13 @@ fun PreviewStudySessionContent(
     onNavigateBack: () -> Unit,
     onRetry: () -> Unit,
     onRerandomize: () -> Unit,
-    onSessionCardCountChange: (Int) -> Unit,
-    onDifficultyRangeChange: (IntRange) -> Unit,
-    onStudyModeSelect: (StudyMode) -> Unit,
     onDialogEvent: (PreviewDialogEvent) -> Unit,
     onStartSession: () -> Unit,
 ) {
-    if (state.isSortDialogVisible) {
-        FlashcardSortOrderDialog(
-            draft = state.sortOrderDraft,
-            onDraftChange = { onDialogEvent(PreviewDialogEvent.SortDraftChange(it)) },
-            onConfirm = { onDialogEvent(PreviewDialogEvent.Confirm) },
-            onDismiss = { onDialogEvent(PreviewDialogEvent.Dismiss) },
-            keepAsDefault = state.isSortKeepAsDefaultChecked,
-            onKeepAsDefaultChange = { onDialogEvent(PreviewDialogEvent.KeepAsDefaultChange(it)) },
-        )
-    }
+    PreviewDialogHost(
+        activeDialog = state.activeDialog,
+        onDialogEvent = onDialogEvent,
+    )
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -151,9 +141,6 @@ fun PreviewStudySessionContent(
                     .padding(innerPadding),
                 state = state,
                 onRerandomize = onRerandomize,
-                onSessionCardCountChange = onSessionCardCountChange,
-                onDifficultyRangeChange = onDifficultyRangeChange,
-                onStudyModeSelect = onStudyModeSelect,
                 onDialogEvent = onDialogEvent,
                 onStartSession = onStartSession,
             )
@@ -185,9 +172,6 @@ private fun ReadyContent(
     modifier: Modifier = Modifier,
     state: PreviewStudySessionScreenState,
     onRerandomize: () -> Unit,
-    onSessionCardCountChange: (Int) -> Unit,
-    onDifficultyRangeChange: (IntRange) -> Unit,
-    onStudyModeSelect: (StudyMode) -> Unit,
     onDialogEvent: (PreviewDialogEvent) -> Unit,
     onStartSession: () -> Unit,
 ) {
@@ -220,58 +204,13 @@ private fun ReadyContent(
                 AssistChip(onClick = {}, label = { Text(text = "${state.topicCount} topics") })
             }
             AssistChip(onClick = {}, label = { Text(text = "${state.selectedCardCount} cards") })
-            AssistChip(onClick = { onDialogEvent(PreviewDialogEvent.SortOpen) }, label = { Text(text = "Sort: ${sortOrderLabel(state.sortOrder)}") })
-        }
-
-        if (state.filterTags.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = "Filtered by ${state.filterTags.joinToString()}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SessionCardCountSlider(
-            cardCount = state.sessionCardCount,
-            onCardCountChange = onSessionCardCountChange,
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        DifficultyRangeSlider(
-            difficultyRange = state.difficultyRange,
-            onDifficultyRangeChange = onDifficultyRangeChange,
-        )
+        SessionSettingRows(state = state, onDialogEvent = onDialogEvent)
 
         Spacer(modifier = Modifier.height(24.dp))
-
-        Text(
-            text = "Choose study mode",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        Row(
-            modifier = Modifier.selectableGroup(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            StudyModeCard(
-                modifier = Modifier.weight(1f),
-                title = "Rated",
-                description = "Reveal each answer, then rate yourself. Progress is saved.",
-                isSelected = state.selectedStudyMode == StudyMode.Rated,
-                onSelect = { onStudyModeSelect(StudyMode.Rated) },
-            )
-            StudyModeCard(
-                modifier = Modifier.weight(1f),
-                title = "Fast",
-                description = "Cards advance on a timer. Nothing is rated or saved.",
-                isSelected = state.selectedStudyMode == StudyMode.Fast,
-                onSelect = { onStudyModeSelect(StudyMode.Fast) },
-            )
-        }
-        Spacer(modifier = Modifier.height(16.dp))
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             if (state.canRerandomize) {
@@ -298,109 +237,145 @@ private fun ReadyContent(
     }
 }
 
+/**
+ * One row per adjustable setting, each opening its own dialog (ADR-0030). The rows are a plain
+ * column for now — the persistent bottom-sheet chrome the ADR describes is a later pass, and the
+ * rows and their dialogs are what carry the behavior.
+ *
+ * Voice answering is Rated-only: Fast mode has no rating step for it to drive (ADR-0025), so the
+ * row is not offered there rather than being offered and ignored.
+ */
 @Composable
-private fun StudyModeCard(
+private fun SessionSettingRows(
     modifier: Modifier = Modifier,
-    title: String,
-    description: String,
-    isSelected: Boolean,
-    onSelect: () -> Unit,
+    state: PreviewStudySessionScreenState,
+    onDialogEvent: (PreviewDialogEvent) -> Unit,
 ) {
-    OutlinedCard(
-        modifier = modifier.selectable(
-            selected = isSelected,
-            onClick = onSelect,
-            role = Role.RadioButton,
-        ),
-        border = if (isSelected) {
-            BorderStroke(width = 2.dp, color = MaterialTheme.colorScheme.primary)
-        } else {
-            BorderStroke(width = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
-        },
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f),
-                )
-                RadioButton(selected = isSelected, onClick = null)
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+    Column(modifier = modifier.fillMaxWidth()) {
+        SessionSettingRow(
+            label = stringResource(R.string.preview_session_mode_label),
+            value = studyModeLabel(state.config.mode),
+            onClick = { onDialogEvent(Open(Mode(draft = state.config.mode))) },
+        )
+        if (state.config.mode == StudyMode.Rated) {
+            SessionSettingRow(
+                label = stringResource(R.string.preview_session_voice_answering_label),
+                value = voiceAnsweringLabel(state.config.voiceAnsweringEnabled),
+                onClick = {
+                    onDialogEvent(
+                        Open(VoiceAnswering(draft = state.config.voiceAnsweringEnabled))
+                    )
+                },
             )
         }
-    }
-}
-
-@Composable
-private fun SessionCardCountSlider(
-    modifier: Modifier = Modifier,
-    cardCount: Int,
-    onCardCountChange: (Int) -> Unit,
-) {
-    var draftCardCount by remember(cardCount) { mutableStateOf(cardCount.toFloat()) }
-
-    Column(modifier = modifier.fillMaxWidth()) {
-        Text(
-            text = "Session length",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
+        SessionSettingRow(
+            label = stringResource(R.string.preview_session_length_label),
+            value = pluralStringResource(
+                R.plurals.session_length_cards_label,
+                state.config.length,
+                state.config.length,
+            ),
+            onClick = { onDialogEvent(Open(Length(draft = state.config.length))) },
         )
-        Text(
-            text = "${draftCardCount.roundToInt()} cards",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        val minCardCount = PreviewStudySessionScreenState.MIN_SESSION_CARD_COUNT
-        val maxCardCount = PreviewStudySessionScreenState.MAX_SESSION_CARD_COUNT
-        Slider(
-            value = draftCardCount,
-            onValueChange = { draftCardCount = it },
-            onValueChangeFinished = { onCardCountChange(draftCardCount.roundToInt()) },
-            valueRange = minCardCount.toFloat()..maxCardCount.toFloat(),
-            steps = maxCardCount - minCardCount - 1
-        )
-    }
-}
-
-@Composable
-private fun DifficultyRangeSlider(
-    modifier: Modifier = Modifier,
-    difficultyRange: IntRange,
-    onDifficultyRangeChange: (IntRange) -> Unit,
-) {
-    var draftRange by remember(difficultyRange) {
-        mutableStateOf(difficultyRange.first.toFloat()..difficultyRange.last.toFloat())
-    }
-
-    Column(modifier = modifier.fillMaxWidth()) {
-        Text(
-            text = "Difficulty",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-        )
-        Text(
-            text = "${draftRange.start.roundToInt()}–${draftRange.endInclusive.roundToInt()}",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        RangeSlider(
-            value = draftRange,
-            onValueChange = { draftRange = it },
-            onValueChangeFinished = {
-                onDifficultyRangeChange(draftRange.start.roundToInt()..draftRange.endInclusive.roundToInt())
+        SessionSettingRow(
+            label = stringResource(R.string.preview_session_filters_label),
+            value = filtersLabel(state.config),
+            onClick = {
+                onDialogEvent(
+                    Open(
+                        Filters(
+                            draft = FlashcardFilters(
+                                selectedTags = state.config.tagIds,
+                                difficultyRange = state.config.difficultyRange,
+                            ),
+                            availableTags = state.availableTags,
+                        )
+                    )
+                )
             },
-            valueRange = PreviewStudySessionScreenState.MIN_DIFFICULTY.toFloat()..PreviewStudySessionScreenState.MAX_DIFFICULTY.toFloat(),
-            steps = PreviewStudySessionScreenState.MAX_DIFFICULTY -
-                PreviewStudySessionScreenState.MIN_DIFFICULTY - 1,
+        )
+        SessionSettingRow(
+            label = stringResource(R.string.preview_session_sort_label),
+            value = sortOrderLabel(state.config.sortOrder),
+            onClick = { onDialogEvent(Open(Sort(draft = state.config.sortOrder))) },
         )
     }
+}
+
+@Composable
+private fun SessionSettingRow(
+    modifier: Modifier = Modifier,
+    label: String,
+    value: String,
+    onClick: () -> Unit,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(
+                    onClick = onClick,
+                    onClickLabel = stringResource(R.string.preview_session_edit_setting_cd, label),
+                )
+                .padding(vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = label,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.size(4.dp))
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    }
+}
+
+@Composable
+private fun studyModeLabel(mode: StudyMode): String = when (mode) {
+    StudyMode.Rated -> stringResource(R.string.study_mode_rated_label)
+    StudyMode.Fast -> stringResource(R.string.study_mode_fast_label)
+}
+
+@Composable
+private fun voiceAnsweringLabel(isEnabled: Boolean): String = if (isEnabled) {
+    stringResource(R.string.voice_answering_on_label)
+} else {
+    stringResource(R.string.voice_answering_off_label)
+}
+
+@Composable
+private fun sortOrderLabel(sortOrder: FlashcardSortOrder): String = when (sortOrder) {
+    FlashcardSortOrder.Default -> stringResource(CoreUiR.string.flashcard_sort_order_default_label)
+    FlashcardSortOrder.EasiestFirst -> stringResource(CoreUiR.string.flashcard_sort_order_easiest_first_label)
+    FlashcardSortOrder.HardestFirst -> stringResource(CoreUiR.string.flashcard_sort_order_hardest_first_label)
+}
+
+/** Difficulty always reads; the tag count only joins it when tags are actually narrowing the pool. */
+@Composable
+private fun filtersLabel(config: StudySessionConfig): String {
+    val difficultyLabel = stringResource(
+        R.string.preview_session_filters_difficulty_value_label,
+        config.difficultyRange.first,
+        config.difficultyRange.last,
+    )
+    if (config.tagIds.isEmpty()) return difficultyLabel
+    val tagsLabel = pluralStringResource(
+        R.plurals.preview_session_filters_tags_value_label,
+        config.tagIds.size,
+        config.tagIds.size,
+    )
+    return stringResource(R.string.preview_session_setting_value_separator_label, tagsLabel, difficultyLabel)
 }
 
 // isQuickSession is checked before isSingleTopic so a quick session that happens to land on one
@@ -409,12 +384,6 @@ private fun screenTitle(state: PreviewStudySessionScreenState): String = when {
     state.isQuickSession -> "${state.categoryName} · Quick session"
     state.isSingleTopic -> "${state.categoryName} · ${state.subcategoryNames.first()}"
     else -> "${state.categoryName} · Custom session"
-}
-
-private fun sortOrderLabel(sortOrder: FlashcardSortOrder): String = when (sortOrder) {
-    FlashcardSortOrder.Default -> "Default"
-    FlashcardSortOrder.EasiestFirst -> "Easiest first"
-    FlashcardSortOrder.HardestFirst -> "Hardest first"
 }
 
 private fun scopeDescription(state: PreviewStudySessionScreenState): AnnotatedString = buildAnnotatedString {
@@ -466,9 +435,6 @@ private fun PreviewStudySessionLoadingPreview() {
         onNavigateBack = {},
         onRetry = {},
         onRerandomize = {},
-        onSessionCardCountChange = {},
-        onDifficultyRangeChange = {},
-        onStudyModeSelect = {},
         onDialogEvent = {},
         onStartSession = {},
     )
@@ -487,9 +453,6 @@ private fun PreviewStudySessionErrorPreview() {
         onNavigateBack = {},
         onRetry = {},
         onRerandomize = {},
-        onSessionCardCountChange = {},
-        onDifficultyRangeChange = {},
-        onStudyModeSelect = {},
         onDialogEvent = {},
         onStartSession = {},
     )
@@ -502,17 +465,19 @@ private fun PreviewStudySessionSingleTopicPreview() {
         state = PreviewStudySessionScreenState(
             categoryName = "Android",
             subcategoryNames = listOf("Compose"),
-            filterTags = listOf("State Management", "Modifiers"),
             isLoading = false,
+            config = StudySessionConfig(
+                subcategoryIds = listOf("compose"),
+                tagIds = setOf("state", "modifiers"),
+                difficultyRange = 2..8,
+            ),
             selectedCardCount = 18,
             estimatedMinutes = 12,
+            availableTags = listOf("state", "modifiers", "recomposition"),
         ),
         onNavigateBack = {},
         onRetry = {},
         onRerandomize = {},
-        onSessionCardCountChange = {},
-        onDifficultyRangeChange = {},
-        onStudyModeSelect = {},
         onDialogEvent = {},
         onStartSession = {},
     )
@@ -533,9 +498,6 @@ private fun PreviewStudySessionQuickSessionPreview() {
         onNavigateBack = {},
         onRetry = {},
         onRerandomize = {},
-        onSessionCardCountChange = {},
-        onDifficultyRangeChange = {},
-        onStudyModeSelect = {},
         onDialogEvent = {},
         onStartSession = {},
     )
@@ -549,16 +511,13 @@ private fun PreviewStudySessionCustomSessionPreview() {
             categoryName = "Android",
             subcategoryNames = listOf("Compose", "Coroutines", "Architecture"),
             isLoading = false,
+            config = StudySessionConfig(subcategoryIds = listOf("a", "b", "c"), mode = StudyMode.Fast),
             selectedCardCount = 12,
             estimatedMinutes = 8,
-            selectedStudyMode = StudyMode.Fast,
         ),
         onNavigateBack = {},
         onRetry = {},
         onRerandomize = {},
-        onSessionCardCountChange = {},
-        onDifficultyRangeChange = {},
-        onStudyModeSelect = {},
         onDialogEvent = {},
         onStartSession = {},
     )

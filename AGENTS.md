@@ -76,6 +76,7 @@ class FlashcardViewModel @Inject constructor(
 - Constants: UPPER_SNAKE_CASE
 - Composable functions: PascalCase (`FlashcardScreen()`)
 - ViewModel event handlers (UI → ViewModel callbacks): `onXxx` prefix, present tense (`onCategoriesRefresh`, `onCardSelect`)
+- **Dialogs are the one exception**: a screen's dialogs are hoisted into a single sealed `activeDialog` field and report back through a single `onDialogEvent: (XxxDialogEvent) -> Unit`, rendered by a dedicated `XxxDialogHost` composable. See [ADR-0036](./docs/adr/0036-sealed-dialog-state-and-dialog-events.md). Ordinary screen callbacks stay explicit `onXxx` lambdas.
 - Interface implementations: `Default` prefix, no `Impl` suffix (`DefaultFlashcardRepository`, not `FlashcardRepositoryImpl`; `DefaultAudioPlayer`, not `AudioPlayerImpl`)
 
 ### String Resources

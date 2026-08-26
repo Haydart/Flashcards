@@ -1,13 +1,5 @@
 # Unified button component: 4 types × 2 sizes
 
-> **Amended by [ADR-0034](0034-consolidated-component-style-and-size-tokens.md).**
-> `FlashcardsButtonSize` and `FlashcardsButtonStyle` (below) were extracted to the shared
-> `FlashcardsComponentSize`/`FlashcardsComponentStyle` in `composables/common/`, reused by
-> buttons, the metadata badge, and the new progress bar family
-> ([ADR-0035](0035-progress-bar-composables.md)). `Style.Surface` was renamed to `.OnSurface` in
-> that move. Read this ADR for the *rationale* behind the two axes (why two sizes, why an
-> on-gradient axis at all) — for the current type names, see ADR-0034.
-
 ## Decision
 
 `core:ui` gets a family of four button composables — `FlashcardsFilledButton`, `FlashcardsTonalButton`, `FlashcardsOutlinedButton`, `FlashcardsTextButton`. Each type is its own composable (not one `FlashcardsButton(type, size, ...)` entry point), living in its own file, plus a shared `FlashcardsButtonSize` enum in its own file.
@@ -58,3 +50,4 @@ Disabled uses the standard M3 low-alpha convention (`onSurface` at reduced alpha
 - `BrandColors` gains `onGradientFilled` (fixed, non-theme-flipping, like `onTopBarGradient`) plus `tonalButtonContainer`/`onTonalButtonContainer` (theme-flipping, unlike the fixed gradient-related members).
 - No `AppSizes` icon-size fields exist — icon size comes from `ButtonDefaults.IconSize` directly, so there's nothing to keep in sync if that M3 default ever changes.
 - Exact on-gradient color/alpha values beyond what's specified here may be revisited once a concrete screen actually consumes the on-gradient style (none exist yet).
+- `FlashcardsButtonSize` and `FlashcardsButtonStyle` are later generalized into shared `FlashcardsComponentSize`/`FlashcardsComponentStyle` types in `composables/common/`, reused by buttons, the metadata badge, and the progress bar family — see [ADR-0034](0034-consolidated-component-style-and-size-tokens.md) for the current type names and the rationale for sharing them across components; `Style.Surface` is named `.OnSurface` there.

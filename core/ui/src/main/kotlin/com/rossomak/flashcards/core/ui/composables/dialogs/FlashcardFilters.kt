@@ -12,3 +12,12 @@ data class FlashcardFilters(
     val selectedTags: Set<String>,
     val difficultyRange: IntRange,
 )
+
+/**
+ * Toggles one tag's membership.
+ *
+ * Lives here rather than in a dialog host because a host may only do total field-level `copy()`
+ * (ADR-0036) — set arithmetic in a composable would be logic no unit test can reach.
+ */
+fun FlashcardFilters.withTag(tag: String, isSelected: Boolean): FlashcardFilters =
+    copy(selectedTags = if (isSelected) selectedTags + tag else selectedTags - tag)

@@ -6,9 +6,19 @@ import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.repository.FakeFlashcardRepository
-import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
+import com.rossomak.flashcards.core.domain.usecase.SelectSessionFlashcardsUseCase
+import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardFilters
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Dismiss
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.DraftChange
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.RouteDecoder
 import com.rossomak.flashcards.feature.study.PreviewStudySessionRoute
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Filters
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Length
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Mode
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Sort
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceAnswering
 import com.rossomak.flashcards.testutil.MainDispatcherRule
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.collections.shouldContainAll
@@ -34,7 +44,6 @@ class PreviewStudySessionViewModelTest {
 
     private val savedStateHandle: SavedStateHandle = mockk()
     private val flashcardRepository = FakeFlashcardRepository()
-    private val getFlashcards = GetFlashcardsUseCase(flashcardRepository)
 
     private val categoryId = "android"
     private val categoryName = "Android"
@@ -46,6 +55,11 @@ class PreviewStudySessionViewModelTest {
         categoryName = categoryName,
         subcategoryIds = listOf(subcategoryId),
         subcategoryNames = listOf(subcategoryName),
+    )
+
+    private val multiTopicRoute = singleTopicRoute.copy(
+        subcategoryIds = listOf("android-compose", "android-coroutines"),
+        subcategoryNames = listOf("Compose", "Coroutines"),
     )
 
     @Before
@@ -63,7 +77,7 @@ class PreviewStudySessionViewModelTest {
     }
 
     private fun createViewModel(): PreviewStudySessionViewModel =
-        PreviewStudySessionViewModel(savedStateHandle, getFlashcards)
+        PreviewStudySessionViewModel(savedStateHandle, SelectSessionFlashcardsUseCase(flashcardRepository))
 
     private fun flashcard(
         id: String,
@@ -110,30 +124,27 @@ class PreviewStudySessionViewModelTest {
     }
 
     @Test
-    fun `tag filter keeps only cards carrying any active tag`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute.copy(filterTagIds = listOf("State")))
-        flashcardRepository.flashcardsToReturn = Result.success(
-            listOf(
-                flashcard(id = "card-1", tags = listOf("State")),
-                flashcard(id = "card-2", tags = listOf("Modifiers")),
-                flashcard(id = "card-3", tags = listOf("State", "Modifiers")),
+    fun `routed tag filter seeds the config and keeps only cards carrying an active tag`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(singleTopicRoute.copy(filterTagIds = listOf("State")))
+            flashcardRepository.flashcardsToReturn = Result.success(
+                listOf(
+                    flashcard(id = "card-1", tags = listOf("State")),
+                    flashcard(id = "card-2", tags = listOf("Modifiers")),
+                    flashcard(id = "card-3", tags = listOf("State", "Modifiers")),
+                )
             )
-        )
 
-        val viewModel = createViewModel()
-        advanceUntilIdle()
+            val viewModel = createViewModel()
+            advanceUntilIdle()
 
-        viewModel.state.value.selectedCardCount shouldBe 2
-    }
+            viewModel.state.value.config.tagIds shouldBe setOf("State")
+            viewModel.state.value.selectedCardCount shouldBe 2
+        }
 
     @Test
     fun `multi subcategory route pools cards across subcategories`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(
-            singleTopicRoute.copy(
-                subcategoryIds = listOf("android-compose", "android-coroutines"),
-                subcategoryNames = listOf("Compose", "Coroutines"),
-            )
-        )
+        stubRoute(multiTopicRoute)
         flashcardRepository.flashcardsBySubcategory["android-compose"] =
             Result.success(listOf(flashcard(id = "card-1")))
         flashcardRepository.flashcardsBySubcategory["android-coroutines"] =
@@ -158,64 +169,138 @@ class PreviewStudySessionViewModelTest {
     }
 
     @Test
-    fun `onSessionCardCountChange reselects cards at the new count`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `available tags come from the pool for single topic sessions only`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleTopicRoute)
+        flashcardRepository.flashcardsToReturn = Result.success(
+            listOf(
+                flashcard(id = "card-1", tags = listOf("State")),
+                flashcard(id = "card-2", tags = listOf("Modifiers", "State")),
+            )
+        )
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.state.value.availableTags shouldBe listOf("Modifiers", "State")
+
+        stubRoute(multiTopicRoute)
+        flashcardRepository.flashcardsBySubcategory["android-compose"] =
+            Result.success(listOf(flashcard(id = "card-1", tags = listOf("State"))))
+        flashcardRepository.flashcardsBySubcategory["android-coroutines"] =
+            Result.success(listOf(flashcard(id = "card-2", subcategoryId = "android-coroutines")))
+
+        val multiTopicViewModel = createViewModel()
+        advanceUntilIdle()
+
+        multiTopicViewModel.state.value.availableTags shouldBe emptyList()
+    }
+
+    @Test
+    fun `a draft change leaves the committed config untouched until confirm`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleTopicRoute)
+        flashcardRepository.flashcardsToReturn = Result.success(listOf(flashcard(id = "card-1")))
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDialogEvent(Open(Mode(draft = viewModel.state.value.config.mode)))
+        viewModel.onDialogEvent(
+            DraftChange(Mode(draft = StudyMode.Fast))
+        )
+
+        viewModel.state.value.activeDialog shouldBe Mode(draft = StudyMode.Fast)
+        viewModel.state.value.config.mode shouldBe StudyMode.Rated
+    }
+
+    @Test
+    fun `dismissing discards the draft`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleTopicRoute)
+        flashcardRepository.flashcardsToReturn = Result.success(listOf(flashcard(id = "card-1")))
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDialogEvent(Open(Sort(draft = viewModel.state.value.config.sortOrder)))
+        viewModel.onDialogEvent(
+            DraftChange(Sort(draft = FlashcardSortOrder.HardestFirst))
+        )
+        viewModel.onDialogEvent(Dismiss)
+
+        viewModel.state.value.activeDialog shouldBe null
+        viewModel.state.value.config.sortOrder shouldBe FlashcardSortOrder.Default
+    }
+
+    @Test
+    fun `confirming the mode dialog commits the draft`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleTopicRoute)
+        flashcardRepository.flashcardsToReturn = Result.success(listOf(flashcard(id = "card-1")))
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDialogEvent(Open(Mode(draft = viewModel.state.value.config.mode)))
+        viewModel.onDialogEvent(
+            DraftChange(Mode(draft = StudyMode.Fast))
+        )
+        viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
+
+        viewModel.state.value.config.mode shouldBe StudyMode.Fast
+        viewModel.state.value.activeDialog shouldBe null
+    }
+
+    @Test
+    fun `confirming the length dialog reselects at the new count`() = runTest(mainDispatcherRule.testDispatcher) {
         stubRoute(singleTopicRoute)
         flashcardRepository.flashcardsToReturn =
             Result.success((1..30).map { index -> flashcard(id = "card-$index") })
 
         val viewModel = createViewModel()
         advanceUntilIdle()
-        viewModel.onSessionCardCountChange(10)
+        viewModel.onDialogEvent(Open(Length(draft = viewModel.state.value.config.length)))
+        viewModel.onDialogEvent(DraftChange(Length(draft = 10)))
+        viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
 
-        viewModel.state.value.sessionCardCount shouldBe 10
+        viewModel.state.value.config.length shouldBe 10
         viewModel.state.value.selectedCardCount shouldBe 10
     }
 
     @Test
-    fun `onDifficultyRangeChange filters the pool to the selected band`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `confirming the filters dialog narrows the pool by difficulty and tags`() = runTest(mainDispatcherRule.testDispatcher) {
         stubRoute(singleTopicRoute)
         flashcardRepository.flashcardsToReturn = Result.success(
             listOf(
-                flashcard(id = "card-1", difficulty = 2),
-                flashcard(id = "card-2", difficulty = 5),
-                flashcard(id = "card-3", difficulty = 9),
+                flashcard(id = "card-1", tags = listOf("State"), difficulty = 2),
+                flashcard(id = "card-2", tags = listOf("State"), difficulty = 5),
+                flashcard(id = "card-3", tags = listOf("Modifiers"), difficulty = 5),
             )
         )
 
         val viewModel = createViewModel()
         advanceUntilIdle()
-        viewModel.onDifficultyRangeChange(4..6)
+        viewModel.onDialogEvent(Open(
+            Filters(
+                draft = FlashcardFilters(
+                    selectedTags = viewModel.state.value.config.tagIds,
+                    difficultyRange = viewModel.state.value.config.difficultyRange,
+                ),
+                availableTags = viewModel.state.value.availableTags,
+            )
+        ))
+        val filtersDialog = viewModel.state.value.activeDialog as Filters
+        viewModel.onDialogEvent(
+            DraftChange(
+                filtersDialog.copy(draft = FlashcardFilters(selectedTags = setOf("State"), difficultyRange = 4..6))
+            )
+        )
+        viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
 
-        viewModel.state.value.difficultyRange shouldBe 4..6
+        viewModel.state.value.config.tagIds shouldBe setOf("State")
+        viewModel.state.value.config.difficultyRange shouldBe 4..6
         viewModel.state.value.selectedCardCount shouldBe 1
     }
 
     @Test
-    fun `onStudyModeSelect updates selected mode`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
-
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-        viewModel.onStudyModeSelect(StudyMode.Fast)
-
-        viewModel.state.value.selectedStudyMode shouldBe StudyMode.Fast
-    }
-
-    @Test
-    fun `onSortDialogShow and onSortDialogDismiss toggle dialog visibility`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
-
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-        viewModel.onDialogEvent(PreviewDialogEvent.SortOpen)
-        viewModel.state.value.isSortDialogVisible shouldBe true
-
-        viewModel.onDialogEvent(PreviewDialogEvent.Dismiss)
-        viewModel.state.value.isSortDialogVisible shouldBe false
-    }
-
-    @Test
-    fun `onSortDialogConfirm orders session cards easiest first`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `confirming the sort dialog orders session cards easiest first`() = runTest(mainDispatcherRule.testDispatcher) {
         stubRoute(singleTopicRoute)
         flashcardRepository.flashcardsToReturn = Result.success(
             listOf(
@@ -227,12 +312,15 @@ class PreviewStudySessionViewModelTest {
 
         val viewModel = createViewModel()
         advanceUntilIdle()
-        viewModel.onDialogEvent(PreviewDialogEvent.SortOpen)
-        viewModel.onDialogEvent(PreviewDialogEvent.SortDraftChange(FlashcardSortOrder.EasiestFirst))
-        viewModel.onDialogEvent(PreviewDialogEvent.Confirm)
+        viewModel.onDialogEvent(Open(Sort(draft = viewModel.state.value.config.sortOrder)))
+        viewModel.onDialogEvent(
+            DraftChange(Sort(draft = FlashcardSortOrder.EasiestFirst))
+        )
+        viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
         viewModel.onStartSession()
 
-        viewModel.state.value.sortOrder shouldBe FlashcardSortOrder.EasiestFirst
+        viewModel.state.value.config.sortOrder shouldBe FlashcardSortOrder.EasiestFirst
         viewModel.events.test {
             val destination = awaitItem() as PreviewStudySessionDestination.StudySession
             destination.route.cardIds shouldBe listOf("card-2", "card-3", "card-1")
@@ -240,7 +328,7 @@ class PreviewStudySessionViewModelTest {
     }
 
     @Test
-    fun `onSortDialogConfirm orders session cards hardest first`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `confirming the sort dialog orders session cards hardest first`() = runTest(mainDispatcherRule.testDispatcher) {
         stubRoute(singleTopicRoute)
         flashcardRepository.flashcardsToReturn = Result.success(
             listOf(
@@ -252,9 +340,12 @@ class PreviewStudySessionViewModelTest {
 
         val viewModel = createViewModel()
         advanceUntilIdle()
-        viewModel.onDialogEvent(PreviewDialogEvent.SortOpen)
-        viewModel.onDialogEvent(PreviewDialogEvent.SortDraftChange(FlashcardSortOrder.HardestFirst))
-        viewModel.onDialogEvent(PreviewDialogEvent.Confirm)
+        viewModel.onDialogEvent(Open(Sort(draft = viewModel.state.value.config.sortOrder)))
+        viewModel.onDialogEvent(
+            DraftChange(Sort(draft = FlashcardSortOrder.HardestFirst))
+        )
+        viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
         viewModel.onStartSession()
 
         viewModel.events.test {
@@ -264,86 +355,33 @@ class PreviewStudySessionViewModelTest {
     }
 
     @Test
-    fun `onSortOrderDraftChange leaves the applied sort order untouched until confirmed`() =
+    fun `onStartSession emits StudySession route with selected cards, mode and voice answering`() =
         runTest(mainDispatcherRule.testDispatcher) {
             stubRoute(singleTopicRoute)
             flashcardRepository.flashcardsToReturn = Result.success(
-                listOf(
-                    flashcard(id = "card-1", difficulty = 8),
-                    flashcard(id = "card-2", difficulty = 2),
-                )
+                listOf(flashcard(id = "card-1"), flashcard(id = "card-2"))
             )
 
             val viewModel = createViewModel()
             advanceUntilIdle()
-            viewModel.onDialogEvent(PreviewDialogEvent.SortOpen)
-            viewModel.onDialogEvent(PreviewDialogEvent.SortDraftChange(FlashcardSortOrder.EasiestFirst))
-
-            viewModel.state.value.sortOrderDraft shouldBe FlashcardSortOrder.EasiestFirst
-            viewModel.state.value.sortOrder shouldBe FlashcardSortOrder.Default
-        }
-
-    @Test
-    fun `onSortDialogDismiss discards the draft`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
-        flashcardRepository.flashcardsToReturn = Result.success(
-            listOf(
-                flashcard(id = "card-1", difficulty = 8),
-                flashcard(id = "card-2", difficulty = 2),
+            viewModel.onDialogEvent(Open(VoiceAnswering(draft = viewModel.state.value.config.voiceAnsweringEnabled)))
+            viewModel.onDialogEvent(
+                DraftChange(VoiceAnswering(draft = true))
             )
-        )
-
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-        viewModel.onDialogEvent(PreviewDialogEvent.SortOpen)
-        viewModel.onDialogEvent(PreviewDialogEvent.SortDraftChange(FlashcardSortOrder.HardestFirst))
-        viewModel.onDialogEvent(PreviewDialogEvent.Dismiss)
-
-        viewModel.state.value.isSortDialogVisible shouldBe false
-        viewModel.state.value.sortOrder shouldBe FlashcardSortOrder.Default
-    }
-
-    @Test
-    fun `onSortDialogShow seeds the draft from the applied sort order and clears keep as default`() =
-        runTest(mainDispatcherRule.testDispatcher) {
-            stubRoute(singleTopicRoute)
-            flashcardRepository.flashcardsToReturn = Result.success(
-                listOf(flashcard(id = "card-1", difficulty = 8))
-            )
-
-            val viewModel = createViewModel()
+            viewModel.onDialogEvent(Confirm)
             advanceUntilIdle()
-            viewModel.onDialogEvent(PreviewDialogEvent.SortOpen)
-            viewModel.onDialogEvent(PreviewDialogEvent.SortDraftChange(FlashcardSortOrder.HardestFirst))
-            viewModel.onDialogEvent(PreviewDialogEvent.KeepAsDefaultChange(true))
-            viewModel.onDialogEvent(PreviewDialogEvent.Confirm)
-            viewModel.onDialogEvent(PreviewDialogEvent.SortOpen)
+            viewModel.onStartSession()
 
-            viewModel.state.value.sortOrderDraft shouldBe FlashcardSortOrder.HardestFirst
-            viewModel.state.value.isSortKeepAsDefaultChecked shouldBe false
+            viewModel.events.test {
+                val destination = awaitItem() as PreviewStudySessionDestination.StudySession
+                destination.route.categoryId shouldBe categoryId
+                destination.route.sessionTitle shouldBe subcategoryName
+                destination.route.subcategoryIds shouldBe listOf(subcategoryId)
+                destination.route.cardIds shouldContainAll listOf("card-1", "card-2")
+                destination.route.studyMode shouldBe StudyMode.Rated
+                destination.route.voiceAnsweringEnabled shouldBe true
+            }
         }
-
-    @Test
-    fun `onStartSession emits StudySession route with selected cards and mode`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
-        flashcardRepository.flashcardsToReturn = Result.success(
-            listOf(flashcard(id = "card-1"), flashcard(id = "card-2"))
-        )
-
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-        viewModel.onStudyModeSelect(StudyMode.Fast)
-        viewModel.onStartSession()
-
-        viewModel.events.test {
-            val destination = awaitItem() as PreviewStudySessionDestination.StudySession
-            destination.route.categoryId shouldBe categoryId
-            destination.route.sessionTitle shouldBe subcategoryName
-            destination.route.subcategoryIds shouldBe listOf(subcategoryId)
-            destination.route.cardIds shouldContainAll listOf("card-1", "card-2")
-            destination.route.studyMode shouldBe StudyMode.Fast
-        }
-    }
 
     @Test
     fun `onStartSession with empty pool emits nothing`() = runTest(mainDispatcherRule.testDispatcher) {
@@ -393,12 +431,7 @@ class PreviewStudySessionViewModelTest {
 
     @Test
     fun `sessionTitle uses category name for multi topic sessions`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(
-            singleTopicRoute.copy(
-                subcategoryIds = listOf("android-compose", "android-coroutines"),
-                subcategoryNames = listOf("Compose", "Coroutines"),
-            )
-        )
+        stubRoute(multiTopicRoute)
         flashcardRepository.flashcardsBySubcategory["android-compose"] =
             Result.success(listOf(flashcard(id = "card-1")))
         flashcardRepository.flashcardsBySubcategory["android-coroutines"] =
@@ -438,13 +471,8 @@ class PreviewStudySessionViewModelTest {
     }
 
     @Test
-    fun `onRerandomize reselects from pool keeping session size`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(
-            singleTopicRoute.copy(
-                subcategoryIds = listOf("android-compose", "android-coroutines"),
-                subcategoryNames = listOf("Compose", "Coroutines"),
-            )
-        )
+    fun `onRerandomize redraws with a new seed, keeping session size`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(multiTopicRoute)
         flashcardRepository.flashcardsBySubcategory["android-compose"] =
             Result.success((1..30).map { index -> flashcard(id = "compose-$index") })
         flashcardRepository.flashcardsBySubcategory["android-coroutines"] =
@@ -453,9 +481,12 @@ class PreviewStudySessionViewModelTest {
         val viewModel = createViewModel()
         advanceUntilIdle()
         val cardIdsBeforeRerandomize = viewModel.selectedCardIds
+        val seedBeforeRerandomize = viewModel.state.value.config.seed
 
         viewModel.onRerandomize()
+        advanceUntilIdle()
 
+        viewModel.state.value.config.seed shouldNotBe seedBeforeRerandomize
         viewModel.state.value.selectedCardCount shouldBe 20
         viewModel.selectedCardIds shouldNotBe cardIdsBeforeRerandomize
     }
@@ -465,12 +496,7 @@ class PreviewStudySessionViewModelTest {
         stubRoute(singleTopicRoute)
         createViewModel().state.value.canRerandomize shouldBe false
 
-        stubRoute(
-            singleTopicRoute.copy(
-                subcategoryIds = listOf("android-compose", "android-coroutines"),
-                subcategoryNames = listOf("Compose", "Coroutines"),
-            )
-        )
+        stubRoute(multiTopicRoute)
         createViewModel().state.value.canRerandomize.shouldBeTrue()
     }
 }

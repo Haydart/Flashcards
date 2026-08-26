@@ -22,9 +22,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.rossomak.flashcards.core.ui.composables.dialogs.VoiceSettingsDialog
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import com.rossomak.flashcards.core.ui.showcase.Showcase
+import com.rossomak.flashcards.feature.settings.SettingsDialog.VoiceSettings
 
 @Composable
 fun SettingsScreen(
@@ -41,17 +42,10 @@ fun SettingsScreen(
         }
     }
 
-    if (state.voiceSettingsState.isVisible) {
-        VoiceSettingsDialog(
-            availableVoices = state.voiceSettingsState.availableVoices,
-            draftVoiceId = state.voiceSettingsState.draftVoiceId,
-            draftSpeechRate = state.voiceSettingsState.draftSpeed,
-            onDraftVoiceChange = viewModel::onVoiceSettingsDraftVoiceChanged,
-            onDraftSpeechRateChange = viewModel::onVoiceSettingsDraftSpeedChanged,
-            onConfirm = viewModel::onVoiceSettingsSave,
-            onDismiss = viewModel::onVoiceSettingsDismiss,
-        )
-    }
+    SettingsDialogHost(
+        activeDialog = state.activeDialog,
+        onDialogEvent = viewModel::onDialogEvent,
+    )
 
     val showcaseIntent = remember { Showcase.intentOrNull(context) }
 
@@ -59,7 +53,7 @@ fun SettingsScreen(
         modifier = modifier,
         isSigningOut = state.isSigningOut,
         showcaseIntent = showcaseIntent,
-        onVoicePlaybackSettingsClick = viewModel::onVoicePlaybackSettingsClick,
+        onVoicePlaybackSettingsClick = { viewModel.onDialogEvent(Open(VoiceSettings())) },
         onSignOutClick = viewModel::onSignOutClick,
     )
 }

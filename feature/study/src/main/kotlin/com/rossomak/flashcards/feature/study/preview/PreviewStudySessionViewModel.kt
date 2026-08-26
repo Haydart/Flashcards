@@ -3,19 +3,25 @@ package com.rossomak.flashcards.feature.study.preview
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.rossomak.flashcards.core.domain.model.Flashcard
-import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
-import com.rossomak.flashcards.core.domain.model.StudyMode
-import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
+import com.rossomak.flashcards.core.domain.model.StudySessionConfig
+import com.rossomak.flashcards.core.domain.usecase.SelectSessionFlashcardsUseCase
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Dismiss
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.DraftChange
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.decodeRoute
 import com.rossomak.flashcards.feature.study.PreviewStudySessionRoute
 import com.rossomak.flashcards.feature.study.StudySessionRoute
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Filters
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Length
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Mode
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Sort
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceAnswering
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
+import kotlin.random.Random
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,7 +32,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class PreviewStudySessionViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val getFlashcards: GetFlashcardsUseCase,
+    private val selectSessionFlashcards: SelectSessionFlashcardsUseCase,
 ) : ViewModel() {
 
     private val route = savedStateHandle.decodeRoute<PreviewStudySessionRoute>()
@@ -36,7 +42,11 @@ class PreviewStudySessionViewModel @Inject constructor(
             categoryName = route.categoryName,
             subcategoryNames = route.subcategoryNames,
             isQuickSession = route.isQuickSession,
-            filterTags = route.filterTagIds,
+            config = StudySessionConfig(
+                subcategoryIds = route.subcategoryIds,
+                tagIds = route.filterTagIds.toSet(),
+                seed = Random.nextLong(),
+            ),
         )
     )
     val state: StateFlow<PreviewStudySessionScreenState> = _state.asStateFlow()
@@ -44,90 +54,77 @@ class PreviewStudySessionViewModel @Inject constructor(
     private val eventChannel = Channel<PreviewStudySessionDestination>(Channel.BUFFERED)
     val events = eventChannel.receiveAsFlow()
 
-    private var cardPool: List<Flashcard> = emptyList()
-    private var selectedCards: List<Flashcard> = emptyList()
     private var sessionStartInFlight = false
 
-    internal val selectedCardIds: List<String> get() = selectedCards.map { it.id }
+    internal var selectedCardIds: List<String> = emptyList()
+        private set
 
     init {
-        loadCardPool()
+        selectCards(showLoading = true)
     }
 
     fun onRetry() {
-        loadCardPool()
+        selectCards(showLoading = true)
     }
 
+    /** A different draw from the same pool — selection is a pure function of the config's seed. */
     fun onRerandomize() {
+        _state.update { it.copy(config = it.config.copy(seed = Random.nextLong())) }
         selectCards()
-    }
-
-    fun onStudyModeSelect(mode: StudyMode) {
-        _state.update { it.copy(selectedStudyMode = mode) }
-    }
-
-    fun onSessionCardCountChange(count: Int) {
-        _state.update { it.copy(sessionCardCount = count) }
-        selectCards()
-    }
-
-    fun onDifficultyRangeChange(range: IntRange) {
-        _state.update { it.copy(difficultyRange = range) }
-        selectCards()
-    }
-
-    /** Single entry point for every dialog on this screen. */
-    fun onDialogEvent(event: PreviewDialogEvent) {
-        when (event) {
-            PreviewDialogEvent.SortOpen -> onSortDialogShow()
-            PreviewDialogEvent.Confirm -> onSortDialogConfirm()
-            PreviewDialogEvent.Dismiss -> onSortDialogDismiss()
-            is PreviewDialogEvent.SortDraftChange -> onSortOrderDraftChange(event.sortOrder)
-            is PreviewDialogEvent.KeepAsDefaultChange -> onSortKeepAsDefaultChange(event.enabled)
-        }
-    }
-
-    private fun onSortDialogShow() {
-        _state.update {
-            it.copy(
-                isSortDialogVisible = true,
-                sortOrderDraft = it.sortOrder,
-                isSortKeepAsDefaultChecked = false,
-            )
-        }
-    }
-
-    /** Discards the draft — dismissing is the discard path, so nothing is applied. */
-    private fun onSortDialogDismiss() {
-        _state.update { it.copy(isSortDialogVisible = false) }
-    }
-
-    private fun onSortOrderDraftChange(sortOrder: FlashcardSortOrder) {
-        _state.update { it.copy(sortOrderDraft = sortOrder) }
-    }
-
-    private fun onSortKeepAsDefaultChange(keepAsDefault: Boolean) {
-        _state.update { it.copy(isSortKeepAsDefaultChecked = keepAsDefault) }
     }
 
     /**
-     * The only commit path for the sort dialog. Persisting the choice as a global default when
-     * [PreviewStudySessionScreenState.isSortKeepAsDefaultChecked] is set needs a preferences
-     * store that does not exist yet — see §10 of `docs/temp/dialog-system-plan.md`. Until then
-     * the checkbox affects nothing beyond this session.
+     * Single entry point for every dialog on this screen.
+     *
+     * Opening and editing land on the same assignment here because no dialog on this screen has a
+     * side effect on open; they stay separate cases in [DialogEvent] for the screens that do.
      */
-    private fun onSortDialogConfirm() {
-        _state.update {
-            it.copy(
-                sortOrder = it.sortOrderDraft,
-                isSortDialogVisible = false,
-            )
+    fun onDialogEvent(event: PreviewDialogEvent) {
+        when (event) {
+            is Open -> _state.update { it.copy(activeDialog = event.dialog) }
+            is DraftChange -> _state.update { it.copy(activeDialog = event.dialog) }
+            Confirm -> onDialogConfirm()
+            Dismiss -> onDialogDismiss()
         }
+    }
+
+    /** Dismissal is the discard path: the draft dies with the field, so nothing is applied. */
+    private fun onDialogDismiss() {
+        _state.update { it.copy(activeDialog = null) }
+    }
+
+    /**
+     * The only dialog state commit path. Every dialog does the same three things: fold the draft into the
+     * session config, persist it as a global default if the user asked, and close.
+     *
+     * Selection re-runs on every confirm regardless of "keep as my default" — the header reads
+     * "18 cards · ~12 min", and length, filters and sort all move it.
+     */
+    private fun onDialogConfirm() {
+        val dialog = _state.value.activeDialog ?: return
+        val updatedConfig = with(_state.value.config) {
+            when (dialog) {
+                is Mode -> copy(mode = dialog.draft)
+                is VoiceAnswering -> copy(voiceAnsweringEnabled = dialog.draft)
+                is Length -> copy(length = dialog.draft)
+                is Sort -> copy(sortOrder = dialog.draft)
+                is Filters -> copy(
+                    tagIds = dialog.draft.selectedTags,
+                    difficultyRange = dialog.draft.difficultyRange,
+                )
+            }
+        }
+        // TODO(dialog-system Gap 1): where the dialog carries keepAsDefault == true, persist the
+        //  value as a global default via SetDefaultStudyModeUseCase / SetDefaultSortOrderUseCase /
+        //  SetDefaultSessionLengthUseCase once StudyPreferencesRepository exists (§10 of
+        //  docs/temp/dialog-system-plan.md). Until then the opt-in is session-scoped like the value
+        //  it sits under: confirm still applies the draft, it just does not outlive the screen.
+        _state.update { it.copy(config = updatedConfig, activeDialog = null) }
         selectCards()
     }
 
     fun onStartSession() {
-        if (selectedCards.isEmpty() || sessionStartInFlight) return
+        if (selectedCardIds.isEmpty() || sessionStartInFlight) return
         sessionStartInFlight = true
         viewModelScope.launch {
             eventChannel.send(
@@ -136,62 +133,39 @@ class PreviewStudySessionViewModel @Inject constructor(
                         categoryId = route.categoryId,
                         sessionTitle = sessionTitle(),
                         subcategoryIds = route.subcategoryIds,
-                        cardIds = selectedCards.map { it.id },
-                        studyMode = _state.value.selectedStudyMode,
+                        cardIds = selectedCardIds,
+                        studyMode = _state.value.config.mode,
+                        voiceAnsweringEnabled = _state.value.config.voiceAnsweringEnabled,
                     )
                 )
             )
         }
     }
 
-    private fun loadCardPool() {
+    private fun selectCards(showLoading: Boolean = false) {
         viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, error = null) }
-            val results = coroutineScope {
-                route.subcategoryIds
-                    .map { subcategoryId -> async { getFlashcards(subcategoryId) } }
-                    .awaitAll()
-            }
-            if (results.any { it.isFailure }) {
-                _state.update { it.copy(isLoading = false, error = "Could not load flashcards") }
-                return@launch
-            }
-            val allCards = results.flatMap { it.getOrThrow() }
-            cardPool = if (route.filterTagIds.isEmpty()) {
-                allCards
-            } else {
-                allCards.filter { card -> card.tags.any(route.filterTagIds::contains) }
-            }
-            selectCards()
-            _state.update { it.copy(isLoading = false) }
-        }
-    }
-
-    private fun selectCards() {
-        val difficultyRange = _state.value.difficultyRange
-        val eligibleCards = cardPool.filter { it.difficulty in difficultyRange }
-        val drawnCards = eligibleCards.shuffled().take(_state.value.sessionCardCount)
-        selectedCards = when (_state.value.sortOrder) {
-            FlashcardSortOrder.Default -> drawnCards
-            FlashcardSortOrder.EasiestFirst -> drawnCards.sortedBy { it.difficulty }
-            FlashcardSortOrder.HardestFirst -> drawnCards.sortedByDescending { it.difficulty }
-        }
-        _state.update {
-            it.copy(
-                selectedCardCount = selectedCards.size,
-                estimatedMinutes = estimateMinutes(selectedCards.size),
-            )
+            if (showLoading) _state.update { it.copy(isLoading = true, error = null) }
+            selectSessionFlashcards(_state.value.config)
+                .onSuccess { plan ->
+                    selectedCardIds = plan.cards.map { it.id }
+                    _state.update { state ->
+                        state.copy(
+                            isLoading = false,
+                            error = null,
+                            selectedCardCount = plan.cards.size,
+                            estimatedMinutes = plan.estimatedMinutes,
+                            // Tags belong to one subcategory, so a multi-topic session has no
+                            // coherent tag vocabulary to offer (ADR-0030).
+                            availableTags = if (state.isSingleTopic) plan.poolTags else emptyList(),
+                        )
+                    }
+                }
+                .onFailure {
+                    _state.update { it.copy(isLoading = false, error = "Could not load flashcards") }
+                }
         }
     }
 
     private fun sessionTitle(): String =
         if (_state.value.isSingleTopic) route.subcategoryNames.first() else route.categoryName
-
-    private fun estimateMinutes(cardCount: Int): Int =
-        ((cardCount * SECONDS_PER_CARD) + SECONDS_PER_MINUTE - 1) / SECONDS_PER_MINUTE
-
-    private companion object {
-        const val SECONDS_PER_CARD = 40
-        const val SECONDS_PER_MINUTE = 60
-    }
 }
