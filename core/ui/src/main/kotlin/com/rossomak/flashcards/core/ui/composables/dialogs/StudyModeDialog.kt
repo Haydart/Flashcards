@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.feature.study.dialogs
+package com.rossomak.flashcards.core.ui.composables.dialogs
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
@@ -8,10 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.rossomak.flashcards.core.domain.model.StudyMode
-import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardsOptionCard
-import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardsSingleActionDialog
-import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardsSingleSelectGroup
-import com.rossomak.flashcards.feature.study.R
+import com.rossomak.flashcards.core.ui.R
 
 /**
  * Picks how cards are answered during the session. Uses option cards rather than plain radio rows
