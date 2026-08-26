@@ -1,4 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="settings_replay_onboarding_button">Replay onboarding</string>
+    <string name="settings_title">Settings</string>
+
+    <string name="settings_study_sessions_label">Study sessions</string>
+    <string name="settings_session_length_label">Study session length</string>
+    <string name="settings_rated_attempts_label">Rated session card attempts</string>
+    <string name="settings_study_mode_label">Default study mode</string>
+    <string name="settings_sort_order_label">Cards sorting order</string>
+
+    <string name="settings_voice_label">Voice</string>
+    <string name="settings_voice_answering_label">Speak your answer aloud</string>
+    <string name="settings_read_aloud_label">Read-aloud (Fast mode)</string>
+    <string name="settings_voice_playback_label">Voice settings</string>
+    <string name="settings_voice_playback_rate_label">%1$s×</string>
+    <string name="settings_voice_playback_summary_label">%1$s · %2$s</string>
+
+    <string name="settings_sign_out_button">Sign out</string>
+    <string name="settings_sign_out_dialog_title">Sign out?</string>
+    <string name="settings_sign_out_dialog_message">You\'ll need to sign in again to reach your cards on this device.</string>
+    <string name="settings_signing_out_cd">Signing out</string>
 </resources>
