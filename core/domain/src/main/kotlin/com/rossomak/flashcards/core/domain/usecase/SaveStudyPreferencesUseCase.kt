@@ -4,6 +4,7 @@ import com.rossomak.flashcards.core.domain.model.StudyPreferences
 import com.rossomak.flashcards.core.domain.repository.UserPreferencesRepository
 import com.rossomak.flashcards.core.domain.usecase.base.UseCase
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 
 /**
  * Returns a [Result] so callers can gate on the write succeeding. Local storage rarely fails
@@ -15,5 +16,11 @@ class SaveStudyPreferencesUseCase @Inject constructor(
 ) : UseCase<StudyPreferences, Result<Unit>> {
 
     override suspend operator fun invoke(params: StudyPreferences): Result<Unit> =
-        runCatching { repository.saveStudyPreferences(params) }
+        try {
+            Result.success(repository.saveStudyPreferences(params))
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: Exception) {
+            Result.failure(exception)
+        }
 }
