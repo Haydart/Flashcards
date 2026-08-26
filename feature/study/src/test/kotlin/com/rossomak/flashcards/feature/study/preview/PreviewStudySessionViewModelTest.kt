@@ -407,7 +407,7 @@ class PreviewStudySessionViewModelTest {
     }
 
     @Test
-    fun `onStartSession emits StudySession route with selected cards, mode and voice answering`() =
+    fun `onStartSession emits StudySession route with selected cards, mode, voice answering, attempts and read-aloud`() =
         runTest(mainDispatcherRule.testDispatcher) {
             stubRoute(singleTopicRoute)
             flashcardRepository.flashcardsToReturn = Result.success(
@@ -421,6 +421,12 @@ class PreviewStudySessionViewModelTest {
                 DraftChange(VoiceAnswering(draft = true))
             )
             viewModel.onDialogEvent(Confirm)
+            viewModel.onDialogEvent(Open(Attempts(draft = viewModel.state.value.config.ratedAttempts)))
+            viewModel.onDialogEvent(DraftChange(Attempts(draft = 5)))
+            viewModel.onDialogEvent(Confirm)
+            viewModel.onDialogEvent(Open(ReadAloud(draft = viewModel.state.value.config.readAloudEnabled)))
+            viewModel.onDialogEvent(DraftChange(ReadAloud(draft = true)))
+            viewModel.onDialogEvent(Confirm)
             advanceUntilIdle()
             viewModel.onStartSession()
 
@@ -432,6 +438,8 @@ class PreviewStudySessionViewModelTest {
                 destination.route.cardIds shouldContainAll listOf("card-1", "card-2")
                 destination.route.studyMode shouldBe StudyMode.Rated
                 destination.route.voiceAnsweringEnabled shouldBe true
+                destination.route.ratedAttempts shouldBe 5
+                destination.route.readAloudEnabled shouldBe true
             }
         }
 

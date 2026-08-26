@@ -140,6 +140,8 @@ class PreviewStudySessionViewModel @Inject constructor(
                         cardIds = selectedCardIds,
                         studyMode = _state.value.config.mode,
                         voiceAnsweringEnabled = _state.value.config.voiceAnsweringEnabled,
+                        ratedAttempts = _state.value.config.ratedAttempts,
+                        readAloudEnabled = _state.value.config.readAloudEnabled,
                     )
                 )
             )
