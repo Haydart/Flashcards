@@ -27,7 +27,7 @@ private val LogoHeight = LogoWidth * (1000f / 1800f)
 internal fun WelcomeStep(modifier: Modifier = Modifier) {
     OnboardingStepColumn(modifier = modifier, verticalArrangement = Arrangement.Center) {
         Image(
-            painter = painterResource(R.drawable.flashcards_white),
+            painter = painterResource(com.rossomak.flashcards.core.ui.R.drawable.flashcards_white),
             contentDescription = null,
             modifier = Modifier.size(width = LogoWidth, height = LogoHeight),
         )

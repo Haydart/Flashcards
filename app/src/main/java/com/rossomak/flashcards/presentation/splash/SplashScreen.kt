@@ -149,7 +149,7 @@ private fun SplashContentPreview() {
         contentAlignment = Alignment.Center
     ) {
         Image(
-            painter = painterResource(R.drawable.flashcards_white),
+            painter = painterResource(com.rossomak.flashcards.core.ui.R.drawable.flashcards_white),
             contentDescription = null,
             modifier = Modifier.size(width = LogoWidth, height = LogoHeight)
         )
