@@ -14,8 +14,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewLightDark
-import androidx.compose.ui.unit.dp
 import com.airbnb.android.showkase.annotation.ShowkaseComposable
 import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle
 import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle.OnGradient
@@ -81,6 +81,7 @@ fun FlashcardsIconCircleOnSurfaceShowcase() {
 }
 
 @ShowkaseComposable(name = "Icon circle — on gradient", group = "Icons")
+@Preview
 @Composable
 fun FlashcardsIconCircleOnGradientShowcase() {
     FlashcardsTheme {
