@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.feature.study.dialogs
+package com.rossomak.flashcards.core.ui.composables.dialogs
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
@@ -7,10 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
-import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardsOptionCard
-import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardsSingleActionDialog
-import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardsSingleSelectGroup
-import com.rossomak.flashcards.feature.study.R
+import com.rossomak.flashcards.core.ui.R
 
 /**
  * Turns hands-free voice answering on or off for Rated mode.

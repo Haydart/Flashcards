@@ -21,12 +21,6 @@
     <string name="study_session_no_cards_message">No cards available</string>
     <string name="study_session_curate_flashcard_cd">Curate flashcard</string>
 
-    <string name="voice_answering_dialog_title">Enable voice answering in Rated mode?</string>
-    <string name="voice_answering_on_label">On</string>
-    <string name="voice_answering_on_message">Speak your answer aloud; it\'s graded hands-free.</string>
-    <string name="voice_answering_off_label">Off</string>
-    <string name="voice_answering_off_message">Reveal and rate each card by tapping.</string>
-
     <string name="session_length_dialog_title">Session length</string>
     <string name="session_length_dialog_message">How many cards this session draws.</string>
     <string name="session_length_decrement_cd">Fewer cards</string>
