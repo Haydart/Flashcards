@@ -20,9 +20,16 @@ import com.rossomak.flashcards.core.ui.theme.sizes
 import com.rossomak.flashcards.core.ui.theme.spacing
 
 /**
- * Compact numeric stepper (−  value  +) used as the trailing control of a settings row. The
- * two buttons are independent tap targets, so each carries its own required content
- * description; the row hosting the stepper must not be clickable itself.
+ * Compact numeric stepper (−  value  +) used as the trailing control of a settings row, and as
+ * the whole body of a stepper dialog. The two buttons are independent tap targets, so each
+ * carries its own required content description; the row hosting the stepper must not be
+ * clickable itself.
+ *
+ * [valueLabel] replaces the bare number between the buttons where the unit matters and there is
+ * room for it — a dialog reads "20 cards", a settings row's trailing stepper reads "20" because
+ * the row's own title already names the unit. Passing it keeps the unit inside the stepper's
+ * merged semantics, so it is announced as one value rather than as a number stranded from its
+ * label.
  */
 @Composable
 fun FlashcardsStepper(
@@ -32,6 +39,7 @@ fun FlashcardsStepper(
     decrementContentDescription: String,
     incrementContentDescription: String,
     modifier: Modifier = Modifier,
+    valueLabel: String? = null,
     decrementEnabled: Boolean = true,
     incrementEnabled: Boolean = true,
 ) {
@@ -54,7 +62,7 @@ fun FlashcardsStepper(
             Text(text = "−", style = MaterialTheme.typography.titleMedium)
         }
         Text(
-            text = value.toString(),
+            text = valueLabel ?: value.toString(),
             style = MaterialTheme.typography.titleMedium,
         )
         FilledIconButton(
