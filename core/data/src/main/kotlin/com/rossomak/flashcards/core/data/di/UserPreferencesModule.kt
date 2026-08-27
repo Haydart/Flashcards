@@ -24,8 +24,8 @@ private val Context.userPreferencesDataStore: DataStore<Preferences> by preferen
 
 /**
  * One file, two data sources, two repositories, backed by the single [UserPreferencesDataStore]
- * below. Mirrors `VoiceDataModule`, which already backs two local data sources with one
- * `@VoiceDataStore` provider — one file also means one thing for debug to clear.
+ * below — the app's only `DataStore<Preferences>`, voice settings and mic consent included. One
+ * file also means one thing for debug to clear.
  */
 @Module
 @InstallIn(SingletonComponent::class)
