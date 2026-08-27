@@ -191,7 +191,7 @@ class SettingsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            when (dialog) {
+            val result = when (dialog) {
                 is Length -> saveStudySessionPreference(SessionLength(dialog.draft))
                 is Attempts -> saveStudySessionPreference(RatedAttempts(dialog.draft))
                 is Mode -> saveStudySessionPreference(DefaultStudyMode(dialog.draft))
@@ -200,10 +200,17 @@ class SettingsViewModel @Inject constructor(
                 is ReadAloud -> saveStudySessionPreference(ReadAloudEnabled(dialog.draft))
                 is Goal -> saveUserPreference(DailyGoalMinutes(dialog.draft))
                 // Both returned above; repeated only because the `when` is exhaustive.
-                is VoiceSettings, SignOut -> Unit
+                is VoiceSettings, SignOut -> Result.success(Unit)
             }
+            // The dialog closes either way — a dialog left open with a stale draft isn't a retry
+            // path, it's a second write on the next confirm. The snackbar is the recovery signal.
+            result.onFailure { _state.update { it.copy(saveError = "Failed to save setting") } }
         }
         _state.update { it.copy(activeDialog = null) }
+    }
+
+    fun onSaveErrorDismissed() {
+        _state.update { it.copy(saveError = null) }
     }
 
     private fun signOut() {

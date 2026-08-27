@@ -35,6 +35,7 @@ data class SettingsScreenState(
     val availableVoices: List<VoiceOption> = emptyList(),
     val isSigningOut: Boolean = false,
     val activeDialog: SettingsDialog? = null,
+    val saveError: String? = null,
 ) {
 
     /**

@@ -215,6 +215,64 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `a failed study-session preference save closes the dialog and surfaces an error`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            studySessionPreferencesRepository.saveError = IllegalStateException("disk full")
+            val viewModel = createViewModel()
+
+            viewModel.onDialogEvent(Open(Length(draft = DEFAULT_LENGTH)))
+            viewModel.onDialogEvent(DraftChange(Length(draft = LONGER_LENGTH)))
+            viewModel.onDialogEvent(Confirm)
+            advanceUntilIdle()
+
+            studySessionPreferencesRepository.preferences.value.sessionLength shouldBe DEFAULT_LENGTH
+            viewModel.state.value.activeDialog shouldBe null
+            viewModel.state.value.saveError shouldBe "Failed to save setting"
+        }
+
+    @Test
+    fun `a failed user preference save closes the dialog and surfaces an error`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            userPreferencesRepository.saveError = IllegalStateException("disk full")
+            val viewModel = createViewModel()
+
+            viewModel.onDialogEvent(Open(Goal(draft = DailyGoal.DEFAULT_MINUTES)))
+            viewModel.onDialogEvent(DraftChange(Goal(draft = LONGER_GOAL)))
+            viewModel.onDialogEvent(Confirm)
+            advanceUntilIdle()
+
+            userPreferencesRepository.preferences.value.dailyGoalMinutes shouldBe DailyGoal.DEFAULT_MINUTES
+            viewModel.state.value.activeDialog shouldBe null
+            viewModel.state.value.saveError shouldBe "Failed to save setting"
+        }
+
+    @Test
+    fun `a successful save leaves saveError untouched`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = createViewModel()
+
+        viewModel.onDialogEvent(Open(Goal(draft = DailyGoal.DEFAULT_MINUTES)))
+        viewModel.onDialogEvent(DraftChange(Goal(draft = LONGER_GOAL)))
+        viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
+
+        viewModel.state.value.saveError shouldBe null
+    }
+
+    @Test
+    fun `onSaveErrorDismissed clears the error`() = runTest(mainDispatcherRule.testDispatcher) {
+        userPreferencesRepository.saveError = IllegalStateException("disk full")
+        val viewModel = createViewModel()
+        viewModel.onDialogEvent(Open(Goal(draft = DailyGoal.DEFAULT_MINUTES)))
+        viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
+        viewModel.state.value.saveError shouldBe "Failed to save setting"
+
+        viewModel.onSaveErrorDismissed()
+
+        viewModel.state.value.saveError shouldBe null
+    }
+
+    @Test
     fun `editing the voice draft previews it`() = runTest(mainDispatcherRule.testDispatcher) {
         every { voiceSettingsController.seedDraft(any()) } returns VoiceSettingsDraftState()
         val viewModel = createViewModel()
