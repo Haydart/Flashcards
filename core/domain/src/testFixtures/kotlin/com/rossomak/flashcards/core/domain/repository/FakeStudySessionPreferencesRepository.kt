@@ -7,6 +7,7 @@ import com.rossomak.flashcards.core.domain.model.StudySessionPreference.ReadAlou
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SessionLength
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SortOrder
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.VoiceAnsweringEnabled
+import com.rossomak.flashcards.core.domain.model.StudySessionPreference.VoicePlayback
 import com.rossomak.flashcards.core.domain.model.StudySessionPreferences
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,6 +30,7 @@ class FakeStudySessionPreferencesRepository : StudySessionPreferencesRepository 
             is ReadAloudEnabled -> preferences.value.copy(readAloudEnabled = preference.value)
             is SessionLength -> preferences.value.copy(sessionLength = preference.value)
             is SortOrder -> preferences.value.copy(sortOrder = preference.value)
+            is VoicePlayback -> preferences.value.copy(voiceSettings = preference.value)
         }
     }
 }

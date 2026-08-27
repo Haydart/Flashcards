@@ -8,4 +8,6 @@ sealed interface UserPreference {
     data class DailyGoalMinutes(val value: Int) : UserPreference
 
     data class HasSeenOnboarding(val value: Boolean) : UserPreference
+
+    data class VoiceAnswerConsent(val value: Boolean) : UserPreference
 }

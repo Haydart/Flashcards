@@ -17,4 +17,5 @@ data class StudySessionPreferences(
     val readAloudEnabled: Boolean = false,
     val sessionLength: Int = StudySessionConfig.DEFAULT_LENGTH,
     val sortOrder: FlashcardSortOrder = FlashcardSortOrder.Default,
+    val voiceSettings: VoiceSettings = VoiceSettings(),
 )

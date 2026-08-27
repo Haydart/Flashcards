@@ -16,4 +16,10 @@ sealed interface StudySessionPreference {
     data class SessionLength(val value: Int) : StudySessionPreference
 
     data class SortOrder(val value: FlashcardSortOrder) : StudySessionPreference
+
+    /**
+     * The one case carrying two keys: the voice dialog confirms rate and voice together, so
+     * splitting it would let a failure persist a rate against the old voice.
+     */
+    data class VoicePlayback(val value: VoiceSettings) : StudySessionPreference
 }

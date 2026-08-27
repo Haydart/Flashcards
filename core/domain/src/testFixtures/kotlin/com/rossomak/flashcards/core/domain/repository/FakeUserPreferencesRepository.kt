@@ -3,6 +3,7 @@ package com.rossomak.flashcards.core.domain.repository
 import com.rossomak.flashcards.core.domain.model.UserPreference
 import com.rossomak.flashcards.core.domain.model.UserPreference.DailyGoalMinutes
 import com.rossomak.flashcards.core.domain.model.UserPreference.HasSeenOnboarding
+import com.rossomak.flashcards.core.domain.model.UserPreference.VoiceAnswerConsent
 import com.rossomak.flashcards.core.domain.model.UserPreferences
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +22,7 @@ class FakeUserPreferencesRepository : UserPreferencesRepository {
         preferences.value = when (preference) {
             is DailyGoalMinutes -> preferences.value.copy(dailyGoalMinutes = preference.value)
             is HasSeenOnboarding -> preferences.value.copy(hasSeenOnboarding = preference.value)
+            is VoiceAnswerConsent -> preferences.value.copy(voiceAnswerConsentGranted = preference.value)
         }
     }
 }
