@@ -267,7 +267,7 @@ class StudySessionViewModelTest {
     @Test
     fun `onVoiceAutoStart starts the gateway with loaded cards and applies saved settings`() = runTest(mainDispatcherRule.testDispatcher) {
         val savedSettings = VoiceSettings(speechRate = 1.5f, voiceId = "voice-1")
-        stubRoute(route.copy(voiceSettings = savedSettings))
+        stubRoute(route.copy(speechRate = savedSettings.speechRate, voiceId = savedSettings.voiceId))
         loadThreeCards()
 
         val viewModel = createViewModel()
@@ -490,7 +490,7 @@ class StudySessionViewModelTest {
     @Test
     fun `VoiceSettingsOpen seeds the draft from this session's current settings`() = runTest(mainDispatcherRule.testDispatcher) {
         val sessionSettings = VoiceSettings(speechRate = 1.5f, voiceId = "voice-1")
-        stubRoute(route.copy(voiceSettings = sessionSettings))
+        stubRoute(route.copy(speechRate = sessionSettings.speechRate, voiceId = sessionSettings.voiceId))
         val viewModel = createViewModel()
         advanceUntilIdle()
 

@@ -257,7 +257,8 @@ class PreviewStudySessionViewModel @Inject constructor(
                         voiceAnsweringEnabled = _state.value.config.voiceAnsweringEnabled,
                         ratedAttempts = _state.value.config.ratedAttempts,
                         readAloudEnabled = _state.value.config.readAloudEnabled,
-                        voiceSettings = _state.value.config.voiceSettings,
+                        speechRate = _state.value.config.voiceSettings.speechRate,
+                        voiceId = _state.value.config.voiceSettings.voiceId,
                     )
                 )
             )
