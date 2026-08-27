@@ -216,7 +216,7 @@ class SettingsViewModelTest {
 
     @Test
     fun `editing the voice draft previews it`() = runTest(mainDispatcherRule.testDispatcher) {
-        every { voiceSettingsController.seedDraft() } returns VoiceSettingsDraftState()
+        every { voiceSettingsController.seedDraft(any()) } returns VoiceSettingsDraftState()
         val viewModel = createViewModel()
         val editedDraft = VoiceSettingsDraftState(draftSpeed = FASTER_SPEECH_RATE)
 
@@ -228,7 +228,7 @@ class SettingsViewModelTest {
 
     @Test
     fun `dismissing the voice dialog stops the preview`() = runTest(mainDispatcherRule.testDispatcher) {
-        every { voiceSettingsController.seedDraft() } returns VoiceSettingsDraftState()
+        every { voiceSettingsController.seedDraft(any()) } returns VoiceSettingsDraftState()
         val viewModel = createViewModel()
 
         viewModel.onDialogEvent(Open(VoiceSettings()))
@@ -253,17 +253,12 @@ class SettingsViewModelTest {
         every { voiceSettingsController.loadVoices(any(), any()) } answers {
             secondArg<(List<VoiceOption>) -> Unit>().invoke(listOf(savedVoice))
         }
-        every { voiceSettingsController.bind(any(), any()) } answers {
-            secondArg<(SavedVoiceSettings) -> Unit>()
-                .invoke(
-                    SavedVoiceSettings(
-                        speechRate = FASTER_SPEECH_RATE,
-                        voiceId = VOICE_ID,
-                    ),
-                )
-        }
+        studySessionPreferencesRepository.preferences.value = studySessionPreferencesRepository.preferences.value.copy(
+            voiceSettings = SavedVoiceSettings(speechRate = FASTER_SPEECH_RATE, voiceId = VOICE_ID),
+        )
 
         val viewModel = createViewModel()
+        advanceUntilIdle()
 
         viewModel.state.value.voiceName shouldBe VOICE_DISPLAY_NAME
         viewModel.state.value.speechRate shouldBe FASTER_SPEECH_RATE
@@ -272,14 +267,12 @@ class SettingsViewModelTest {
     @Test
     fun `the voice row summary has no name until the voice list arrives`() =
         runTest(mainDispatcherRule.testDispatcher) {
-            every { voiceSettingsController.bind(any(), any()) } answers {
-                secondArg<(SavedVoiceSettings) -> Unit>()
-                    .invoke(
-                        SavedVoiceSettings(voiceId = VOICE_ID),
-                    )
-            }
+            studySessionPreferencesRepository.preferences.value = studySessionPreferencesRepository.preferences.value.copy(
+                voiceSettings = SavedVoiceSettings(voiceId = VOICE_ID),
+            )
 
             val viewModel = createViewModel()
+            advanceUntilIdle()
 
             viewModel.state.value.voiceId shouldBe VOICE_ID
             viewModel.state.value.voiceName shouldBe null

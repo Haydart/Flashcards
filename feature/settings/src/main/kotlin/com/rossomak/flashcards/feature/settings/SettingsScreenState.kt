@@ -16,10 +16,11 @@ import com.rossomak.flashcards.core.domain.model.VoiceOption
  * the real value in memory by the time this screen is reached (`SplashViewModel` reads the same
  * store on every cold start).
  *
- * Voice playback is the one row still on its own store, through
- * [VoiceSettingsController][com.rossomak.flashcards.core.ui.voice.VoiceSettingsController]:
- * [speechRate] and [voiceId] mirror what it has saved, and [availableVoices] resolves [voiceId] to
- * the name the row shows.
+ * [speechRate] and [voiceId] mirror `StudySessionPreferences.voiceSettings`, folded in the same
+ * way as every other study-session row; [availableVoices] resolves [voiceId] to the name the row
+ * shows and comes from
+ * [VoiceSettingsController][com.rossomak.flashcards.core.ui.voice.VoiceSettingsController]'s voice
+ * cache, which lives outside `Preferences` entirely (it is not a user choice to persist).
  */
 data class SettingsScreenState(
     val dailyGoalMinutes: Int = DailyGoal.DEFAULT_MINUTES,

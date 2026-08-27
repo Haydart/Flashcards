@@ -73,30 +73,15 @@ class SettingsViewModel @Inject constructor(
                         sortOrder = preferences.sortOrder,
                         voiceAnsweringEnabled = preferences.voiceAnsweringEnabled,
                         readAloudEnabled = preferences.readAloudEnabled,
+                        speechRate = preferences.voiceSettings.speechRate,
+                        voiceId = preferences.voiceSettings.voiceId,
                     )
                 }
             }
             .launchIn(viewModelScope)
-        // The controller owns the only subscription to the saved settings; this screen reads them
-        // through it rather than collecting the same use case again, so there is one copy of the
-        // value the voice row renders.
-        voiceSettingsController.bind(viewModelScope, ::onVoiceSettingsChange)
         // The row shows the voice's name, not its id, so the list is needed before the dialog is
         // ever opened. Cached afterwards, so opening the dialog costs no second platform query.
         voiceSettingsController.loadVoices(viewModelScope, ::onVoicesLoaded)
-    }
-
-    /**
-     * Updates the row, and — since the dialog can open via [onVoiceSettingsOpen]'s
-     * [VoiceSettingsController.seedDraft] before this settings snapshot ever arrives — fills an
-     * already-open dialog's placeholder draft in with the real values too.
-     */
-    private fun onVoiceSettingsChange(settings: SavedVoiceSettings) {
-        _state.update { state ->
-            val withRow = state.copy(speechRate = settings.speechRate, voiceId = settings.voiceId)
-            val dialog = withRow.activeDialog as? VoiceSettings ?: return@update withRow
-            withRow.copy(activeDialog = dialog.copy(draft = voiceSettingsController.applySavedSettings(dialog.draft, settings)))
-        }
     }
 
     /** Single entry point for every dialog on this screen. */
@@ -122,7 +107,11 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun onVoiceSettingsOpen() {
-        _state.update { it.copy(activeDialog = VoiceSettings(voiceSettingsController.seedDraft())) }
+        val current = _state.value
+        val draft = voiceSettingsController.seedDraft(
+            SavedVoiceSettings(speechRate = current.speechRate, voiceId = current.voiceId),
+        )
+        _state.update { it.copy(activeDialog = VoiceSettings(draft)) }
         voiceSettingsController.loadVoices(viewModelScope, ::onVoicesLoaded)
     }
 
