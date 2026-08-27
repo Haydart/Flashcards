@@ -39,6 +39,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
+import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -618,6 +619,33 @@ class PreviewStudySessionViewModelTest {
             val destination = awaitItem() as PreviewStudySessionDestination.StudySession
             destination.route.voiceSettings shouldBe voiceSettings
         }
+    }
+
+    @Test
+    fun `confirming the voice settings dialog stops preview playback`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleTopicRoute)
+        every { voiceSettingsController.seedDraft(any()) } returns VoiceSettingsDraftState()
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDialogEvent(Open(VoiceSettings()))
+        viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
+
+        verify { voiceSettingsController.stopPreview() }
+    }
+
+    @Test
+    fun `confirming a non-voice dialog never touches preview playback`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleTopicRoute)
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDialogEvent(Open(Mode(draft = StudyMode.Fast)))
+        viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
+
+        verify(exactly = 0) { voiceSettingsController.stopPreview() }
     }
 
     @Test

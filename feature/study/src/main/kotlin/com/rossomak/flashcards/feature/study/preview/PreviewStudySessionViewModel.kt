@@ -223,6 +223,9 @@ class PreviewStudySessionViewModel @Inject constructor(
         dialog.toStudySessionPreferenceIfKept()?.let { preference ->
             viewModelScope.launch { saveStudySessionPreference(preference) }
         }
+        if (dialog is VoiceSettings) {
+            voiceSettingsController.stopPreview()
+        }
         _state.update { it.copy(config = updatedConfig, activeDialog = null) }
         selectCards()
     }
