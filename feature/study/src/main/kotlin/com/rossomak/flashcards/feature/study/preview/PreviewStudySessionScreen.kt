@@ -53,6 +53,7 @@ import com.rossomak.flashcards.core.ui.R as CoreUiR
 import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardFilters
 import com.rossomak.flashcards.core.ui.composables.dialogs.label
 import com.rossomak.flashcards.core.ui.composables.dialogs.readAloudLabel
+import com.rossomak.flashcards.core.ui.composables.dialogs.speechRateLabel
 import com.rossomak.flashcards.core.ui.composables.dialogs.voiceAnsweringLabel
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
@@ -65,6 +66,7 @@ import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Mode
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.ReadAloud
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Sort
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceAnswering
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceSettings
 
 @Composable
 fun PreviewStudySessionScreen(
@@ -289,6 +291,15 @@ private fun SessionSettingRows(
                 onClick = { onDialogEvent(Open(ReadAloud(draft = state.config.readAloudEnabled))) },
             )
         }
+        // Fast mode always plays cards aloud; Rated only when voice answering is on — the same
+        // gate the row itself opens into (ADR-0030).
+        if (state.config.mode == StudyMode.Fast || state.config.voiceAnsweringEnabled) {
+            SessionSettingRow(
+                label = stringResource(R.string.preview_session_voice_settings_label),
+                value = voicePlaybackSummary(state),
+                onClick = { onDialogEvent(Open(VoiceSettings())) },
+            )
+        }
         SessionSettingRow(
             label = stringResource(R.string.preview_session_length_label),
             value = pluralStringResource(
@@ -360,6 +371,20 @@ private fun SessionSettingRow(
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
+}
+
+/**
+ * Name and rate, or the rate alone while the platform voice list has not arrived yet or no longer
+ * contains the saved id (an engine can be uninstalled between runs).
+ */
+@Composable
+private fun voicePlaybackSummary(state: PreviewStudySessionScreenState): String {
+    val rateLabel = speechRateLabel(state.config.voiceSettings.speechRate)
+    val voiceName = state.availableVoices
+        .firstOrNull { it.id == state.config.voiceSettings.voiceId }
+        ?.displayName
+        ?: return rateLabel
+    return stringResource(R.string.preview_session_setting_value_separator_label, voiceName, rateLabel)
 }
 
 /** Difficulty always reads; the tag count only joins it when tags are actually narrowing the pool. */

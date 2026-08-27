@@ -1,6 +1,7 @@
 package com.rossomak.flashcards.feature.study.preview
 
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
+import com.rossomak.flashcards.core.domain.model.VoiceOption
 
 data class PreviewStudySessionScreenState(
     val categoryName: String = "",
@@ -16,6 +17,8 @@ data class PreviewStudySessionScreenState(
      * sessions, which filter by difficulty only (ADR-0030).
      */
     val availableTags: List<String> = emptyList(),
+    /** Resolves `config.voiceSettings.voiceId` to a display name for the voice row's summary. */
+    val availableVoices: List<VoiceOption> = emptyList(),
     val activeDialog: PreviewDialog? = null,
 ) {
     val isSingleTopic: Boolean get() = subcategoryNames.size == 1

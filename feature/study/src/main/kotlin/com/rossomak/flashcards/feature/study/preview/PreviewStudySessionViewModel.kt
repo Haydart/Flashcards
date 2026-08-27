@@ -11,15 +11,18 @@ import com.rossomak.flashcards.core.domain.model.StudySessionPreference.ReadAlou
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SessionLength
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SortOrder
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.VoiceAnsweringEnabled
+import com.rossomak.flashcards.core.domain.model.StudySessionPreference.VoicePlayback
+import com.rossomak.flashcards.core.domain.model.VoiceOption
 import com.rossomak.flashcards.core.domain.usecase.ObserveStudySessionPreferencesUseCase
 import com.rossomak.flashcards.core.domain.usecase.SaveStudySessionPreferenceUseCase
 import com.rossomak.flashcards.core.domain.usecase.SelectSessionFlashcardsUseCase
-import com.rossomak.flashcards.core.ui.dialog.DialogEvent
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Dismiss
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.DraftChange
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.decodeRoute
+import com.rossomak.flashcards.core.ui.voice.VoiceSettingsController
+import com.rossomak.flashcards.core.ui.voice.toVoiceSettings
 import com.rossomak.flashcards.feature.study.PreviewStudySessionRoute
 import com.rossomak.flashcards.feature.study.StudySessionRoute
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Attempts
@@ -29,6 +32,7 @@ import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Mode
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.ReadAloud
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Sort
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceAnswering
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceSettings
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlin.random.Random
@@ -47,6 +51,7 @@ class PreviewStudySessionViewModel @Inject constructor(
     private val selectSessionFlashcards: SelectSessionFlashcardsUseCase,
     private val observeStudySessionPreferences: ObserveStudySessionPreferencesUseCase,
     private val saveStudySessionPreference: SaveStudySessionPreferenceUseCase,
+    private val voiceSettingsController: VoiceSettingsController,
 ) : ViewModel() {
 
     private val route = savedStateHandle.decodeRoute<PreviewStudySessionRoute>()
@@ -94,11 +99,15 @@ class PreviewStudySessionViewModel @Inject constructor(
                         readAloudEnabled = defaults.readAloudEnabled,
                         length = defaults.sessionLength,
                         sortOrder = defaults.sortOrder,
+                        voiceSettings = defaults.voiceSettings,
                     ),
                 )
             }
             selectCards(showLoading = true)
         }
+        // The voice row shows the voice's name, not its id, so the list is needed before the
+        // dialog is ever opened — same reason Settings loads it eagerly.
+        voiceSettingsController.loadVoices(viewModelScope, ::onVoicesLoaded)
     }
 
     fun onRetry() {
@@ -114,20 +123,75 @@ class PreviewStudySessionViewModel @Inject constructor(
     /**
      * Single entry point for every dialog on this screen.
      *
-     * Opening and editing land on the same assignment here because no dialog on this screen has a
-     * side effect on open; they stay separate cases in [DialogEvent] for the screens that do.
+     * Voice settings is the one dialog with a side effect on open and on every edit — its draft
+     * comes from [VoiceSettingsController], not from screen state, and each edit previews — so it
+     * gets its own [onDialogOpen]/[onDraftChange] rather than the flat assignment every other
+     * dialog on this screen uses.
      */
     fun onDialogEvent(event: PreviewDialogEvent) {
         when (event) {
-            is Open -> _state.update { it.copy(activeDialog = event.dialog) }
-            is DraftChange -> _state.update { it.copy(activeDialog = event.dialog) }
+            is Open -> onDialogOpen(event.dialog)
+            is DraftChange -> onDraftChange(event.dialog)
             Confirm -> onDialogConfirm()
             Dismiss -> onDialogDismiss()
         }
     }
 
-    /** Dismissal is the discard path: the draft dies with the field, so nothing is applied. */
+    private fun onDialogOpen(dialog: PreviewDialog) {
+        when (dialog) {
+            is VoiceSettings -> onVoiceSettingsOpen()
+            else -> _state.update { it.copy(activeDialog = dialog) }
+        }
+    }
+
+    private fun onVoiceSettingsOpen() {
+        val draft = voiceSettingsController.seedDraft(_state.value.config.voiceSettings)
+        _state.update { it.copy(activeDialog = VoiceSettings(draft)) }
+        voiceSettingsController.loadVoices(viewModelScope, ::onVoicesLoaded)
+    }
+
+    /**
+     * The voice list feeds two things: the row's summary, which needs it to turn the saved id into
+     * a name, and an open voice dialog, which has to be found to be filled in — the one narrowing
+     * cast left in the dialog path, once per load rather than once per edit. A dismissal in the
+     * meantime correctly drops the dialog half.
+     */
+    private fun onVoicesLoaded(voices: List<VoiceOption>) {
+        _state.update { state ->
+            val withVoices = state.copy(availableVoices = voices)
+            val dialog = withVoices.activeDialog as? VoiceSettings ?: return@update withVoices
+            withVoices.copy(
+                activeDialog = dialog.copy(
+                    draft = dialog.draft.copy(
+                        availableVoices = voices,
+                        draftVoiceId = dialog.draft.draftVoiceId ?: voices.firstOrNull()?.id,
+                    ),
+                ),
+            )
+        }
+    }
+
+    /**
+     * Stores the draft the host built, then previews the edit when it is the voice dialog — every
+     * other dialog on this screen is silent.
+     */
+    private fun onDraftChange(dialog: PreviewDialog) {
+        val previous = _state.value.activeDialog
+        _state.update { it.copy(activeDialog = dialog) }
+        if (previous is VoiceSettings && dialog is VoiceSettings && dialog.draft != previous.draft) {
+            voiceSettingsController.preview(dialog.draft)
+        }
+    }
+
+    /**
+     * Dismissal is the discard path: the draft dies with the field, so nothing is applied. Preview
+     * playback is stopped only when it could have been started — every other dialog is silent, and
+     * stopping the shared player from one of those could cut off audio this screen never began.
+     */
     private fun onDialogDismiss() {
+        if (_state.value.activeDialog is VoiceSettings) {
+            voiceSettingsController.stopPreview()
+        }
         _state.update { it.copy(activeDialog = null) }
     }
 
@@ -149,6 +213,7 @@ class PreviewStudySessionViewModel @Inject constructor(
                 is ReadAloud -> copy(readAloudEnabled = dialog.draft)
                 is Length -> copy(length = dialog.draft)
                 is Sort -> copy(sortOrder = dialog.draft)
+                is VoiceSettings -> copy(voiceSettings = dialog.draft.toVoiceSettings())
                 is Filters -> copy(
                     tagIds = dialog.draft.selectedTags,
                     difficultyRange = dialog.draft.difficultyRange,
@@ -173,6 +238,7 @@ class PreviewStudySessionViewModel @Inject constructor(
         is ReadAloud -> ReadAloudEnabled(draft).takeIf { keepAsDefault }
         is Length -> SessionLength(draft).takeIf { keepAsDefault }
         is Sort -> SortOrder(draft).takeIf { keepAsDefault }
+        is VoiceSettings -> VoicePlayback(draft.toVoiceSettings()).takeIf { keepAsDefault }
         is Filters -> null
     }
 
@@ -191,6 +257,7 @@ class PreviewStudySessionViewModel @Inject constructor(
                         voiceAnsweringEnabled = _state.value.config.voiceAnsweringEnabled,
                         ratedAttempts = _state.value.config.ratedAttempts,
                         readAloudEnabled = _state.value.config.readAloudEnabled,
+                        voiceSettings = _state.value.config.voiceSettings,
                     )
                 )
             )
