@@ -8,6 +8,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Numbers
 import androidx.compose.material.icons.filled.RecordVoiceOver
@@ -50,6 +51,7 @@ import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.sizes
 import com.rossomak.flashcards.core.ui.theme.spacing
 import com.rossomak.flashcards.feature.settings.SettingsDialog.Attempts
+import com.rossomak.flashcards.feature.settings.SettingsDialog.Goal
 import com.rossomak.flashcards.feature.settings.SettingsDialog.Length
 import com.rossomak.flashcards.feature.settings.SettingsDialog.Mode
 import com.rossomak.flashcards.feature.settings.SettingsDialog.ReadAloud
@@ -165,6 +167,13 @@ private fun studySessionRows(
     state: SettingsScreenState,
     onDialogEvent: (SettingsDialogEvent) -> Unit,
 ): List<FlashcardsListGroupItem> = listOf(
+    FlashcardsListGroupItem.Row(
+        title = stringResource(R.string.settings_daily_goal_label),
+        onClick = { onDialogEvent(Open(Goal(draft = state.dailyGoalMinutes))) },
+        secondaryText = stringResource(R.string.settings_daily_goal_summary_label, state.dailyGoalMinutes),
+        leading = { FlashcardsIconTile(icon = Icons.Default.EmojiEvents, contentDescription = null) },
+        trailing = { FlashcardsChevron() },
+    ),
     FlashcardsListGroupItem.Row(
         title = stringResource(R.string.settings_session_length_label),
         onClick = { onDialogEvent(Open(Length(draft = state.sessionLength))) },
