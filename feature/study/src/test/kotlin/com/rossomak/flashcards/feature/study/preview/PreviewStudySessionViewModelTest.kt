@@ -6,7 +6,11 @@ import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
+import com.rossomak.flashcards.core.domain.model.StudySessionPreferences
 import com.rossomak.flashcards.core.domain.repository.FakeFlashcardRepository
+import com.rossomak.flashcards.core.domain.repository.FakeStudySessionPreferencesRepository
+import com.rossomak.flashcards.core.domain.usecase.ObserveStudySessionPreferencesUseCase
+import com.rossomak.flashcards.core.domain.usecase.SaveStudySessionPreferenceUseCase
 import com.rossomak.flashcards.core.domain.usecase.SelectSessionFlashcardsUseCase
 import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardFilters
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
@@ -47,9 +51,13 @@ class PreviewStudySessionViewModelTest {
 
     private val savedStateHandle: SavedStateHandle = mockk()
     private val flashcardRepository = FakeFlashcardRepository()
+    private val studySessionPreferencesRepository = FakeStudySessionPreferencesRepository()
 
     /** Anything but [StudySessionConfig.DEFAULT_RATED_ATTEMPTS], so a commit is visible. */
     private val strictAttempts = StudySessionConfig.MIN_RATED_ATTEMPTS
+
+    /** Anything but [StudySessionConfig.DEFAULT_LENGTH], so a seeded value is visible. */
+    private val seededLength = StudySessionConfig.MIN_LENGTH
 
     private val categoryId = "android"
     private val categoryName = "Android"
@@ -82,8 +90,12 @@ class PreviewStudySessionViewModelTest {
         every { RouteDecoder.decode(any<() -> PreviewStudySessionRoute>()) } returns route
     }
 
-    private fun createViewModel(): PreviewStudySessionViewModel =
-        PreviewStudySessionViewModel(savedStateHandle, SelectSessionFlashcardsUseCase(flashcardRepository))
+    private fun createViewModel(): PreviewStudySessionViewModel = PreviewStudySessionViewModel(
+        savedStateHandle,
+        SelectSessionFlashcardsUseCase(flashcardRepository),
+        ObserveStudySessionPreferencesUseCase(studySessionPreferencesRepository),
+        SaveStudySessionPreferenceUseCase(studySessionPreferencesRepository),
+    )
 
     private fun flashcard(
         id: String,
@@ -404,6 +416,99 @@ class PreviewStudySessionViewModelTest {
             val destination = awaitItem() as PreviewStudySessionDestination.StudySession
             destination.route.cardIds shouldBe listOf("card-1", "card-3", "card-2")
         }
+    }
+
+    @Test
+    fun `seeded study session preferences reach the config before the first card selection`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(singleTopicRoute)
+            studySessionPreferencesRepository.preferences.value = StudySessionPreferences(
+                defaultStudyMode = StudyMode.Fast,
+                sessionLength = seededLength,
+                sortOrder = FlashcardSortOrder.HardestFirst,
+            )
+            flashcardRepository.flashcardsToReturn =
+                Result.success((1..30).map { index -> flashcard(id = "card-$index") })
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.state.value.config.mode shouldBe StudyMode.Fast
+            viewModel.state.value.config.length shouldBe seededLength
+            viewModel.state.value.config.sortOrder shouldBe FlashcardSortOrder.HardestFirst
+            viewModel.state.value.selectedCardCount shouldBe seededLength
+        }
+
+    @Test
+    fun `confirming with keepAsDefault true writes the preference`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleTopicRoute)
+        flashcardRepository.flashcardsToReturn = Result.success(listOf(flashcard(id = "card-1")))
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDialogEvent(Open(Length(draft = viewModel.state.value.config.length)))
+        viewModel.onDialogEvent(DraftChange(Length(draft = 10, keepAsDefault = true)))
+        viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
+
+        studySessionPreferencesRepository.preferences.value.sessionLength shouldBe 10
+        viewModel.state.value.config.length shouldBe 10
+    }
+
+    @Test
+    fun `confirming with keepAsDefault false applies the draft but writes nothing`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(singleTopicRoute)
+            flashcardRepository.flashcardsToReturn = Result.success(listOf(flashcard(id = "card-1")))
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            val committedLength = studySessionPreferencesRepository.preferences.value.sessionLength
+            viewModel.onDialogEvent(Open(Length(draft = viewModel.state.value.config.length)))
+            viewModel.onDialogEvent(DraftChange(Length(draft = 10, keepAsDefault = false)))
+            viewModel.onDialogEvent(Confirm)
+            advanceUntilIdle()
+
+            studySessionPreferencesRepository.preferences.value.sessionLength shouldBe committedLength
+            viewModel.state.value.config.length shouldBe 10
+        }
+
+    @Test
+    fun `confirming filters never writes a default`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleTopicRoute)
+        flashcardRepository.flashcardsToReturn = Result.success(
+            listOf(flashcard(id = "card-1", tags = listOf("State"))),
+        )
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        val defaultsBeforeConfirm = studySessionPreferencesRepository.preferences.value
+        viewModel.onDialogEvent(
+            Open(
+                Filters(
+                    draft = FlashcardFilters(
+                        selectedTags = viewModel.state.value.config.tagIds,
+                        difficultyRange = viewModel.state.value.config.difficultyRange,
+                    ),
+                    availableTags = viewModel.state.value.availableTags,
+                ),
+            ),
+        )
+        val filtersDialog = viewModel.state.value.activeDialog as Filters
+        viewModel.onDialogEvent(
+            DraftChange(
+                filtersDialog.copy(
+                    draft = FlashcardFilters(
+                        selectedTags = setOf("State"),
+                        difficultyRange = viewModel.state.value.config.difficultyRange,
+                    ),
+                ),
+            ),
+        )
+        viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
+
+        studySessionPreferencesRepository.preferences.value shouldBe defaultsBeforeConfirm
     }
 
     @Test

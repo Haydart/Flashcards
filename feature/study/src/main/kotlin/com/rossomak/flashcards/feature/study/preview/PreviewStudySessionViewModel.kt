@@ -4,6 +4,15 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
+import com.rossomak.flashcards.core.domain.model.StudySessionPreference
+import com.rossomak.flashcards.core.domain.model.StudySessionPreference.DefaultStudyMode
+import com.rossomak.flashcards.core.domain.model.StudySessionPreference.RatedAttempts
+import com.rossomak.flashcards.core.domain.model.StudySessionPreference.ReadAloudEnabled
+import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SessionLength
+import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SortOrder
+import com.rossomak.flashcards.core.domain.model.StudySessionPreference.VoiceAnsweringEnabled
+import com.rossomak.flashcards.core.domain.usecase.ObserveStudySessionPreferencesUseCase
+import com.rossomak.flashcards.core.domain.usecase.SaveStudySessionPreferenceUseCase
 import com.rossomak.flashcards.core.domain.usecase.SelectSessionFlashcardsUseCase
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
@@ -27,6 +36,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -35,6 +45,8 @@ import kotlinx.coroutines.launch
 class PreviewStudySessionViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val selectSessionFlashcards: SelectSessionFlashcardsUseCase,
+    private val observeStudySessionPreferences: ObserveStudySessionPreferencesUseCase,
+    private val saveStudySessionPreference: SaveStudySessionPreferenceUseCase,
 ) : ViewModel() {
 
     private val route = savedStateHandle.decodeRoute<PreviewStudySessionRoute>()
@@ -61,8 +73,32 @@ class PreviewStudySessionViewModel @Inject constructor(
     internal var selectedCardIds: List<String> = emptyList()
         private set
 
+    /**
+     * Seeds the config from the user's saved defaults **before** the first [selectCards] — a
+     * snapshot via [first], not a live collect: [sessionLength][StudySessionConfig.length] and
+     * [sortOrder][StudySessionConfig.sortOrder] change the selection, so seeding after would
+     * select twice and flash the card count, and a live collect would let a "keep as my default"
+     * write from this same screen clobber the session edits the user just made. Route- and
+     * session-scoped fields (subcategoryIds, tagIds, difficultyRange, seed) are left untouched —
+     * filters are exempt from defaults entirely (ADR-0030).
+     */
     init {
-        selectCards(showLoading = true)
+        viewModelScope.launch {
+            val defaults = observeStudySessionPreferences().first()
+            _state.update { state ->
+                state.copy(
+                    config = state.config.copy(
+                        mode = defaults.defaultStudyMode,
+                        voiceAnsweringEnabled = defaults.voiceAnsweringEnabled,
+                        ratedAttempts = defaults.ratedAttempts,
+                        readAloudEnabled = defaults.readAloudEnabled,
+                        length = defaults.sessionLength,
+                        sortOrder = defaults.sortOrder,
+                    ),
+                )
+            }
+            selectCards(showLoading = true)
+        }
     }
 
     fun onRetry() {
@@ -96,10 +132,11 @@ class PreviewStudySessionViewModel @Inject constructor(
     }
 
     /**
-     * The only dialog state commit path. Every dialog does the same three things: fold the draft into the
-     * session config, persist it as a global default if the user asked, and close.
+     * The only dialog state commit path. Every dialog does the same three things: fold the draft
+     * into the session config, persist it as a global default when the user checked "keep as my
+     * default", and close.
      *
-     * Selection re-runs on every confirm regardless of "keep as my default" — the header reads
+     * Selection re-runs on every confirm regardless of the checkbox — the header reads
      * "18 cards · ~12 min", and length, filters and sort all move it.
      */
     private fun onDialogConfirm() {
@@ -118,13 +155,25 @@ class PreviewStudySessionViewModel @Inject constructor(
                 )
             }
         }
-        // TODO(dialog-system Gap 1): where the dialog carries keepAsDefault == true, persist the
-        //  value as a global default via SetDefaultStudyModeUseCase / SetDefaultSortOrderUseCase /
-        //  SetDefaultSessionLengthUseCase once StudyPreferencesRepository exists (§10 of
-        //  docs/temp/dialog-system-plan.md). Until then the opt-in is session-scoped like the value
-        //  it sits under: confirm still applies the draft, it just does not outlive the screen.
+        dialog.toStudySessionPreferenceIfKept()?.let { preference ->
+            viewModelScope.launch { saveStudySessionPreference(preference) }
+        }
         _state.update { it.copy(config = updatedConfig, activeDialog = null) }
         selectCards()
+    }
+
+    /**
+     * `null` when the dialog didn't check "keep as my default" — or, for [Filters], can never
+     * check it at all: tags belong to one subcategory and cannot carry to another (ADR-0030).
+     */
+    private fun PreviewDialog.toStudySessionPreferenceIfKept(): StudySessionPreference? = when (this) {
+        is Mode -> DefaultStudyMode(draft).takeIf { keepAsDefault }
+        is VoiceAnswering -> VoiceAnsweringEnabled(draft).takeIf { keepAsDefault }
+        is Attempts -> RatedAttempts(draft).takeIf { keepAsDefault }
+        is ReadAloud -> ReadAloudEnabled(draft).takeIf { keepAsDefault }
+        is Length -> SessionLength(draft).takeIf { keepAsDefault }
+        is Sort -> SortOrder(draft).takeIf { keepAsDefault }
+        is Filters -> null
     }
 
     fun onStartSession() {
