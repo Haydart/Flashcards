@@ -18,6 +18,7 @@ import com.rossomak.flashcards.core.ui.dialog.DialogEvent.DraftChange
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.decodeRoute
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsController
+import com.rossomak.flashcards.core.ui.voice.toVoiceSettings
 import com.rossomak.flashcards.feature.study.StudySessionRoute
 import com.rossomak.flashcards.feature.study.session.StudySessionDialog.ExitSession
 import com.rossomak.flashcards.feature.study.session.StudySessionDialog.ExtendedContext
@@ -89,24 +90,16 @@ class StudySessionViewModel @Inject constructor(
 
     private var hasVoiceAnswerConsent = false
 
+    // Session-scoped like the rest of the routed config: a mid-session change updates only this
+    // running session unless the user checks "keep as my default" (ADR-0030), so it lives in a
+    // plain var rather than being re-read from the controller on every playback start.
+    private var sessionVoiceSettings: SavedVoiceSettings = route.voiceSettings
+
     init {
         loadFlashcards()
         observeVoiceState()
         observeVoiceAnswerState()
         observeVoiceAnswerConsentState()
-        voiceSettingsController.bind(viewModelScope, ::onVoiceSettingsChange)
-    }
-
-    /**
-     * Fills an open voice-settings dialog in with the real saved values once they arrive — this
-     * dialog can open via [onVoiceSettingsOpen]'s [VoiceSettingsController.seedDraft] before the
-     * first saved-settings emission lands, seeding a placeholder in the meantime.
-     */
-    private fun onVoiceSettingsChange(settings: SavedVoiceSettings) {
-        _state.update { state ->
-            val dialog = state.activeDialog as? VoiceSettings ?: return@update state
-            state.copy(activeDialog = dialog.copy(draft = voiceSettingsController.applySavedSettings(dialog.draft, settings)))
-        }
     }
 
     // Card selection happens on the Preview Study Session screen (ADR-0004); the session only
@@ -318,8 +311,8 @@ class StudySessionViewModel @Inject constructor(
                 subcategoryName = sessionTitle,
             )
         }
-        voiceGateway.setSpeechRate(voiceSettingsController.currentSettings.speechRate)
-        voiceGateway.setVoice(voiceSettingsController.currentSettings.voiceId)
+        voiceGateway.setSpeechRate(sessionVoiceSettings.speechRate)
+        voiceGateway.setVoice(sessionVoiceSettings.voiceId)
     }
 
     fun onVoicePlayPause() {
@@ -395,7 +388,7 @@ class StudySessionViewModel @Inject constructor(
             voiceGateway.togglePlayPause()
         }
         _state.update {
-            it.copy(activeDialog = VoiceSettings(voiceSettingsController.seedDraft()))
+            it.copy(activeDialog = VoiceSettings(voiceSettingsController.seedDraft(sessionVoiceSettings)))
         }
         voiceSettingsController.loadVoices(viewModelScope, ::onVoicesLoaded)
     }
@@ -419,9 +412,21 @@ class StudySessionViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Always applies to the rest of this session; only persists as the new default when the
+     * dialog's checkbox is checked (ADR-0030). Either way the preview player is done with — a save
+     * stops it same as [voiceSettingsController]'s own `save` would, and an unchecked confirm has
+     * no other call into the controller left to do that.
+     */
     private fun onVoiceSettingsSave() {
         val dialog = _state.value.activeDialog as? VoiceSettings ?: return
-        val settings = voiceSettingsController.save(viewModelScope, dialog.draft)
+        val settings = dialog.draft.toVoiceSettings()
+        sessionVoiceSettings = settings
+        if (dialog.keepAsDefault) {
+            voiceSettingsController.save(viewModelScope, dialog.draft)
+        } else {
+            voiceSettingsController.stopPreview()
+        }
         if (_state.value.isVoiceActive) {
             voiceGateway.setSpeechRate(settings.speechRate)
             voiceGateway.setVoice(settings.voiceId)

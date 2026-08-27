@@ -65,10 +65,17 @@ sealed interface StudySessionDialog {
      * The draft lives here like every other dialog's, but is the one this screen cannot seed at the
      * call site: it comes from
      * [VoiceSettingsController][com.rossomak.flashcards.core.ui.voice.VoiceSettingsController]'s
-     * saved settings and voice cache, which the toolbar does not have. The ViewModel always
-     * replaces what it is handed, so the default here is a placeholder, never a value in use.
+     * voice cache plus this session's current settings, neither of which the toolbar has. The
+     * ViewModel always replaces what it is handed, so the default here is a placeholder, never a
+     * value in use.
+     *
+     * [keepAsDefault] unchecked (the default) applies the edit for the rest of this session only;
+     * checked, it also writes the new default the way every other session setting does (ADR-0030).
      */
-    data class VoiceSettings(val draft: VoiceSettingsDraftState = VoiceSettingsDraftState()) : StudySessionDialog
+    data class VoiceSettings(
+        val draft: VoiceSettingsDraftState = VoiceSettingsDraftState(),
+        val keepAsDefault: Boolean = false,
+    ) : StudySessionDialog
 
     data object ExitSession : StudySessionDialog
 }

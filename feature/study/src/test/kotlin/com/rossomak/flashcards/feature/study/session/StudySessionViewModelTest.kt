@@ -22,6 +22,7 @@ import com.rossomak.flashcards.core.ui.dialog.DialogEvent.DraftChange
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.RouteDecoder
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsController
+import com.rossomak.flashcards.core.ui.voice.VoiceSettingsDraftState
 import com.rossomak.flashcards.feature.study.StudySessionRoute
 import com.rossomak.flashcards.feature.study.session.StudySessionDialog.ExitSession
 import com.rossomak.flashcards.feature.study.session.StudySessionDialog.ReportProblem
@@ -76,7 +77,6 @@ class StudySessionViewModelTest {
     fun setUp() {
         mockkObject(RouteDecoder)
         stubRoute(route)
-        every { voiceSettingsController.currentSettings } returns VoiceSettings()
     }
 
     @After
@@ -267,7 +267,7 @@ class StudySessionViewModelTest {
     @Test
     fun `onVoiceAutoStart starts the gateway with loaded cards and applies saved settings`() = runTest(mainDispatcherRule.testDispatcher) {
         val savedSettings = VoiceSettings(speechRate = 1.5f, voiceId = "voice-1")
-        every { voiceSettingsController.currentSettings } returns savedSettings
+        stubRoute(route.copy(voiceSettings = savedSettings))
         loadThreeCards()
 
         val viewModel = createViewModel()
@@ -488,12 +488,47 @@ class StudySessionViewModelTest {
     }
 
     @Test
-    fun `VoiceSettingsOpen opens the controller and Confirm saves it`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `VoiceSettingsOpen seeds the draft from this session's current settings`() = runTest(mainDispatcherRule.testDispatcher) {
+        val sessionSettings = VoiceSettings(speechRate = 1.5f, voiceId = "voice-1")
+        stubRoute(route.copy(voiceSettings = sessionSettings))
         val viewModel = createViewModel()
         advanceUntilIdle()
 
         viewModel.onDialogEvent(Open(StudySessionDialog.VoiceSettings()))
+
         viewModel.state.value.activeDialog.shouldBeInstanceOf<StudySessionDialog.VoiceSettings>()
+        verify(exactly = 1) { voiceSettingsController.seedDraft(sessionSettings) }
+    }
+
+    @Test
+    fun `VoiceSettings confirm without keepAsDefault applies for the session but writes nothing`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            every { voiceSettingsController.seedDraft(any()) } returns VoiceSettingsDraftState()
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            voiceGateway.stateFlow.value = VoicePlaybackState(isActive = true)
+            advanceUntilIdle()
+            viewModel.onDialogEvent(Open(StudySessionDialog.VoiceSettings()))
+            val draft = (viewModel.state.value.activeDialog as StudySessionDialog.VoiceSettings).draft
+                .copy(draftSpeed = 1.5f, draftVoiceId = "voice-1")
+            viewModel.onDialogEvent(DraftChange(StudySessionDialog.VoiceSettings(draft)))
+
+            viewModel.onDialogEvent(Confirm)
+
+            verify(exactly = 0) { voiceSettingsController.save(any(), any()) }
+            verify(exactly = 1) { voiceSettingsController.stopPreview() }
+            voiceGateway.lastSpeechRate shouldBe 1.5f
+            voiceGateway.lastVoiceId shouldBe "voice-1"
+            viewModel.state.value.activeDialog shouldBe null
+        }
+
+    @Test
+    fun `VoiceSettings confirm with keepAsDefault writes the preference`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDialogEvent(Open(StudySessionDialog.VoiceSettings()))
+        val dialog = viewModel.state.value.activeDialog as StudySessionDialog.VoiceSettings
+        viewModel.onDialogEvent(DraftChange(dialog.copy(keepAsDefault = true)))
 
         viewModel.onDialogEvent(Confirm)
 
