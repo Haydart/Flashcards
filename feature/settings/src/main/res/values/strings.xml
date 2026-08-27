@@ -3,6 +3,12 @@
     <string name="settings_title">Settings</string>
 
     <string name="settings_study_sessions_label">Study sessions</string>
+    <string name="settings_daily_goal_label">Daily goal</string>
+    <string name="settings_daily_goal_summary_label">%1$d min/day</string>
+    <string name="settings_daily_goal_dialog_title">Daily goal</string>
+    <string name="settings_daily_goal_unit_label">minutes per day</string>
+    <string name="settings_daily_goal_decrement_cd">Decrease daily goal</string>
+    <string name="settings_daily_goal_increment_cd">Increase daily goal</string>
     <string name="settings_session_length_label">Study session length</string>
     <string name="settings_rated_attempts_label">Rated flashcard attempts</string>
     <string name="settings_study_mode_label">Default study mode</string>
