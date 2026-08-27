@@ -22,6 +22,8 @@ sealed interface SettingsDialog {
 
     data class Length(val draft: Int) : SettingsDialog
 
+    data class Goal(val draft: Int) : SettingsDialog
+
     data class Attempts(val draft: Int) : SettingsDialog
 
     data class Mode(val draft: StudyMode) : SettingsDialog

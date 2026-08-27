@@ -17,6 +17,7 @@ import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Dismiss
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.DraftChange
 import com.rossomak.flashcards.feature.settings.SettingsDialog.Attempts
+import com.rossomak.flashcards.feature.settings.SettingsDialog.Goal
 import com.rossomak.flashcards.feature.settings.SettingsDialog.Length
 import com.rossomak.flashcards.feature.settings.SettingsDialog.Mode
 import com.rossomak.flashcards.feature.settings.SettingsDialog.ReadAloud
@@ -52,6 +53,13 @@ internal fun SettingsDialogHost(
             draft = activeDialog.draft,
             range = StudySessionConfig.MIN_LENGTH..StudySessionConfig.MAX_LENGTH,
             step = StudySessionConfig.LENGTH_STEP,
+            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draft = it))) },
+            onConfirm = onConfirm,
+            onDismiss = onDismiss,
+        )
+
+        is Goal -> DailyGoalDialog(
+            draft = activeDialog.draft,
             onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draft = it))) },
             onConfirm = onConfirm,
             onDismiss = onDismiss,

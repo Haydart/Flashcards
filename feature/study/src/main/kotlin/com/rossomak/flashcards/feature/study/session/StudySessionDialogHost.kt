@@ -80,6 +80,10 @@ internal fun StudySessionDialogHost(
             },
             onConfirm = onConfirm,
             onDismiss = onDismiss,
+            keepAsDefault = activeDialog.keepAsDefault,
+            onKeepAsDefaultChange = {
+                onDialogEvent(DraftChange(activeDialog.copy(keepAsDefault = it)))
+            },
         )
 
         ExitSession -> FlashcardsDecisionDialog(

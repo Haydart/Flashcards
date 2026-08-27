@@ -1,10 +1,17 @@
 package com.rossomak.flashcards.feature.settings
 
 import app.cash.turbine.test
+import com.rossomak.flashcards.core.domain.model.DailyGoal
 import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.VoiceOption
 import com.rossomak.flashcards.core.domain.model.VoiceSettings as SavedVoiceSettings
+import com.rossomak.flashcards.core.domain.repository.FakeStudySessionPreferencesRepository
+import com.rossomak.flashcards.core.domain.repository.FakeUserPreferencesRepository
+import com.rossomak.flashcards.core.domain.usecase.ObserveStudySessionPreferencesUseCase
+import com.rossomak.flashcards.core.domain.usecase.ObserveUserPreferencesUseCase
+import com.rossomak.flashcards.core.domain.usecase.SaveStudySessionPreferenceUseCase
+import com.rossomak.flashcards.core.domain.usecase.SaveUserPreferenceUseCase
 import com.rossomak.flashcards.core.domain.usecase.SignOutUseCase
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Dismiss
@@ -12,11 +19,14 @@ import com.rossomak.flashcards.core.ui.dialog.DialogEvent.DraftChange
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsController
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsDraftState
+import com.rossomak.flashcards.feature.settings.SettingsDialog.Attempts
+import com.rossomak.flashcards.feature.settings.SettingsDialog.Goal
 import com.rossomak.flashcards.feature.settings.SettingsDialog.Length
 import com.rossomak.flashcards.feature.settings.SettingsDialog.Mode
 import com.rossomak.flashcards.feature.settings.SettingsDialog.ReadAloud
 import com.rossomak.flashcards.feature.settings.SettingsDialog.SignOut
 import com.rossomak.flashcards.feature.settings.SettingsDialog.Sort
+import com.rossomak.flashcards.feature.settings.SettingsDialog.VoiceAnswering
 import com.rossomak.flashcards.feature.settings.SettingsDialog.VoiceSettings
 import com.rossomak.flashcards.testutil.MainDispatcherRule
 import io.kotest.matchers.shouldBe
@@ -37,75 +47,234 @@ class SettingsViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
+    private val userPreferencesRepository = FakeUserPreferencesRepository()
+    private val studySessionPreferencesRepository = FakeStudySessionPreferencesRepository()
     private val signOutUseCase: SignOutUseCase = mockk()
     private val voiceSettingsController: VoiceSettingsController = mockk(relaxed = true)
 
     private fun createViewModel(): SettingsViewModel = SettingsViewModel(
-        signOutUseCase,
-        voiceSettingsController,
+        observeUserPreferences = ObserveUserPreferencesUseCase(userPreferencesRepository),
+        observeStudySessionPreferences = ObserveStudySessionPreferencesUseCase(studySessionPreferencesRepository),
+        saveUserPreference = SaveUserPreferenceUseCase(userPreferencesRepository),
+        saveStudySessionPreference = SaveStudySessionPreferenceUseCase(studySessionPreferencesRepository),
+        signOutUseCase = signOutUseCase,
+        voiceSettingsController = voiceSettingsController,
     )
 
     @Test
-    fun `confirming session length commits the draft`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `a daily goal pushed into the store lands on the row`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        userPreferencesRepository.preferences.value = userPreferencesRepository.preferences.value.copy(
+            dailyGoalMinutes = LONGER_GOAL,
+        )
+        advanceUntilIdle()
+
+        viewModel.state.value.dailyGoalMinutes shouldBe LONGER_GOAL
+    }
+
+    @Test
+    fun `a session length pushed into the store lands on the row`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        studySessionPreferencesRepository.preferences.value = studySessionPreferencesRepository.preferences.value.copy(
+            sessionLength = LONGER_LENGTH,
+        )
+        advanceUntilIdle()
+
+        viewModel.state.value.sessionLength shouldBe LONGER_LENGTH
+    }
+
+    @Test
+    fun `confirming daily goal writes it to the store`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = createViewModel()
+
+        viewModel.onDialogEvent(Open(Goal(draft = DailyGoal.DEFAULT_MINUTES)))
+        viewModel.onDialogEvent(DraftChange(Goal(draft = LONGER_GOAL)))
+        viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
+
+        userPreferencesRepository.preferences.value.dailyGoalMinutes shouldBe LONGER_GOAL
+        viewModel.state.value.activeDialog shouldBe null
+    }
+
+    @Test
+    fun `dismissing daily goal writes nothing`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = createViewModel()
+
+        viewModel.onDialogEvent(Open(Goal(draft = DailyGoal.DEFAULT_MINUTES)))
+        viewModel.onDialogEvent(DraftChange(Goal(draft = LONGER_GOAL)))
+        viewModel.onDialogEvent(Dismiss)
+        advanceUntilIdle()
+
+        userPreferencesRepository.preferences.value.dailyGoalMinutes shouldBe DailyGoal.DEFAULT_MINUTES
+    }
+
+    @Test
+    fun `confirming session length writes it to the store`() = runTest(mainDispatcherRule.testDispatcher) {
         val viewModel = createViewModel()
 
         viewModel.onDialogEvent(Open(Length(draft = DEFAULT_LENGTH)))
         viewModel.onDialogEvent(DraftChange(Length(draft = LONGER_LENGTH)))
         viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
 
-        viewModel.state.value.sessionLength shouldBe LONGER_LENGTH
+        studySessionPreferencesRepository.preferences.value.sessionLength shouldBe LONGER_LENGTH
         viewModel.state.value.activeDialog shouldBe null
     }
 
     @Test
-    fun `dismissing session length discards the draft`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `dismissing session length writes nothing`() = runTest(mainDispatcherRule.testDispatcher) {
         val viewModel = createViewModel()
         val committedLength = viewModel.state.value.sessionLength
 
         viewModel.onDialogEvent(Open(Length(draft = committedLength)))
         viewModel.onDialogEvent(DraftChange(Length(draft = LONGER_LENGTH)))
         viewModel.onDialogEvent(Dismiss)
+        advanceUntilIdle()
 
-        viewModel.state.value.sessionLength shouldBe committedLength
+        studySessionPreferencesRepository.preferences.value.sessionLength shouldBe committedLength
         viewModel.state.value.activeDialog shouldBe null
     }
 
     @Test
-    fun `confirming study mode commits the draft`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `confirming rated attempts writes it to the store`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = createViewModel()
+
+        viewModel.onDialogEvent(Open(Attempts(draft = DEFAULT_ATTEMPTS)))
+        viewModel.onDialogEvent(DraftChange(Attempts(draft = FEWER_ATTEMPTS)))
+        viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
+
+        studySessionPreferencesRepository.preferences.value.ratedAttempts shouldBe FEWER_ATTEMPTS
+    }
+
+    @Test
+    fun `confirming study mode writes it to the store`() = runTest(mainDispatcherRule.testDispatcher) {
         val viewModel = createViewModel()
 
         viewModel.onDialogEvent(Open(Mode(draft = StudyMode.Rated)))
         viewModel.onDialogEvent(DraftChange(Mode(draft = StudyMode.Fast)))
         viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
 
+        studySessionPreferencesRepository.preferences.value.defaultStudyMode shouldBe StudyMode.Fast
         viewModel.state.value.defaultStudyMode shouldBe StudyMode.Fast
     }
 
     @Test
-    fun `confirming sort order commits the draft`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `confirming sort order writes it to the store`() = runTest(mainDispatcherRule.testDispatcher) {
         val viewModel = createViewModel()
 
         viewModel.onDialogEvent(Open(Sort(draft = FlashcardSortOrder.Default)))
         viewModel.onDialogEvent(DraftChange(Sort(draft = FlashcardSortOrder.EasiestFirst)))
         viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
 
+        studySessionPreferencesRepository.preferences.value.sortOrder shouldBe FlashcardSortOrder.EasiestFirst
         viewModel.state.value.sortOrder shouldBe FlashcardSortOrder.EasiestFirst
     }
 
     @Test
-    fun `confirming read-aloud commits the draft`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `confirming voice answering writes it to the store`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = createViewModel()
+
+        viewModel.onDialogEvent(Open(VoiceAnswering(draft = false)))
+        viewModel.onDialogEvent(DraftChange(VoiceAnswering(draft = true)))
+        viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
+
+        studySessionPreferencesRepository.preferences.value.voiceAnsweringEnabled shouldBe true
+    }
+
+    @Test
+    fun `confirming read-aloud writes it to the store`() = runTest(mainDispatcherRule.testDispatcher) {
         val viewModel = createViewModel()
 
         viewModel.onDialogEvent(Open(ReadAloud(draft = false)))
         viewModel.onDialogEvent(DraftChange(ReadAloud(draft = true)))
         viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
 
+        studySessionPreferencesRepository.preferences.value.readAloudEnabled shouldBe true
         viewModel.state.value.readAloudEnabled shouldBe true
     }
 
     @Test
+    fun `dismissing read-aloud writes nothing`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = createViewModel()
+
+        viewModel.onDialogEvent(Open(ReadAloud(draft = false)))
+        viewModel.onDialogEvent(DraftChange(ReadAloud(draft = true)))
+        viewModel.onDialogEvent(Dismiss)
+        advanceUntilIdle()
+
+        studySessionPreferencesRepository.preferences.value.readAloudEnabled shouldBe false
+    }
+
+    @Test
+    fun `a failed study-session preference save closes the dialog and surfaces an error`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            studySessionPreferencesRepository.saveError = IllegalStateException("disk full")
+            val viewModel = createViewModel()
+
+            viewModel.onDialogEvent(Open(Length(draft = DEFAULT_LENGTH)))
+            viewModel.onDialogEvent(DraftChange(Length(draft = LONGER_LENGTH)))
+            viewModel.onDialogEvent(Confirm)
+            advanceUntilIdle()
+
+            studySessionPreferencesRepository.preferences.value.sessionLength shouldBe DEFAULT_LENGTH
+            viewModel.state.value.activeDialog shouldBe null
+            viewModel.state.value.saveError shouldBe "Failed to save setting"
+        }
+
+    @Test
+    fun `a failed user preference save closes the dialog and surfaces an error`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            userPreferencesRepository.saveError = IllegalStateException("disk full")
+            val viewModel = createViewModel()
+
+            viewModel.onDialogEvent(Open(Goal(draft = DailyGoal.DEFAULT_MINUTES)))
+            viewModel.onDialogEvent(DraftChange(Goal(draft = LONGER_GOAL)))
+            viewModel.onDialogEvent(Confirm)
+            advanceUntilIdle()
+
+            userPreferencesRepository.preferences.value.dailyGoalMinutes shouldBe DailyGoal.DEFAULT_MINUTES
+            viewModel.state.value.activeDialog shouldBe null
+            viewModel.state.value.saveError shouldBe "Failed to save setting"
+        }
+
+    @Test
+    fun `a successful save leaves saveError untouched`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = createViewModel()
+
+        viewModel.onDialogEvent(Open(Goal(draft = DailyGoal.DEFAULT_MINUTES)))
+        viewModel.onDialogEvent(DraftChange(Goal(draft = LONGER_GOAL)))
+        viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
+
+        viewModel.state.value.saveError shouldBe null
+    }
+
+    @Test
+    fun `onSaveErrorDismissed clears the error`() = runTest(mainDispatcherRule.testDispatcher) {
+        userPreferencesRepository.saveError = IllegalStateException("disk full")
+        val viewModel = createViewModel()
+        viewModel.onDialogEvent(Open(Goal(draft = DailyGoal.DEFAULT_MINUTES)))
+        viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
+        viewModel.state.value.saveError shouldBe "Failed to save setting"
+
+        viewModel.onSaveErrorDismissed()
+
+        viewModel.state.value.saveError shouldBe null
+    }
+
+    @Test
     fun `editing the voice draft previews it`() = runTest(mainDispatcherRule.testDispatcher) {
-        every { voiceSettingsController.seedDraft() } returns VoiceSettingsDraftState()
+        every { voiceSettingsController.seedDraft(any()) } returns VoiceSettingsDraftState()
         val viewModel = createViewModel()
         val editedDraft = VoiceSettingsDraftState(draftSpeed = FASTER_SPEECH_RATE)
 
@@ -117,7 +286,7 @@ class SettingsViewModelTest {
 
     @Test
     fun `dismissing the voice dialog stops the preview`() = runTest(mainDispatcherRule.testDispatcher) {
-        every { voiceSettingsController.seedDraft() } returns VoiceSettingsDraftState()
+        every { voiceSettingsController.seedDraft(any()) } returns VoiceSettingsDraftState()
         val viewModel = createViewModel()
 
         viewModel.onDialogEvent(Open(VoiceSettings()))
@@ -142,17 +311,12 @@ class SettingsViewModelTest {
         every { voiceSettingsController.loadVoices(any(), any()) } answers {
             secondArg<(List<VoiceOption>) -> Unit>().invoke(listOf(savedVoice))
         }
-        every { voiceSettingsController.bind(any(), any()) } answers {
-            secondArg<(SavedVoiceSettings) -> Unit>()
-                .invoke(
-                    SavedVoiceSettings(
-                        speechRate = FASTER_SPEECH_RATE,
-                        voiceId = VOICE_ID,
-                    ),
-                )
-        }
+        studySessionPreferencesRepository.preferences.value = studySessionPreferencesRepository.preferences.value.copy(
+            voiceSettings = SavedVoiceSettings(speechRate = FASTER_SPEECH_RATE, voiceId = VOICE_ID),
+        )
 
         val viewModel = createViewModel()
+        advanceUntilIdle()
 
         viewModel.state.value.voiceName shouldBe VOICE_DISPLAY_NAME
         viewModel.state.value.speechRate shouldBe FASTER_SPEECH_RATE
@@ -161,14 +325,12 @@ class SettingsViewModelTest {
     @Test
     fun `the voice row summary has no name until the voice list arrives`() =
         runTest(mainDispatcherRule.testDispatcher) {
-            every { voiceSettingsController.bind(any(), any()) } answers {
-                secondArg<(SavedVoiceSettings) -> Unit>()
-                    .invoke(
-                        SavedVoiceSettings(voiceId = VOICE_ID),
-                    )
-            }
+            studySessionPreferencesRepository.preferences.value = studySessionPreferencesRepository.preferences.value.copy(
+                voiceSettings = SavedVoiceSettings(voiceId = VOICE_ID),
+            )
 
             val viewModel = createViewModel()
+            advanceUntilIdle()
 
             viewModel.state.value.voiceId shouldBe VOICE_ID
             viewModel.state.value.voiceName shouldBe null
@@ -237,6 +399,9 @@ class SettingsViewModelTest {
     private companion object {
         const val DEFAULT_LENGTH = 20
         const val LONGER_LENGTH = 35
+        const val DEFAULT_ATTEMPTS = 3
+        const val FEWER_ATTEMPTS = 1
+        const val LONGER_GOAL = DailyGoal.DEFAULT_MINUTES + DailyGoal.STEP_MINUTES
         const val FASTER_SPEECH_RATE = 1.25f
         const val VOICE_ID = "en-us-x-tpf-local"
         const val VOICE_DISPLAY_NAME = "English (United States) · en-us-x-tpf-local"

@@ -3,7 +3,8 @@ package com.rossomak.flashcards.feature.debug
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.rossomak.flashcards.core.domain.usecase.SetHasSeenOnboardingUseCase
+import com.rossomak.flashcards.core.domain.model.UserPreference.HasSeenOnboarding
+import com.rossomak.flashcards.core.domain.usecase.SaveUserPreferenceUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
@@ -12,7 +13,7 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class DebugViewModel @Inject constructor(
-    private val setHasSeenOnboarding: SetHasSeenOnboardingUseCase,
+    private val saveUserPreference: SaveUserPreferenceUseCase,
 ) : ViewModel() {
 
     private val eventChannel = Channel<DebugDestination>(Channel.BUFFERED)
@@ -25,7 +26,7 @@ class DebugViewModel @Inject constructor(
      */
     fun onReplayOnboardingClick() {
         viewModelScope.launch {
-            setHasSeenOnboarding(false)
+            saveUserPreference(HasSeenOnboarding(false))
                 .onSuccess { eventChannel.send(DebugDestination.Onboarding) }
                 .onFailure { Log.e(TAG, "Failed to clear onboarding flag for replay", it) }
         }

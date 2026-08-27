@@ -1,10 +1,10 @@
-package com.rossomak.flashcards.core.domain.repository
+package com.rossomak.flashcards.core.data.source
 
 import com.rossomak.flashcards.core.domain.model.UserPreference
 import com.rossomak.flashcards.core.domain.model.UserPreferences
 import kotlinx.coroutines.flow.Flow
 
-interface UserPreferencesRepository {
+interface UserPreferencesLocalDataSource {
 
     fun userPreferences(): Flow<UserPreferences>
 

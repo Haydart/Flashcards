@@ -1,5 +1,6 @@
 package com.rossomak.flashcards.feature.settings
 
+import com.rossomak.flashcards.core.domain.model.DailyGoal
 import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
@@ -8,17 +9,21 @@ import com.rossomak.flashcards.core.domain.model.VoiceOption
 /**
  * Everything the Settings rows render.
  *
- * The study and voice-toggle defaults below are held **in memory only**: no repository backs them
- * yet, so they are seeded from the same constants a session falls back to and reset when the
- * process dies. They live here rather than being read from a half-built store so the whole screen
- * has one story — see the TODO on [SettingsViewModel.onDialogConfirm].
+ * [dailyGoalMinutes] and the study-session rows below it are backed by
+ * `UserPreferencesRepository`/`StudySessionPreferencesRepository`: the ViewModel collects both
+ * continuously and folds every emission straight in, so a row can never disagree with disk. The
+ * non-null constant defaults here are only the pre-emission placeholder — DataStore already has
+ * the real value in memory by the time this screen is reached (`SplashViewModel` reads the same
+ * store on every cold start).
  *
- * Voice playback is the exception and is genuinely persisted, through
- * [VoiceSettingsController][com.rossomak.flashcards.core.ui.voice.VoiceSettingsController]:
- * [speechRate] and [voiceId] mirror what it has saved, and [availableVoices] resolves [voiceId] to
- * the name the row shows.
+ * [speechRate] and [voiceId] mirror `StudySessionPreferences.voiceSettings`, folded in the same
+ * way as every other study-session row; [availableVoices] resolves [voiceId] to the name the row
+ * shows and comes from
+ * [VoiceSettingsController][com.rossomak.flashcards.core.ui.voice.VoiceSettingsController]'s voice
+ * cache, which lives outside `Preferences` entirely (it is not a user choice to persist).
  */
 data class SettingsScreenState(
+    val dailyGoalMinutes: Int = DailyGoal.DEFAULT_MINUTES,
     val sessionLength: Int = StudySessionConfig.DEFAULT_LENGTH,
     val ratedAttempts: Int = StudySessionConfig.DEFAULT_RATED_ATTEMPTS,
     val defaultStudyMode: StudyMode = StudyMode.Rated,
@@ -30,6 +35,7 @@ data class SettingsScreenState(
     val availableVoices: List<VoiceOption> = emptyList(),
     val isSigningOut: Boolean = false,
     val activeDialog: SettingsDialog? = null,
+    val saveError: String? = null,
 ) {
 
     /**

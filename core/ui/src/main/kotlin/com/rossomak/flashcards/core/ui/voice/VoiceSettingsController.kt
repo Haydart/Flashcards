@@ -1,12 +1,12 @@
 package com.rossomak.flashcards.core.ui.voice
 
 import android.util.Log
+import com.rossomak.flashcards.core.domain.model.StudySessionPreference.VoicePlayback
 import com.rossomak.flashcards.core.domain.model.VoiceOption
 import com.rossomak.flashcards.core.domain.model.VoiceSettings
 import com.rossomak.flashcards.core.domain.repository.VoicePreviewGateway
 import com.rossomak.flashcards.core.domain.usecase.GetAvailableVoicesUseCase
-import com.rossomak.flashcards.core.domain.usecase.ObserveVoiceSettingsUseCase
-import com.rossomak.flashcards.core.domain.usecase.SaveVoiceSettingsUseCase
+import com.rossomak.flashcards.core.domain.usecase.SaveStudySessionPreferenceUseCase
 import javax.inject.Inject
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -25,70 +25,38 @@ data class VoiceSettingsDraftState(
     val draftSpeed: Float = 1f,
 )
 
+/** The domain value a confirmed draft folds into — what [VoiceSettingsController.save] persists. */
+fun VoiceSettingsDraftState.toVoiceSettings(): VoiceSettings =
+    VoiceSettings(speechRate = draftSpeed, voiceId = draftVoiceId)
+
 /**
  * Owns the voice list cache, preview playback and saving for the voice-settings dialog. Shared by
  * feature:study and feature:settings; each ViewModel injects its own instance (unscoped) and binds
  * it to its own viewModelScope.
+ *
+ * Voice settings are session-scoped like every other study setting (`mode`, `ratedAttempts`): the
+ * saved value lives on `StudySessionConfig`/`StudySessionRoute`, not here. A screen hands the
+ * current value to [seedDraft] itself rather than this controller tracking a subscription of its
+ * own — one fewer place a value could disagree with the config the screen already has in state.
  */
 class VoiceSettingsController @Inject constructor(
-    private val observeVoiceSettings: ObserveVoiceSettingsUseCase,
-    private val saveVoiceSettings: SaveVoiceSettingsUseCase,
+    private val saveStudySessionPreference: SaveStudySessionPreferenceUseCase,
     private val getAvailableVoices: GetAvailableVoicesUseCase,
     private val previewGateway: VoicePreviewGateway,
 ) {
 
-    private var savedSettings: VoiceSettings? = null
     private var cachedVoices: List<VoiceOption>? = null
     private var loadJob: CompletableDeferred<List<VoiceOption>>? = null
 
-    val currentSettings: VoiceSettings get() = savedSettings ?: VoiceSettings()
-
-    /**
-     * Starts the one subscription to the saved settings. [onSettingsChange] is how a screen that
-     * *renders* the saved value — the Settings screen's voice row and its summary — reads it,
-     * rather than collecting the same use case a second time: two subscriptions would mean two
-     * copies of the same truth, one of which could be stale while the other is not.
-     *
-     * A screen that only opens the dialog (the study session) omits it and lets [seedDraft] read
-     * the value at open time.
-     */
-    fun bind(scope: CoroutineScope, onSettingsChange: (VoiceSettings) -> Unit = {}) {
-        scope.launch {
-            observeVoiceSettings().collect { settings ->
-                savedSettings = settings
-                onSettingsChange(settings)
-            }
-        }
-    }
-
-    /**
-     * The draft a newly opened dialog starts from — the saved settings, plus the voice list if it
-     * is already cached. When [bind]'s first emission hasn't landed yet, this seeds a placeholder
-     * (default speed, no voice picked) rather than a guess — same as an uncached voice list
-     * starting empty. [applySavedSettings] fills the real values in once they arrive.
-     */
-    fun seedDraft(): VoiceSettingsDraftState {
+    /** The draft a newly opened dialog starts from — [current] plus the voice list if cached. */
+    fun seedDraft(current: VoiceSettings): VoiceSettingsDraftState {
         val voices = cachedVoices.orEmpty()
-        val settings = savedSettings
         return VoiceSettingsDraftState(
             availableVoices = voices,
-            draftVoiceId = settings?.voiceId ?: voices.firstOrNull()?.id,
-            draftSpeed = settings?.speechRate ?: DEFAULT_SPEED,
+            draftVoiceId = current.voiceId ?: voices.firstOrNull()?.id,
+            draftSpeed = current.speechRate,
         )
     }
-
-    /**
-     * Fills an open dialog in with the real saved values once [bind] delivers them — the
-     * placeholder [seedDraft] seeds when a dialog opens before the first emission lands. Applied
-     * unconditionally rather than guarded against a since-started edit: settings only change here
-     * by this same dialog saving, so a second emission while it is still open does not happen in
-     * practice.
-     */
-    fun applySavedSettings(draft: VoiceSettingsDraftState, settings: VoiceSettings): VoiceSettingsDraftState =
-        draft.copy(
-            draftVoiceId = settings.voiceId ?: draft.draftVoiceId,
-            draftSpeed = settings.speechRate,
-        )
 
     /**
      * Never re-queries the platform once the list is cached — but still calls back with the cache,
@@ -121,9 +89,9 @@ class VoiceSettingsController @Inject constructor(
     }
 
     fun save(scope: CoroutineScope, draft: VoiceSettingsDraftState): VoiceSettings {
-        val settings = VoiceSettings(speechRate = draft.draftSpeed, voiceId = draft.draftVoiceId)
+        val settings = draft.toVoiceSettings()
         scope.launch {
-            runCatching { saveVoiceSettings(settings) }
+            saveStudySessionPreference(VoicePlayback(settings))
                 .onFailure { Log.e(TAG, "Failed to save voice settings", it) }
         }
         previewGateway.stop()
@@ -136,6 +104,5 @@ class VoiceSettingsController @Inject constructor(
 
     private companion object {
         const val TAG = "VoiceSettingsController"
-        const val DEFAULT_SPEED = 1f
     }
 }

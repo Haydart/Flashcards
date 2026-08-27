@@ -4,6 +4,7 @@ import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardFilters
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent
+import com.rossomak.flashcards.core.ui.voice.VoiceSettingsDraftState
 
 /** The event type this screen's dialogs report through. See [DialogEvent]. */
 typealias PreviewDialogEvent = DialogEvent<PreviewDialog>
@@ -40,6 +41,18 @@ sealed interface PreviewDialog {
     data class Length(val draft: Int, val keepAsDefault: Boolean = false) : PreviewDialog
 
     data class Sort(val draft: FlashcardSortOrder, val keepAsDefault: Boolean = false) : PreviewDialog
+
+    /**
+     * Offered for Fast mode, or Rated with voice answering on — the same gate the summary row
+     * itself uses (ADR-0030). The draft comes from
+     * [VoiceSettingsController][com.rossomak.flashcards.core.ui.voice.VoiceSettingsController]'s
+     * voice cache plus this session's current settings, neither of which the row has, so the
+     * ViewModel always replaces what it is handed here.
+     */
+    data class VoiceSettings(
+        val draft: VoiceSettingsDraftState = VoiceSettingsDraftState(),
+        val keepAsDefault: Boolean = false,
+    ) : PreviewDialog
 
     /**
      * No `keepAsDefault` option: tags belong to one subcategory and cannot carry to another, so filters

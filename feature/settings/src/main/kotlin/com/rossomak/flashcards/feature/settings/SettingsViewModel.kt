@@ -2,8 +2,19 @@ package com.rossomak.flashcards.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.rossomak.flashcards.core.domain.model.StudySessionPreference.DefaultStudyMode
+import com.rossomak.flashcards.core.domain.model.StudySessionPreference.RatedAttempts
+import com.rossomak.flashcards.core.domain.model.StudySessionPreference.ReadAloudEnabled
+import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SessionLength
+import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SortOrder
+import com.rossomak.flashcards.core.domain.model.StudySessionPreference.VoiceAnsweringEnabled
+import com.rossomak.flashcards.core.domain.model.UserPreference.DailyGoalMinutes
 import com.rossomak.flashcards.core.domain.model.VoiceOption
 import com.rossomak.flashcards.core.domain.model.VoiceSettings as SavedVoiceSettings
+import com.rossomak.flashcards.core.domain.usecase.ObserveStudySessionPreferencesUseCase
+import com.rossomak.flashcards.core.domain.usecase.ObserveUserPreferencesUseCase
+import com.rossomak.flashcards.core.domain.usecase.SaveStudySessionPreferenceUseCase
+import com.rossomak.flashcards.core.domain.usecase.SaveUserPreferenceUseCase
 import com.rossomak.flashcards.core.domain.usecase.SignOutUseCase
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Dismiss
@@ -11,6 +22,7 @@ import com.rossomak.flashcards.core.ui.dialog.DialogEvent.DraftChange
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsController
 import com.rossomak.flashcards.feature.settings.SettingsDialog.Attempts
+import com.rossomak.flashcards.feature.settings.SettingsDialog.Goal
 import com.rossomak.flashcards.feature.settings.SettingsDialog.Length
 import com.rossomak.flashcards.feature.settings.SettingsDialog.Mode
 import com.rossomak.flashcards.feature.settings.SettingsDialog.ReadAloud
@@ -25,12 +37,18 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
+    private val observeUserPreferences: ObserveUserPreferencesUseCase,
+    private val observeStudySessionPreferences: ObserveStudySessionPreferencesUseCase,
+    private val saveUserPreference: SaveUserPreferenceUseCase,
+    private val saveStudySessionPreference: SaveStudySessionPreferenceUseCase,
     private val signOutUseCase: SignOutUseCase,
     private val voiceSettingsController: VoiceSettingsController,
 ) : ViewModel() {
@@ -42,26 +60,28 @@ class SettingsViewModel @Inject constructor(
     val events = eventChannel.receiveAsFlow()
 
     init {
-        // The controller owns the only subscription to the saved settings; this screen reads them
-        // through it rather than collecting the same use case again, so there is one copy of the
-        // value the voice row renders.
-        voiceSettingsController.bind(viewModelScope, ::onVoiceSettingsChange)
+        observeUserPreferences()
+            .onEach { preferences -> _state.update { it.copy(dailyGoalMinutes = preferences.dailyGoalMinutes) } }
+            .launchIn(viewModelScope)
+        observeStudySessionPreferences()
+            .onEach { preferences ->
+                _state.update {
+                    it.copy(
+                        sessionLength = preferences.sessionLength,
+                        ratedAttempts = preferences.ratedAttempts,
+                        defaultStudyMode = preferences.defaultStudyMode,
+                        sortOrder = preferences.sortOrder,
+                        voiceAnsweringEnabled = preferences.voiceAnsweringEnabled,
+                        readAloudEnabled = preferences.readAloudEnabled,
+                        speechRate = preferences.voiceSettings.speechRate,
+                        voiceId = preferences.voiceSettings.voiceId,
+                    )
+                }
+            }
+            .launchIn(viewModelScope)
         // The row shows the voice's name, not its id, so the list is needed before the dialog is
         // ever opened. Cached afterwards, so opening the dialog costs no second platform query.
         voiceSettingsController.loadVoices(viewModelScope, ::onVoicesLoaded)
-    }
-
-    /**
-     * Updates the row, and — since the dialog can open via [onVoiceSettingsOpen]'s
-     * [VoiceSettingsController.seedDraft] before this settings snapshot ever arrives — fills an
-     * already-open dialog's placeholder draft in with the real values too.
-     */
-    private fun onVoiceSettingsChange(settings: SavedVoiceSettings) {
-        _state.update { state ->
-            val withRow = state.copy(speechRate = settings.speechRate, voiceId = settings.voiceId)
-            val dialog = withRow.activeDialog as? VoiceSettings ?: return@update withRow
-            withRow.copy(activeDialog = dialog.copy(draft = voiceSettingsController.applySavedSettings(dialog.draft, settings)))
-        }
     }
 
     /** Single entry point for every dialog on this screen. */
@@ -87,7 +107,11 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun onVoiceSettingsOpen() {
-        _state.update { it.copy(activeDialog = VoiceSettings(voiceSettingsController.seedDraft())) }
+        val current = _state.value
+        val draft = voiceSettingsController.seedDraft(
+            SavedVoiceSettings(speechRate = current.speechRate, voiceId = current.voiceId),
+        )
+        _state.update { it.copy(activeDialog = VoiceSettings(draft)) }
         voiceSettingsController.loadVoices(viewModelScope, ::onVoicesLoaded)
     }
 
@@ -141,19 +165,17 @@ class SettingsViewModel @Inject constructor(
     }
 
     /**
-     * The only commit path. Every dialog folds its draft into screen state and closes; sign-out is
-     * the one case with no draft, answering with an action instead (ADR-0036).
-     *
-     * TODO(settings-persistence): the study and voice-toggle values below live only in this
-     *  ViewModel. Persist them through StudyPreferencesRepository once it exists — the same store
-     *  the Preview screen's "Keep as my default" is waiting on (§10 of
-     *  docs/temp/dialog-system-plan.md). Voice playback already persists, via the controller.
+     * The only commit path. Every dialog writes the sealed preference it edited and closes; the
+     * row itself updates once the write lands back through [observeUserPreferences] /
+     * [observeStudySessionPreferences] — no `copy()` into state here, so a row can never disagree
+     * with disk. Sign-out is the one case with no draft, answering with an action instead
+     * (ADR-0036).
      */
     private fun onDialogConfirm() {
         val dialog = _state.value.activeDialog ?: return
 
-        // The two cases whose commit is an action rather than a field. Kept out of the fold below
-        // because `update` re-runs its lambda under contention, which would fire them twice.
+        // The two cases whose commit is an action rather than a field. Kept out of the write
+        // below because `update` re-runs its lambda under contention, which would fire them twice.
         when (dialog) {
             is SignOut -> {
                 _state.update { it.copy(activeDialog = null) }
@@ -168,20 +190,27 @@ class SettingsViewModel @Inject constructor(
             else -> Unit
         }
 
-        _state.update { state ->
-            with(state) {
-                when (dialog) {
-                    is Length -> copy(sessionLength = dialog.draft)
-                    is Attempts -> copy(ratedAttempts = dialog.draft)
-                    is Mode -> copy(defaultStudyMode = dialog.draft)
-                    is Sort -> copy(sortOrder = dialog.draft)
-                    is VoiceAnswering -> copy(voiceAnsweringEnabled = dialog.draft)
-                    is ReadAloud -> copy(readAloudEnabled = dialog.draft)
-                    // Both returned above; repeated only because the `when` is exhaustive.
-                    is VoiceSettings, SignOut -> this
-                }
-            }.copy(activeDialog = null)
+        viewModelScope.launch {
+            val result = when (dialog) {
+                is Length -> saveStudySessionPreference(SessionLength(dialog.draft))
+                is Attempts -> saveStudySessionPreference(RatedAttempts(dialog.draft))
+                is Mode -> saveStudySessionPreference(DefaultStudyMode(dialog.draft))
+                is Sort -> saveStudySessionPreference(SortOrder(dialog.draft))
+                is VoiceAnswering -> saveStudySessionPreference(VoiceAnsweringEnabled(dialog.draft))
+                is ReadAloud -> saveStudySessionPreference(ReadAloudEnabled(dialog.draft))
+                is Goal -> saveUserPreference(DailyGoalMinutes(dialog.draft))
+                // Both returned above; repeated only because the `when` is exhaustive.
+                is VoiceSettings, SignOut -> Result.success(Unit)
+            }
+            // The dialog closes either way — a dialog left open with a stale draft isn't a retry
+            // path, it's a second write on the next confirm. The snackbar is the recovery signal.
+            result.onFailure { _state.update { it.copy(saveError = "Failed to save setting") } }
         }
+        _state.update { it.copy(activeDialog = null) }
+    }
+
+    fun onSaveErrorDismissed() {
+        _state.update { it.copy(saveError = null) }
     }
 
     private fun signOut() {

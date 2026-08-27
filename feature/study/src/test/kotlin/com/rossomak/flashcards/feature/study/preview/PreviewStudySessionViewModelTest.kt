@@ -6,7 +6,12 @@ import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
+import com.rossomak.flashcards.core.domain.model.StudySessionPreferences
+import com.rossomak.flashcards.core.domain.model.VoiceSettings as SavedVoiceSettings
 import com.rossomak.flashcards.core.domain.repository.FakeFlashcardRepository
+import com.rossomak.flashcards.core.domain.repository.FakeStudySessionPreferencesRepository
+import com.rossomak.flashcards.core.domain.usecase.ObserveStudySessionPreferencesUseCase
+import com.rossomak.flashcards.core.domain.usecase.SaveStudySessionPreferenceUseCase
 import com.rossomak.flashcards.core.domain.usecase.SelectSessionFlashcardsUseCase
 import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardFilters
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
@@ -14,6 +19,8 @@ import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Dismiss
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.DraftChange
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.RouteDecoder
+import com.rossomak.flashcards.core.ui.voice.VoiceSettingsController
+import com.rossomak.flashcards.core.ui.voice.VoiceSettingsDraftState
 import com.rossomak.flashcards.feature.study.PreviewStudySessionRoute
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Attempts
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Filters
@@ -22,6 +29,7 @@ import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Mode
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.ReadAloud
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Sort
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceAnswering
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceSettings
 import com.rossomak.flashcards.testutil.MainDispatcherRule
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.collections.shouldContainAll
@@ -31,6 +39,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
+import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -47,9 +56,14 @@ class PreviewStudySessionViewModelTest {
 
     private val savedStateHandle: SavedStateHandle = mockk()
     private val flashcardRepository = FakeFlashcardRepository()
+    private val studySessionPreferencesRepository = FakeStudySessionPreferencesRepository()
+    private val voiceSettingsController: VoiceSettingsController = mockk(relaxed = true)
 
     /** Anything but [StudySessionConfig.DEFAULT_RATED_ATTEMPTS], so a commit is visible. */
     private val strictAttempts = StudySessionConfig.MIN_RATED_ATTEMPTS
+
+    /** Anything but [StudySessionConfig.DEFAULT_LENGTH], so a seeded value is visible. */
+    private val seededLength = StudySessionConfig.MIN_LENGTH
 
     private val categoryId = "android"
     private val categoryName = "Android"
@@ -82,8 +96,13 @@ class PreviewStudySessionViewModelTest {
         every { RouteDecoder.decode(any<() -> PreviewStudySessionRoute>()) } returns route
     }
 
-    private fun createViewModel(): PreviewStudySessionViewModel =
-        PreviewStudySessionViewModel(savedStateHandle, SelectSessionFlashcardsUseCase(flashcardRepository))
+    private fun createViewModel(): PreviewStudySessionViewModel = PreviewStudySessionViewModel(
+        savedStateHandle,
+        SelectSessionFlashcardsUseCase(flashcardRepository),
+        ObserveStudySessionPreferencesUseCase(studySessionPreferencesRepository),
+        SaveStudySessionPreferenceUseCase(studySessionPreferencesRepository),
+        voiceSettingsController,
+    )
 
     private fun flashcard(
         id: String,
@@ -407,6 +426,142 @@ class PreviewStudySessionViewModelTest {
     }
 
     @Test
+    fun `seeded study session preferences reach the config before the first card selection`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(singleTopicRoute)
+            studySessionPreferencesRepository.preferences.value = StudySessionPreferences(
+                defaultStudyMode = StudyMode.Fast,
+                sessionLength = seededLength,
+                sortOrder = FlashcardSortOrder.HardestFirst,
+            )
+            flashcardRepository.flashcardsToReturn =
+                Result.success((1..30).map { index -> flashcard(id = "card-$index") })
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.state.value.config.mode shouldBe StudyMode.Fast
+            viewModel.state.value.config.length shouldBe seededLength
+            viewModel.state.value.config.sortOrder shouldBe FlashcardSortOrder.HardestFirst
+            viewModel.state.value.selectedCardCount shouldBe seededLength
+        }
+
+    @Test
+    fun `confirming with keepAsDefault true writes the preference`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleTopicRoute)
+        flashcardRepository.flashcardsToReturn = Result.success(listOf(flashcard(id = "card-1")))
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDialogEvent(Open(Length(draft = viewModel.state.value.config.length)))
+        viewModel.onDialogEvent(DraftChange(Length(draft = 10, keepAsDefault = true)))
+        viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
+
+        studySessionPreferencesRepository.preferences.value.sessionLength shouldBe 10
+        viewModel.state.value.config.length shouldBe 10
+    }
+
+    @Test
+    fun `confirming with keepAsDefault false applies the draft but writes nothing`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(singleTopicRoute)
+            flashcardRepository.flashcardsToReturn = Result.success(listOf(flashcard(id = "card-1")))
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            val committedLength = studySessionPreferencesRepository.preferences.value.sessionLength
+            viewModel.onDialogEvent(Open(Length(draft = viewModel.state.value.config.length)))
+            viewModel.onDialogEvent(DraftChange(Length(draft = 10, keepAsDefault = false)))
+            viewModel.onDialogEvent(Confirm)
+            advanceUntilIdle()
+
+            studySessionPreferencesRepository.preferences.value.sessionLength shouldBe committedLength
+            viewModel.state.value.config.length shouldBe 10
+        }
+
+    @Test
+    fun `confirming filters never writes a default`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleTopicRoute)
+        flashcardRepository.flashcardsToReturn = Result.success(
+            listOf(flashcard(id = "card-1", tags = listOf("State"))),
+        )
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        val defaultsBeforeConfirm = studySessionPreferencesRepository.preferences.value
+        viewModel.onDialogEvent(
+            Open(
+                Filters(
+                    draft = FlashcardFilters(
+                        selectedTags = viewModel.state.value.config.tagIds,
+                        difficultyRange = viewModel.state.value.config.difficultyRange,
+                    ),
+                    availableTags = viewModel.state.value.availableTags,
+                ),
+            ),
+        )
+        val filtersDialog = viewModel.state.value.activeDialog as Filters
+        viewModel.onDialogEvent(
+            DraftChange(
+                filtersDialog.copy(
+                    draft = FlashcardFilters(
+                        selectedTags = setOf("State"),
+                        difficultyRange = viewModel.state.value.config.difficultyRange,
+                    ),
+                ),
+            ),
+        )
+        viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
+
+        studySessionPreferencesRepository.preferences.value shouldBe defaultsBeforeConfirm
+    }
+
+    @Test
+    fun `confirming the voice dialog with keepAsDefault true writes the preference`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(singleTopicRoute)
+            flashcardRepository.flashcardsToReturn = Result.success(listOf(flashcard(id = "card-1")))
+            val voiceSettings = SavedVoiceSettings(speechRate = 1.5f, voiceId = "voice-1")
+            every { voiceSettingsController.seedDraft(any()) } returns VoiceSettingsDraftState()
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onDialogEvent(Open(VoiceSettings()))
+            val draft = (viewModel.state.value.activeDialog as VoiceSettings).draft
+                .copy(draftSpeed = voiceSettings.speechRate, draftVoiceId = voiceSettings.voiceId)
+            viewModel.onDialogEvent(DraftChange(VoiceSettings(draft = draft, keepAsDefault = true)))
+            viewModel.onDialogEvent(Confirm)
+            advanceUntilIdle()
+
+            studySessionPreferencesRepository.preferences.value.voiceSettings shouldBe voiceSettings
+            viewModel.state.value.config.voiceSettings shouldBe voiceSettings
+        }
+
+    @Test
+    fun `confirming the voice dialog with keepAsDefault false applies the draft but writes nothing`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(singleTopicRoute)
+            flashcardRepository.flashcardsToReturn = Result.success(listOf(flashcard(id = "card-1")))
+            val voiceSettings = SavedVoiceSettings(speechRate = 1.5f, voiceId = "voice-1")
+            every { voiceSettingsController.seedDraft(any()) } returns VoiceSettingsDraftState()
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            val committedVoiceSettings = studySessionPreferencesRepository.preferences.value.voiceSettings
+            viewModel.onDialogEvent(Open(VoiceSettings()))
+            val draft = (viewModel.state.value.activeDialog as VoiceSettings).draft
+                .copy(draftSpeed = voiceSettings.speechRate, draftVoiceId = voiceSettings.voiceId)
+            viewModel.onDialogEvent(DraftChange(VoiceSettings(draft = draft, keepAsDefault = false)))
+            viewModel.onDialogEvent(Confirm)
+            advanceUntilIdle()
+
+            studySessionPreferencesRepository.preferences.value.voiceSettings shouldBe committedVoiceSettings
+            viewModel.state.value.config.voiceSettings shouldBe voiceSettings
+        }
+
+    @Test
     fun `onStartSession emits StudySession route with selected cards, mode, voice answering, attempts and read-aloud`() =
         runTest(mainDispatcherRule.testDispatcher) {
             stubRoute(singleTopicRoute)
@@ -442,6 +597,56 @@ class PreviewStudySessionViewModelTest {
                 destination.route.readAloudEnabled shouldBe true
             }
         }
+
+    @Test
+    fun `onStartSession carries the confirmed voice settings on the route`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleTopicRoute)
+        flashcardRepository.flashcardsToReturn = Result.success(listOf(flashcard(id = "card-1")))
+        val voiceSettings = SavedVoiceSettings(speechRate = 1.5f, voiceId = "voice-1")
+        every { voiceSettingsController.seedDraft(any()) } returns VoiceSettingsDraftState()
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDialogEvent(Open(VoiceSettings()))
+        val draft = (viewModel.state.value.activeDialog as VoiceSettings).draft
+            .copy(draftSpeed = voiceSettings.speechRate, draftVoiceId = voiceSettings.voiceId)
+        viewModel.onDialogEvent(DraftChange(VoiceSettings(draft = draft)))
+        viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
+        viewModel.onStartSession()
+
+        viewModel.events.test {
+            val destination = awaitItem() as PreviewStudySessionDestination.StudySession
+            destination.route.voiceSettings shouldBe voiceSettings
+        }
+    }
+
+    @Test
+    fun `confirming the voice settings dialog stops preview playback`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleTopicRoute)
+        every { voiceSettingsController.seedDraft(any()) } returns VoiceSettingsDraftState()
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDialogEvent(Open(VoiceSettings()))
+        viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
+
+        verify { voiceSettingsController.stopPreview() }
+    }
+
+    @Test
+    fun `confirming a non-voice dialog never touches preview playback`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleTopicRoute)
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDialogEvent(Open(Mode(draft = StudyMode.Fast)))
+        viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
+
+        verify(exactly = 0) { voiceSettingsController.stopPreview() }
+    }
 
     @Test
     fun `onStartSession with empty pool emits nothing`() = runTest(mainDispatcherRule.testDispatcher) {

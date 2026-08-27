@@ -2,7 +2,7 @@ package com.rossomak.flashcards.feature.debug
 
 import app.cash.turbine.test
 import com.rossomak.flashcards.core.domain.repository.FakeUserPreferencesRepository
-import com.rossomak.flashcards.core.domain.usecase.SetHasSeenOnboardingUseCase
+import com.rossomak.flashcards.core.domain.usecase.SaveUserPreferenceUseCase
 import com.rossomak.flashcards.testutil.MainDispatcherRule
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -19,7 +19,7 @@ class DebugViewModelTest {
     private val userPreferencesRepository = FakeUserPreferencesRepository()
 
     private fun createViewModel(): DebugViewModel =
-        DebugViewModel(SetHasSeenOnboardingUseCase(userPreferencesRepository))
+        DebugViewModel(SaveUserPreferenceUseCase(userPreferencesRepository))
 
     @Test
     fun `onReplayOnboardingClick clears the seen flag and emits Onboarding`() =

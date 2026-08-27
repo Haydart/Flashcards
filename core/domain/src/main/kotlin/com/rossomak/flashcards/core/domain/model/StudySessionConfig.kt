@@ -30,6 +30,7 @@ data class StudySessionConfig(
     val readAloudEnabled: Boolean = false,
     val length: Int = DEFAULT_LENGTH,
     val sortOrder: FlashcardSortOrder = FlashcardSortOrder.Default,
+    val voiceSettings: VoiceSettings = VoiceSettings(),
     val difficultyRange: IntRange = MIN_DIFFICULTY..MAX_DIFFICULTY,
     val tagIds: Set<String> = emptySet(),
     val seed: Long = 0L,

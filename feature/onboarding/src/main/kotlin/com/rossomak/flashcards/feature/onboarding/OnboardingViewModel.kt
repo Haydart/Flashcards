@@ -4,10 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rossomak.flashcards.core.domain.model.DailyGoal
 import com.rossomak.flashcards.core.domain.model.StudyMode
-import com.rossomak.flashcards.core.domain.model.StudyPreferences
 import com.rossomak.flashcards.core.domain.usecase.GetCurrentAuthUserUseCase
-import com.rossomak.flashcards.core.domain.usecase.SaveStudyPreferencesUseCase
-import com.rossomak.flashcards.core.domain.usecase.SetHasSeenOnboardingUseCase
+import com.rossomak.flashcards.core.domain.usecase.SaveOnboardingPreferencesUseCase
 import com.rossomak.flashcards.feature.onboarding.model.FavoriteTopicOption
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -24,8 +22,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
     private val getCurrentAuthUser: GetCurrentAuthUserUseCase,
-    private val saveStudyPreferences: SaveStudyPreferencesUseCase,
-    private val setHasSeenOnboarding: SetHasSeenOnboardingUseCase,
+    private val saveOnboardingPreferences: SaveOnboardingPreferencesUseCase,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(
@@ -81,7 +78,7 @@ class OnboardingViewModel @Inject constructor(
         _state.update { it.copy(isCommitting = true) }
 
         viewModelScope.launch {
-            val preferences = StudyPreferences(
+            val params = SaveOnboardingPreferencesUseCase.Params(
                 defaultStudyMode = _state.value.defaultStudyMode,
                 dailyGoalMinutes = _state.value.dailyGoalMinutes,
             )
@@ -89,8 +86,7 @@ class OnboardingViewModel @Inject constructor(
             //  Firestore's offline persistence resolves a write locally but leaves the returned
             //  Task pending until the server acks, so that call must not be awaited unbounded — a
             //  withTimeout, or no await at all, otherwise an offline user hangs on this screen.
-            saveStudyPreferences(preferences)
-                .onSuccess { setHasSeenOnboarding(true) }
+            saveOnboardingPreferences(params)
             _state.update { it.copy(isCommitting = false) }
             eventChannel.send(OnboardingDestination.Main)
         }
