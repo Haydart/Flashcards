@@ -14,7 +14,9 @@ import com.rossomak.flashcards.core.domain.model.StudySessionPreference.ReadAlou
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SessionLength
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SortOrder
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.VoiceAnsweringEnabled
+import com.rossomak.flashcards.core.domain.model.StudySessionPreference.VoicePlayback
 import com.rossomak.flashcards.core.domain.model.StudySessionPreferences
+import com.rossomak.flashcards.core.domain.model.VoiceSettings
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -67,6 +69,7 @@ class DataStoreStudySessionPreferencesLocalDataSourceTest {
         localDataSource.save(ReadAloudEnabled(true))
         localDataSource.save(SessionLength(35))
         localDataSource.save(SortOrder(FlashcardSortOrder.HardestFirst))
+        localDataSource.save(VoicePlayback(VoiceSettings(speechRate = 1.5f, voiceId = "en-us-x-1")))
         val preferences = localDataSource.studySessionPreferences().first()
 
         preferences shouldBe StudySessionPreferences(
@@ -76,7 +79,21 @@ class DataStoreStudySessionPreferencesLocalDataSourceTest {
             readAloudEnabled = true,
             sessionLength = 35,
             sortOrder = FlashcardSortOrder.HardestFirst,
+            voiceSettings = VoiceSettings(speechRate = 1.5f, voiceId = "en-us-x-1"),
         )
+    }
+
+    @Test
+    fun `saving a null voice id clears a previously stored voice id`() = runTest {
+        val localDataSource = createLocalDataSource()
+        val speechRate = 1.25f
+        localDataSource.save(VoicePlayback(VoiceSettings(speechRate = speechRate, voiceId = "en-us-x-1")))
+
+        localDataSource.save(VoicePlayback(VoiceSettings(speechRate = speechRate, voiceId = null)))
+        val preferences = localDataSource.studySessionPreferences().first()
+
+        preferences.voiceSettings.voiceId shouldBe null
+        preferences.voiceSettings.speechRate shouldBe speechRate
     }
 
     @Test
