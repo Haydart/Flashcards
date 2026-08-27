@@ -3,6 +3,7 @@ package com.rossomak.flashcards.core.data.source
 import com.google.firebase.firestore.FirebaseFirestore
 import com.rossomak.flashcards.core.data.model.CategoryDto
 import com.rossomak.flashcards.core.data.model.FlashcardDto
+import com.rossomak.flashcards.core.data.model.FlashcardShardDto
 import com.rossomak.flashcards.core.data.model.SubcategoryDto
 import javax.inject.Inject
 import kotlinx.coroutines.tasks.await
@@ -50,20 +51,27 @@ class FlashcardRemoteDataSource @Inject constructor(
             document.toObject(SubcategoryDto::class.java)?.copy(id = document.id)
         }
 
+    /**
+     * Cards for a Subcategory are packed into byte-budgeted `shards/{n}` docs rather than one
+     * Firestore document per card (ADR-0037) — this single `.get()` reads however many shard
+     * docs the Subcategory has (typically one), then flattens each shard's `flashcards` map
+     * values into one list. Each [FlashcardDto] carries its own `id` field now (no longer copied
+     * from a per-card document id, since a shard doc's id is just its shard index) — the map key
+     * itself is what a future admin curation-fix tool would address, not read by this method.
+     */
     suspend fun getFlashcardsBySubcategoryId(subcategoryId: String): List<FlashcardDto> = firestore.collection(COLLECTION_SUBCATEGORIES)
         .document(subcategoryId)
-        .collection(COLLECTION_FLASHCARDS)
+        .collection(COLLECTION_SHARDS)
         .get()
         .await()
         .documents
-        .mapNotNull { document ->
-            document.toObject(FlashcardDto::class.java)?.copy(id = document.id)
-        }
+        .mapNotNull { document -> document.toObject(FlashcardShardDto::class.java) }
+        .flatMap { it.flashcards.values }
 
     companion object {
         const val COLLECTION_CATEGORIES = "categories"
         const val COLLECTION_SUBCATEGORIES = "subcategories"
-        const val COLLECTION_FLASHCARDS = "flashcards"
+        const val COLLECTION_SHARDS = "shards"
         const val FIELD_ORDER = "order"
         const val FIELD_CATEGORY_ID = "categoryId"
         const val FIELD_NAME_LOWER = "nameLower"
