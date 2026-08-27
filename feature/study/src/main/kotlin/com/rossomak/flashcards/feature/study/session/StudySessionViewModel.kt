@@ -5,11 +5,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rossomak.flashcards.core.domain.model.FlashcardRating
 import com.rossomak.flashcards.core.domain.model.StudyMode
+import com.rossomak.flashcards.core.domain.model.UserPreference.VoiceAnswerConsent as VoiceAnswerConsentPreference
 import com.rossomak.flashcards.core.domain.model.VoiceOption
 import com.rossomak.flashcards.core.domain.model.VoiceSettings as SavedVoiceSettings
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
-import com.rossomak.flashcards.core.domain.usecase.ObserveVoiceAnswerConsentUseCase
-import com.rossomak.flashcards.core.domain.usecase.SetVoiceAnswerConsentUseCase
+import com.rossomak.flashcards.core.domain.usecase.ObserveUserPreferencesUseCase
+import com.rossomak.flashcards.core.domain.usecase.SaveUserPreferenceUseCase
 import com.rossomak.flashcards.core.domain.usecase.SubmitCurationReportUseCase
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Dismiss
@@ -39,6 +40,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -48,8 +50,8 @@ class StudySessionViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val getFlashcards: GetFlashcardsUseCase,
     private val submitCurationReport: SubmitCurationReportUseCase,
-    private val observeVoiceAnswerConsent: ObserveVoiceAnswerConsentUseCase,
-    private val setVoiceAnswerConsent: SetVoiceAnswerConsentUseCase,
+    private val observeUserPreferences: ObserveUserPreferencesUseCase,
+    private val saveUserPreference: SaveUserPreferenceUseCase,
     private val voiceGateway: VoiceGateway,
     private val voiceSettingsController: VoiceSettingsController,
 ) : ViewModel() {
@@ -144,7 +146,7 @@ class StudySessionViewModel @Inject constructor(
      */
     private suspend fun honourRoutedVoiceAnswering(hasCards: Boolean) {
         if (!route.voiceAnsweringEnabled || route.studyMode != StudyMode.Rated || !hasCards) return
-        requestVoiceAnswering(observeVoiceAnswerConsent().first())
+        requestVoiceAnswering(observeUserPreferences().first().voiceAnswerConsentGranted)
     }
 
     private fun observeVoiceState() {
@@ -217,7 +219,7 @@ class StudySessionViewModel @Inject constructor(
 
     private fun observeVoiceAnswerConsentState() {
         viewModelScope.launch {
-            observeVoiceAnswerConsent().collect { hasConsent ->
+            observeUserPreferences().map { it.voiceAnswerConsentGranted }.collect { hasConsent ->
                 hasVoiceAnswerConsent = hasConsent
             }
         }
@@ -247,7 +249,7 @@ class StudySessionViewModel @Inject constructor(
 
     private fun onVoiceAnswerConsentAccept() {
         viewModelScope.launch {
-            setVoiceAnswerConsent(true)
+            saveUserPreference(VoiceAnswerConsentPreference(true))
             _state.update {
                 it.copy(
                     activeDialog = null,

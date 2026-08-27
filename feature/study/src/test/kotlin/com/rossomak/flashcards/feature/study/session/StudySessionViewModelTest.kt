@@ -11,10 +11,10 @@ import com.rossomak.flashcards.core.domain.model.VoiceSettings
 import com.rossomak.flashcards.core.domain.repository.CurationRepository
 import com.rossomak.flashcards.core.domain.repository.FakeCurationRepository
 import com.rossomak.flashcards.core.domain.repository.FakeFlashcardRepository
-import com.rossomak.flashcards.core.domain.repository.VoiceAnswerConsentRepository
+import com.rossomak.flashcards.core.domain.repository.FakeUserPreferencesRepository
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
-import com.rossomak.flashcards.core.domain.usecase.ObserveVoiceAnswerConsentUseCase
-import com.rossomak.flashcards.core.domain.usecase.SetVoiceAnswerConsentUseCase
+import com.rossomak.flashcards.core.domain.usecase.ObserveUserPreferencesUseCase
+import com.rossomak.flashcards.core.domain.usecase.SaveUserPreferenceUseCase
 import com.rossomak.flashcards.core.domain.usecase.SubmitCurationReportUseCase
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Dismiss
@@ -39,7 +39,6 @@ import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -58,7 +57,7 @@ class StudySessionViewModelTest {
     private val savedStateHandle: SavedStateHandle = mockk()
     private val flashcardRepository = FakeFlashcardRepository()
     private val getFlashcards = GetFlashcardsUseCase(flashcardRepository)
-    private val voiceAnswerConsentRepository = FakeVoiceAnswerConsentRepository()
+    private val userPreferencesRepository = FakeUserPreferencesRepository()
     private val voiceGateway = FakeVoiceGateway()
     private val voiceSettingsController: VoiceSettingsController = mockk(relaxed = true)
 
@@ -94,8 +93,8 @@ class StudySessionViewModelTest {
             savedStateHandle,
             getFlashcards,
             SubmitCurationReportUseCase(curationRepository),
-            ObserveVoiceAnswerConsentUseCase(voiceAnswerConsentRepository),
-            SetVoiceAnswerConsentUseCase(voiceAnswerConsentRepository),
+            ObserveUserPreferencesUseCase(userPreferencesRepository),
+            SaveUserPreferenceUseCase(userPreferencesRepository),
             voiceGateway,
             voiceSettingsController,
         )
@@ -543,7 +542,7 @@ class StudySessionViewModelTest {
     fun `a routed voice-answering choice with consent requests the mic permission on entry`() =
         runTest(mainDispatcherRule.testDispatcher) {
             stubRoute(route.copy(voiceAnsweringEnabled = true))
-            voiceAnswerConsentRepository.consentFlow.value = true
+            userPreferencesRepository.preferences.value = userPreferencesRepository.preferences.value.copy(voiceAnswerConsentGranted = true)
             loadThreeCards()
 
             val viewModel = createViewModel()
@@ -594,7 +593,7 @@ class StudySessionViewModelTest {
     @Test
     fun `onVoiceAnswerToggle with consent requests the mic permission even before the gateway is active`() =
         runTest(mainDispatcherRule.testDispatcher) {
-            voiceAnswerConsentRepository.consentFlow.value = true
+            userPreferencesRepository.preferences.value = userPreferencesRepository.preferences.value.copy(voiceAnswerConsentGranted = true)
             val viewModel = createViewModel()
             advanceUntilIdle()
 
@@ -637,7 +636,7 @@ class StudySessionViewModelTest {
         viewModel.onDialogEvent(Confirm)
         advanceUntilIdle()
 
-        voiceAnswerConsentRepository.consentFlow.value shouldBe true
+        userPreferencesRepository.preferences.value.voiceAnswerConsentGranted shouldBe true
         viewModel.state.value.activeDialog shouldBe null
         viewModel.state.value.isMicPermissionRequestPending shouldBe true
     }
@@ -701,16 +700,6 @@ class StudySessionViewModelTest {
         viewModel.onVoiceAnswerGradeDismissed()
 
         viewModel.state.value.lastVoiceAnswerGrade shouldBe null
-    }
-}
-
-private class FakeVoiceAnswerConsentRepository : VoiceAnswerConsentRepository {
-    val consentFlow = MutableStateFlow(false)
-
-    override fun observeConsent(): Flow<Boolean> = consentFlow
-
-    override suspend fun setConsent(granted: Boolean) {
-        consentFlow.value = granted
     }
 }
 
