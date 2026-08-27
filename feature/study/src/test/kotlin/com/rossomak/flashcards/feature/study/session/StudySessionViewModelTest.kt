@@ -677,6 +677,23 @@ class StudySessionViewModelTest {
     }
 
     @Test
+    fun `a failed consent save keeps the dialog open, surfaces an error, and skips the mic request`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            userPreferencesRepository.saveError = IllegalStateException("disk full")
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onVoiceAnswerToggle()
+
+            viewModel.onDialogEvent(Confirm)
+            advanceUntilIdle()
+
+            userPreferencesRepository.preferences.value.voiceAnswerConsentGranted shouldBe false
+            viewModel.state.value.activeDialog shouldBe VoiceAnswerConsent
+            viewModel.state.value.isMicPermissionRequestPending shouldBe false
+            viewModel.state.value.voiceError shouldBe "Failed to save voice answering consent"
+        }
+
+    @Test
     fun `onMicPermissionResult granted enables voice answering on the gateway`() = runTest(mainDispatcherRule.testDispatcher) {
         val viewModel = createViewModel()
         advanceUntilIdle()

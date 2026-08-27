@@ -243,12 +243,19 @@ class StudySessionViewModel @Inject constructor(
     private fun onVoiceAnswerConsentAccept() {
         viewModelScope.launch {
             saveUserPreference(VoiceAnswerConsentPreference(true))
-            _state.update {
-                it.copy(
-                    activeDialog = null,
-                    isMicPermissionRequestPending = true,
-                )
-            }
+                .onSuccess {
+                    _state.update {
+                        it.copy(
+                            activeDialog = null,
+                            isMicPermissionRequestPending = true,
+                        )
+                    }
+                }
+                .onFailure {
+                    // Consent wasn't actually recorded — leave the dialog up rather than starting
+                    // the mic as if it had been, so a retry is a single tap on the same dialog.
+                    _state.update { it.copy(voiceError = "Failed to save voice answering consent") }
+                }
         }
     }
 
