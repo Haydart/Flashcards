@@ -2,9 +2,9 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // categories/subcategories/flashcards are curated shared content with no
-    // owner field; clients may read but only the Admin SDK (which bypasses
-    // these rules) may write.
+    // categories/subcategories/shards (flashcard content) are curated shared
+    // content with no owner field; clients may read but only the Admin SDK
+    // (which bypasses these rules) may write.
     match /categories/{categoryId} {
       allow read: if request.auth != null;
     }
@@ -12,7 +12,9 @@ service cloud.firestore {
     match /subcategories/{subcategoryId} {
       allow read: if request.auth != null;
 
-      match /flashcards/{cardId} {
+      // Cards are packed into byte-budgeted shard docs, not one doc per card
+      // (ADR-0037) — the collection is named `shards`, not `flashcards`.
+      match /shards/{shardId} {
         allow read: if request.auth != null;
       }
     }
