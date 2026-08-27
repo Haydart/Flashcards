@@ -26,9 +26,10 @@ python3 build_fixture.py --src <dir> --out <path>
 
 Projects each inbox card into the Firestore shape, derives `categories` and
 `subcategories` from the slugs (subcategory IDs are namespaced `{categoryId}-{subSlug}`),
-and writes `.tmp/fixture.json`. Deterministic; re-run freely. Fails loudly on
-duplicate card ids. Supports `--sample N` to keep at most N cards per subcategory
-(useful for test seeds); optional `--seed` for reproducible sampling.
+bin-packs each subcategory's cards into byte-budgeted `shards` docs (ADR-0037), and writes
+`.tmp/fixture.json`. Deterministic; re-run freely. Fails loudly on duplicate card ids.
+Supports `--sample N` to keep at most N cards per subcategory (useful for test seeds);
+optional `--seed` for reproducible sampling.
 
 ## Stage 2 — upsert into Firestore
 
@@ -43,12 +44,17 @@ python3 seed_firestore.py --overwrite    # set() every doc (clobbers console edi
 python3 seed_firestore.py --cred /abs/path/service-account.json   # alt to env var
 ```
 
-Re-running is idempotent — each doc is keyed on its capture id (`--skip-existing`
-default). Three collections are written:
+Re-running is idempotent. `categories` and `subcategories` are keyed on capture id
+(`--skip-existing` default); `shards` docs are always fully rewritten every run, since
+shard membership is derived data with nothing hand-curated inside it (ADR-0037) — any
+shard doc left over from a previous run that no longer has a matching index is deleted
+so stale card content never lingers. Three collections are written:
 
 - `categories/{categoryId}` — top-level category docs
 - `subcategories/{categoryId-subSlug}` — subcategory docs (namespaced id, `categoryId` field)
-- `subcategories/{categoryId-subSlug}/flashcards/{cardId}` — flashcard docs as subcollection
+- `subcategories/{categoryId-subSlug}/shards/{n}` — `{ flashcards: {cardId: {...}, ...} }`,
+  cards bin-packed by byte size into a map keyed by card id (not an array — see ADR-0037),
+  typically one shard per subcategory
 
 ## Notes
 
@@ -56,6 +62,10 @@ default). Three collections are written:
 - Display names come from titlecased slugs; acronym/multi-word fixes live in
   `NAME_OVERRIDES` in `build_fixture.py`. Category/subcategory `order` is assigned
   by card volume — adjust in the Firebase console afterward if desired.
-- Schema + projection rules: see `SYSTEMDESIGN.md` (Firestore Schema section) and
-  `docs/adr/0007-firestore-collection-structure.md`.
+- Schema + projection rules: see `SYSTEMDESIGN.md` (Firestore Schema section),
+  `docs/adr/0007-firestore-collection-structure.md`, and
+  `docs/adr/0037-flashcard-content-sharded-by-byte-budget.md`.
 - Two-stage tooling rationale: see `docs/adr/0008-two-stage-firestore-seed-tooling.md`.
+- `purge_firestore.py` deletes both `shards` (current) and `flashcards` (legacy,
+  pre-ADR-0037) subcollections — safe to run even after no subcategory has the legacy
+  one any more.
