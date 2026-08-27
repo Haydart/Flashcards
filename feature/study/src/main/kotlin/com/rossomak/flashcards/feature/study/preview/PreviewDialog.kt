@@ -31,6 +31,12 @@ sealed interface PreviewDialog {
 
     data class VoiceAnswering(val draft: Boolean, val keepAsDefault: Boolean = false) : PreviewDialog
 
+    /** Rated-only, like [VoiceAnswering] — the row that opens it is not offered in Fast mode. */
+    data class Attempts(val draft: Int, val keepAsDefault: Boolean = false) : PreviewDialog
+
+    /** The Fast-only counterpart of [VoiceAnswering]: spoken answers plus hands-free advance. */
+    data class ReadAloud(val draft: Boolean, val keepAsDefault: Boolean = false) : PreviewDialog
+
     data class Length(val draft: Int, val keepAsDefault: Boolean = false) : PreviewDialog
 
     data class Sort(val draft: FlashcardSortOrder, val keepAsDefault: Boolean = false) : PreviewDialog

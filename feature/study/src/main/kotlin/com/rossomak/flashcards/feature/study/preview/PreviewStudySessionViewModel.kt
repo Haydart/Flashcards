@@ -13,9 +13,11 @@ import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.decodeRoute
 import com.rossomak.flashcards.feature.study.PreviewStudySessionRoute
 import com.rossomak.flashcards.feature.study.StudySessionRoute
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Attempts
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Filters
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Length
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Mode
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.ReadAloud
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Sort
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceAnswering
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -106,6 +108,8 @@ class PreviewStudySessionViewModel @Inject constructor(
             when (dialog) {
                 is Mode -> copy(mode = dialog.draft)
                 is VoiceAnswering -> copy(voiceAnsweringEnabled = dialog.draft)
+                is Attempts -> copy(ratedAttempts = dialog.draft)
+                is ReadAloud -> copy(readAloudEnabled = dialog.draft)
                 is Length -> copy(length = dialog.draft)
                 is Sort -> copy(sortOrder = dialog.draft)
                 is Filters -> copy(
@@ -136,6 +140,8 @@ class PreviewStudySessionViewModel @Inject constructor(
                         cardIds = selectedCardIds,
                         studyMode = _state.value.config.mode,
                         voiceAnsweringEnabled = _state.value.config.voiceAnsweringEnabled,
+                        ratedAttempts = _state.value.config.ratedAttempts,
+                        readAloudEnabled = _state.value.config.readAloudEnabled,
                     )
                 )
             )

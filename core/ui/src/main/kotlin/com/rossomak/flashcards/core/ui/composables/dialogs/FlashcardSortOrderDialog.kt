@@ -47,13 +47,6 @@ fun FlashcardSortOrderDialog(
     }
 }
 
-@Composable
-private fun FlashcardSortOrder.label(): String = when (this) {
-    FlashcardSortOrder.Default -> stringResource(R.string.flashcard_sort_order_default_label)
-    FlashcardSortOrder.EasiestFirst -> stringResource(R.string.flashcard_sort_order_easiest_first_label)
-    FlashcardSortOrder.HardestFirst -> stringResource(R.string.flashcard_sort_order_hardest_first_label)
-}
-
 @Preview
 @Composable
 private fun FlashcardSortOrderDialogSessionPreview() {

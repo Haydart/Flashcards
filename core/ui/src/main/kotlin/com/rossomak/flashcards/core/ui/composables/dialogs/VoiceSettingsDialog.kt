@@ -26,7 +26,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.rossomak.flashcards.core.domain.model.VoiceOption
 import com.rossomak.flashcards.core.ui.R
 import com.rossomak.flashcards.core.ui.theme.spacing
-import java.util.Locale
 
 /** Slowest selectable speech rate. */
 private const val MIN_SPEECH_RATE = 0.5f
@@ -159,13 +158,6 @@ private fun SpeechRateSection(
         }
     }
 }
-
-/** Formats a speech rate as e.g. `1.25×`. Fixed [Locale.US] so the decimal separator is a dot. */
-@Composable
-private fun speechRateLabel(speechRate: Float): String = stringResource(
-    R.string.voice_settings_speed_value_label,
-    String.format(Locale.US, "%.2f", speechRate).trimEnd('0').trimEnd('.'),
-)
 
 @Preview
 @Composable

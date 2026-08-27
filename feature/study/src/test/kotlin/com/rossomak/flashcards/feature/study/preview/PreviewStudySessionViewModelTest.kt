@@ -5,6 +5,7 @@ import app.cash.turbine.test
 import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
 import com.rossomak.flashcards.core.domain.model.StudyMode
+import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.domain.repository.FakeFlashcardRepository
 import com.rossomak.flashcards.core.domain.usecase.SelectSessionFlashcardsUseCase
 import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardFilters
@@ -14,9 +15,11 @@ import com.rossomak.flashcards.core.ui.dialog.DialogEvent.DraftChange
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.RouteDecoder
 import com.rossomak.flashcards.feature.study.PreviewStudySessionRoute
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Attempts
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Filters
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Length
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Mode
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.ReadAloud
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Sort
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceAnswering
 import com.rossomak.flashcards.testutil.MainDispatcherRule
@@ -44,6 +47,9 @@ class PreviewStudySessionViewModelTest {
 
     private val savedStateHandle: SavedStateHandle = mockk()
     private val flashcardRepository = FakeFlashcardRepository()
+
+    /** Anything but [StudySessionConfig.DEFAULT_RATED_ATTEMPTS], so a commit is visible. */
+    private val strictAttempts = StudySessionConfig.MIN_RATED_ATTEMPTS
 
     private val categoryId = "android"
     private val categoryName = "Android"
@@ -264,6 +270,52 @@ class PreviewStudySessionViewModelTest {
     }
 
     @Test
+    fun `confirming the attempts dialog commits the draft`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleTopicRoute)
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDialogEvent(Open(Attempts(draft = viewModel.state.value.config.ratedAttempts)))
+        viewModel.onDialogEvent(DraftChange(Attempts(draft = strictAttempts)))
+        viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
+
+        viewModel.state.value.config.ratedAttempts shouldBe strictAttempts
+        viewModel.state.value.activeDialog shouldBe null
+    }
+
+    @Test
+    fun `dismissing the attempts dialog discards the draft`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleTopicRoute)
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        val committedAttempts = viewModel.state.value.config.ratedAttempts
+        viewModel.onDialogEvent(Open(Attempts(draft = committedAttempts)))
+        viewModel.onDialogEvent(DraftChange(Attempts(draft = strictAttempts)))
+        viewModel.onDialogEvent(Dismiss)
+        advanceUntilIdle()
+
+        viewModel.state.value.config.ratedAttempts shouldBe committedAttempts
+        viewModel.state.value.activeDialog shouldBe null
+    }
+
+    @Test
+    fun `confirming the read-aloud dialog commits the draft`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleTopicRoute)
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDialogEvent(Open(ReadAloud(draft = viewModel.state.value.config.readAloudEnabled)))
+        viewModel.onDialogEvent(DraftChange(ReadAloud(draft = true)))
+        viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
+
+        viewModel.state.value.config.readAloudEnabled shouldBe true
+        viewModel.state.value.activeDialog shouldBe null
+    }
+
+    @Test
     fun `confirming the filters dialog narrows the pool by difficulty and tags`() = runTest(mainDispatcherRule.testDispatcher) {
         stubRoute(singleTopicRoute)
         flashcardRepository.flashcardsToReturn = Result.success(
@@ -355,7 +407,7 @@ class PreviewStudySessionViewModelTest {
     }
 
     @Test
-    fun `onStartSession emits StudySession route with selected cards, mode and voice answering`() =
+    fun `onStartSession emits StudySession route with selected cards, mode, voice answering, attempts and read-aloud`() =
         runTest(mainDispatcherRule.testDispatcher) {
             stubRoute(singleTopicRoute)
             flashcardRepository.flashcardsToReturn = Result.success(
@@ -369,6 +421,12 @@ class PreviewStudySessionViewModelTest {
                 DraftChange(VoiceAnswering(draft = true))
             )
             viewModel.onDialogEvent(Confirm)
+            viewModel.onDialogEvent(Open(Attempts(draft = viewModel.state.value.config.ratedAttempts)))
+            viewModel.onDialogEvent(DraftChange(Attempts(draft = 5)))
+            viewModel.onDialogEvent(Confirm)
+            viewModel.onDialogEvent(Open(ReadAloud(draft = viewModel.state.value.config.readAloudEnabled)))
+            viewModel.onDialogEvent(DraftChange(ReadAloud(draft = true)))
+            viewModel.onDialogEvent(Confirm)
             advanceUntilIdle()
             viewModel.onStartSession()
 
@@ -380,6 +438,8 @@ class PreviewStudySessionViewModelTest {
                 destination.route.cardIds shouldContainAll listOf("card-1", "card-2")
                 destination.route.studyMode shouldBe StudyMode.Rated
                 destination.route.voiceAnsweringEnabled shouldBe true
+                destination.route.ratedAttempts shouldBe 5
+                destination.route.readAloudEnabled shouldBe true
             }
         }
 

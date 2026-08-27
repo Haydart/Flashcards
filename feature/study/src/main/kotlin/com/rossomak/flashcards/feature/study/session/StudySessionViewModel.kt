@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.rossomak.flashcards.core.domain.model.FlashcardRating
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.VoiceOption
+import com.rossomak.flashcards.core.domain.model.VoiceSettings as SavedVoiceSettings
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.ObserveVoiceAnswerConsentUseCase
 import com.rossomak.flashcards.core.domain.usecase.SetVoiceAnswerConsentUseCase
@@ -91,7 +92,19 @@ class StudySessionViewModel @Inject constructor(
         observeVoiceState()
         observeVoiceAnswerState()
         observeVoiceAnswerConsentState()
-        voiceSettingsController.bind(viewModelScope)
+        voiceSettingsController.bind(viewModelScope, ::onVoiceSettingsChange)
+    }
+
+    /**
+     * Fills an open voice-settings dialog in with the real saved values once they arrive — this
+     * dialog can open via [onVoiceSettingsOpen]'s [VoiceSettingsController.seedDraft] before the
+     * first saved-settings emission lands, seeding a placeholder in the meantime.
+     */
+    private fun onVoiceSettingsChange(settings: SavedVoiceSettings) {
+        _state.update { state ->
+            val dialog = state.activeDialog as? VoiceSettings ?: return@update state
+            state.copy(activeDialog = dialog.copy(draft = voiceSettingsController.applySavedSettings(dialog.draft, settings)))
+        }
     }
 
     // Card selection happens on the Preview Study Session screen (ADR-0004); the session only

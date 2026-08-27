@@ -67,8 +67,8 @@ private fun mainTabs(): List<TabItem> = buildList {
             SettingsGraph,
         ),
     )
-    // Debug-only tabs (e.g. voice debug harness) come from feature:voicedebug — see
-    // app/src/debug vs app/src/release MainScreenDebugTabs.kt (never present in release builds).
+    // The debug tools hub comes from feature:debug — see app/src/debug vs app/src/release
+    // MainScreenDebugTabs.kt (never present in release builds).
     addAll(debugTabs())
 }
 
@@ -172,11 +172,15 @@ fun MainScreen(
                 composable<SettingsRoot> {
                     SettingsScreen(
                         onNavigateToLogin = onNavigateToLogin,
-                        onNavigateToOnboarding = onNavigateToOnboarding,
                     )
                 }
             }
-            debugNavGraphEntries()
+            // Onboarding replay is a debug affordance, so it hangs off the debug hub rather than
+            // off Settings, which ships in release.
+            debugNavGraphEntries(
+                navController = tabNavController,
+                onNavigateToOnboarding = onNavigateToOnboarding,
+            )
         }
     }
 }

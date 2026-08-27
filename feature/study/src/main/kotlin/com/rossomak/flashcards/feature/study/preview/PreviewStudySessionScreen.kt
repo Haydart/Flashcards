@@ -47,18 +47,22 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.ui.R as CoreUiR
 import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardFilters
+import com.rossomak.flashcards.core.ui.composables.dialogs.label
+import com.rossomak.flashcards.core.ui.composables.dialogs.readAloudLabel
+import com.rossomak.flashcards.core.ui.composables.dialogs.voiceAnsweringLabel
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import com.rossomak.flashcards.feature.study.R
 import com.rossomak.flashcards.feature.study.StudySessionRoute
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Attempts
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Filters
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Length
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Mode
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.ReadAloud
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Sort
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceAnswering
 
@@ -242,8 +246,10 @@ private fun ReadyContent(
  * column for now — the persistent bottom-sheet chrome the ADR describes is a later pass, and the
  * rows and their dialogs are what carry the behavior.
  *
- * Voice answering is Rated-only: Fast mode has no rating step for it to drive (ADR-0025), so the
- * row is not offered there rather than being offered and ignored.
+ * Voice answering and attempts are Rated-only: Fast mode has no rating step for either to drive
+ * (ADR-0025). Read-aloud is the Fast-only counterpart — voice *output* plus hands-free advance,
+ * where voice answering is voice *input*. Each is not offered outside its mode rather than being
+ * offered and ignored, so the two branches are exclusive.
  */
 @Composable
 private fun SessionSettingRows(
@@ -254,7 +260,7 @@ private fun SessionSettingRows(
     Column(modifier = modifier.fillMaxWidth()) {
         SessionSettingRow(
             label = stringResource(R.string.preview_session_mode_label),
-            value = studyModeLabel(state.config.mode),
+            value = state.config.mode.label(),
             onClick = { onDialogEvent(Open(Mode(draft = state.config.mode))) },
         )
         if (state.config.mode == StudyMode.Rated) {
@@ -267,11 +273,26 @@ private fun SessionSettingRows(
                     )
                 },
             )
+            SessionSettingRow(
+                label = stringResource(R.string.preview_session_attempts_label),
+                value = pluralStringResource(
+                    CoreUiR.plurals.rated_attempts_label,
+                    state.config.ratedAttempts,
+                    state.config.ratedAttempts,
+                ),
+                onClick = { onDialogEvent(Open(Attempts(draft = state.config.ratedAttempts))) },
+            )
+        } else {
+            SessionSettingRow(
+                label = stringResource(R.string.preview_session_read_aloud_label),
+                value = readAloudLabel(state.config.readAloudEnabled),
+                onClick = { onDialogEvent(Open(ReadAloud(draft = state.config.readAloudEnabled))) },
+            )
         }
         SessionSettingRow(
             label = stringResource(R.string.preview_session_length_label),
             value = pluralStringResource(
-                R.plurals.session_length_cards_label,
+                CoreUiR.plurals.session_length_cards_label,
                 state.config.length,
                 state.config.length,
             ),
@@ -296,7 +317,7 @@ private fun SessionSettingRows(
         )
         SessionSettingRow(
             label = stringResource(R.string.preview_session_sort_label),
-            value = sortOrderLabel(state.config.sortOrder),
+            value = state.config.sortOrder.label(),
             onClick = { onDialogEvent(Open(Sort(draft = state.config.sortOrder))) },
         )
     }
@@ -339,26 +360,6 @@ private fun SessionSettingRow(
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
-}
-
-@Composable
-private fun studyModeLabel(mode: StudyMode): String = when (mode) {
-    StudyMode.Rated -> stringResource(R.string.study_mode_rated_label)
-    StudyMode.Fast -> stringResource(R.string.study_mode_fast_label)
-}
-
-@Composable
-private fun voiceAnsweringLabel(isEnabled: Boolean): String = if (isEnabled) {
-    stringResource(R.string.voice_answering_on_label)
-} else {
-    stringResource(R.string.voice_answering_off_label)
-}
-
-@Composable
-private fun sortOrderLabel(sortOrder: FlashcardSortOrder): String = when (sortOrder) {
-    FlashcardSortOrder.Default -> stringResource(CoreUiR.string.flashcard_sort_order_default_label)
-    FlashcardSortOrder.EasiestFirst -> stringResource(CoreUiR.string.flashcard_sort_order_easiest_first_label)
-    FlashcardSortOrder.HardestFirst -> stringResource(CoreUiR.string.flashcard_sort_order_hardest_first_label)
 }
 
 /** Difficulty always reads; the tag count only joins it when tags are actually narrowing the pool. */

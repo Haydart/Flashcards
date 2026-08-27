@@ -1,32 +1,53 @@
 package com.rossomak.flashcards.presentation.main
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.outlined.GraphicEq
+import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavGraphBuilder
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
-import com.rossomak.flashcards.feature.voicedebug.R as VoiceDebugR
-import com.rossomak.flashcards.feature.voicedebug.VoiceDebugGraph
-import com.rossomak.flashcards.feature.voicedebug.VoiceDebugRoot
-import com.rossomak.flashcards.feature.voicedebug.VoiceDebugScreen
+import com.rossomak.flashcards.feature.debug.DebugGraph
+import com.rossomak.flashcards.feature.debug.DebugRoot
+import com.rossomak.flashcards.feature.debug.DebugScreen
+import com.rossomak.flashcards.feature.debug.DebugVoiceRoot
+import com.rossomak.flashcards.feature.debug.R as DebugR
+import com.rossomak.flashcards.feature.debug.voice.VoiceDebugScreen
 
 @Composable
 internal fun debugTabs(): List<TabItem> = listOf(
     TabItem(
-        stringResource(VoiceDebugR.string.main_voice_debug_tab_label),
-        Icons.Filled.GraphicEq,
-        Icons.Outlined.GraphicEq,
-        VoiceDebugGraph,
+        stringResource(DebugR.string.main_debug_tab_label),
+        Icons.Filled.BugReport,
+        Icons.Outlined.BugReport,
+        DebugGraph,
     ),
 )
 
-internal fun NavGraphBuilder.debugNavGraphEntries() {
-    navigation<VoiceDebugGraph>(startDestination = VoiceDebugRoot) {
-        composable<VoiceDebugRoot> {
-            VoiceDebugScreen()
+/**
+ * The graph starts at the hub, not at the voice harness: every debug tool is reached from
+ * [DebugScreen], so a release build loses all of them by dropping this source set's
+ * `debugImplementation` rather than by hiding rows on a screen users can reach.
+ *
+ * The harness is nested in this graph rather than registered on the app's outer one so that
+ * navigating to it — and the whole `DebugVoiceRoot` symbol — stays inside the debug source set.
+ * It renders above the bottom bar as a result, which is what any tab's nested destination does.
+ */
+internal fun NavGraphBuilder.debugNavGraphEntries(
+    navController: NavHostController,
+    onNavigateToOnboarding: () -> Unit,
+) {
+    navigation<DebugGraph>(startDestination = DebugRoot) {
+        composable<DebugRoot> {
+            DebugScreen(
+                onNavigateToOnboarding = onNavigateToOnboarding,
+                onNavigateToVoiceDebug = { navController.navigate(DebugVoiceRoot) },
+            )
+        }
+        composable<DebugVoiceRoot> {
+            VoiceDebugScreen(onNavigateBack = { navController.popBackStack() })
         }
     }
 }

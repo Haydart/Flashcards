@@ -80,7 +80,7 @@ dependencies {
     implementation(project(":feature:browse"))
     implementation(project(":feature:study"))
     implementation(project(":feature:settings"))
-    debugImplementation(project(":feature:voicedebug"))
+    debugImplementation(project(":feature:debug"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.activity.compose)
