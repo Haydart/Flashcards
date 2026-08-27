@@ -2,6 +2,7 @@ package com.rossomak.flashcards.feature.study
 
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
+import com.rossomak.flashcards.core.domain.model.VoiceSettings
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -23,6 +24,9 @@ data class PreviewStudySessionRoute(
  * @param readAloudEnabled the Preview screen's confirmed choice, carried through for the same
  * reason as [ratedAttempts]. Not yet acted on here — the session has no auto-play behavior to
  * drive it yet.
+ * @param voiceSettings the Preview screen's confirmed choice, session-scoped from here on: a
+ * mid-session change updates only this running session (unless the user keeps it as default),
+ * never a nullable "override" of some other source of truth.
  */
 @Serializable
 data class StudySessionRoute(
@@ -34,6 +38,7 @@ data class StudySessionRoute(
     val voiceAnsweringEnabled: Boolean = false,
     val ratedAttempts: Int = StudySessionConfig.DEFAULT_RATED_ATTEMPTS,
     val readAloudEnabled: Boolean = false,
+    val voiceSettings: VoiceSettings = VoiceSettings(),
 )
 
 @Serializable
