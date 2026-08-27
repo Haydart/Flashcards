@@ -324,7 +324,7 @@ fixture is a **local, gitignored temp file — never committed**:
    land in `subcategories/{id}`; cards land in `subcategories/{id}/shards/{n}`. Credentials via
    `GOOGLE_APPLICATION_CREDENTIALS` (service-account JSON, gitignored).
 
-- Supports extending existing structure without wiping — enables third-party tools to produce new questions.
+- Supports extending existing structure without wiping *unrelated* subcategories/categories — a run only touches the subcategories present in its fixture, so third-party tools can add new subcategories incrementally. Within a subcategory a fixture *does* touch, the fixture must carry that subcategory's full card set: `shards` are fully rewritten every run (see above), so a partial fixture for an already-seeded subcategory (`--sample N`, or a third-party tool emitting only its own new cards) silently drops any existing card the fixture doesn't repeat.
 - **Card `id` is a map key inside its shard's `flashcards` field** (`flashcards["<cardId>"]`), not a Firestore
   document key — a shard doc's own id is just its shard index. Card ids must still be globally unique (the
   capture skill mandates a cryptographically random hex suffix to prevent collisions — 100 historical
