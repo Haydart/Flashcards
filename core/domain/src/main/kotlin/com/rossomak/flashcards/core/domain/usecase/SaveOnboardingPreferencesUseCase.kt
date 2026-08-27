@@ -6,6 +6,7 @@ import com.rossomak.flashcards.core.domain.model.UserPreference.DailyGoalMinutes
 import com.rossomak.flashcards.core.domain.model.UserPreference.HasSeenOnboarding
 import com.rossomak.flashcards.core.domain.usecase.base.UseCase
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 
 /**
  * Onboarding's only writing capability. Composing the two savers rather than injecting them
@@ -22,8 +23,18 @@ class SaveOnboardingPreferencesUseCase @Inject constructor(
 
     data class Params(val defaultStudyMode: StudyMode, val dailyGoalMinutes: Int)
 
+    // Not `mapCatching`, chained: it catches `CancellationException` same as any other `Throwable`
+    // and boxes it into `Result.failure` instead of letting it propagate, which would break
+    // structured concurrency for a cancelled onboarding coroutine.
     override suspend operator fun invoke(params: Params): Result<Unit> =
-        saveStudySessionPreference(DefaultStudyMode(params.defaultStudyMode))
-            .mapCatching { saveUserPreference(DailyGoalMinutes(params.dailyGoalMinutes)).getOrThrow() }
-            .mapCatching { saveUserPreference(HasSeenOnboarding(true)).getOrThrow() }
+        try {
+            saveStudySessionPreference(DefaultStudyMode(params.defaultStudyMode)).getOrThrow()
+            saveUserPreference(DailyGoalMinutes(params.dailyGoalMinutes)).getOrThrow()
+            saveUserPreference(HasSeenOnboarding(true)).getOrThrow()
+            Result.success(Unit)
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: Exception) {
+            Result.failure(exception)
+        }
 }

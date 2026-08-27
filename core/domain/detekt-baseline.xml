@@ -2,6 +2,7 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
+    <ID>TooGenericExceptionCaught:SaveOnboardingPreferencesUseCase.kt$SaveOnboardingPreferencesUseCase$exception: Exception</ID>
     <ID>TooGenericExceptionCaught:SaveStudySessionPreferenceUseCase.kt$SaveStudySessionPreferenceUseCase$exception: Exception</ID>
     <ID>TooGenericExceptionCaught:SaveUserPreferenceUseCase.kt$SaveUserPreferenceUseCase$exception: Exception</ID>
   </CurrentIssues>
