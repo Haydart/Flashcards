@@ -1,15 +1,17 @@
 package com.rossomak.flashcards.core.ui.voice
 
 import android.util.Log
+import com.rossomak.flashcards.core.domain.model.StudySessionPreference.VoicePlayback
 import com.rossomak.flashcards.core.domain.model.VoiceOption
 import com.rossomak.flashcards.core.domain.model.VoiceSettings
 import com.rossomak.flashcards.core.domain.repository.VoicePreviewGateway
 import com.rossomak.flashcards.core.domain.usecase.GetAvailableVoicesUseCase
-import com.rossomak.flashcards.core.domain.usecase.ObserveVoiceSettingsUseCase
-import com.rossomak.flashcards.core.domain.usecase.SaveVoiceSettingsUseCase
+import com.rossomak.flashcards.core.domain.usecase.ObserveStudySessionPreferencesUseCase
+import com.rossomak.flashcards.core.domain.usecase.SaveStudySessionPreferenceUseCase
 import javax.inject.Inject
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
@@ -31,8 +33,8 @@ data class VoiceSettingsDraftState(
  * it to its own viewModelScope.
  */
 class VoiceSettingsController @Inject constructor(
-    private val observeVoiceSettings: ObserveVoiceSettingsUseCase,
-    private val saveVoiceSettings: SaveVoiceSettingsUseCase,
+    private val observeStudySessionPreferences: ObserveStudySessionPreferencesUseCase,
+    private val saveStudySessionPreference: SaveStudySessionPreferenceUseCase,
     private val getAvailableVoices: GetAvailableVoicesUseCase,
     private val previewGateway: VoicePreviewGateway,
 ) {
@@ -54,7 +56,7 @@ class VoiceSettingsController @Inject constructor(
      */
     fun bind(scope: CoroutineScope, onSettingsChange: (VoiceSettings) -> Unit = {}) {
         scope.launch {
-            observeVoiceSettings().collect { settings ->
+            observeStudySessionPreferences().map { it.voiceSettings }.collect { settings ->
                 savedSettings = settings
                 onSettingsChange(settings)
             }
@@ -123,7 +125,7 @@ class VoiceSettingsController @Inject constructor(
     fun save(scope: CoroutineScope, draft: VoiceSettingsDraftState): VoiceSettings {
         val settings = VoiceSettings(speechRate = draft.draftSpeed, voiceId = draft.draftVoiceId)
         scope.launch {
-            runCatching { saveVoiceSettings(settings) }
+            saveStudySessionPreference(VoicePlayback(settings))
                 .onFailure { Log.e(TAG, "Failed to save voice settings", it) }
         }
         previewGateway.stop()
