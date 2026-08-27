@@ -4,43 +4,60 @@
 Globs the gitignored temp dir (default `scripts/seed/.tmp/*.json`) for fixtures
 produced by `build_fixture.py` and upserts them via the Firebase Admin SDK.
 
-Schema written (see ADR-0007):
+Schema written (see ADR-0007, ADR-0037):
   categories/{categoryId}                               → { name, order, subcategoryCount, iconSvg, color, featuredSubcategoryNames[] }
   subcategories/{categoryId-subSlug}                    → { name, nameLower, categoryId, categoryName, order, cardCount }
-  subcategories/{categoryId-subSlug}/flashcards/{cardId} → { question, answer, tags[], createdAt, ... }
+  subcategories/{categoryId-subSlug}/shards/{n}         → { flashcards: { "<cardId>": { id, question, answer, tags[], createdAt, ... }, ... } }
 
-The `subcategoryId` field carried in the fixture is used to route each card into the correct
+The `subcategoryId` field carried in the fixture is used to route each shard into the correct
 subcollection path — it is NOT written as a Firestore document field.
 
 `categories` gets its own write path (see `upsert_categories`), separate from the generic
-`upsert()` used by `subcategories`/`cards`: `iconSvg`/`color` are optional, hand-curated fields
+`upsert()` used by `subcategories`: `iconSvg`/`color` are optional, hand-curated fields
 (see docs/design/category-icon-color.md) that this pipeline must never clobber — once Firestore
 holds a non-empty value for either (including one set by a manual console edit), that value wins
 over whatever the checked-in fixture has, and the write uses `set(merge=True)` so any field
 omitted from the payload is left untouched rather than deleted.
 
-Idempotency:
-  --skip-existing (DEFAULT)  subcategories/cards: write a doc only if its id is absent, skip if
-                             present. categories: not applicable — always merge-written (see
-                             `upsert_categories`), since the sticky-field logic above already
-                             makes re-seeding non-destructive.
-  --overwrite                subcategories/cards: set() every doc unconditionally (clobbers
-                             console edits). categories: also clobbers `iconSvg`/`color` sticky
-                             fields, bypassing the preserve-existing-value check — though the
-                             write is still `set(merge=True)`, so a field the fixture omits (an
-                             uncurated icon) is left alone rather than deleted.
+`shards` also gets its own write path (see `upsert_shards`), independent of --skip-existing/
+--overwrite: shard membership is pure derived data (ADR-0037) with nothing hand-curated inside
+it, so every run overwrites every shard doc in full, and any shard left over from a previous run
+whose index no longer exists in the freshly-packed set is deleted — otherwise a subcategory that
+shrinks or repacks differently would leave stale card content sitting in an orphaned shard doc.
+Orphan scanning uses the fixture's complete subcategory-id set, not just the ones with at least
+one shard — a subcategory that drops to zero cards still needs its old shards found and deleted.
 
-                             Required when a NEW denormalized field is added to a
-                             --skip-existing collection (subcategories/cards): --skip-existing
-                             writes only absent doc ids, so a field like `subcategories.nameLower`
-                             never reaches docs that already exist, and search silently matches
-                             nothing. Dry-run first. Does NOT apply to `categories` — that
-                             collection is always merge-written regardless of this flag, so a new
-                             category field such as `featuredSubcategoryNames` reaches every
-                             existing doc on a plain re-seed with no flag needed.
+`subcategories.cardCount` also gets its own always-on refresh (see `refresh_card_counts`),
+independent of --skip-existing/--overwrite, for the same reason as `shards`: it's pure derived
+data describing content that `shards` — always fully rewritten — already keeps authoritative and
+fresh. Left unrefreshed, `cardCount` would silently drift from the real card count the moment a
+subcategory's size changes after its doc already exists. This is narrower than the `shards`
+write path: only `cardCount` is touched (via `set(merge=True)`), not `name`/`order`/`nameLower`
+— `order` in particular may be hand-adjusted in the Firebase console (see Notes below), so it
+keeps today's --skip-existing semantics rather than being force-refreshed like `cardCount`.
+
+Idempotency:
+  --skip-existing (DEFAULT)  subcategories: write a doc only if its id is absent, skip if
+                             present (except `cardCount`, always refreshed regardless — see
+                             above). categories, shards: not applicable — always written (see
+                             `upsert_categories`/`upsert_shards` above).
+  --overwrite                subcategories: set() every doc unconditionally (clobbers console
+                             edits). categories: also clobbers `iconSvg`/`color` sticky fields,
+                             bypassing the preserve-existing-value check — though the write is
+                             still `set(merge=True)`, so a field the fixture omits (an uncurated
+                             icon) is left alone rather than deleted. shards, cardCount refresh:
+                             no effect, already always-overwrite.
+
+                             Required when a NEW denormalized field is added to the
+                             --skip-existing `subcategories` collection: --skip-existing writes
+                             only absent doc ids, so a field like `subcategories.nameLower` never
+                             reaches docs that already exist, and search silently matches
+                             nothing. Dry-run first. Does NOT apply to `categories`/`shards` —
+                             both are always fully written regardless of this flag.
   --dry-run                  report planned writes/skips without touching Firestore. Still reads
-                             existing docs (categories: to evaluate sticky fields; others: to
-                             determine skip/write), it just skips the write call itself.
+                             existing docs (categories: to evaluate sticky fields; shards: to
+                             find orphans to delete; subcategories: to determine skip/write), it
+                             just skips the write call itself.
 
 Credentials: Application Default Credentials. Point GOOGLE_APPLICATION_CREDENTIALS
 at a service-account JSON, or pass --cred <path>. The project id is taken from the
@@ -53,24 +70,43 @@ from collections import defaultdict
 DEFAULT_FIXTURES = os.path.join(os.path.dirname(__file__), ".tmp")
 BATCH_LIMIT = 400  # Firestore batched-write cap is 500; stay under it.
 
+# Firestore's commit RPC also caps total request/transaction size; shard docs run far larger
+# than the tiny per-card docs BATCH_LIMIT was sized for, so upsert_shards() flushes on this byte
+# budget too. A batched write is accounted as a transaction internally (index entries etc. count
+# against the limit, not just raw payload bytes), which errors ("Transaction too big") at a
+# noticeably smaller effective size than the ~10MiB request-size cap alone would suggest — kept
+# well under that observed threshold.
+SHARD_BATCH_BYTE_LIMIT = 1_000_000
+
 
 def load_fixtures(fixtures_dir: str):
     paths = sorted(glob.glob(os.path.join(fixtures_dir, "*.json")))
     if not paths:
         sys.exit(f"no *.json fixtures in {fixtures_dir} — run build_fixture.py first")
-    categories, subcategories, cards = [], [], []
-    seen_card_ids: set[str] = set()
+    categories, subcategories, shards = [], [], []
+    # Shard doc ids ("0", "1", ...) are only unique within their subcategory, so the collision
+    # key is the (subcategoryId, id) pair, not the bare shard id. Every real run consumes a
+    # single fixture file (build_fixture.py always writes one canonical .tmp/fixture.json), so
+    # this only matters if multiple fixture files are ever glued together by hand — in which case
+    # a collision means two independently-packed shard sets disagree about what shard "0" (etc.)
+    # for that subcategory contains, and silently keeping one would drop the other's cards with
+    # no signal. Fail loudly instead.
+    seen_shard_keys: set[tuple[str, str]] = set()
     for p in paths:
         with open(p, encoding="utf-8") as f:
             data = json.load(f)
         categories += data.get("categories", [])
         subcategories += data.get("subcategories", [])
-        for c in data.get("cards", []):
-            if c["id"] in seen_card_ids:
-                continue  # de-dupe across multiple fixture files
-            seen_card_ids.add(c["id"])
-            cards.append(c)
-    return paths, categories, subcategories, cards
+        for s in data.get("shards", []):
+            key = (s["subcategoryId"], s["id"])
+            if key in seen_shard_keys:
+                sys.exit(
+                    f"duplicate shard id across fixtures: subcategory {s['subcategoryId']!r} "
+                    f"shard {s['id']!r} — these must not be combined blindly"
+                )
+            seen_shard_keys.add(key)
+            shards.append(s)
+    return paths, categories, subcategories, shards
 
 
 def init_db(cred_path: str | None):
@@ -91,15 +127,18 @@ def existing_ids(db, collection: str) -> set[str]:
     return {ref.id for ref in db.collection(collection).list_documents()}
 
 
-def existing_card_ids(db, sub_ids: set[str]) -> set[str]:
-    existing: set[str] = set()
-    for sid in sub_ids:
-        for ref in (db.collection("subcategories")
-                      .document(sid)
-                      .collection("flashcards")
-                      .list_documents()):
-            existing.add(ref.id)
-    return existing
+def existing_shard_ids(db, sub_ids: set[str]) -> dict[str, set[str]]:
+    """Existing `shards/{n}` doc ids per subcategoryId, used to find orphans to delete."""
+    return {
+        sid: {
+            ref.id
+            for ref in (db.collection("subcategories")
+                          .document(sid)
+                          .collection("shards")
+                          .list_documents())
+        }
+        for sid in sub_ids
+    }
 
 
 def upsert(db, collection: str, docs: list[dict], *, overwrite: bool, dry_run: bool):
@@ -154,33 +193,101 @@ def upsert_categories(db, categories: list[dict], *, overwrite: bool, dry_run: b
     return written, 0
 
 
-def upsert_cards(db, cards: list[dict], *, overwrite: bool, dry_run: bool):
-    """Upsert cards into subcategories/{subcategoryId}/flashcards/{cardId} subcollections.
+def upsert_shards(db, shards: list[dict], all_subcategory_ids: set[str], *, dry_run: bool):
+    """Upsert subcategories/{subcategoryId}/shards/{n} docs.
 
-    subcategoryId is a fixture routing field — stripped from the Firestore payload.
-    Returns (written, skipped).
+    subcategoryId is a fixture routing field — stripped from the Firestore payload. Unlike
+    upsert()/upsert_categories(), there is no --skip-existing/--overwrite distinction here: shard
+    membership is pure derived data (ADR-0037), so every run writes every shard doc in full. Any
+    existing shard doc whose index falls outside the freshly-packed set for its subcategory is
+    deleted — otherwise a subcategory that shrinks, or repacks its cards across a different
+    number of shards, would leave stale card content sitting in an orphaned doc.
+
+    `all_subcategory_ids` (the fixture's full subcategory id set, not just the ones with shards)
+    drives orphan scanning — a subcategory that now has zero cards contributes no shards at all,
+    so deriving sub_ids from `shards` alone would skip it entirely and leave its stale shards
+    (from before it emptied out) live and readable forever.
+
+    Returns (written, deleted).
     """
-    sub_ids = {c["subcategoryId"] for c in cards}
-    present: set[str] = set()
-    if not overwrite or dry_run:
-        present = existing_card_ids(db, sub_ids)
+    existing = existing_shard_ids(db, all_subcategory_ids) if all_subcategory_ids else {}
 
-    to_write = [c for c in cards if overwrite or c["id"] not in present]
-    skipped = len(cards) - len(to_write)
+    new_ids_by_sub: dict[str, set[str]] = defaultdict(set)
+    for s in shards:
+        new_ids_by_sub[s["subcategoryId"]].add(s["id"])
+
+    to_delete = [
+        (sid, shard_id)
+        for sid, existing_ids in existing.items()
+        for shard_id in existing_ids - new_ids_by_sub.get(sid, set())
+    ]
 
     if dry_run:
-        return len(to_write), skipped
+        return len(shards), len(to_delete)
 
     written = 0
     batch = db.batch()
     n = 0
-    for c in to_write:
-        payload = {k: v for k, v in c.items() if k not in ("id", "subcategoryId")}
+    batch_bytes = 0
+    for s in shards:
+        payload = {k: v for k, v in s.items() if k not in ("id", "subcategoryId")}
+        # Shard docs run up to SHARD_BYTE_BUDGET (~700KB) each, unlike the tiny per-doc payloads
+        # BATCH_LIMIT was sized for — a handful of them can already blow past Firestore's ~10MiB
+        # commit-request cap, so flush on byte budget too, not just doc count.
+        size = len(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
+        if n and batch_bytes + size > SHARD_BATCH_BYTE_LIMIT:
+            batch.commit()
+            batch = db.batch()
+            n = 0
+            batch_bytes = 0
         ref = (db.collection("subcategories")
-               .document(c["subcategoryId"])
-               .collection("flashcards")
-               .document(c["id"]))
+               .document(s["subcategoryId"])
+               .collection("shards")
+               .document(s["id"]))
         batch.set(ref, payload)
+        n += 1
+        batch_bytes += size
+        written += 1
+        if n >= BATCH_LIMIT:
+            batch.commit()
+            batch = db.batch()
+            n = 0
+            batch_bytes = 0
+    for sid, shard_id in to_delete:
+        ref = (db.collection("subcategories")
+               .document(sid)
+               .collection("shards")
+               .document(shard_id))
+        batch.delete(ref)
+        n += 1
+        if n >= BATCH_LIMIT:
+            batch.commit()
+            batch = db.batch()
+            n = 0
+            batch_bytes = 0
+    if n:
+        batch.commit()
+    return written, len(to_delete)
+
+
+def refresh_card_counts(db, subcategories: list[dict], *, dry_run: bool) -> int:
+    """Refresh `cardCount` on every subcategory doc, independent of upsert()'s --skip-existing
+    default above. `shards` are always fully rewritten on every run (ADR-0037) — `cardCount` must
+    track that same content or it silently drifts from reality once a subcategory's card count
+    changes after its doc already exists (see PR #51 review). `order`/`name`/`nameLower` are left
+    alone here; unlike `cardCount`, `order` may be hand-adjusted in the Firebase console per this
+    file's docstring, so this only merge-writes the one field known to be pure derived data.
+    Returns the number of subcategories refreshed (all of them — this is not conditional).
+    """
+    if dry_run:
+        return len(subcategories)
+
+    written = 0
+    batch = db.batch()
+    n = 0
+    for sub in subcategories:
+        ref = db.collection("subcategories").document(sub["id"])
+        batch.set(ref, {"cardCount": sub["cardCount"]}, merge=True)
         n += 1
         written += 1
         if n >= BATCH_LIMIT:
@@ -189,7 +296,7 @@ def upsert_cards(db, cards: list[dict], *, overwrite: bool, dry_run: bool):
             n = 0
     if n:
         batch.commit()
-    return written, skipped
+    return written
 
 
 def main():
@@ -206,22 +313,27 @@ def main():
     args = ap.parse_args()
     overwrite = bool(args.overwrite)
 
-    paths, categories, subcategories, cards = load_fixtures(args.fixtures_dir)
+    paths, categories, subcategories, shards = load_fixtures(args.fixtures_dir)
+    total_cards = sum(len(s["flashcards"]) for s in shards)
     print(f"fixtures: {', '.join(os.path.relpath(p) for p in paths)}")
-    print(f"  categories={len(categories)} subcategories={len(subcategories)} cards={len(cards)}")
-    print(f"mode: {'OVERWRITE' if overwrite else 'skip-existing'}"
+    print(f"  categories={len(categories)} subcategories={len(subcategories)} "
+          f"shards={len(shards)} cards={total_cards}")
+    print(f"mode: {'OVERWRITE' if overwrite else 'skip-existing'} (shards always overwrite)"
           f"{' (DRY-RUN)' if args.dry_run else ''}\n")
 
     db = init_db(args.cred)
 
     cw, cs = upsert_categories(db, categories, overwrite=overwrite, dry_run=args.dry_run)
     sw, ss = upsert(db, "subcategories", subcategories, overwrite=overwrite, dry_run=args.dry_run)
-    kw, ks = upsert_cards(db, cards, overwrite=overwrite, dry_run=args.dry_run)
+    cc = refresh_card_counts(db, subcategories, dry_run=args.dry_run)
+    hw, hd = upsert_shards(db, shards, {s["id"] for s in subcategories}, dry_run=args.dry_run)
 
     verb = "would write" if args.dry_run else "wrote"
+    del_verb = "would delete" if args.dry_run else "deleted"
     print(f"categories/                    {verb} {cw}, skipped {cs}")
     print(f"subcategories/                 {verb} {sw}, skipped {ss}")
-    print(f"subcategories/*/flashcards/    {verb} {kw}, skipped {ks}")
+    print(f"subcategories/.cardCount       refreshed {cc}")
+    print(f"subcategories/*/shards/        {verb} {hw}, {del_verb} {hd} orphaned")
     if args.dry_run:
         print("\n(dry-run — nothing written)")
 

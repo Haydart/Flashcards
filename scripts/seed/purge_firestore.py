@@ -2,7 +2,11 @@
 """Purge all Firestore data written by the seed pipeline.
 
 Deletes every document in:
-  subcategories/{id}/flashcards/*   (subcollections first)
+  subcategories/{id}/shards/*       (current shape, ADR-0037; subcollections first)
+  subcategories/{id}/flashcards/*   (legacy pre-ADR-0037 shape — one-time migration cleanup,
+                                     safe to run even once no subcategory has this subcollection
+                                     any more, since a stream() over a nonexistent collection
+                                     just yields no documents)
   subcategories/*
   categories/*
 
@@ -53,23 +57,35 @@ def main():
 
     if args.dry_run:
         sub_docs = list(db.collection("subcategories").stream())
-        total_cards = sum(
+        total_shards = sum(
+            len(list(s.reference.collection("shards").stream()))
+            for s in sub_docs
+        )
+        total_legacy_cards = sum(
             len(list(s.reference.collection("flashcards").stream()))
             for s in sub_docs
         )
         print(f"[dry-run] would delete:")
-        print(f"  {total_cards} flashcard docs")
+        print(f"  {total_shards} shard docs")
+        if total_legacy_cards:
+            print(f"  {total_legacy_cards} legacy flashcard docs (pre-ADR-0037)")
         print(f"  {len(sub_docs)} subcategory docs")
         cats = len(list(db.collection("categories").stream()))
         print(f"  {cats} category docs")
         return
 
-    print("Purging subcategories/*/flashcards ...")
+    print("Purging subcategories/*/shards ...")
     sub_docs = list(db.collection("subcategories").stream())
-    total_cards = 0
+    total_shards = 0
     for sub in sub_docs:
-        total_cards += delete_collection(db, sub.reference.collection("flashcards"))
-    print(f"  deleted {total_cards}")
+        total_shards += delete_collection(db, sub.reference.collection("shards"))
+    print(f"  deleted {total_shards}")
+
+    print("Purging subcategories/*/flashcards (legacy pre-ADR-0037) ...")
+    total_legacy_cards = 0
+    for sub in sub_docs:
+        total_legacy_cards += delete_collection(db, sub.reference.collection("flashcards"))
+    print(f"  deleted {total_legacy_cards}")
 
     print("Purging subcategories/ ...")
     n = delete_collection(db, db.collection("subcategories"))

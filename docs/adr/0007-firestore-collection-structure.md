@@ -4,6 +4,8 @@
 
 Flashcards are stored as a subcollection directly under their Subcategory document: `subcategories/{subcategoryId}/flashcards/{cardId}`. There is no separate `cards/` top-level collection. Categories and Subcategories are separate top-level collections. Subcategory document IDs are namespaced as `{categoryId}-{subSlug}` (e.g. `android-testing`). The `subcategoryId` field is not stored on Flashcard documents — it is encoded in the collection path.
 
+**Superseded in part by [ADR-0037](0037-flashcard-content-sharded-by-byte-budget.md):** the "one document per card" granularity described here and in the Consequences below no longer holds for the global admin-curated pool, which now packs cards into byte-budgeted `shards/{n}` docs instead of `flashcards/{cardId}`. The subcollection-under-Subcategory placement, the rejection of a flat `cards/` collection, and namespaced Subcategory IDs are all unaffected and still stand as decided here. Private Flashcards are untouched by ADR-0037 and still follow the one-doc-per-card shape described in this ADR.
+
 ## Context
 
 Every read of Flashcards is scoped to one or more Subcategories (Subcategory Details, Preview Study Session Screen card selection, Quick Session). The original flat `cards/{cardId}` collection required a `WHERE subcategoryId == X` query and a Firestore composite index for every such read.

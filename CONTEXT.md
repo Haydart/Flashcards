@@ -19,7 +19,7 @@ A global keyword carried by a Flashcard. One kind only — no type distinction, 
 _Avoid_: Label, Topic, Filter (even though Tags filter, do not call the entity "Filter"); Specific Tag / Common Tag / System Tag (the typed-tag model is retired)
 
 **Private flag**:
-A derived boolean property: a Flashcard is Private iff it lives under `users/{uid}/privateCards/{subcategoryId}/flashcards/` (global `subcategories/{subcategoryId}/flashcards/` are never Private). Not a Tag. Surfaced as a "Private" filter chip on Subcategory Details (so users can study their private cards only) but absent from the New Flashcard tag selector.
+A derived boolean property: a Flashcard is Private iff it lives under `users/{uid}/privateCards/{subcategoryId}/flashcards/` (global cards, packed as map entries under `subcategories/{subcategoryId}/shards/` per ADR-0037, are never Private). Not a Tag. Surfaced as a "Private" filter chip on Subcategory Details (so users can study their private cards only) but absent from the New Flashcard tag selector.
 _Avoid_: private Tag, System Tag
 
 **Flashcard**:
@@ -27,7 +27,7 @@ A question-answer pair belonging to exactly one Subcategory. Part of the global 
 _Avoid_: Card, Question
 
 **Difficulty**:
-A mandatory integer 1–10 on every global admin-curated Flashcard expressing how hard the question is within its Subcategory's domain. Domain-relative: a 3 in Compose and a 3 in Coroutines both mean "a beginner in that area gets this right." Global Flashcards with no Difficulty value are filtered out at the data layer and never reach the domain. Private Flashcards are exempt — they carry no Difficulty and are excluded from difficulty-aware features. Used by curriculum features to order Flashcards by complexity.
+A mandatory integer 1–10 on every Flashcard — global admin-curated and Private alike — expressing how hard the question is within its Subcategory's domain. Domain-relative: a 3 in Compose and a 3 in Coroutines both mean "a beginner in that area gets this right." Global Flashcards with no Difficulty value are filtered out at the data layer and never reach the domain (a backfill concern for the pre-existing global corpus); Private Flashcards have no such gap since the creation dialog's mandatory Slider means none can be saved without one. Used by curriculum features to order Flashcards by complexity.
 _Avoid_: Score, Level, Rank
 
 **Extended Context**:

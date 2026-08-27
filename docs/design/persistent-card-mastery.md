@@ -75,7 +75,7 @@ deltasBySubcategory.forEach { (subcategoryId, delta) ->
 - **Search results** (topics matched across Categories): `where subcategoryId in [matchedIds]` (Firestore `in` caps at 30 values) — one query for the small set of matched topics.
 - **Study tab default list**: no progress read — that screen only shows a topic *count* per Category ("13 topics"), not per-topic percentages.
 
-`flashcards` subcollections are never touched by any progress read — the count lives entirely in `subcategoryProgress`, derived once at write time.
+`shards` subcollections (ADR-0037) are never touched by any progress read — the count lives entirely in `subcategoryProgress`, derived once at write time.
 
 ### Consistency
 

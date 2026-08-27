@@ -8,12 +8,21 @@ and writes a single fixture file to a gitignored temp dir (default `scripts/seed
 The fixture is intentionally NOT committed — it is a throwaway hand-off to
 `seed_firestore.py`. Re-run any time; output is deterministic.
 
-Schema (see ADR-0007):
+Schema (see ADR-0007, ADR-0037):
   categories/{categoryId}                        → { name, order, subcategoryCount, iconSvg, color,
                                                      featuredSubcategoryNames[] }
   subcategories/{categoryId-subSlug}             → { name, nameLower, categoryId, categoryName,
                                                      order, cardCount }
-  subcategories/{categoryId-subSlug}/flashcards/{cardId} → { question, answer, tags[], createdAt, ... }
+  subcategories/{categoryId-subSlug}/shards/{n}  → { flashcards: { "<cardId>": { id, question,
+                                                     answer, tags[], createdAt, ... }, ... } }
+
+Cards are packed into byte-budgeted shard docs instead of one Firestore document per card
+(ADR-0037) — each Subcategory's cards are sorted by id, then greedily accumulated into a shard
+until the next card would cross SHARD_BYTE_BUDGET, at which point a new shard starts. Shard
+membership is pure derived data: fully recomputed every run, never hand-curated, never sticky.
+`flashcards` is a map keyed by card id, not an array, so a future admin curation-fix tool can
+patch one card's field via a Firestore dot-path update without touching any other card in the
+shard — see ADR-0037.
 
 Subcategory IDs are namespaced "{categoryId}-{subSlug}" (e.g. "android-compose") to guarantee
 uniqueness across parent categories in the flat subcategories/ collection.
@@ -43,6 +52,12 @@ DEFAULT_ICON_ASSETS = os.path.join(os.path.dirname(__file__), "assets", "categor
 # field behind the Browse screen's topic-summary chip line. Five is what the chip line can hold
 # before width truncation; see docs/design/category-search.md.
 TOP_SUBCATEGORY_NAMES_LIMIT = 5
+
+# Target ceiling per shard doc, in UTF-8 bytes of its serialized `flashcards[]` payload. Kept
+# well under Firestore's 1 MiB/doc hard cap — see ADR-0037 for the `android/compose` sizing
+# check (1180 cards, ~1.5MB raw, needs multiple shards) that ruled out a flat "one doc per
+# subcategory" rule.
+SHARD_BYTE_BUDGET = 700_000
 
 # Display-name overrides for slugs that do not titlecase nicely. Admin can extend.
 NAME_OVERRIDES = {
@@ -87,11 +102,22 @@ def make_sub_id(cat_slug: str, sub_slug: str) -> str:
     return f"{cat_slug}-{sub_slug}"
 
 
+def assert_valid_shard_map_key(card_id: str) -> None:
+    """Card ids double as Firestore map keys in each shard's `flashcards` field (ADR-0037), and
+    as the key targeted by a future admin dot-path patch (`flashcards.<id>.<field>`). `.` would be
+    misread as a nesting separator in that dot-path, `/` is invalid in a map key, and a leading
+    `__` collides with Firestore's own reserved field convention.
+    """
+    if "." in card_id or "/" in card_id or card_id.startswith("__"):
+        sys.exit(f"card id {card_id!r} is not a valid shard map key (no '.', '/', or leading '__')")
+
+
 def project_card(d: dict, subcategory_id: str) -> dict:
     if "difficulty" not in d:
         sys.exit(f"card {d.get('id')} is missing mandatory field 'difficulty'")
     if not isinstance(d["difficulty"], int) or not (1 <= d["difficulty"] <= 10):
         sys.exit(f"card {d.get('id')} has invalid difficulty {d['difficulty']!r} (must be int 1–10)")
+    assert_valid_shard_map_key(d["id"])
     out = {
         "id": d["id"],
         "subcategoryId": subcategory_id,  # fixture routing only — stripped before Firestore write
@@ -112,6 +138,62 @@ def project_card(d: dict, subcategory_id: str) -> dict:
         if d.get(src):
             out[dst] = d[src]
     return out
+
+
+def card_byte_size(card: dict) -> int:
+    return len(json.dumps(card, ensure_ascii=False).encode("utf-8"))
+
+
+def pack_shards(cards: list[dict], budget: int = SHARD_BYTE_BUDGET) -> list[dict]:
+    """Bin-pack cards into byte-budgeted shard docs, one bin-pack run per subcategoryId (ADR-0037).
+
+    Cards are grouped by their `subcategoryId` routing field, sorted by id for deterministic
+    output, then greedily accumulated into a shard until the next card would cross `budget`.
+    Each shard's `flashcards` is a map keyed by card id (not an array) — ADR-0037 chose this
+    specifically so a future admin curation-fix tool can patch one card's field via a Firestore
+    dot-path update (`update({f"flashcards.{cardId}.answer": fix})`) without touching any other
+    card in the same shard; Firestore has no equivalent partial-update into one array element.
+    `id` is also kept inside each value as a cross-check against its own map key — the two must
+    always agree, since the key is authoritative for any targeted access.
+
+    Each card's contribution to the budget is measured as its whole `{cardId: payload}` map
+    entry — not just the raw payload — so the key itself and its wrapping counts too. A card
+    whose entry alone exceeds `budget` can never be packed into any shard (with or without
+    company) and fails loudly here instead of surfacing later as a cryptic Firestore upload
+    error against the 1MiB/doc hard cap.
+
+    Returns a flat list of shard dicts: {"id": "<shardIndex>", "subcategoryId": ..., "flashcards": {cardId: {...}, ...}},
+    where `subcategoryId` is routing-only (stripped before the Firestore write, same convention
+    as a card's own `subcategoryId` in `project_card`).
+    """
+    by_sub: dict[str, list[dict]] = defaultdict(list)
+    for card in cards:
+        by_sub[card["subcategoryId"]].append(card)
+
+    shards: list[dict] = []
+    for sid in sorted(by_sub):
+        sub_cards = sorted(by_sub[sid], key=lambda c: c["id"])
+        current: dict[str, dict] = {}
+        current_bytes = 0
+        shard_index = 0
+        for card in sub_cards:
+            payload = {k: v for k, v in card.items() if k != "subcategoryId"}
+            entry_size = card_byte_size({card["id"]: payload})
+            if entry_size > budget:
+                sys.exit(
+                    f"card {card['id']!r} is {entry_size} bytes on its own, over the "
+                    f"{budget}-byte shard budget — cannot be packed into any shard"
+                )
+            if current and current_bytes + entry_size > budget:
+                shards.append({"id": str(shard_index), "subcategoryId": sid, "flashcards": current})
+                shard_index += 1
+                current = {}
+                current_bytes = 0
+            current[card["id"]] = payload
+            current_bytes += entry_size
+        if current:
+            shards.append({"id": str(shard_index), "subcategoryId": sid, "flashcards": current})
+    return shards
 
 
 def build(
@@ -222,7 +304,9 @@ def build(
                 "cardCount": sub_counts[sid],
             })
 
-    return {"categories": categories, "subcategories": subcategories, "cards": cards}, \
+    shards = pack_shards(cards)
+
+    return {"categories": categories, "subcategories": subcategories, "shards": shards}, \
            cat_counts, sub_counts
 
 
@@ -246,10 +330,13 @@ def main():
         json.dump(fixture, f, ensure_ascii=False, indent=2)
         f.write("\n")
 
+    total_cards = sum(cat_counts.values())
     print(f"wrote {args.out}")
     print(f"  categories:    {len(fixture['categories'])}")
     print(f"  subcategories: {len(fixture['subcategories'])}")
-    print(f"  cards:         {len(fixture['cards'])}")
+    print(f"  cards:         {total_cards}")
+    print(f"  shards:        {len(fixture['shards'])}"
+          + (f" ({total_cards / len(fixture['shards']):.1f} cards/shard avg)" if fixture['shards'] else ""))
     print("  cards per category: " +
           ", ".join(f"{c}={cat_counts[c]}" for c in sorted(cat_counts)))
     if args.sample is not None:
