@@ -254,7 +254,7 @@ users/{uid}/recentSessions/{sessionId}                → { categoryId, category
 // Not yet written anywhere in code — see Session Termination / Data Saving above.
 users/{uid}/progress/{cardId}                         → { failedCount, correctCount, lastReviewedAt, nextReviewAt }
 users/{uid}/progress/{cardId}/reviews/{id}            → { rating, reviewedAt }
-users/{uid}/privateCards/{subcategoryId}/flashcards/{cardId} → { question, answer, tags[], status, createdAt }
+users/{uid}/privateCards/{subcategoryId}/flashcards/{cardId} → { question, answer, tags[], difficulty, status, createdAt }
 
 // Report a problem (in-session flag icon)
 users/{uid}/curationRequests/{cardId}                       → { subcategoryId: String,
@@ -269,7 +269,7 @@ users/{uid}/curationRequests/{cardId}                       → { subcategoryId:
 - **Cards live as a subcollection of their Subcategory** (`subcategories/{subcategoryId}/shards/`), packed into a small number of byte-budgeted shard docs (`{ flashcards: {cardId: {...}, ...} }`, a map keyed by card id — not an array, so a future admin curation-fix tool can dot-path-patch one card without touching any other) rather than one Firestore document per card. Fetching all Flashcards for a Subcategory is a single `getDocuments()` over `shards` — no WHERE clause, no index — followed by flattening each shard's `flashcards` map values client-side. No separate `cards/` collection. See [ADR-0007](docs/adr/0007-firestore-collection-structure.md) for the subcollection placement and [ADR-0037](docs/adr/0037-flashcard-content-sharded-by-byte-budget.md) for the shard-doc granularity.
 - **`subcategoryId` is not stored on Flashcard documents** — it is encoded in the collection path. Each card's own `id` field, however, *is* stored inside its shard's `flashcards["<cardId>"]` entry (a shard doc's id is just its shard index, so it can no longer stand in for the card's id).
 - **Private Flashcards are unaffected by sharding** — `users/{uid}/privateCards/{subcategoryId}/flashcards/{cardId}` stays one document per card, since they're appended one at a time via the creation FAB rather than seeded in batch.
-- **`difficulty` is a mandatory integer (1–10)** on global Flashcard documents. Documents missing this field are filtered at the DTO layer and never reach the domain. Private Flashcards carry no `difficulty`. See [ADR-0010](docs/adr/0010-difficulty-field-design.md).
+- **`difficulty` is a mandatory integer (1–10)** on every Flashcard document, global and Private alike. Global documents missing this field are filtered at the DTO layer and never reach the domain (a backfill concern for the pre-existing corpus); Private Flashcards have no such gap — the creation dialog's mandatory Slider means none can be saved without one. See [ADR-0010](docs/adr/0010-difficulty-field-design.md).
 - **`extendedContext` is nullable** on global Flashcard documents. Omitted on simple cards (difficulty 1–3) where the Q&A is fully self-explanatory. Present and progressively richer as difficulty rises: mid cards (4–6) carry a concrete example or short snippet; hard/expert cards (7–10) carry fuller context — edge cases, cross-concept relationships, pitfalls. Never duplicates the `answer` field.
 - **Tags are flat untyped strings** in `tags[]` on each Flashcard. No `tags/` collection. See [ADR-0006](docs/adr/0006-flat-denormalized-tags.md).
 - **Category `iconUrl`**: absolute HTTPS URL. No Firebase Storage SDK dependency in UI layer.
@@ -297,6 +297,7 @@ Session Flashcard count: user-configurable (Length row on Preview, default 20; a
 Created from Subcategory Details screen via FAB. Fields:
 - Question (multiline text)
 - Answer (multiline text)
+- Difficulty (`Slider`, 1–10, discrete steps, mandatory — no card can be saved without one, see [ADR-0010](docs/adr/0010-difficulty-field-design.md))
 - Tags (multi-select from the Tags already present on this Subcategory's Flashcards, derived `distinct(card.tags)`):
   - Opens with all tags unchecked — no filter state propagated from the Subcategory Details screen
   - "General" tag is not shown; if user submits with no tags checked, "General" is auto-assigned (intentional friction against unclassified cards)

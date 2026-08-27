@@ -27,7 +27,7 @@ A question-answer pair belonging to exactly one Subcategory. Part of the global 
 _Avoid_: Card, Question
 
 **Difficulty**:
-A mandatory integer 1–10 on every global admin-curated Flashcard expressing how hard the question is within its Subcategory's domain. Domain-relative: a 3 in Compose and a 3 in Coroutines both mean "a beginner in that area gets this right." Global Flashcards with no Difficulty value are filtered out at the data layer and never reach the domain. Private Flashcards are exempt — they carry no Difficulty and are excluded from difficulty-aware features. Used by curriculum features to order Flashcards by complexity.
+A mandatory integer 1–10 on every Flashcard — global admin-curated and Private alike — expressing how hard the question is within its Subcategory's domain. Domain-relative: a 3 in Compose and a 3 in Coroutines both mean "a beginner in that area gets this right." Global Flashcards with no Difficulty value are filtered out at the data layer and never reach the domain (a backfill concern for the pre-existing global corpus); Private Flashcards have no such gap since the creation dialog's mandatory Slider means none can be saved without one. Used by curriculum features to order Flashcards by complexity.
 _Avoid_: Score, Level, Rank
 
 **Extended Context**:
