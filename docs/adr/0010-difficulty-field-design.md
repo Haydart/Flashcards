@@ -24,7 +24,7 @@ The field is being added retroactively to the global pool — the initial card c
 
 - `FlashcardDto` maps `difficulty` as `Int?` (nullable for Firestore deserialization). The DTO→domain mapper drops any global-pool card where `difficulty` is null.
 - `Flashcard` domain model carries `difficulty: Int` — non-null, always valid.
-- The null-filter runs only on the global pool path (`subcategories/{subcategoryId}/flashcards/`) — a backfill concern that doesn't apply to `users/{uid}/privateCards/`, since the creation dialog's mandatory Slider means no Private Flashcard can be written without one.
+- The null-filter runs only on the global pool path (`subcategories/{subcategoryId}/shards/`, cards as map entries per ADR-0037) — a backfill concern that doesn't apply to `users/{uid}/privateCards/`, since the creation dialog's mandatory Slider means no Private Flashcard can be written without one.
 - Private Flashcard creation dialog UI requires a `Slider` control (1-10, discrete steps) wired as a mandatory field, not optional.
 - Seed tooling picks up `difficulty` from `inbox.jsonl` automatically — no explicit field mapping change needed.
 - No `difficultyMin`/`difficultyMax` denormalization on Subcategory docs for now — deferred until a UI use case requires it.
