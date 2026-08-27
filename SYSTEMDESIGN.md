@@ -267,7 +267,7 @@ users/{uid}/curationRequests/{cardId}                       → { subcategoryId:
 
 - **Strict 2-level taxonomy**: Categories and Subcategories are separate top-level collections. Subcategory IDs are namespaced `{categoryId}-{subSlug}` (e.g. `android-testing`) to guarantee uniqueness across parent categories. See [ADR-0001](docs/adr/0001-flat-two-level-taxonomy.md) and [ADR-0007](docs/adr/0007-firestore-collection-structure.md).
 - **Cards live as a subcollection of their Subcategory** (`subcategories/{subcategoryId}/shards/`), packed into a small number of byte-budgeted shard docs (`{ flashcards: {cardId: {...}, ...} }`, a map keyed by card id — not an array, so a future admin curation-fix tool can dot-path-patch one card without touching any other) rather than one Firestore document per card. Fetching all Flashcards for a Subcategory is a single `getDocuments()` over `shards` — no WHERE clause, no index — followed by flattening each shard's `flashcards` map values client-side. No separate `cards/` collection. See [ADR-0007](docs/adr/0007-firestore-collection-structure.md) for the subcollection placement and [ADR-0037](docs/adr/0037-flashcard-content-sharded-by-byte-budget.md) for the shard-doc granularity.
-- **`subcategoryId` is not stored on Flashcard documents** — it is encoded in the collection path. Each card's own `id` field, however, *is* stored inside its shard's `flashcards[]` entry (a shard doc's id is just its shard index, so it can no longer stand in for the card's id).
+- **`subcategoryId` is not stored on Flashcard documents** — it is encoded in the collection path. Each card's own `id` field, however, *is* stored inside its shard's `flashcards["<cardId>"]` entry (a shard doc's id is just its shard index, so it can no longer stand in for the card's id).
 - **Private Flashcards are unaffected by sharding** — `users/{uid}/privateCards/{subcategoryId}/flashcards/{cardId}` stays one document per card, since they're appended one at a time via the creation FAB rather than seeded in batch.
 - **`difficulty` is a mandatory integer (1–10)** on global Flashcard documents. Documents missing this field are filtered at the DTO layer and never reach the domain. Private Flashcards carry no `difficulty`. See [ADR-0010](docs/adr/0010-difficulty-field-design.md).
 - **`extendedContext` is nullable** on global Flashcard documents. Omitted on simple cards (difficulty 1–3) where the Q&A is fully self-explanatory. Present and progressively richer as difficulty rises: mid cards (4–6) carry a concrete example or short snippet; hard/expert cards (7–10) carry fuller context — edge cases, cross-concept relationships, pitfalls. Never duplicates the `answer` field.
@@ -310,27 +310,39 @@ Two-stage Python tooling under `scripts/seed/` (Firebase Admin SDK). The interme
 fixture is a **local, gitignored temp file — never committed**:
 
 1. **`build_fixture.py`** — reads the curated capture inboxes (`~/.claude/flashcards/<cat>/<sub>/inbox.jsonl`),
-   applies the inbox→`cards` projection (see Import mapping above), derives `categories`/`subcategories`
-   from the slugs, and writes `scripts/seed/.tmp/fixture.json`. Deterministic; fails loudly on
-   duplicate card ids or a subcategory slug colliding across two parent categories.
+   applies the inbox→card projection (see Import mapping above), derives `categories`/`subcategories`
+   from the slugs, bin-packs each subcategory's cards into byte-budgeted `shards` (ADR-0037), and writes
+   `scripts/seed/.tmp/fixture.json`. Deterministic; fails loudly on duplicate card ids, a subcategory
+   slug colliding across two parent categories, or a single card too large to fit in any shard.
 2. **`seed_firestore.py`** — globs `scripts/seed/.tmp/*.json` and upserts via Admin SDK.
-   Idempotent upsert keyed on card `id`: `--skip-existing` default (write if absent, skip if present),
-   `--overwrite` to force, `--dry-run` to report only. Categories land in `categories/{id}`; Subcategories land in `subcategories/{id}`. Credentials via `GOOGLE_APPLICATION_CREDENTIALS` (service-account JSON, gitignored).
+   Categories and `shards` are always fully (re)written every run — both are pure derived/curated
+   data with nothing to preserve by skipping. Subcategories default to `--skip-existing` (write if
+   absent, skip if present) except `cardCount`, which is always refreshed regardless, since `shards`
+   already keeps the real card count authoritative and fresh on every run. `--overwrite` forces
+   subcategories too, `--dry-run` reports only. Categories land in `categories/{id}`; Subcategories
+   land in `subcategories/{id}`; cards land in `subcategories/{id}/shards/{n}`. Credentials via
+   `GOOGLE_APPLICATION_CREDENTIALS` (service-account JSON, gitignored).
 
 - Supports extending existing structure without wiping — enables third-party tools to produce new questions.
-- **Card `id` is the Firestore document key** and must be globally unique; the capture skill now mandates a
-  cryptographically random hex suffix to prevent collisions (100 historical collisions were repaired pre-import).
+- **Card `id` is a map key inside its shard's `flashcards` field** (`flashcards["<cardId>"]`), not a Firestore
+  document key — a shard doc's own id is just its shard index. Card ids must still be globally unique (the
+  capture skill mandates a cryptographically random hex suffix to prevent collisions — 100 historical
+  collisions were repaired pre-import) since a shard doc's `flashcards` map is keyed by them.
 
 Fixture JSON format (no `tags` section — tags are inline strings on each card):
 ```json
 {
   "categories": [{ "id": "android", "name": "Android", "order": 0, "subcategoryCount": 1, "iconUrl": "" }],
   "subcategories": [{ "id": "android-compose", "name": "Compose", "categoryId": "android", "order": 0, "cardCount": 1 }],
-  "cards": [{ "subcategoryId": "android-compose", "id": "...", "question": "...", "answer": "...", "tags": ["state"], "difficulty": 4 }]
+  "shards": [{ "id": "0", "subcategoryId": "android-compose", "flashcards": {
+    "...": { "id": "...", "question": "...", "answer": "...", "tags": ["state"], "difficulty": 4 }
+  } }]
 }
 ```
 
-Cards are written to `subcategories/{subcategoryId}/flashcards/{cardId}`. The `subcategoryId` field in the fixture drives the collection path and is not written as a document field.
+Cards are written to `subcategories/{subcategoryId}/shards/{n}`, as map entries of that shard doc's
+`flashcards` field — not as their own documents (ADR-0037). The `subcategoryId` field in the fixture
+drives the collection path and is not written as a document field.
 
 ## Design System
 

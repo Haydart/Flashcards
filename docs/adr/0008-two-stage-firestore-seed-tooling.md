@@ -29,7 +29,7 @@ Two constraints shaped the tooling design:
 ## Consequences
 
 - Re-running Stage 1 is safe and idempotent — the fixture is deterministic given the same inbox state.
-- Stage 2 is idempotent by default (`--skip-existing`): each card doc is keyed on its capture `id`, so re-running does not duplicate cards. `--overwrite` is available for explicit clobber.
+- Stage 2 is idempotent: `categories` and `shards` (cards packed into byte-budgeted shard docs, ADR-0037) are always fully rewritten every run, since both are pure derived/curated data with nothing to preserve by skipping. `subcategories` default to `--skip-existing` (write if absent, skip if present) except `cardCount`, always refreshed regardless. `--overwrite` forces subcategories too.
 - `--dry-run` on Stage 2 reports planned writes/skips with no Firestore mutations.
-- The `subcategoryId` field is carried in the fixture as a routing key to construct the Firestore path (`subcategories/{subcategoryId}/flashcards/{cardId}`); it is stripped before the document is written so it does not appear as a Firestore field (consistent with ADR-0007).
-- Multiple fixture files in `.tmp/` are merged by Stage 2; duplicate card ids across files are de-duped by Stage 2.
+- The `subcategoryId` field is carried in the fixture as a routing key to construct the Firestore path (`subcategories/{subcategoryId}/shards/{n}`); it is stripped before the document is written so it does not appear as a Firestore field (consistent with ADR-0007, ADR-0037).
+- Multiple fixture files in `.tmp/` are merged by Stage 2; a duplicate shard id (same subcategory, same shard index) across files fails loudly rather than being silently de-duped, since two independently-packed shard sets disagreeing about the same shard's contents means one's cards would otherwise vanish with no signal.

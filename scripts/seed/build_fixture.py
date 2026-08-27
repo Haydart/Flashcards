@@ -156,6 +156,12 @@ def pack_shards(cards: list[dict], budget: int = SHARD_BYTE_BUDGET) -> list[dict
     `id` is also kept inside each value as a cross-check against its own map key — the two must
     always agree, since the key is authoritative for any targeted access.
 
+    Each card's contribution to the budget is measured as its whole `{cardId: payload}` map
+    entry — not just the raw payload — so the key itself and its wrapping counts too. A card
+    whose entry alone exceeds `budget` can never be packed into any shard (with or without
+    company) and fails loudly here instead of surfacing later as a cryptic Firestore upload
+    error against the 1MiB/doc hard cap.
+
     Returns a flat list of shard dicts: {"id": "<shardIndex>", "subcategoryId": ..., "flashcards": {cardId: {...}, ...}},
     where `subcategoryId` is routing-only (stripped before the Firestore write, same convention
     as a card's own `subcategoryId` in `project_card`).
@@ -172,14 +178,19 @@ def pack_shards(cards: list[dict], budget: int = SHARD_BYTE_BUDGET) -> list[dict
         shard_index = 0
         for card in sub_cards:
             payload = {k: v for k, v in card.items() if k != "subcategoryId"}
-            size = card_byte_size(payload)
-            if current and current_bytes + size > budget:
+            entry_size = card_byte_size({card["id"]: payload})
+            if entry_size > budget:
+                sys.exit(
+                    f"card {card['id']!r} is {entry_size} bytes on its own, over the "
+                    f"{budget}-byte shard budget — cannot be packed into any shard"
+                )
+            if current and current_bytes + entry_size > budget:
                 shards.append({"id": str(shard_index), "subcategoryId": sid, "flashcards": current})
                 shard_index += 1
                 current = {}
                 current_bytes = 0
             current[card["id"]] = payload
-            current_bytes += size
+            current_bytes += entry_size
         if current:
             shards.append({"id": str(shard_index), "subcategoryId": sid, "flashcards": current})
     return shards
