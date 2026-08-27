@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.rossomak.flashcards.core.data.di.UserPreferencesDataStore
@@ -18,7 +19,9 @@ import com.rossomak.flashcards.core.domain.model.StudySessionPreference.ReadAlou
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SessionLength
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SortOrder
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.VoiceAnsweringEnabled
+import com.rossomak.flashcards.core.domain.model.StudySessionPreference.VoicePlayback
 import com.rossomak.flashcards.core.domain.model.StudySessionPreferences
+import com.rossomak.flashcards.core.domain.model.VoiceSettings
 import java.io.IOException
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
@@ -41,6 +44,10 @@ class DataStoreStudySessionPreferencesLocalDataSource @Inject constructor(
                 readAloudEnabled = prefs[READ_ALOUD_ENABLED_KEY] ?: DEFAULT_READ_ALOUD_ENABLED,
                 sessionLength = prefs[SESSION_LENGTH_KEY] ?: StudySessionConfig.DEFAULT_LENGTH,
                 sortOrder = prefs[SORT_ORDER_KEY].toSortOrder(),
+                voiceSettings = VoiceSettings(
+                    speechRate = prefs[VOICE_SPEECH_RATE_KEY] ?: DEFAULT_VOICE_SPEECH_RATE,
+                    voiceId = prefs[VOICE_ID_KEY],
+                ),
             )
         }
 
@@ -53,6 +60,15 @@ class DataStoreStudySessionPreferencesLocalDataSource @Inject constructor(
                 is ReadAloudEnabled -> prefs[READ_ALOUD_ENABLED_KEY] = preference.value
                 is SessionLength -> prefs[SESSION_LENGTH_KEY] = preference.value
                 is SortOrder -> prefs[SORT_ORDER_KEY] = preference.value.name
+                is VoicePlayback -> {
+                    prefs[VOICE_SPEECH_RATE_KEY] = preference.value.speechRate
+                    val voiceId = preference.value.voiceId
+                    if (voiceId != null) {
+                        prefs[VOICE_ID_KEY] = voiceId
+                    } else {
+                        prefs.remove(VOICE_ID_KEY)
+                    }
+                }
             }
         }
     }
@@ -73,11 +89,14 @@ class DataStoreStudySessionPreferencesLocalDataSource @Inject constructor(
         val DEFAULT_VOICE_ANSWERING_ENABLED = StudySessionPreferences().voiceAnsweringEnabled
         val DEFAULT_READ_ALOUD_ENABLED = StudySessionPreferences().readAloudEnabled
         val DEFAULT_SORT_ORDER = StudySessionPreferences().sortOrder
+        val DEFAULT_VOICE_SPEECH_RATE = VoiceSettings().speechRate
         val DEFAULT_STUDY_MODE_KEY = stringPreferencesKey("default_study_mode")
         val VOICE_ANSWERING_ENABLED_KEY = booleanPreferencesKey("voice_answering_enabled")
         val RATED_ATTEMPTS_KEY = intPreferencesKey("rated_attempts")
         val READ_ALOUD_ENABLED_KEY = booleanPreferencesKey("read_aloud_enabled")
         val SESSION_LENGTH_KEY = intPreferencesKey("session_length")
         val SORT_ORDER_KEY = stringPreferencesKey("sort_order")
+        val VOICE_SPEECH_RATE_KEY = floatPreferencesKey("voice_speech_rate")
+        val VOICE_ID_KEY = stringPreferencesKey("voice_id")
     }
 }
