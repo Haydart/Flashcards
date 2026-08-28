@@ -169,6 +169,7 @@ fun BrowseContent(
             // Results update as the user types and live inside the expanded bar, so submitting has
             // nothing to do — collapsing here would hide the very results being asked for.
             onSearch = {},
+            colors = barColors.inputFieldColors,
             placeholder = { Text(text = stringResource(R.string.browse_search_hint)) },
             leadingIcon = {
                 if (searchBarState.currentValue == SearchBarValue.Expanded) {
@@ -278,8 +279,8 @@ private fun containedSearchBarColors(): SearchBarColors = SearchBarDefaults.colo
     containerColor = MaterialTheme.colorScheme.surface,
     dividerColor = Color.Transparent,
     inputFieldColors = SearchBarDefaults.inputFieldColors(
-        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
     ),
 )
 
@@ -413,7 +414,7 @@ private fun CategoryListGroup(
         items = categories.map { categoryWithSummary ->
             categoryWithSummary.toListGroupItem(
                 subcategoryCountText = pluralStringResource(
-                    R.plurals.browse_category_subcategory_count,
+                    R.plurals.browse_category_topic_count,
                     categoryWithSummary.category.subcategoryCount,
                     categoryWithSummary.category.subcategoryCount,
                 ),
