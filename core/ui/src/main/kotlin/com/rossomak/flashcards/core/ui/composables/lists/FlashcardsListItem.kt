@@ -5,11 +5,16 @@ package com.rossomak.flashcards.core.ui.composables.lists
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.dp
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListItemPosition.Bottom
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListItemPosition.Middle
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListItemPosition.Single
@@ -84,3 +89,30 @@ fun Modifier.flashcardsListItemShape(
 fun Modifier.flashcardsListGroupContainer(): Modifier = this
     .clip(RoundedCornerShape(MaterialTheme.cornerRadius.medium)) // needs to be 2dp higher than the items background corner to maintain border width
     .background(MaterialTheme.colorScheme.secondaryContainer)
+
+/**
+ * [flashcardsListGroupContainer] variant for a scrollable `LazyColumn`: rounds only the edges
+ * whose real corner is actually at rest in the viewport. A corner clipped to the container's full
+ * radius while [listState] has scrolled past it reads as a floating rounded card with no top or
+ * bottom — wrong, since that edge is really a straight cut mid-list, not the group's start or end.
+ *
+ * Note: the boundary row itself still renders its static [FlashcardsListItemPosition.Top]/
+ * [FlashcardsListItemPosition.Bottom] shape regardless of scroll offset, so its own big rounded
+ * corner can briefly show mid-row once this container squares off that edge — a known, accepted
+ * cosmetic gap rather than something this modifier tries to hide.
+ */
+@Composable
+fun Modifier.flashcardsListGroupContainer(listState: LazyListState): Modifier {
+    val corner = MaterialTheme.cornerRadius.medium
+    val topRounded by remember(listState) { derivedStateOf { !listState.canScrollBackward } }
+    val bottomRounded by remember(listState) { derivedStateOf { !listState.canScrollForward } }
+    val shape = RoundedCornerShape(
+        topStart = if (topRounded) corner else 0.dp,
+        topEnd = if (topRounded) corner else 0.dp,
+        bottomStart = if (bottomRounded) corner else 0.dp,
+        bottomEnd = if (bottomRounded) corner else 0.dp,
+    )
+    return this
+        .clip(shape)
+        .background(MaterialTheme.colorScheme.secondaryContainer)
+}
