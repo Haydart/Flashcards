@@ -82,6 +82,27 @@ private fun NavHostController.navigateToPreviewStudySession(
 }
 
 /**
+ * Category Details starts a session across every topic it lists, so unlike
+ * [navigateToPreviewStudySession] it passes the subcategories through as the lists the route
+ * already models rather than wrapping a single one.
+ */
+private fun NavHostController.navigateToPreviewStudySessionForCategory(
+    categoryId: String,
+    categoryName: String,
+    subcategoryIds: List<String>,
+    subcategoryNames: List<String>,
+) {
+    navigate(
+        PreviewStudySessionRoute(
+            categoryId = categoryId,
+            categoryName = categoryName,
+            subcategoryIds = subcategoryIds,
+            subcategoryNames = subcategoryNames,
+        )
+    )
+}
+
+/**
  * Splash, Login and Onboarding — the three screens a user passes through before reaching [Main].
  * Each pops itself off the back stack on the way out, so [Main] is never reachable "back" into a
  * launch screen. Extracted from [FlashcardsNavGraph] to keep that function readable as the flow
@@ -188,6 +209,7 @@ fun FlashcardsNavGraph(
                     CategoryDetailsScreen(
                         onNavigateBack = { navController.popBackStack() },
                         onNavigateToSubcategoryDetails = navController::navigateToSubcategoryDetails,
+                        onNavigateToPreviewStudySession = navController::navigateToPreviewStudySessionForCategory,
                     )
                 }
                 composable<SubcategoryDetailsRoute> {
