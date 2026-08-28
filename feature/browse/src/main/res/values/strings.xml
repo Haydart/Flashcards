@@ -2,6 +2,26 @@
 <resources>
     <string name="subcategory_details_card_expanded_cd">Expanded</string>
     <string name="subcategory_details_card_collapsed_cd">Collapsed</string>
+    <string name="subcategory_details_subtitle_label">%1$s · Topic</string>
+    <string name="subcategory_details_start_session_button">Start session</string>
+    <string name="subcategory_details_bookmark_label">Bookmark</string>
+    <string name="subcategory_details_add_shortcut_label">Add to home screen</string>
+    <string name="subcategory_details_more_options_cd">More options</string>
+    <string name="subcategory_details_filter_cd">Filter cards</string>
+    <string name="subcategory_details_sort_cd">Sort cards</string>
+    <string name="subcategory_details_add_card_cd">Add card</string>
+    <plurals name="subcategory_details_card_count_label">
+        <item quantity="one">%d card</item>
+        <item quantity="other">%d cards</item>
+    </plurals>
+    <string name="category_details_subtitle_label">Category</string>
+    <string name="category_details_start_session_button">Start session</string>
+    <string name="category_details_bookmark_label">Bookmark</string>
+    <string name="category_details_add_shortcut_label">Add to home screen</string>
+    <string name="category_details_more_options_cd">More options</string>
+    <string name="category_details_filter_cd">Filter topics</string>
+    <string name="category_details_sort_cd">Sort topics</string>
+    <string name="category_details_add_topic_cd">Add topic</string>
     <string name="browse_category_placeholder_subtitle">Tap to explore</string>
     <string name="browse_search_hint">Search categories or topics…</string>
     <string name="browse_categories_label">Categories</string>
@@ -13,8 +33,8 @@
     <string name="browse_search_start_session_cd">Study %1$s</string>
     <string name="browse_categories_empty_message">No categories found</string>
     <string name="browse_categories_error_message">Could not load categories</string>
-    <plurals name="browse_category_subcategory_count">
-        <item quantity="one">%d subcategory</item>
-        <item quantity="other">%d subcategories</item>
+    <plurals name="browse_category_topic_count">
+        <item quantity="one">%d topic</item>
+        <item quantity="other">%d topics</item>
     </plurals>
 </resources>
