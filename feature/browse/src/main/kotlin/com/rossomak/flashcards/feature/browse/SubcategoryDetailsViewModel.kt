@@ -11,6 +11,7 @@ import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.ObserveStudySessionPreferencesUseCase
 import com.rossomak.flashcards.core.domain.usecase.SaveStudySessionPreferenceUseCase
 import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardFilters
+import com.rossomak.flashcards.core.ui.composables.dialogs.selectAllTags
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Dismiss
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.DraftChange
@@ -108,7 +109,10 @@ class SubcategoryDetailsViewModel @Inject constructor(
      */
     fun onResetFilters() {
         _state.update {
-            it.copy(filters = FlashcardFilters(selectedTags = it.availableTags.toSet(), difficultyRange = DIFFICULTY_BOUNDS))
+            it.copy(
+                filters = FlashcardFilters(selectedTags = emptySet(), difficultyRange = DIFFICULTY_BOUNDS)
+                    .selectAllTags(it.availableTags),
+            )
         }
         renderContent()
     }
@@ -228,7 +232,7 @@ class SubcategoryDetailsViewModel @Inject constructor(
                     availableTags = filtered.poolTags,
                     totalCount = filtered.totalCount,
                     filters = if (seedFilters) {
-                        it.filters.copy(selectedTags = filtered.poolTags.toSet())
+                        it.filters.selectAllTags(filtered.poolTags)
                     } else {
                         it.filters
                     },

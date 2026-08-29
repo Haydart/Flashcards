@@ -75,7 +75,7 @@ fun FlashcardFiltersDialog(
                         text = stringResource(R.string.flashcard_filters_select_all_button),
                         onClick = { onFiltersChange(filters.selectAllTags(availableTags)) },
                         size = FlashcardsComponentSize.Small,
-                        enabled = filters.selectedTags.toSet() != availableTags.toSet(),
+                        enabled = filters.selectedTags != availableTags.toSet(),
                     )
                     FlashcardsTextButton(
                         text = stringResource(R.string.flashcard_filters_deselect_all_button),
