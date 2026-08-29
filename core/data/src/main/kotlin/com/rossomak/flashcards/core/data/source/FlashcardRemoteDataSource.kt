@@ -1,6 +1,7 @@
 package com.rossomak.flashcards.core.data.source
 
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Source
 import com.rossomak.flashcards.core.data.model.CategoryDto
 import com.rossomak.flashcards.core.data.model.FlashcardDto
 import com.rossomak.flashcards.core.data.model.FlashcardShardDto
@@ -58,15 +59,27 @@ class FlashcardRemoteDataSource @Inject constructor(
      * values into one list. Each [FlashcardDto] carries its own `id` field now (no longer copied
      * from a per-card document id, since a shard doc's id is just its shard index) — the map key
      * itself is what a future admin curation-fix tool would address, not read by this method.
+     *
+     * [readSource] decides whether the read may touch the network. Firestore's own default is
+     * server-*first* — it suppresses the cached snapshot whenever it believes it is online — so
+     * every read here is an explicit choice rather than a fallback (ADR-0038).
      */
-    suspend fun getFlashcardsBySubcategoryId(subcategoryId: String): List<FlashcardDto> = firestore.collection(COLLECTION_SUBCATEGORIES)
+    suspend fun getFlashcardsBySubcategoryId(
+        subcategoryId: String,
+        readSource: FlashcardReadSource,
+    ): List<FlashcardDto> = firestore.collection(COLLECTION_SUBCATEGORIES)
         .document(subcategoryId)
         .collection(COLLECTION_SHARDS)
-        .get()
+        .get(readSource.toFirestoreSource())
         .await()
         .documents
         .mapNotNull { document -> document.toObject(FlashcardShardDto::class.java) }
         .flatMap { it.flashcards.values }
+
+    private fun FlashcardReadSource.toFirestoreSource(): Source = when (this) {
+        FlashcardReadSource.Cache -> Source.CACHE
+        FlashcardReadSource.Server -> Source.SERVER
+    }
 
     companion object {
         const val COLLECTION_CATEGORIES = "categories"
