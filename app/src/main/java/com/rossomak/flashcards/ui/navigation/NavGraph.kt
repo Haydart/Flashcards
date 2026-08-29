@@ -12,6 +12,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
 import com.rossomak.flashcards.core.ui.animation.LocalNavAnimatedVisibilityScope
 import com.rossomak.flashcards.core.ui.animation.LocalSharedTransitionScope
 import com.rossomak.flashcards.core.ui.animation.SHARED_ELEMENT_DURATION_MS
@@ -82,9 +83,40 @@ private fun NavHostController.navigateToPreviewStudySession(
 }
 
 /**
+ * Subcategory Details is the one entry point that has a browsed card list behind it, so it is the
+ * only one that carries a selection: the filters the user applied and the order they were looking
+ * at, which the Preview screen honours over their saved default (ADR-0038).
+ */
+private fun NavHostController.navigateToPreviewStudySessionWithSelection(
+    categoryId: String,
+    categoryName: String,
+    subcategoryId: String,
+    subcategoryName: String,
+    filterTagIds: List<String>,
+    difficultyRange: IntRange,
+    sortOrder: FlashcardSortOrder,
+) {
+    navigate(
+        PreviewStudySessionRoute(
+            categoryId = categoryId,
+            categoryName = categoryName,
+            subcategoryIds = listOf(subcategoryId),
+            subcategoryNames = listOf(subcategoryName),
+            filterTagIds = filterTagIds,
+            difficultyMin = difficultyRange.first,
+            difficultyMax = difficultyRange.last,
+            sortOrder = sortOrder,
+        )
+    )
+}
+
+/**
  * Category Details starts a session across every topic it lists, so unlike
  * [navigateToPreviewStudySession] it passes the subcategories through as the lists the route
  * already models rather than wrapping a single one.
+ *
+ * It also passes no sort order: there is no browsed card list behind this entry point, so the route
+ * carries null and the Preview screen falls back to the user's saved default (ADR-0038).
  */
 private fun NavHostController.navigateToPreviewStudySessionForCategory(
     categoryId: String,
@@ -215,7 +247,7 @@ fun FlashcardsNavGraph(
                 composable<SubcategoryDetailsRoute> {
                     SubcategoryDetailsScreen(
                         onNavigateBack = { navController.popBackStack() },
-                        onNavigateToPreviewStudySession = navController::navigateToPreviewStudySession,
+                        onNavigateToPreviewStudySession = navController::navigateToPreviewStudySessionWithSelection,
                     )
                 }
                 composable<PreviewStudySessionRoute> {
