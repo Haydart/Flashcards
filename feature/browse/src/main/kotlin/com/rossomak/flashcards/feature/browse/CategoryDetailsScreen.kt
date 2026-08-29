@@ -95,7 +95,7 @@ fun CategoryDetailsContent(
                     scrollBehavior = scrollBehavior,
                     actions = { CategoryDetailsActions() },
                 )
-                if (!state.isLoading) {
+                if (!state.isLoading && state.error == null) {
                     FlashcardsOverlineLabel(
                         text = pluralStringResource(
                             R.plurals.browse_category_topic_count,

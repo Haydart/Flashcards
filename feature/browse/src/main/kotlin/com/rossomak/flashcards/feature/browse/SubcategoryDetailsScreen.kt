@@ -102,7 +102,7 @@ fun SubcategoryDetailsContent(
                     scrollBehavior = scrollBehavior,
                     actions = { SubcategoryDetailsActions() },
                 )
-                if (!state.isLoading) {
+                if (!state.isLoading && state.error == null) {
                     FlashcardsOverlineLabel(
                         text = pluralStringResource(
                             R.plurals.subcategory_details_card_count_label,
@@ -121,6 +121,7 @@ fun SubcategoryDetailsContent(
                         text = stringResource(R.string.subcategory_details_start_session_button),
                         onClick = onStartSession,
                         size = FlashcardsComponentSize.Small,
+                        enabled = state.flashcards.isNotEmpty(),
                         icon = Icons.Filled.PlayArrow,
                     )
                 },
