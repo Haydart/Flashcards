@@ -135,7 +135,7 @@ fun MainScreen(
         // present), consuming it here and leaving every tab's own top bar with nothing left to pad
         // by — its container color would then stop short of the status bar instead of painting
         // behind it.
-        contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Bottom),
+        contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal),
         bottomBar = {
             MainBottomBar(
                 tabs = tabs,
