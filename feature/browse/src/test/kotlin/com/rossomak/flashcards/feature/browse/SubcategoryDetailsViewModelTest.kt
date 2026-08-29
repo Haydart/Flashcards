@@ -2,16 +2,31 @@ package com.rossomak.flashcards.feature.browse
 
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
+import com.rossomak.flashcards.core.domain.model.Flashcard
+import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
+import com.rossomak.flashcards.core.domain.model.StudySessionPreferences
 import com.rossomak.flashcards.core.domain.repository.FakeFlashcardRepository
+import com.rossomak.flashcards.core.domain.repository.FakeStudySessionPreferencesRepository
+import com.rossomak.flashcards.core.domain.usecase.FilterFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
+import com.rossomak.flashcards.core.domain.usecase.ObserveStudySessionPreferencesUseCase
+import com.rossomak.flashcards.core.domain.usecase.SaveStudySessionPreferenceUseCase
+import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardFilters
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Dismiss
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.DraftChange
+import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.RouteDecoder
 import com.rossomak.flashcards.testutil.MainDispatcherRule
+import com.rossomak.flashcards.testutil.assertValue
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Before
@@ -26,7 +41,7 @@ class SubcategoryDetailsViewModelTest {
 
     private val savedStateHandle: SavedStateHandle = mockk()
     private val flashcardRepository = FakeFlashcardRepository()
-    private val getFlashcards = GetFlashcardsUseCase(flashcardRepository)
+    private val preferencesRepository = FakeStudySessionPreferencesRepository()
 
     private val route = SubcategoryDetailsRoute(
         categoryId = "cat-1",
@@ -39,6 +54,7 @@ class SubcategoryDetailsViewModelTest {
     fun setUp() {
         mockkObject(RouteDecoder)
         every { RouteDecoder.decode(any<() -> SubcategoryDetailsRoute>()) } returns route
+        flashcardRepository.flashcardsToReturn = Result.success(pool)
     }
 
     @After
@@ -46,13 +62,289 @@ class SubcategoryDetailsViewModelTest {
         unmockkObject(RouteDecoder)
     }
 
-    private fun createViewModel(): SubcategoryDetailsViewModel =
-        SubcategoryDetailsViewModel(savedStateHandle, getFlashcards)
+    /**
+     * The ViewModel seeds sort from preferences and loads in `init`, and MainDispatcherRule uses a
+     * StandardTestDispatcher, so that work is queued rather than run — every test wants it settled.
+     */
+    private fun TestScope.startedViewModel(): SubcategoryDetailsViewModel =
+        createViewModel().also { advanceUntilIdle() }
+
+    private fun createViewModel(): SubcategoryDetailsViewModel = SubcategoryDetailsViewModel(
+        savedStateHandle = savedStateHandle,
+        getFlashcards = GetFlashcardsUseCase(flashcardRepository),
+        filterFlashcards = FilterFlashcardsUseCase(),
+        observeStudySessionPreferences = ObserveStudySessionPreferencesUseCase(preferencesRepository),
+        saveStudySessionPreference = SaveStudySessionPreferenceUseCase(preferencesRepository),
+    )
+
+    private fun flashcard(
+        id: String,
+        difficulty: Int,
+        tags: List<String>,
+    ): Flashcard = Flashcard(
+        id = id,
+        subcategoryId = route.subcategoryId,
+        tags = tags,
+        question = "q-$id",
+        answer = "a-$id",
+        difficulty = difficulty,
+        questionCode = null,
+        answerCode = null,
+        questionSpoken = null,
+        answerSpoken = null,
+        extendedContext = null,
+    )
+
+    private val pool = listOf(
+        flashcard(id = "1", difficulty = 2, tags = listOf("State")),
+        flashcard(id = "2", difficulty = 5, tags = listOf("Modifiers", "State")),
+        flashcard(id = "3", difficulty = 9, tags = listOf("Theming")),
+    )
+
+    private fun cards(state: SubcategoryDetailsScreenState): List<String> =
+        (state.content as SubcategoryDetailsContentState.Cards).flashcards.map { it.id }
+
+    /** Open → edit → confirm → settle, the sequence every filter test repeats. */
+    private fun TestScope.applyFilters(
+        viewModel: SubcategoryDetailsViewModel,
+        tags: Set<String> = emptySet(),
+        difficultyRange: IntRange = 1..10,
+    ) {
+        viewModel.onDialogEvent(
+            Open(SubcategoryDetailsDialog.Filters(SubcategoryDetailsScreenState.NO_FILTERS, emptyList()))
+        )
+        viewModel.onDialogEvent(
+            DraftChange(
+                SubcategoryDetailsDialog.Filters(
+                    FlashcardFilters(selectedTags = tags, difficultyRange = difficultyRange),
+                    emptyList(),
+                )
+            )
+        )
+        viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
+    }
+
+    // --- loading ---
 
     @Test
-    fun `onStartSession emits PreviewStudySession with category and subcategory ids and names`() =
+    fun `a successful load shows the pool`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = startedViewModel()
+
+        viewModel.state.assertValue {
+            cards(this) shouldBe listOf("1", "2", "3")
+            totalCount shouldBe 3
+            availableTags shouldBe listOf("Modifiers", "State", "Theming")
+        }
+    }
+
+    @Test
+    fun `a failed load shows the error state`() = runTest(mainDispatcherRule.testDispatcher) {
+        flashcardRepository.flashcardsToReturn = Result.failure(IllegalStateException("offline"))
+
+        val content = startedViewModel().state.value.content
+
+        (content is SubcategoryDetailsContentState.Error) shouldBe true
+    }
+
+    // --- sorting ---
+
+    @Test
+    fun `the list is already ordered by the saved preference on first load`() =
         runTest(mainDispatcherRule.testDispatcher) {
-            val viewModel = createViewModel()
+            preferencesRepository.preferences.value =
+                StudySessionPreferences(sortOrder = FlashcardSortOrder.HardestFirst)
+
+            val viewModel = startedViewModel()
+
+            viewModel.state.assertValue {
+                sortOrder shouldBe FlashcardSortOrder.HardestFirst
+                cards(this) shouldBe listOf("3", "2", "1")
+            }
+        }
+
+    @Test
+    fun `a preference change after load does not re-sort the list`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val viewModel = startedViewModel()
+
+            preferencesRepository.preferences.value =
+                StudySessionPreferences(sortOrder = FlashcardSortOrder.HardestFirst)
+
+            viewModel.state.assertValue {
+                sortOrder shouldBe FlashcardSortOrder.Default
+                cards(this) shouldBe listOf("1", "2", "3")
+            }
+        }
+
+    @Test
+    fun `confirming the sort dialog reorders the list`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = startedViewModel()
+
+        viewModel.onDialogEvent(Open(SubcategoryDetailsDialog.Sort(FlashcardSortOrder.Default)))
+        viewModel.onDialogEvent(DraftChange(SubcategoryDetailsDialog.Sort(FlashcardSortOrder.EasiestFirst)))
+        viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
+
+        viewModel.state.assertValue {
+            cards(this) shouldBe listOf("1", "2", "3")
+            sortOrder shouldBe FlashcardSortOrder.EasiestFirst
+            activeDialog shouldBe null
+        }
+    }
+
+    @Test
+    fun `dismissing the sort dialog discards the draft`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = startedViewModel()
+
+        viewModel.onDialogEvent(Open(SubcategoryDetailsDialog.Sort(FlashcardSortOrder.Default)))
+        viewModel.onDialogEvent(DraftChange(SubcategoryDetailsDialog.Sort(FlashcardSortOrder.HardestFirst)))
+        viewModel.onDialogEvent(Dismiss)
+
+        viewModel.state.assertValue {
+            sortOrder shouldBe FlashcardSortOrder.Default
+            activeDialog shouldBe null
+        }
+    }
+
+    @Test
+    fun `confirming sort with keep as default writes the preference`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val viewModel = startedViewModel()
+
+            viewModel.onDialogEvent(
+                Open(SubcategoryDetailsDialog.Sort(FlashcardSortOrder.HardestFirst, keepAsDefault = true))
+            )
+            viewModel.onDialogEvent(Confirm)
+            advanceUntilIdle()
+
+            preferencesRepository.preferences.value.sortOrder shouldBe FlashcardSortOrder.HardestFirst
+        }
+
+    @Test
+    fun `confirming sort without keep as default leaves the preference alone`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val viewModel = startedViewModel()
+
+            viewModel.onDialogEvent(
+                Open(SubcategoryDetailsDialog.Sort(FlashcardSortOrder.HardestFirst, keepAsDefault = false))
+            )
+            viewModel.onDialogEvent(Confirm)
+            advanceUntilIdle()
+
+            viewModel.state.value.sortOrder shouldBe FlashcardSortOrder.HardestFirst
+            preferencesRepository.preferences.value.sortOrder shouldBe FlashcardSortOrder.Default
+        }
+
+    // --- filtering ---
+
+    @Test
+    fun `confirming the filters dialog narrows the list and updates the counts`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val viewModel = startedViewModel()
+
+            applyFilters(viewModel, tags = setOf("State"), difficultyRange = 1..10)
+
+            viewModel.state.assertValue {
+                cards(this) shouldBe listOf("1", "2")
+                totalCount shouldBe 3
+                hasActiveFilters shouldBe true
+            }
+        }
+
+    @Test
+    fun `tag chips keep offering a tag that the active filter excludes`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val viewModel = startedViewModel()
+
+            applyFilters(viewModel, tags = setOf("Theming"), difficultyRange = 1..10)
+
+            viewModel.state.value.availableTags shouldBe listOf("Modifiers", "State", "Theming")
+        }
+
+    @Test
+    fun `filtering everything out shows the no-matches state`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val viewModel = startedViewModel()
+
+            applyFilters(viewModel, tags = setOf("Theming"), difficultyRange = 1..3)
+
+            viewModel.state.value.content shouldBe SubcategoryDetailsContentState.NoMatches
+        }
+
+    @Test
+    fun `clearing filters restores the list and leaves the sort order untouched`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val viewModel = startedViewModel()
+            viewModel.onDialogEvent(
+                Open(SubcategoryDetailsDialog.Sort(FlashcardSortOrder.HardestFirst))
+            )
+            viewModel.onDialogEvent(Confirm)
+            advanceUntilIdle()
+            applyFilters(viewModel, tags = setOf("Theming"), difficultyRange = 1..3)
+
+            viewModel.onClearFilters()
+
+            advanceUntilIdle()
+
+            viewModel.state.assertValue {
+                cards(this) shouldBe listOf("3", "2", "1")
+                sortOrder shouldBe FlashcardSortOrder.HardestFirst
+                hasActiveFilters shouldBe false
+            }
+        }
+
+    // --- fake favourite ---
+
+    @Test
+    fun `toggling the favourite flips the flag and emits a message without persisting anything`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val viewModel = startedViewModel()
+
+            viewModel.messages.test {
+                viewModel.onFavoriteToggle()
+
+                awaitItem() shouldBe SubcategoryDetailsMessage.AddedToFavorites
+                viewModel.state.value.isFavorite shouldBe true
+                preferencesRepository.preferences.value shouldBe StudySessionPreferences()
+            }
+        }
+
+    @Test
+    fun `undoing the favourite flips it back`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = startedViewModel()
+        viewModel.onFavoriteToggle()
+
+        viewModel.onFavoriteUndo(restoreTo = false)
+
+        viewModel.state.value.isFavorite shouldBe false
+    }
+
+    @Test
+    fun `toggling an already favourited subcategory removes it`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val viewModel = startedViewModel()
+            viewModel.onFavoriteToggle()
+
+            viewModel.messages.test {
+                viewModel.onFavoriteToggle()
+
+                awaitItem() shouldBe SubcategoryDetailsMessage.RemovedFromFavorites
+                viewModel.state.value.isFavorite shouldBe false
+            }
+        }
+
+    // --- starting a session ---
+
+    @Test
+    fun `onStartSession carries the active filters and sort order into the destination`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val viewModel = startedViewModel()
+            applyFilters(viewModel, tags = setOf("State"), difficultyRange = 2..7)
+            viewModel.onDialogEvent(Open(SubcategoryDetailsDialog.Sort(FlashcardSortOrder.EasiestFirst)))
+            viewModel.onDialogEvent(Confirm)
+            advanceUntilIdle()
+
             viewModel.onStartSession()
 
             viewModel.events.test {
@@ -60,8 +352,101 @@ class SubcategoryDetailsViewModelTest {
                     categoryId = route.categoryId,
                     categoryName = route.categoryName,
                     subcategoryId = route.subcategoryId,
-                    subcategoryName = route.subcategoryName
+                    subcategoryName = route.subcategoryName,
+                    filterTagIds = listOf("State"),
+                    difficultyRange = 2..7,
+                    sortOrder = FlashcardSortOrder.EasiestFirst,
                 )
             }
         }
+
+    @Test
+    fun `onStartSession with no filters carries the full range and the seeded order`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            preferencesRepository.preferences.value =
+                StudySessionPreferences(sortOrder = FlashcardSortOrder.HardestFirst)
+            val viewModel = startedViewModel()
+
+            viewModel.onStartSession()
+
+            viewModel.events.test {
+                awaitItem() shouldBe SubcategoryDetailsDestination.PreviewStudySession(
+                    categoryId = route.categoryId,
+                    categoryName = route.categoryName,
+                    subcategoryId = route.subcategoryId,
+                    subcategoryName = route.subcategoryName,
+                    filterTagIds = emptyList(),
+                    difficultyRange = SubcategoryDetailsScreenState.DIFFICULTY_BOUNDS,
+                    sortOrder = FlashcardSortOrder.HardestFirst,
+                )
+            }
+        }
+
+    @Test
+    fun `the session card count follows the filtered set`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = startedViewModel()
+
+        viewModel.state.value.sessionCardCount shouldBe 3
+
+        applyFilters(viewModel, tags = setOf("State"), difficultyRange = 1..10)
+
+        viewModel.state.value.sessionCardCount shouldBe 2
+    }
+
+    @Test
+    fun `the session card count is zero when nothing matches`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = startedViewModel()
+
+        applyFilters(viewModel, tags = setOf("Theming"), difficultyRange = 1..3)
+
+        viewModel.state.assertValue {
+            content shouldBe SubcategoryDetailsContentState.NoMatches
+            sessionCardCount shouldBe 0
+        }
+    }
+
+    // --- regressions ---
+
+    /**
+     * A dialog confirm used to re-render an empty pool as NoMatches, so a load failure silently
+     * turned into "No cards match your filters" with a Clear-filters button.
+     */
+    @Test
+    fun `confirming a dialog after a failed load leaves the error state intact`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            flashcardRepository.flashcardsToReturn = Result.failure(IllegalStateException("offline"))
+            val viewModel = startedViewModel()
+
+            applyFilters(viewModel, tags = setOf("State"))
+
+            (viewModel.state.value.content is SubcategoryDetailsContentState.Error) shouldBe true
+        }
+
+    @Test
+    fun `clearing filters after a failed load leaves the error state intact`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            flashcardRepository.flashcardsToReturn = Result.failure(IllegalStateException("offline"))
+            val viewModel = startedViewModel()
+
+            viewModel.onClearFilters()
+            advanceUntilIdle()
+
+            (viewModel.state.value.content is SubcategoryDetailsContentState.Error) shouldBe true
+        }
+
+    /**
+     * A snackbar outlives the tap that raised it, so Undo restores the value the toggle moved away
+     * from rather than flipping whatever is current.
+     */
+    @Test
+    fun `a stale undo does not invert a later toggle`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = startedViewModel()
+
+        viewModel.onFavoriteToggle()
+        viewModel.onFavoriteToggle()
+
+        viewModel.onFavoriteUndo(restoreTo = false)
+
+        viewModel.state.value.isFavorite shouldBe false
+    }
 }
