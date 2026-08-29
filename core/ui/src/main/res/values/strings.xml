@@ -32,6 +32,8 @@
 
     <string name="flashcard_filters_dialog_title">Filters</string>
     <string name="flashcard_filters_tags_label">TAGS</string>
+    <string name="flashcard_filters_select_all_button">Select all</string>
+    <string name="flashcard_filters_deselect_all_button">Deselect all</string>
     <string name="flashcard_filters_difficulty_label">DIFFICULTY</string>
     <string name="flashcard_filters_no_tags_message">This session has no tags to filter by.</string>
 

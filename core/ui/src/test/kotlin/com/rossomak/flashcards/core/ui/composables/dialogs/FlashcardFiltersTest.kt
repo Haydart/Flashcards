@@ -31,4 +31,25 @@ class FlashcardFiltersTest {
     fun `withTag leaves the difficulty range untouched`() {
         filters.withTag("Modifiers", isSelected = true).difficultyRange shouldBe 1..5
     }
+
+    @Test
+    fun `selectAllTags checks every available tag`() {
+        filters.selectAllTags(listOf("State", "Modifiers", "Theming")).selectedTags shouldBe
+            setOf("State", "Modifiers", "Theming")
+    }
+
+    @Test
+    fun `selectAllTags leaves the difficulty range untouched`() {
+        filters.selectAllTags(listOf("State", "Modifiers")).difficultyRange shouldBe 1..5
+    }
+
+    @Test
+    fun `deselectAllTags empties the selection`() {
+        filters.deselectAllTags().selectedTags shouldBe emptySet()
+    }
+
+    @Test
+    fun `deselectAllTags leaves the difficulty range untouched`() {
+        filters.deselectAllTags().difficultyRange shouldBe 1..5
+    }
 }
