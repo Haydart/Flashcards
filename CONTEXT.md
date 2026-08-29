@@ -11,7 +11,7 @@ A top-level knowledge domain a user can study (e.g. Android, Python).
 _Avoid_: Topic, Subject, Domain
 
 **Subcategory**:
-A granular area within a Category. A Flashcard belongs to exactly one Subcategory (e.g. Compose, Coroutines, Navigation under Android). Displayed to users as **Topic** in the UI; Subcategory is the canonical term in code and internal docs.
+A granular area within a Category. A Flashcard belongs to exactly one Subcategory (e.g. Compose, Coroutines, Navigation under Android). Displayed to users as **Topic** in the UI; Subcategory is the canonical term in code and internal docs. **A Subcategory always contains at least one Flashcard** — an empty Subcategory is not a state the domain admits, so "no Flashcards for this Subcategory" always means the data was not loaded rather than that there are none.
 _Avoid_: Subtopic (the UI label "Topic" is intentional and not a synonym to avoid — it is the presentation-layer name)
 
 **Tag**:
@@ -29,6 +29,10 @@ _Avoid_: Card, Question
 **Difficulty**:
 A mandatory integer 1–10 on every Flashcard — global admin-curated and Private alike — expressing how hard the question is within its Subcategory's domain. Domain-relative: a 3 in Compose and a 3 in Coroutines both mean "a beginner in that area gets this right." Global Flashcards with no Difficulty value are filtered out at the data layer and never reach the domain (a backfill concern for the pre-existing global corpus); Private Flashcards have no such gap since the creation dialog's mandatory Slider means none can be saved without one. Used by curriculum features to order Flashcards by complexity.
 _Avoid_: Score, Level, Rank
+
+**Sort Order**:
+How a set of Flashcards is ordered for the user: Default, Easiest first, or Hardest first. **One notion, not two** — the order a Subcategory's Flashcards are listed in while browsing and the order they are presented in during a Study Session are the same concept, stored once as the user's saved preference and editable from Settings, Subcategory Details and the Preview Study Session screen alike. Default means "no explicit Difficulty ordering applied", so each context falls back to its own natural order: source order when browsing, draw order inside a Session (where the shuffle has already happened). Distinct from filtering, which changes how many Flashcards are shown; Sort Order only changes their order.
+_Avoid_: Sorting mode, Ordering, Sequence
 
 **Extended Context**:
 An optional supplementary payload on a global Flashcard providing self-contained teaching material — examples, code snippets, analogies, edge cases, and "why this matters" framing. Absent on simple cards (Difficulty 1–3) where the question and answer are already fully self-explanatory. Present and progressively richer as Difficulty rises: mid-range cards (4–6) include a concrete example or short snippet; hard/expert cards (7–10) include fuller context covering edge cases, cross-concept relationships, and pitfalls. Intended for a future "explain deeper" feature where an LLM re-teaches the concept from this payload. Never a duplicate of the answer field.
