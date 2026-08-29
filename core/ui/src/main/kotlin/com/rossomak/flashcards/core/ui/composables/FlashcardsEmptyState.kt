@@ -80,29 +80,30 @@ fun FlashcardsEmptyState(
             )
         }
 
-        Box(modifier = Modifier.padding(top = MaterialTheme.spacing.normal)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-            )
-        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = MaterialTheme.spacing.normal),
+        )
 
-        Box(modifier = Modifier.padding(top = MaterialTheme.spacing.xsmall)) {
-            Text(
-                text = supportingText,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+        Text(
+            text = supportingText,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = MaterialTheme.spacing.xsmall),
+        )
 
         if (ctaLabel != null && onCtaClick != null) {
-            Box(modifier = Modifier.padding(top = MaterialTheme.spacing.normal)) {
-                FlashcardsFilledButton(text = ctaLabel, onClick = onCtaClick, icon = ctaIcon)
-            }
+            FlashcardsFilledButton(
+                text = ctaLabel,
+                onClick = onCtaClick,
+                icon = ctaIcon,
+                modifier = Modifier.padding(top = MaterialTheme.spacing.normal),
+            )
         }
     }
 }

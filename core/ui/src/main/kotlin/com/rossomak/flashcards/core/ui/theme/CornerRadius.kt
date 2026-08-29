@@ -5,6 +5,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 object AppCornerRadius {
+    val none: Dp = 0.dp
     val xsmall: Dp = 4.dp
     val small: Dp = 8.dp
     val normal: Dp = 12.dp

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Code
@@ -15,18 +16,14 @@ import androidx.compose.material.icons.filled.PhoneIphone
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.rossomak.flashcards.core.ui.composables.FlashcardsScrollFadeHeight
+import com.rossomak.flashcards.core.ui.composables.flashcardsGridScrollFade
 import com.rossomak.flashcards.core.ui.theme.spacing
 import com.rossomak.flashcards.feature.onboarding.R
 import com.rossomak.flashcards.feature.onboarding.component.FavoriteTopicCard
@@ -44,9 +41,6 @@ private const val FAVORITE_GRID_COLUMNS = 2
  * of letting the step overflow.
  */
 private val FavoriteGridHeight = 372.dp
-
-/** Portion of [FavoriteGridHeight], from the bottom, over which the grid fades to transparent. */
-private val FavoriteGridFadeHeight = 56.dp
 
 /**
  * Lets the user pin topics for quick access from Home.
@@ -74,12 +68,14 @@ internal fun FavoritesStep(
             )
         },
         grid = {
+            val gridState = rememberLazyGridState()
             LazyVerticalGrid(
+                state = gridState,
                 columns = GridCells.Fixed(FAVORITE_GRID_COLUMNS),
                 modifier = Modifier
                     .fillMaxSize()
-                    .bottomFade(FavoriteGridFadeHeight),
-                contentPadding = PaddingValues(bottom = FavoriteGridFadeHeight),
+                    .flashcardsGridScrollFade(gridState),
+                contentPadding = PaddingValues(bottom = FlashcardsScrollFadeHeight),
                 horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall),
                 verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall),
             ) {
@@ -147,33 +143,6 @@ private fun FavoritesStepLayout(
         }
     }
 }
-
-/**
- * Fades this composable's own bottom [height] to transparent, revealing whatever sits behind it
- * (here, the screen's brand gradient) rather than painting a colour over it — so the cropped row
- * at the bottom of the grid reads as an intentional peek, not a hard clip or a mismatched overlay.
- *
- * Runs on an offscreen [graphicsLayer] and composites the fade with [BlendMode.DstIn], which keeps
- * source alpha where the mask is opaque and zeroes it where the mask is transparent — the standard
- * Compose recipe for a content fade, as opposed to [androidx.compose.foundation.background], which
- * would only ever add colour on top.
- */
-private fun Modifier.bottomFade(height: Dp): Modifier = this
-    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-    .drawWithContent {
-        drawContent()
-        val fadeStart = (size.height - height.toPx()).coerceAtLeast(0f)
-        drawRect(
-            brush = Brush.verticalGradient(
-                colorStops = arrayOf(
-                    0f to Color.Black,
-                    (fadeStart / size.height) to Color.Black,
-                    1f to Color.Transparent,
-                ),
-            ),
-            blendMode = BlendMode.DstIn,
-        )
-    }
 
 /**
  * Placeholder glyph mapping. Categories carry their own remote icon (`Category.iconSvg`), but this

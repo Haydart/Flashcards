@@ -17,8 +17,8 @@ import androidx.compose.material.icons.filled.SortByAlpha
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -120,7 +120,7 @@ private fun SettingsContent(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            LargeTopAppBar(
+            MediumFlexibleTopAppBar(
                 title = { Text(text = stringResource(R.string.settings_title)) },
                 actions = {
                     SignOutAction(
@@ -128,6 +128,9 @@ private fun SettingsContent(
                         onClick = { onDialogEvent(Open(SignOut)) },
                     )
                 },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                ),
                 scrollBehavior = scrollBehavior,
             )
         },
@@ -266,14 +269,14 @@ private fun voiceRows(
 )
 
 /**
- * Name and rate, or the rate alone while the platform voice list has not arrived — an unresolved
+ * Rate and name, or the rate alone while the platform voice list has not arrived — an unresolved
  * id is not worth showing, and the rate is true either way.
  */
 @Composable
 private fun voicePlaybackSummary(state: SettingsScreenState): String {
     val rateLabel = speechRateLabel(state.speechRate)
     val voiceName = state.voiceName ?: return rateLabel
-    return stringResource(R.string.settings_voice_playback_summary_label, voiceName, rateLabel)
+    return stringResource(R.string.settings_voice_playback_summary_label, rateLabel, voiceName)
 }
 
 @PreviewLightDark

@@ -1,8 +1,12 @@
 package com.rossomak.flashcards.presentation.main
 
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
@@ -125,6 +129,13 @@ fun MainScreen(
 
     Scaffold(
         modifier = modifier,
+        // No topBar here — each tab root owns its own top app bar and handles the status-bar
+        // inset itself (see e.g. SettingsScreen). Left at the Scaffold default, contentWindowInsets
+        // would reserve the top inset too (Scaffold only excludes an edge once its matching slot is
+        // present), consuming it here and leaving every tab's own top bar with nothing left to pad
+        // by — its container color would then stop short of the status bar instead of painting
+        // behind it.
+        contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal),
         bottomBar = {
             MainBottomBar(
                 tabs = tabs,

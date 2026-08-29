@@ -2,18 +2,24 @@ package com.rossomak.flashcards.feature.browse
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddToHomeScreen
+import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.AppBarRow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -26,11 +32,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.Flashcard
+import com.rossomak.flashcards.core.ui.composables.FlashcardsOverlineLabel
+import com.rossomak.flashcards.core.ui.composables.bars.FlashcardsBottomToolbar
+import com.rossomak.flashcards.core.ui.composables.bars.FlashcardsTopAppBar
+import com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsFilledButton
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentSize
+import com.rossomak.flashcards.core.ui.composables.flashcardsListScrollFade
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListGroupItem
 import com.rossomak.flashcards.core.ui.composables.lists.flashcardsListGroupContainer
 import com.rossomak.flashcards.core.ui.composables.lists.flashcardsListGroupItems
@@ -82,23 +94,39 @@ fun SubcategoryDetailsContent(
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            LargeTopAppBar(
-                title = { Text(text = state.subcategoryName) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                        )
-                    }
-                },
-                scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.largeTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surface
+            Column {
+                FlashcardsTopAppBar(
+                    title = state.subcategoryName,
+                    subtitle = stringResource(R.string.subcategory_details_subtitle_label, state.categoryName),
+                    onNavigateBack = onNavigateBack,
+                    scrollBehavior = scrollBehavior,
+                    actions = { SubcategoryDetailsActions() },
                 )
+                if (!state.isLoading && state.error == null) {
+                    FlashcardsOverlineLabel(
+                        text = pluralStringResource(
+                            R.plurals.subcategory_details_card_count_label,
+                            state.flashcards.size,
+                            state.flashcards.size,
+                        ),
+                    )
+                }
+            }
+        },
+        bottomBar = {
+            FlashcardsBottomToolbar(
+                actions = { SubcategoryDetailsToolbarActions() },
+                trailing = {
+                    FlashcardsFilledButton(
+                        text = stringResource(R.string.subcategory_details_start_session_button),
+                        onClick = onStartSession,
+                        size = FlashcardsComponentSize.Small,
+                        enabled = state.flashcards.isNotEmpty(),
+                        icon = Icons.Filled.PlayArrow,
+                    )
+                },
             )
-        }
+        },
     ) { innerPadding ->
         when {
             state.isLoading -> Box(
@@ -117,21 +145,69 @@ fun SubcategoryDetailsContent(
             ) {
                 Text(text = state.error)
             }
-            else -> Column(modifier = Modifier.padding(innerPadding)) {
-                Button(
-                    onClick = onStartSession,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                ) {
-                    Text("Start Session")
-                }
-                FlashcardList(
-                    flashcards = state.flashcards,
-                    modifier = Modifier.weight(1f),
+            else -> FlashcardList(
+                modifier = Modifier.padding(innerPadding),
+                flashcards = state.flashcards,
+            )
+        }
+    }
+}
+
+/**
+ * Bookmark stays in the bar; anything past it falls into the overflow menu, which is how
+ * [AppBarRow] renders `maxItemCount - 1` items inline. None of these are wired to the ViewModel
+ * yet — the screen shows the full action set the design calls for while the state that backs it is
+ * still being built.
+ */
+@Composable
+private fun RowScope.SubcategoryDetailsActions() {
+    val bookmarkLabel = stringResource(R.string.subcategory_details_bookmark_label)
+    val addShortcutLabel = stringResource(R.string.subcategory_details_add_shortcut_label)
+
+    AppBarRow(
+        overflowIndicator = { menuState ->
+            IconButton(onClick = { menuState.show() }) {
+                Icon(
+                    imageVector = Icons.Filled.MoreVert,
+                    contentDescription = stringResource(R.string.subcategory_details_more_options_cd),
                 )
             }
-        }
+        },
+        maxItemCount = 2,
+    ) {
+        clickableItem(
+            onClick = {},
+            icon = { Icon(imageVector = Icons.Filled.BookmarkBorder, contentDescription = null) },
+            label = bookmarkLabel,
+        )
+        clickableItem(
+            onClick = {},
+            icon = { Icon(imageVector = Icons.Filled.AddToHomeScreen, contentDescription = null) },
+            label = addShortcutLabel,
+        )
+    }
+}
+
+/** Filter, sort and add-card, in the order ADR-0022 fixes them. Not yet wired to the ViewModel. */
+@Composable
+private fun RowScope.SubcategoryDetailsToolbarActions() {
+    IconButton(onClick = {}) {
+        Icon(
+            imageVector = Icons.Filled.FilterList,
+            contentDescription = stringResource(R.string.subcategory_details_filter_cd),
+        )
+    }
+    IconButton(onClick = {}) {
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.Sort,
+            contentDescription = stringResource(R.string.subcategory_details_sort_cd),
+        )
+    }
+    IconButton(onClick = {}) {
+        Icon(
+            imageVector = Icons.Filled.Add,
+            contentDescription = stringResource(R.string.subcategory_details_add_card_cd),
+        )
     }
 }
 
@@ -149,11 +225,14 @@ private fun FlashcardList(
     val expandedStateDescription = stringResource(R.string.subcategory_details_card_expanded_cd)
     val collapsedStateDescription = stringResource(R.string.subcategory_details_card_collapsed_cd)
 
+    val listState = rememberLazyListState()
     LazyColumn(
+        state = listState,
         modifier = modifier
             .fillMaxSize()
             .padding(horizontal = MaterialTheme.spacing.normal)
-            .flashcardsListGroupContainer(),
+            .flashcardsListGroupContainer(listState)
+            .flashcardsListScrollFade(listState),
     ) {
         flashcardsListGroupItems(
             items = flashcards.map { flashcard ->
