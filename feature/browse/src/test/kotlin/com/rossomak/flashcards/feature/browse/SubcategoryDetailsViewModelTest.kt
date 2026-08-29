@@ -111,7 +111,12 @@ class SubcategoryDetailsViewModelTest {
         difficultyRange: IntRange = 1..10,
     ) {
         viewModel.onDialogEvent(
-            Open(SubcategoryDetailsDialog.Filters(SubcategoryDetailsScreenState.NO_FILTERS, emptyList()))
+            Open(
+                SubcategoryDetailsDialog.Filters(
+                    FlashcardFilters(selectedTags = emptySet(), difficultyRange = 1..10),
+                    emptyList(),
+                )
+            )
         )
         viewModel.onDialogEvent(
             DraftChange(
@@ -239,6 +244,16 @@ class SubcategoryDetailsViewModelTest {
     // --- filtering ---
 
     @Test
+    fun `a successful load selects every tag by default`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = startedViewModel()
+
+        viewModel.state.assertValue {
+            filters.selectedTags shouldBe setOf("Modifiers", "State", "Theming")
+            hasActiveFilters shouldBe false
+        }
+    }
+
+    @Test
     fun `confirming the filters dialog narrows the list and updates the counts`() =
         runTest(mainDispatcherRule.testDispatcher) {
             val viewModel = startedViewModel()
@@ -273,7 +288,7 @@ class SubcategoryDetailsViewModelTest {
         }
 
     @Test
-    fun `clearing filters restores the list and leaves the sort order untouched`() =
+    fun `resetting filters restores the list and leaves the sort order untouched`() =
         runTest(mainDispatcherRule.testDispatcher) {
             val viewModel = startedViewModel()
             viewModel.onDialogEvent(
@@ -283,7 +298,7 @@ class SubcategoryDetailsViewModelTest {
             advanceUntilIdle()
             applyFilters(viewModel, tags = setOf("Theming"), difficultyRange = 1..3)
 
-            viewModel.onClearFilters()
+            viewModel.onResetFilters()
 
             advanceUntilIdle()
 
@@ -361,7 +376,7 @@ class SubcategoryDetailsViewModelTest {
         }
 
     @Test
-    fun `onStartSession with no filters carries the full range and the seeded order`() =
+    fun `onStartSession with no filters touched carries every tag and the seeded order`() =
         runTest(mainDispatcherRule.testDispatcher) {
             preferencesRepository.preferences.value =
                 StudySessionPreferences(sortOrder = FlashcardSortOrder.HardestFirst)
@@ -375,7 +390,7 @@ class SubcategoryDetailsViewModelTest {
                     categoryName = route.categoryName,
                     subcategoryId = route.subcategoryId,
                     subcategoryName = route.subcategoryName,
-                    filterTagIds = emptyList(),
+                    filterTagIds = listOf("Modifiers", "State", "Theming"),
                     difficultyRange = SubcategoryDetailsScreenState.DIFFICULTY_BOUNDS,
                     sortOrder = FlashcardSortOrder.HardestFirst,
                 )
@@ -423,12 +438,12 @@ class SubcategoryDetailsViewModelTest {
         }
 
     @Test
-    fun `clearing filters after a failed load leaves the error state intact`() =
+    fun `resetting filters after a failed load leaves the error state intact`() =
         runTest(mainDispatcherRule.testDispatcher) {
             flashcardRepository.flashcardsToReturn = Result.failure(IllegalStateException("offline"))
             val viewModel = startedViewModel()
 
-            viewModel.onClearFilters()
+            viewModel.onResetFilters()
             advanceUntilIdle()
 
             (viewModel.state.value.content is SubcategoryDetailsContentState.Error) shouldBe true

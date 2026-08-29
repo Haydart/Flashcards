@@ -21,7 +21,7 @@
     </plurals>
     <string name="subcategory_details_no_matches_title">No cards match your filters</string>
     <string name="subcategory_details_no_matches_message">Try different tags or widen the difficulty range.</string>
-    <string name="subcategory_details_clear_filters_button">Clear filters</string>
+    <string name="subcategory_details_reset_filters_button">Reset filters</string>
     <string name="subcategory_details_load_error_message">Could not load flashcards</string>
     <string name="subcategory_details_added_to_favorites_message">Added to favorites</string>
     <string name="subcategory_details_removed_from_favorites_message">Removed from favorites</string>

@@ -10,6 +10,7 @@ import com.rossomak.flashcards.core.domain.usecase.FilterFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.ObserveStudySessionPreferencesUseCase
 import com.rossomak.flashcards.core.domain.usecase.SaveStudySessionPreferenceUseCase
+import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardFilters
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Dismiss
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.DraftChange
@@ -17,7 +18,7 @@ import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.decodeRoute
 import com.rossomak.flashcards.feature.browse.SubcategoryDetailsDialog.Filters
 import com.rossomak.flashcards.feature.browse.SubcategoryDetailsDialog.Sort
-import com.rossomak.flashcards.feature.browse.SubcategoryDetailsScreenState.Companion.NO_FILTERS
+import com.rossomak.flashcards.feature.browse.SubcategoryDetailsScreenState.Companion.DIFFICULTY_BOUNDS
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
@@ -98,12 +99,17 @@ class SubcategoryDetailsViewModel @Inject constructor(
     }
 
     /**
-     * Clears tags and restores the full difficulty range — and deliberately **leaves the sort order
-     * alone**. Sort can never cause an empty result, the action is labelled "Clear filters", and
+     * Restores every tag and the full difficulty range — and deliberately **leaves the sort order
+     * alone**. Sort can never cause an empty result, the action is labelled "Reset filters", and
      * resetting it would silently undo an unrelated choice.
+     *
+     * Reseeds tags from the current [SubcategoryDetailsScreenState.availableTags] rather than a
+     * fixed empty set: "all tags selected" is the default this screen starts from, not "no tags".
      */
-    fun onClearFilters() {
-        _state.update { it.copy(filters = NO_FILTERS) }
+    fun onResetFilters() {
+        _state.update {
+            it.copy(filters = FlashcardFilters(selectedTags = it.availableTags.toSet(), difficultyRange = DIFFICULTY_BOUNDS))
+        }
         renderContent()
     }
 
@@ -174,7 +180,7 @@ class SubcategoryDetailsViewModel @Inject constructor(
             getFlashcards(route.subcategoryId)
                 .onSuccess { flashcards ->
                     pool = flashcards
-                    renderContent()
+                    renderContent(seedFilters = true)
                 }
                 .onFailure {
                     _state.update {
@@ -194,8 +200,14 @@ class SubcategoryDetailsViewModel @Inject constructor(
      * empty card list. That inference only holds once a pool has actually loaded, which is why this
      * does nothing while [pool] is null: rendering mid-load or after a failure would turn Loading or
      * Error into a bogus "no cards match your filters".
+     *
+     * @param seedFilters set only by the very first successful load: materializes
+     * [FlashcardFilters.selectedTags] to this pool's full tag vocabulary. The filter used for
+     * *this* render still reads the pre-seed value — empty, which [FilterFlashcardsUseCase]
+     * already treats as "match everything" — so the seed changes what the Filters dialog shows
+     * next, not what this render matches.
      */
-    private fun renderContent() {
+    private fun renderContent(seedFilters: Boolean = false) {
         val pool = pool ?: return
         viewModelScope.launch {
             val state = _state.value
@@ -215,6 +227,11 @@ class SubcategoryDetailsViewModel @Inject constructor(
                     },
                     availableTags = filtered.poolTags,
                     totalCount = filtered.totalCount,
+                    filters = if (seedFilters) {
+                        it.filters.copy(selectedTags = filtered.poolTags.toSet())
+                    } else {
+                        it.filters
+                    },
                 )
             }
         }

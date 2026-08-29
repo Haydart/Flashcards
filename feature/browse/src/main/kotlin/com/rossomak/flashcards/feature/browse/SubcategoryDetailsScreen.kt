@@ -130,7 +130,7 @@ fun SubcategoryDetailsScreen(
         state = state,
         onNavigateBack = onNavigateBack,
         onStartSession = viewModel::onStartSession,
-        onClearFilters = viewModel::onClearFilters,
+        onResetFilters = viewModel::onResetFilters,
         onFavoriteToggle = viewModel::onFavoriteToggle,
         onDialogEvent = viewModel::onDialogEvent,
         snackbarHostState = snackbarHostState,
@@ -144,7 +144,7 @@ fun SubcategoryDetailsContent(
     state: SubcategoryDetailsScreenState,
     onNavigateBack: () -> Unit,
     onStartSession: () -> Unit,
-    onClearFilters: () -> Unit,
+    onResetFilters: () -> Unit,
     onFavoriteToggle: () -> Unit,
     onDialogEvent: (SubcategoryDetailsDialogEvent) -> Unit,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
@@ -196,17 +196,17 @@ fun SubcategoryDetailsContent(
                 flashcards = content.flashcards,
                 listState = listState,
             )
-            // Clearing restores tags and the difficulty range but deliberately leaves the sort
-            // order alone — sort cannot cause an empty result, so resetting it here would undo an
-            // unrelated choice (ADR-0022).
+            // Resetting restores every tag and the difficulty range but deliberately leaves the
+            // sort order alone — sort cannot cause an empty result, so resetting it here would
+            // undo an unrelated choice (ADR-0022).
             SubcategoryDetailsContentState.NoMatches -> CenteredContent(modifier = Modifier.padding(innerPadding)) {
                 FlashcardsEmptyState(
                     icon = Icons.Filled.SearchOff,
                     title = stringResource(R.string.subcategory_details_no_matches_title),
                     supportingText = stringResource(R.string.subcategory_details_no_matches_message),
-                    ctaLabel = stringResource(R.string.subcategory_details_clear_filters_button),
+                    ctaLabel = stringResource(R.string.subcategory_details_reset_filters_button),
                     ctaIcon = Icons.Filled.Close,
-                    onCtaClick = onClearFilters,
+                    onCtaClick = onResetFilters,
                 )
             }
         }

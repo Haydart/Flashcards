@@ -3,7 +3,6 @@ package com.rossomak.flashcards.feature.browse
 import androidx.compose.runtime.Composable
 import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardFiltersDialog
 import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardSortOrderDialog
-import com.rossomak.flashcards.core.ui.composables.dialogs.withTag
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Dismiss
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.DraftChange
@@ -41,12 +40,7 @@ fun SubcategoryDetailsDialogHost(
             availableTags = activeDialog.availableTags,
             filters = activeDialog.draft,
             difficultyBounds = activeDialog.difficultyBounds,
-            onTagSelectedChange = { tag, isSelected ->
-                onDialogEvent(DraftChange(activeDialog.copy(draft = activeDialog.draft.withTag(tag, isSelected))))
-            },
-            onDifficultyRangeChange = {
-                onDialogEvent(DraftChange(activeDialog.copy(draft = activeDialog.draft.copy(difficultyRange = it))))
-            },
+            onFiltersChange = { onDialogEvent(DraftChange(activeDialog.copy(draft = it))) },
             onConfirm = onConfirm,
             onDismiss = onDismiss,
         )

@@ -15,7 +15,9 @@ import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardFilters
  * Deliberately **not** badged in the toolbar: seeded from a preference, "non-default" would be
  * permanently lit for anyone whose saved order is not [FlashcardSortOrder.Default].
  * @param filters session-scoped and never a saved default — tags belong to one Subcategory and
- * cannot carry to another (ADR-0030).
+ * cannot carry to another (ADR-0030). Every tag starts selected: the ViewModel materializes
+ * [FlashcardFilters.selectedTags] to the pool's full tag set once it loads, rather than leaving it
+ * empty-meaning-all, so the Filters dialog opens with every chip already checked.
  * @param availableTags the tag vocabulary of the whole pool, so a chip never vanishes because the
  * user filtered it out.
  * @param totalCount unfiltered pool size, the second number in "filtered to 4 of 80".
@@ -26,16 +28,21 @@ data class SubcategoryDetailsScreenState(
     val subcategoryName: String = "",
     val content: SubcategoryDetailsContentState = SubcategoryDetailsContentState.Loading,
     val sortOrder: FlashcardSortOrder = FlashcardSortOrder.Default,
-    val filters: FlashcardFilters = NO_FILTERS,
+    val filters: FlashcardFilters = FlashcardFilters(selectedTags = emptySet(), difficultyRange = DIFFICULTY_BOUNDS),
     val availableTags: List<String> = emptyList(),
     val totalCount: Int = 0,
     val isFavorite: Boolean = false,
     val activeDialog: SubcategoryDetailsDialog? = null,
 ) {
 
-    /** Drives the Filter badge. Sort has no badge of its own (ADR-0038). */
+    /**
+     * Drives the Filter badge. Sort has no badge of its own (ADR-0038).
+     *
+     * Compares against the live [availableTags] rather than a fixed constant: "all tags selected"
+     * is the default, and which tags that means depends on the Subcategory's own pool.
+     */
     val hasActiveFilters: Boolean
-        get() = filters != NO_FILTERS
+        get() = filters.selectedTags != availableTags.toSet() || filters.difficultyRange != DIFFICULTY_BOUNDS
 
     /**
      * How many cards the CTA would start a session on — the *filtered pool*, which the Preview
@@ -49,9 +56,6 @@ data class SubcategoryDetailsScreenState(
     companion object {
         val DIFFICULTY_BOUNDS: IntRange =
             StudySessionConfig.MIN_DIFFICULTY..StudySessionConfig.MAX_DIFFICULTY
-
-        /** No tags selected and the full difficulty range — what "Clear filters" restores. */
-        val NO_FILTERS = FlashcardFilters(selectedTags = emptySet(), difficultyRange = DIFFICULTY_BOUNDS)
     }
 }
 
