@@ -31,6 +31,7 @@ graphify-out/
 # Raw docs, sources for generating the flashcards
 /docs/temp/
 /docs/android/
+.scratch
 
 # Kotlin language reference docs — local working material, not committed
 /docs/kotlin/
