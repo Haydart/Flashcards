@@ -198,6 +198,11 @@ class PreviewStudySessionViewModelTest {
         viewModel.state.value.canStart shouldBe false
     }
 
+    /**
+     * Also covers the tag-seeding side of the same load: a single-topic session with no routed
+     * filter materializes `config.tagIds` to every available tag, while a multi-topic session has
+     * no tag vocabulary to seed from at all (ADR-0030), so it stays empty.
+     */
     @Test
     fun `available tags come from the pool for single topic sessions only`() = runTest(mainDispatcherRule.testDispatcher) {
         stubRoute(singleTopicRoute)
@@ -212,6 +217,7 @@ class PreviewStudySessionViewModelTest {
         advanceUntilIdle()
 
         viewModel.state.value.availableTags shouldBe listOf("Modifiers", "State")
+        viewModel.state.value.config.tagIds shouldBe setOf("Modifiers", "State")
 
         stubRoute(multiTopicRoute)
         flashcardRepository.flashcardsBySubcategory["android-compose"] =
@@ -223,6 +229,7 @@ class PreviewStudySessionViewModelTest {
         advanceUntilIdle()
 
         multiTopicViewModel.state.value.availableTags shouldBe emptyList()
+        multiTopicViewModel.state.value.config.tagIds shouldBe emptySet()
     }
 
     @Test

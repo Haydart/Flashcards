@@ -311,7 +311,7 @@ private fun SessionSettingRows(
         )
         SessionSettingRow(
             label = stringResource(R.string.preview_session_filters_label),
-            value = filtersLabel(state.config),
+            value = filtersLabel(state),
             onClick = {
                 onDialogEvent(
                     Open(
@@ -387,15 +387,22 @@ private fun voicePlaybackSummary(state: PreviewStudySessionScreenState): String 
     return stringResource(R.string.preview_session_setting_value_separator_label, voiceName, rateLabel)
 }
 
-/** Difficulty always reads; the tag count only joins it when tags are actually narrowing the pool. */
+/**
+ * Difficulty always reads; the tag count only joins it when tags are actually narrowing the pool.
+ *
+ * `config.tagIds` is materialized to every available tag by default (mirroring SubcategoryDetails,
+ * ADR-0038), so "narrowing" means it is a *proper* subset of [PreviewStudySessionScreenState.availableTags]
+ * — comparing against emptiness alone would show a tag count even when nothing was narrowed.
+ */
 @Composable
-private fun filtersLabel(config: StudySessionConfig): String {
+private fun filtersLabel(state: PreviewStudySessionScreenState): String {
+    val config = state.config
     val difficultyLabel = stringResource(
         R.string.preview_session_filters_difficulty_value_label,
         config.difficultyRange.first,
         config.difficultyRange.last,
     )
-    if (config.tagIds.isEmpty()) return difficultyLabel
+    if (config.tagIds.isEmpty() || config.tagIds == state.availableTags.toSet()) return difficultyLabel
     val tagsLabel = pluralStringResource(
         R.plurals.preview_session_filters_tags_value_label,
         config.tagIds.size,

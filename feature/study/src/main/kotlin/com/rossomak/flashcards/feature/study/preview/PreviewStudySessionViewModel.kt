@@ -281,14 +281,26 @@ class PreviewStudySessionViewModel @Inject constructor(
                 .onSuccess { plan ->
                     selectedCardIds = plan.cards.map { it.id }
                     _state.update { state ->
+                        // Tags belong to one subcategory, so a multi-topic session has no
+                        // coherent tag vocabulary to offer (ADR-0030).
+                        val availableTags = if (state.isSingleTopic) plan.poolTags else emptyList()
                         state.copy(
                             isLoading = false,
                             error = null,
                             selectedCardCount = plan.cards.size,
                             estimatedMinutes = plan.estimatedMinutes,
-                            // Tags belong to one subcategory, so a multi-topic session has no
-                            // coherent tag vocabulary to offer (ADR-0030).
-                            availableTags = if (state.isSingleTopic) plan.poolTags else emptyList(),
+                            availableTags = availableTags,
+                            // Materializes "no tag filter" into every tag actually selected, the
+                            // same seed SubcategoryDetails applies on its own first load — mirrored
+                            // here rather than left as a dialog-open-only translation, since
+                            // config.tagIds is the same field a session is drawn from (ADR-0038).
+                            // Idempotent once seeded: a route-carried or user-chosen tagIds is
+                            // already non-empty and is left alone.
+                            config = if (state.config.tagIds.isEmpty() && availableTags.isNotEmpty()) {
+                                state.config.copy(tagIds = availableTags.toSet())
+                            } else {
+                                state.config
+                            },
                         )
                     }
                 }
