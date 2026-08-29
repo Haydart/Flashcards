@@ -17,6 +17,13 @@ class FakeFlashcardRepository : FlashcardRepository {
     /** Every prefix [searchSubcategories] was called with, in call order. */
     val searchedPrefixes: MutableList<String> = mutableListOf()
 
+    /** Every subcategory id [fetchFlashcards] was called with, in call order. */
+    val fetchedSubcategoryIds: MutableList<String> = mutableListOf()
+
+    /** How many times [invalidateFlashcardCache] was called, for tests that drive the cache seam. */
+    var invalidationCount: Int = 0
+        private set
+
     override suspend fun fetchCategories(): Result<List<Category>> = categoriesToReturn
 
     override suspend fun fetchSubcategories(categoryId: String): Result<List<Subcategory>> = subcategoriesToReturn
@@ -26,6 +33,12 @@ class FakeFlashcardRepository : FlashcardRepository {
         return searchResultsByPrefix[namePrefix] ?: searchResultsToReturn
     }
 
-    override suspend fun fetchFlashcards(subcategoryId: String): Result<List<Flashcard>> =
-        flashcardsBySubcategory[subcategoryId] ?: flashcardsToReturn
+    override suspend fun fetchFlashcards(subcategoryId: String): Result<List<Flashcard>> {
+        fetchedSubcategoryIds += subcategoryId
+        return flashcardsBySubcategory[subcategoryId] ?: flashcardsToReturn
+    }
+
+    override fun invalidateFlashcardCache() {
+        invalidationCount++
+    }
 }

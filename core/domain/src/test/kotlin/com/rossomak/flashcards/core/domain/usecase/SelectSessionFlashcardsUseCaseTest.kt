@@ -14,7 +14,10 @@ class SelectSessionFlashcardsUseCaseTest {
     private val flashcardRepository = FakeFlashcardRepository()
 
     private fun createUseCase(): SelectSessionFlashcardsUseCase =
-        SelectSessionFlashcardsUseCase(flashcardRepository)
+        SelectSessionFlashcardsUseCase(
+            getFlashcards = GetFlashcardsUseCase(flashcardRepository),
+            filterFlashcards = FilterFlashcardsUseCase(),
+        )
 
     private fun config(
         subcategoryIds: List<String> = listOf(SUBCATEGORY_ID),
@@ -240,17 +243,37 @@ class SelectSessionFlashcardsUseCaseTest {
         plan.estimatedMinutes shouldBe 4
     }
 
+    /**
+     * The pool cache moved down into the repository (ADR-0038), so re-selecting genuinely asks for
+     * the pool again rather than answering from a copy this use case kept. Making the second read
+     * cheap is the repository's job now, and pinning that here is what stops a cache creeping back.
+     */
     @Test
-    fun `a repeated selection is served from the pool cache`() = runTest {
+    fun `every selection re-reads the pool rather than caching it`() = runTest {
         flashcardRepository.flashcardsToReturn =
             Result.success((1..30).map { index -> flashcard(id = "card-$index") })
         val useCase = createUseCase()
-        useCase(config()).getOrThrow()
 
-        flashcardRepository.flashcardsToReturn = Result.failure(IllegalStateException("must not re-fetch"))
+        useCase(config()).getOrThrow()
         val plan = useCase(config(length = 5)).getOrThrow()
 
         plan.cards.size shouldBe 5
+        flashcardRepository.fetchedSubcategoryIds shouldBe listOf(SUBCATEGORY_ID, SUBCATEGORY_ID)
+    }
+
+    @Test
+    fun `pool tags come from the whole pool even when filters exclude those cards`() = runTest {
+        flashcardRepository.flashcardsToReturn = Result.success(
+            listOf(
+                flashcard(id = "card-1", tags = listOf("State"), difficulty = 2),
+                flashcard(id = "card-2", tags = listOf("Modifiers"), difficulty = 9),
+            )
+        )
+
+        val plan = createUseCase().invoke(config(tagIds = setOf("State"))).getOrThrow()
+
+        plan.cards.map { it.id } shouldBe listOf("card-1")
+        plan.poolTags shouldBe listOf("Modifiers", "State")
     }
 
     private companion object {
