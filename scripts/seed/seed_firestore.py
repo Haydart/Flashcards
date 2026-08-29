@@ -36,6 +36,11 @@ write path: only `cardCount` is touched (via `set(merge=True)`), not `name`/`ord
 — `order` in particular may be hand-adjusted in the Firebase console (see Notes below), so it
 keeps today's --skip-existing semantics rather than being force-refreshed like `cardCount`.
 
+`meta/seed.value` is bumped by 1 (see `bump_cache_seed`) as the very last write of every run, once
+every other write above has committed — it is the freshness signal the app's cache-generation
+invalidation compares against (ADR-0039), so a run that fails partway through must never bump it
+for content that did not actually land.
+
 Idempotency:
   --skip-existing (DEFAULT)  subcategories: write a doc only if its id is absent, skip if
                              present (except `cardCount`, always refreshed regardless — see
@@ -299,6 +304,25 @@ def refresh_card_counts(db, subcategories: list[dict], *, dry_run: bool) -> int:
     return written
 
 
+def bump_cache_seed(db, *, dry_run: bool) -> int:
+    """Increments `meta/seed.value` by 1, creating the doc at 1 if absent (ADR-0039). Must be
+    called only after every other write in this run has committed — see the module docstring —
+    so a run that fails partway through never bumps the seed for content that did not land.
+    Returns the value written (or, under `--dry-run`, the value that would have been written).
+
+    get() then set() below are not atomic — same accepted risk as upsert_categories()'s sticky-field
+    check: a solo, manually-run pipeline, not a concurrent/scheduled one. Two overlapping runs could
+    each read the same value and net only one increment. Revisit with db.transaction() if that ever
+    changes.
+    """
+    ref = db.collection("meta").document("seed")
+    current = ref.get().to_dict() or {}
+    next_value = current.get("value", 0) + 1
+    if not dry_run:
+        ref.set({"value": next_value})
+    return next_value
+
+
 def main():
     ap = argparse.ArgumentParser(description="Upsert temp fixtures into Firestore.")
     ap.add_argument("--fixtures-dir", default=DEFAULT_FIXTURES,
@@ -327,6 +351,8 @@ def main():
     sw, ss = upsert(db, "subcategories", subcategories, overwrite=overwrite, dry_run=args.dry_run)
     cc = refresh_card_counts(db, subcategories, dry_run=args.dry_run)
     hw, hd = upsert_shards(db, shards, {s["id"] for s in subcategories}, dry_run=args.dry_run)
+    # Last write of the run, deliberately — see bump_cache_seed's docstring.
+    seed_value = bump_cache_seed(db, dry_run=args.dry_run)
 
     verb = "would write" if args.dry_run else "wrote"
     del_verb = "would delete" if args.dry_run else "deleted"
@@ -334,6 +360,7 @@ def main():
     print(f"subcategories/                 {verb} {sw}, skipped {ss}")
     print(f"subcategories/.cardCount       refreshed {cc}")
     print(f"subcategories/*/shards/        {verb} {hw}, {del_verb} {hd} orphaned")
+    print(f"meta/seed                      {verb} value={seed_value}")
     if args.dry_run:
         print("\n(dry-run — nothing written)")
 

@@ -2,6 +2,13 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // meta/seed (ADR-0039) is the cache-generation freshness signal: a monotonic int
+    // bumped by seed_firestore.py at the end of every import run. Read-only to clients,
+    // same as categories/subcategories/shards below — written only by the Admin SDK.
+    match /meta/{document} {
+      allow read: if request.auth != null;
+    }
+
     // categories/subcategories/shards (flashcard content) are curated shared
     // content with no owner field; clients may read but only the Admin SDK
     // (which bypasses these rules) may write.
