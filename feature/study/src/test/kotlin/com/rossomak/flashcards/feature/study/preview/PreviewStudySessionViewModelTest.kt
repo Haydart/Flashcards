@@ -10,6 +10,8 @@ import com.rossomak.flashcards.core.domain.model.StudySessionPreferences
 import com.rossomak.flashcards.core.domain.model.VoiceSettings as SavedVoiceSettings
 import com.rossomak.flashcards.core.domain.repository.FakeFlashcardRepository
 import com.rossomak.flashcards.core.domain.repository.FakeStudySessionPreferencesRepository
+import com.rossomak.flashcards.core.domain.usecase.FilterFlashcardsUseCase
+import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.ObserveStudySessionPreferencesUseCase
 import com.rossomak.flashcards.core.domain.usecase.SaveStudySessionPreferenceUseCase
 import com.rossomak.flashcards.core.domain.usecase.SelectSessionFlashcardsUseCase
@@ -98,7 +100,10 @@ class PreviewStudySessionViewModelTest {
 
     private fun createViewModel(): PreviewStudySessionViewModel = PreviewStudySessionViewModel(
         savedStateHandle,
-        SelectSessionFlashcardsUseCase(flashcardRepository),
+        SelectSessionFlashcardsUseCase(
+            getFlashcards = GetFlashcardsUseCase(flashcardRepository),
+            filterFlashcards = FilterFlashcardsUseCase(),
+        ),
         ObserveStudySessionPreferencesUseCase(studySessionPreferencesRepository),
         SaveStudySessionPreferenceUseCase(studySessionPreferencesRepository),
         voiceSettingsController,

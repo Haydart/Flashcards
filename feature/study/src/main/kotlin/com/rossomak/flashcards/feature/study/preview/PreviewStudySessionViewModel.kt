@@ -64,6 +64,7 @@ class PreviewStudySessionViewModel @Inject constructor(
             config = StudySessionConfig(
                 subcategoryIds = route.subcategoryIds,
                 tagIds = route.filterTagIds.toSet(),
+                difficultyRange = route.difficultyRange,
                 seed = Random.nextLong(),
             ),
         )
@@ -86,6 +87,9 @@ class PreviewStudySessionViewModel @Inject constructor(
      * write from this same screen clobber the session edits the user just made. Route- and
      * session-scoped fields (subcategoryIds, tagIds, difficultyRange, seed) are left untouched —
      * filters are exempt from defaults entirely (ADR-0030).
+     *
+     * Sort is the one seeded field the route can override: arriving from a browsed list, the order
+     * the user was just looking at wins over the saved default (ADR-0038).
      */
     init {
         viewModelScope.launch {
@@ -98,7 +102,9 @@ class PreviewStudySessionViewModel @Inject constructor(
                         ratedAttempts = defaults.ratedAttempts,
                         readAloudEnabled = defaults.readAloudEnabled,
                         length = defaults.sessionLength,
-                        sortOrder = defaults.sortOrder,
+                        // The route wins when it carries an order: the user already saw a list in
+                        // it. Null means nothing upstream chose one, so the saved default applies.
+                        sortOrder = route.sortOrder ?: defaults.sortOrder,
                         voiceSettings = defaults.voiceSettings,
                     ),
                 )
