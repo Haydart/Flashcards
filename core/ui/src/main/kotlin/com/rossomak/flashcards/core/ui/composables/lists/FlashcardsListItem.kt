@@ -14,7 +14,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.unit.dp
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListItemPosition.Bottom
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListItemPosition.Middle
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListItemPosition.Single
@@ -106,11 +105,12 @@ fun Modifier.flashcardsListGroupContainer(listState: LazyListState): Modifier {
     val corner = MaterialTheme.cornerRadius.medium
     val topRounded by remember(listState) { derivedStateOf { !listState.canScrollBackward } }
     val bottomRounded by remember(listState) { derivedStateOf { !listState.canScrollForward } }
+    val square = MaterialTheme.cornerRadius.none
     val shape = RoundedCornerShape(
-        topStart = if (topRounded) corner else 0.dp,
-        topEnd = if (topRounded) corner else 0.dp,
-        bottomStart = if (bottomRounded) corner else 0.dp,
-        bottomEnd = if (bottomRounded) corner else 0.dp,
+        topStart = if (topRounded) corner else square,
+        topEnd = if (topRounded) corner else square,
+        bottomStart = if (bottomRounded) corner else square,
+        bottomEnd = if (bottomRounded) corner else square,
     )
     return this
         .clip(shape)
