@@ -248,7 +248,11 @@ on-device Firestore cache. An empty cache result falls through to the server rat
 surfacing as an empty success — sound only because a Subcategory always contains at least one
 Flashcard (`CONTEXT.md`), so an empty cache result unambiguously means "not cached yet," never
 "genuinely empty." `invalidateFlashcardCache()` bumps the generation, re-arming the server read
-for every Subcategory.
+for every Subcategory. A server read in flight when a bump lands captures its starting generation
+before the network call and only stamps that Subcategory as current if the generation is still
+unchanged afterward — otherwise the response still returns to its own caller, but isn't trusted as
+belonging to the new generation, so the next read of that Subcategory goes to the server again
+instead of treating a pre-invalidation response as fresh.
 
 **Seed-versioned invalidation (what calls `invalidateFlashcardCache()`).** A single Firestore
 document, `meta/seed` (`{ value: <monotonic int> }`), is the freshness signal for the whole
