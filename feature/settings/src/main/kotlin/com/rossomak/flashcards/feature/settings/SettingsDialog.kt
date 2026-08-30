@@ -30,6 +30,8 @@ sealed interface SettingsDialog {
 
     data class Sort(val draft: FlashcardSortOrder) : SettingsDialog
 
+    data class SubcategoryCountRange(val draft: IntRange) : SettingsDialog
+
     data class VoiceAnswering(val draft: Boolean) : SettingsDialog
 
     data class ReadAloud(val draft: Boolean) : SettingsDialog

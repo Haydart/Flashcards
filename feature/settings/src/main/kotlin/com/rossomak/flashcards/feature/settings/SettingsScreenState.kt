@@ -28,6 +28,7 @@ data class SettingsScreenState(
     val ratedAttempts: Int = StudySessionConfig.DEFAULT_RATED_ATTEMPTS,
     val defaultStudyMode: StudyMode = StudyMode.Rated,
     val sortOrder: FlashcardSortOrder = FlashcardSortOrder.Default,
+    val subcategoryCountRange: IntRange = StudySessionConfig.DEFAULT_SUBCATEGORY_COUNT_RANGE,
     val voiceAnsweringEnabled: Boolean = false,
     val readAloudEnabled: Boolean = false,
     val speechRate: Float = 1f,

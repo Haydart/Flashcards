@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Numbers
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Replay
@@ -62,6 +63,7 @@ import com.rossomak.flashcards.feature.settings.SettingsDialog.Mode
 import com.rossomak.flashcards.feature.settings.SettingsDialog.ReadAloud
 import com.rossomak.flashcards.feature.settings.SettingsDialog.SignOut
 import com.rossomak.flashcards.feature.settings.SettingsDialog.Sort
+import com.rossomak.flashcards.feature.settings.SettingsDialog.SubcategoryCountRange
 import com.rossomak.flashcards.feature.settings.SettingsDialog.VoiceAnswering
 import com.rossomak.flashcards.feature.settings.SettingsDialog.VoiceSettings
 
@@ -227,6 +229,17 @@ private fun studySessionRows(
         onClick = { onDialogEvent(Open(Sort(draft = state.sortOrder))) },
         secondaryText = state.sortOrder.label(),
         leading = { FlashcardsIconTile(icon = Icons.Default.SortByAlpha, contentDescription = null) },
+        trailing = { FlashcardsChevron() },
+    ),
+    FlashcardsListGroupItem.Row(
+        title = stringResource(R.string.settings_subcategory_count_range_label),
+        onClick = { onDialogEvent(Open(SubcategoryCountRange(draft = state.subcategoryCountRange))) },
+        secondaryText = stringResource(
+            CoreUiR.string.subcategory_count_range_value_label,
+            state.subcategoryCountRange.first,
+            state.subcategoryCountRange.last,
+        ),
+        leading = { FlashcardsIconTile(icon = Icons.Default.Layers, contentDescription = null) },
         trailing = { FlashcardsChevron() },
     ),
 )

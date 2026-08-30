@@ -11,6 +11,7 @@ import com.rossomak.flashcards.core.ui.composables.dialogs.RatedAttemptsDialog
 import com.rossomak.flashcards.core.ui.composables.dialogs.ReadAloudDialog
 import com.rossomak.flashcards.core.ui.composables.dialogs.SessionLengthDialog
 import com.rossomak.flashcards.core.ui.composables.dialogs.StudyModeDialog
+import com.rossomak.flashcards.core.ui.composables.dialogs.SubcategoryCountRangeDialog
 import com.rossomak.flashcards.core.ui.composables.dialogs.VoiceAnsweringDialog
 import com.rossomak.flashcards.core.ui.composables.dialogs.VoiceSettingsDialog
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
@@ -23,6 +24,7 @@ import com.rossomak.flashcards.feature.settings.SettingsDialog.Mode
 import com.rossomak.flashcards.feature.settings.SettingsDialog.ReadAloud
 import com.rossomak.flashcards.feature.settings.SettingsDialog.SignOut
 import com.rossomak.flashcards.feature.settings.SettingsDialog.Sort
+import com.rossomak.flashcards.feature.settings.SettingsDialog.SubcategoryCountRange
 import com.rossomak.flashcards.feature.settings.SettingsDialog.VoiceAnswering
 import com.rossomak.flashcards.feature.settings.SettingsDialog.VoiceSettings
 
@@ -87,6 +89,8 @@ internal fun SettingsDialogHost(
             onConfirm = onConfirm,
             onDismiss = onDismiss,
         )
+        is SubcategoryCountRange ->
+            SubcategoryCountRangeDialogFor(activeDialog, onDialogEvent, onConfirm, onDismiss)
 
         is VoiceAnswering -> VoiceAnsweringDialog(
             draft = activeDialog.draft,
@@ -126,4 +130,24 @@ internal fun SettingsDialogHost(
             supportingText = stringResource(R.string.settings_sign_out_dialog_message),
         )
     }
+}
+
+/**
+ * Split out of [SettingsDialogHost]'s `when` — the same shape as every other branch, pulled out
+ * only because a ninth inline case pushes the host past detekt's `LongMethod` threshold.
+ */
+@Composable
+private fun SubcategoryCountRangeDialogFor(
+    dialog: SubcategoryCountRange,
+    onDialogEvent: (SettingsDialogEvent) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    SubcategoryCountRangeDialog(
+        draft = dialog.draft,
+        bounds = StudySessionConfig.MIN_SUBCATEGORY_COUNT..StudySessionConfig.MAX_SUBCATEGORY_COUNT,
+        onDraftChange = { onDialogEvent(DraftChange(dialog.copy(draft = it))) },
+        onConfirm = onConfirm,
+        onDismiss = onDismiss,
+    )
 }
