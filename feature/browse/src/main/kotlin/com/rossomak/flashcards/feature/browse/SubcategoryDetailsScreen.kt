@@ -394,7 +394,7 @@ private fun CenteredContent(
     }
 }
 
-/**NoMatchesContent
+/**
  * A subcategory's flashcards can run into the dozens, so this binds `flashcardsListGroupItems`
  * inside a `LazyColumn` rather than the bounded `FlashcardsListGroup` — only rows near the
  * viewport get composed.
