@@ -9,6 +9,7 @@ import com.rossomak.flashcards.core.domain.model.Category
 import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.core.domain.model.Subcategory
 import com.rossomak.flashcards.core.domain.repository.FlashcardRepository
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -42,7 +43,14 @@ class DefaultFlashcardRepository @Inject constructor(
     /** Subcategory id -> the generation in which it was last read from the server. */
     private val serverReadGenerations = mutableMapOf<String, Long>()
 
-    private var cacheGeneration = 0L
+    /**
+     * `AtomicLong`, not a plain `var`: [invalidateFlashcardCache] is a non-suspend call reachable
+     * from any thread, while [readFromServer] reads it from `Dispatchers.IO`. A plain field has no
+     * cross-thread visibility guarantee; `AtomicLong` does, and its atomic
+     * [java.util.concurrent.atomic.AtomicLong.incrementAndGet] means invalidation itself never
+     * needs [cacheMutex].
+     */
+    private val cacheGeneration = AtomicLong(0L)
 
     override suspend fun fetchCategories(): Result<List<Category>> = withContext(Dispatchers.IO) {
         try {
@@ -89,8 +97,8 @@ class DefaultFlashcardRepository @Inject constructor(
     }
 
     override fun invalidateFlashcardCache() {
-        cacheGeneration++
-        Log.d(TAG, "Flashcard cache invalidated, generation is now $cacheGeneration")
+        val newGeneration = cacheGeneration.incrementAndGet()
+        Log.d(TAG, "Flashcard cache invalidated, generation is now $newGeneration")
     }
 
     override suspend fun fetchCacheSeed(): Result<Int> = withContext(Dispatchers.IO) {
@@ -123,17 +131,31 @@ class DefaultFlashcardRepository @Inject constructor(
      * duplicate costs one extra read, not a wrong answer.
      */
     private suspend fun needsServerRead(subcategoryId: String): Boolean = cacheMutex.withLock {
-        serverReadGenerations[subcategoryId] != cacheGeneration
+        serverReadGenerations[subcategoryId] != cacheGeneration.get()
     }
 
     /**
      * The generation is recorded only after the read succeeds — a throwing read leaves the
      * Subcategory un-stamped, so the next attempt goes to the server again rather than falling
      * through to a cache that was never populated.
+     *
+     * [startGeneration] is captured *before* the network call and re-checked *after* it, both
+     * against the live [cacheGeneration] rather than a value trusted from before the call: an
+     * [invalidateFlashcardCache] that lands while this request is in flight must not have its new
+     * generation stamped with a response that was actually fetched under the old one. When that
+     * happens, this response is still returned to its own caller — it was genuinely fetched from
+     * the server, just not new enough to trust as "current" for the *next* read — but the
+     * Subcategory is left un-stamped, so that next read goes to the server again instead of
+     * treating this stale response as belonging to the new generation.
      */
     private suspend fun readFromServer(subcategoryId: String): List<FlashcardDto> {
+        val startGeneration = cacheGeneration.get()
         val fromServer = remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId, FlashcardReadSource.Server)
-        cacheMutex.withLock { serverReadGenerations[subcategoryId] = cacheGeneration }
+        cacheMutex.withLock {
+            if (cacheGeneration.get() == startGeneration) {
+                serverReadGenerations[subcategoryId] = startGeneration
+            }
+        }
         return fromServer
     }
 
