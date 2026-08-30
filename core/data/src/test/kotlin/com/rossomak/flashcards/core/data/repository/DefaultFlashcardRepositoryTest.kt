@@ -1,5 +1,6 @@
 package com.rossomak.flashcards.core.data.repository
 
+import android.util.Log
 import com.rossomak.flashcards.core.data.model.CategoryDto
 import com.rossomak.flashcards.core.data.model.FlashcardDto
 import com.rossomak.flashcards.core.data.model.SubcategoryDto
@@ -8,10 +9,15 @@ import com.rossomak.flashcards.core.data.source.FlashcardRemoteDataSource
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
+import org.junit.After
+import org.junit.Before
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -21,6 +27,19 @@ class DefaultFlashcardRepositoryTest {
 
     private fun createRepository(): DefaultFlashcardRepository =
         DefaultFlashcardRepository(remoteDataSource)
+
+    @Before
+    fun setUp() {
+        // invalidateFlashcardCache() logs via android.util.Log, unavailable outside instrumented/
+        // Robolectric tests — stub it rather than pull in either just for this one call.
+        mockkStatic(Log::class)
+        every { Log.d(any(), any()) } returns 0
+    }
+
+    @After
+    fun tearDown() {
+        unmockkStatic(Log::class)
+    }
 
     @Test
     fun `fetchCategories maps dtos to domain in order`() = runTest {
@@ -275,6 +294,36 @@ class DefaultFlashcardRepositoryTest {
         } catch (exception: CancellationException) {
             thrown = exception
         }
+
+        (thrown is CancellationException) shouldBe true
+    }
+
+    @Test
+    fun `fetchCacheSeed returns the remote value`() = runTest {
+        coEvery { remoteDataSource.getCacheSeed() } returns 7
+
+        val result = createRepository().fetchCacheSeed()
+
+        result.getOrThrow() shouldBe 7
+        coVerify(exactly = 1) { remoteDataSource.getCacheSeed() }
+    }
+
+    @Test
+    fun `fetchCacheSeed wraps data source failure in failure result`() = runTest {
+        val error = IllegalStateException("firestore down")
+        coEvery { remoteDataSource.getCacheSeed() } throws error
+
+        val result = createRepository().fetchCacheSeed()
+
+        result.isFailure shouldBe true
+        result.exceptionOrNull() shouldBe error
+    }
+
+    @Test
+    fun `fetchCacheSeed rethrows cancellation instead of wrapping it`() = runTest {
+        coEvery { remoteDataSource.getCacheSeed() } throws CancellationException("cancelled")
+
+        val thrown = runCatching { createRepository().fetchCacheSeed() }.exceptionOrNull()
 
         (thrown is CancellationException) shouldBe true
     }
