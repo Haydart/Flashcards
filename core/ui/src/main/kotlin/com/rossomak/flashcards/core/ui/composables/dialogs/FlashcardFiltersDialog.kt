@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -16,11 +15,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.rossomak.flashcards.core.ui.R
 import com.rossomak.flashcards.core.ui.composables.FlashcardsDifficultyRangePill
+import com.rossomak.flashcards.core.ui.composables.FlashcardsIntRangeSlider
 import com.rossomak.flashcards.core.ui.composables.FlashcardsTagChip
 import com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsTextButton
 import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentSize
 import com.rossomak.flashcards.core.ui.theme.spacing
-import kotlin.math.roundToInt
 
 /**
  * Narrows a session's card pool by tag and difficulty.
@@ -112,16 +111,10 @@ fun FlashcardFiltersDialog(
                     highLevel = filters.difficultyRange.last,
                 )
             }
-            RangeSlider(
-                value = filters.difficultyRange.first.toFloat()..filters.difficultyRange.last.toFloat(),
-                onValueChange = { range ->
-                    val newRange = range.start.roundToInt()..range.endInclusive.roundToInt()
-                    onFiltersChange(filters.copy(difficultyRange = newRange))
-                },
-                valueRange = difficultyBounds.first.toFloat()..difficultyBounds.last.toFloat(),
-                // One step per whole difficulty level, minus the two endpoints.
-                steps = (difficultyBounds.last - difficultyBounds.first - 1).coerceAtLeast(0),
-                modifier = Modifier.fillMaxWidth(),
+            FlashcardsIntRangeSlider(
+                value = filters.difficultyRange,
+                bounds = difficultyBounds,
+                onValueChange = { onFiltersChange(filters.copy(difficultyRange = it)) },
             )
         }
     }
