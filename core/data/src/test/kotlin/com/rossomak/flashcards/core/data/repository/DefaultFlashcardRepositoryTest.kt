@@ -14,7 +14,9 @@ import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Before
@@ -317,6 +319,34 @@ class DefaultFlashcardRepositoryTest {
 
         result.isFailure shouldBe true
         result.exceptionOrNull() shouldBe error
+    }
+
+    @Test
+    fun `a read in flight when invalidation lands is not stamped into the new generation`() = runTest {
+        val subcategoryId = "sub-1"
+        val dto = FlashcardDto(id = "card-1", question = "q", answer = "a", difficulty = 4)
+        val readStarted = CompletableDeferred<Unit>()
+        val readGate = CompletableDeferred<Unit>()
+        coEvery { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId, FlashcardReadSource.Server) } coAnswers {
+            readStarted.complete(Unit)
+            readGate.await()
+            listOf(dto)
+        }
+        val repository = createRepository()
+
+        // Started under generation 0, but doesn't reach the server response until after invalidation.
+        val inFlightRead = async { repository.fetchFlashcards(subcategoryId) }
+        readStarted.await()
+        repository.invalidateFlashcardCache()
+        readGate.complete(Unit)
+        inFlightRead.await().getOrThrow().single().id shouldBe dto.id
+
+        // A second read must still hit the server: the in-flight read must not have been stamped
+        // as belonging to generation 1, even though its response only arrived after the bump.
+        coEvery { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId, FlashcardReadSource.Server) } returns listOf(dto)
+        repository.fetchFlashcards(subcategoryId)
+
+        coVerify(exactly = 2) { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId, FlashcardReadSource.Server) }
     }
 
     @Test
