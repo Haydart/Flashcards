@@ -464,29 +464,72 @@ private fun screenTitle(state: PreviewStudySessionScreenState): String = when {
     else -> "${state.categoryName} · Custom session"
 }
 
-private fun scopeDescription(state: PreviewStudySessionScreenState): AnnotatedString = buildAnnotatedString {
-    fun appendBold(text: String) {
-        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(text) }
-    }
+@Composable
+private fun scopeDescription(state: PreviewStudySessionScreenState): AnnotatedString {
+    val cardsText = pluralStringResource(
+        CoreUiR.plurals.session_length_cards_label,
+        state.selectedCardCount,
+        state.selectedCardCount,
+    )
+    // Resolved here, not inside appendSubcategoryList, so that function can stay a plain (non-
+    // @Composable) builder step — matching appendOxfordList — instead of tripping detekt/lint's
+    // ComposableNaming rule for a lowercase Unit-returning @Composable.
+    val otherTopicsText = (state.subcategoryNames.size - SUBCATEGORY_LIST_VISIBLE_COUNT)
+        .takeIf { state.subcategoryNames.size > SUBCATEGORY_LIST_TRUNCATION_THRESHOLD }
+        ?.let { otherCount ->
+            pluralStringResource(R.plurals.preview_session_scope_other_topics_count, otherCount, otherCount)
+        }
+    return buildAnnotatedString {
+        fun appendBold(text: String) {
+            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(text) }
+        }
 
-    when {
-        state.isQuickSession -> {
-            appendBold("${state.selectedCardCount} cards")
-            append(" auto-selected across ")
-            appendBold("${state.topicCount} ${state.categoryName}")
-            append(" topics.")
-        }
-        state.isSingleTopic -> {
-            appendBold("${state.selectedCardCount} cards")
-            append(" from your ${state.subcategoryNames.first()} deck.")
-        }
-        else -> {
-            appendBold("${state.selectedCardCount} cards")
-            append(" from ")
-            appendOxfordList(state.subcategoryNames, ::appendBold)
-            append(".")
+        when {
+            state.isQuickSession -> {
+                appendBold(cardsText)
+                append(stringResource(R.string.preview_session_scope_quick_session_message))
+                appendSubcategoryList(state.subcategoryNames, ::appendBold, otherTopicsText)
+                append(".")
+            }
+            state.isSingleTopic -> {
+                appendBold(cardsText)
+                append(stringResource(R.string.preview_session_scope_single_topic_prefix_message))
+                append(state.subcategoryNames.first())
+                append(stringResource(R.string.preview_session_scope_single_topic_suffix_message))
+            }
+            else -> {
+                appendBold(cardsText)
+                append(stringResource(R.string.preview_session_scope_multi_topic_message))
+                appendSubcategoryList(state.subcategoryNames, ::appendBold, otherTopicsText)
+                append(".")
+            }
         }
     }
+}
+
+/** Names past this count stop being useful to read at a glance and collapse into a count instead. */
+private const val SUBCATEGORY_LIST_TRUNCATION_THRESHOLD = 4
+private const val SUBCATEGORY_LIST_VISIBLE_COUNT = 3
+
+/**
+ * Lists every Subcategory name in full when [otherTopicsText] is `null` (fits within
+ * [SUBCATEGORY_LIST_TRUNCATION_THRESHOLD]); otherwise the first [SUBCATEGORY_LIST_VISIBLE_COUNT]
+ * plus that pre-resolved "and N other topics" summary of the rest.
+ */
+private fun AnnotatedString.Builder.appendSubcategoryList(
+    names: List<String>,
+    appendBold: (String) -> Unit,
+    otherTopicsText: String?,
+) {
+    if (otherTopicsText == null) {
+        appendOxfordList(names, appendBold)
+        return
+    }
+    names.take(SUBCATEGORY_LIST_VISIBLE_COUNT).forEachIndexed { index, name ->
+        if (index > 0) append(", ")
+        appendBold(name)
+    }
+    append(otherTopicsText)
 }
 
 // Joins names as "A and B" (2 items) or "A, B, and C" (3+ items), bolding each name.
