@@ -8,6 +8,7 @@ import com.rossomak.flashcards.core.ui.composables.dialogs.RatedAttemptsDialog
 import com.rossomak.flashcards.core.ui.composables.dialogs.ReadAloudDialog
 import com.rossomak.flashcards.core.ui.composables.dialogs.SessionLengthDialog
 import com.rossomak.flashcards.core.ui.composables.dialogs.StudyModeDialog
+import com.rossomak.flashcards.core.ui.composables.dialogs.SubcategoryCountRangeDialog
 import com.rossomak.flashcards.core.ui.composables.dialogs.VoiceAnsweringDialog
 import com.rossomak.flashcards.core.ui.composables.dialogs.VoiceSettingsDialog
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
@@ -19,6 +20,7 @@ import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Length
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Mode
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.ReadAloud
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Sort
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.SubcategoryCountRange
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceAnswering
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceSettings
 
@@ -108,6 +110,12 @@ internal fun PreviewDialogHost(
             onConfirm = onConfirm,
             onDismiss = onDismiss,
         )
+        is SubcategoryCountRange -> SubcategoryCountRangeRowDialog(
+            dialog = activeDialog,
+            onDialogEvent = onDialogEvent,
+            onConfirm = onConfirm,
+            onDismiss = onDismiss,
+        )
     }
 }
 
@@ -176,6 +184,25 @@ private fun LengthDialog(
         draft = dialog.draft,
         range = StudySessionConfig.MIN_LENGTH..StudySessionConfig.MAX_LENGTH,
         step = StudySessionConfig.LENGTH_STEP,
+        onDraftChange = { onDialogEvent(DraftChange(dialog.copy(draft = it))) },
+        onConfirm = onConfirm,
+        onDismiss = onDismiss,
+        keepAsDefault = dialog.keepAsDefault,
+        onKeepAsDefaultChange = { onDialogEvent(DraftChange(dialog.copy(keepAsDefault = it))) },
+    )
+}
+
+/** Same reason as [AttemptsDialog]/[LengthDialog]: computing `bounds` pushes this branch past a single-line call. */
+@Composable
+private fun SubcategoryCountRangeRowDialog(
+    dialog: SubcategoryCountRange,
+    onDialogEvent: (PreviewDialogEvent) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    SubcategoryCountRangeDialog(
+        draft = dialog.draft,
+        bounds = StudySessionConfig.MIN_SUBCATEGORY_COUNT..StudySessionConfig.MAX_SUBCATEGORY_COUNT,
         onDraftChange = { onDialogEvent(DraftChange(dialog.copy(draft = it))) },
         onConfirm = onConfirm,
         onDismiss = onDismiss,

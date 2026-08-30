@@ -68,6 +68,7 @@ import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Length
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Mode
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.ReadAloud
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Sort
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.SubcategoryCountRange
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceAnswering
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceSettings
 
@@ -330,6 +331,9 @@ private fun SessionSettingRows(
             ),
             onClick = { onDialogEvent(Open(Length(draft = state.config.length))) },
         )
+        if (state.isQuickSession) {
+            SubcategoryCountRangeSettingRow(state = state, onDialogEvent = onDialogEvent)
+        }
         SessionSettingRow(
             label = stringResource(R.string.preview_session_filters_label),
             value = filtersLabel(state),
@@ -353,6 +357,26 @@ private fun SessionSettingRows(
             onClick = { onDialogEvent(Open(Sort(draft = state.config.sortOrder))) },
         )
     }
+}
+
+/**
+ * Lifted out of [SessionSettingRows] purely to keep that function under detekt's `LongMethod` — a
+ * single-Subcategory or Custom session has nothing to sample and never shows this row (ADR-0040).
+ */
+@Composable
+private fun SubcategoryCountRangeSettingRow(
+    state: PreviewStudySessionScreenState,
+    onDialogEvent: (PreviewDialogEvent) -> Unit,
+) {
+    SessionSettingRow(
+        label = stringResource(R.string.preview_session_subcategory_count_range_label),
+        value = stringResource(
+            CoreUiR.string.subcategory_count_range_value_label,
+            state.config.subcategoryCountRange.first,
+            state.config.subcategoryCountRange.last,
+        ),
+        onClick = { onDialogEvent(Open(SubcategoryCountRange(draft = state.config.subcategoryCountRange))) },
+    )
 }
 
 @Composable

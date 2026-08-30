@@ -10,6 +10,7 @@ import com.rossomak.flashcards.core.domain.model.StudySessionPreference.RatedAtt
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.ReadAloudEnabled
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SessionLength
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SortOrder
+import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SubcategoryCountRange as SubcategoryCountRangePreference
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.VoiceAnsweringEnabled
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.VoicePlayback
 import com.rossomak.flashcards.core.domain.model.VoiceOption
@@ -32,6 +33,7 @@ import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Length
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Mode
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.ReadAloud
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Sort
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.SubcategoryCountRange
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceAnswering
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceSettings
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -112,6 +114,7 @@ class PreviewStudySessionViewModel @Inject constructor(
                         // it. Null means nothing upstream chose one, so the saved default applies.
                         sortOrder = route.sortOrder ?: defaults.sortOrder,
                         voiceSettings = defaults.voiceSettings,
+                        subcategoryCountRange = defaults.subcategoryCountRange,
                     ),
                 )
             }
@@ -225,6 +228,7 @@ class PreviewStudySessionViewModel @Inject constructor(
                 is ReadAloud -> copy(readAloudEnabled = dialog.draft)
                 is Length -> copy(length = dialog.draft)
                 is Sort -> copy(sortOrder = dialog.draft)
+                is SubcategoryCountRange -> copy(subcategoryCountRange = dialog.draft)
                 is VoiceSettings -> copy(voiceSettings = dialog.draft.toVoiceSettings())
                 is Filters -> copy(
                     tagIds = dialog.draft.selectedTags,
@@ -253,6 +257,7 @@ class PreviewStudySessionViewModel @Inject constructor(
         is ReadAloud -> ReadAloudEnabled(draft).takeIf { keepAsDefault }
         is Length -> SessionLength(draft).takeIf { keepAsDefault }
         is Sort -> SortOrder(draft).takeIf { keepAsDefault }
+        is SubcategoryCountRange -> SubcategoryCountRangePreference(draft).takeIf { keepAsDefault }
         is VoiceSettings -> VoicePlayback(draft.toVoiceSettings()).takeIf { keepAsDefault }
         is Filters -> null
     }

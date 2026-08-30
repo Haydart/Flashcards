@@ -45,6 +45,7 @@
     <string name="preview_session_read_aloud_label">Read-aloud</string>
     <string name="preview_session_voice_settings_label">Voice</string>
     <string name="preview_session_length_label">Length</string>
+    <string name="preview_session_subcategory_count_range_label">Topics</string>
     <string name="preview_session_filters_label">Filters</string>
     <string name="preview_session_sort_label">Sort</string>
     <string name="preview_session_edit_setting_cd">Edit %1$s</string>
