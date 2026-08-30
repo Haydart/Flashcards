@@ -8,6 +8,7 @@ import com.rossomak.flashcards.core.domain.repository.FakeStudySessionPreference
 import com.rossomak.flashcards.core.domain.usecase.FilterFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.ObserveStudySessionPreferencesUseCase
+import com.rossomak.flashcards.core.domain.usecase.SampleQuickSessionSubcategoriesUseCase
 import com.rossomak.flashcards.core.domain.usecase.SaveStudySessionPreferenceUseCase
 import com.rossomak.flashcards.core.domain.usecase.SelectSessionFlashcardsUseCase
 import com.rossomak.flashcards.core.ui.navigation.RouteDecoder
@@ -72,6 +73,7 @@ class PreviewStudySessionSortSeedingTest {
             getFlashcards = GetFlashcardsUseCase(flashcardRepository),
             filterFlashcards = FilterFlashcardsUseCase(),
         ),
+        SampleQuickSessionSubcategoriesUseCase(),
         ObserveStudySessionPreferencesUseCase(preferencesRepository),
         SaveStudySessionPreferenceUseCase(preferencesRepository),
         voiceSettingsController,

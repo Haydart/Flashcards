@@ -13,6 +13,7 @@ import com.rossomak.flashcards.core.domain.repository.FakeStudySessionPreference
 import com.rossomak.flashcards.core.domain.usecase.FilterFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.ObserveStudySessionPreferencesUseCase
+import com.rossomak.flashcards.core.domain.usecase.SampleQuickSessionSubcategoriesUseCase
 import com.rossomak.flashcards.core.domain.usecase.SaveStudySessionPreferenceUseCase
 import com.rossomak.flashcards.core.domain.usecase.SelectSessionFlashcardsUseCase
 import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardFilters
@@ -84,6 +85,13 @@ class PreviewStudySessionViewModelTest {
         subcategoryNames = listOf("Compose", "Coroutines"),
     )
 
+    /** More candidates than [StudySessionConfig.DEFAULT_SUBCATEGORY_COUNT_RANGE]'s maximum. */
+    private val quickSessionRoute = singleTopicRoute.copy(
+        subcategoryIds = (1..8).map { index -> "android-sub-$index" },
+        subcategoryNames = (1..8).map { index -> "Sub $index" },
+        isQuickSession = true,
+    )
+
     @Before
     fun setUp() {
         mockkObject(RouteDecoder)
@@ -104,6 +112,7 @@ class PreviewStudySessionViewModelTest {
             getFlashcards = GetFlashcardsUseCase(flashcardRepository),
             filterFlashcards = FilterFlashcardsUseCase(),
         ),
+        SampleQuickSessionSubcategoriesUseCase(),
         ObserveStudySessionPreferencesUseCase(studySessionPreferencesRepository),
         SaveStudySessionPreferenceUseCase(studySessionPreferencesRepository),
         voiceSettingsController,
@@ -776,4 +785,111 @@ class PreviewStudySessionViewModelTest {
         stubRoute(multiTopicRoute)
         createViewModel().state.value.canRerandomize.shouldBeTrue()
     }
+
+    @Test
+    fun `a quick session samples a bounded subset of the candidate subcategories`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(quickSessionRoute)
+            quickSessionRoute.subcategoryIds.forEach { id ->
+                flashcardRepository.flashcardsBySubcategory[id] =
+                    Result.success(listOf(flashcard(id = "$id-card", subcategoryId = id)))
+            }
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            val sampledIds = viewModel.state.value.config.subcategoryIds
+            (sampledIds.size in StudySessionConfig.DEFAULT_SUBCATEGORY_COUNT_RANGE) shouldBe true
+            viewModel.state.value.topicCount shouldBe sampledIds.size
+            sampledIds.forEach { id -> (id in quickSessionRoute.subcategoryIds) shouldBe true }
+        }
+
+    @Test
+    fun `re-randomizing a quick session changes the subcategory sample, not just the draw`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(quickSessionRoute)
+            quickSessionRoute.subcategoryIds.forEach { id ->
+                flashcardRepository.flashcardsBySubcategory[id] =
+                    Result.success(listOf(flashcard(id = "$id-card", subcategoryId = id)))
+            }
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            val sampleBeforeRerandomize = viewModel.state.value.config.subcategoryIds
+
+            viewModel.onRerandomize()
+            advanceUntilIdle()
+
+            viewModel.state.value.config.subcategoryIds shouldNotBe sampleBeforeRerandomize
+        }
+
+    @Test
+    fun `a single subcategory quick session samples the same one subcategory`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(singleTopicRoute.copy(isQuickSession = true))
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.state.value.config.subcategoryIds shouldBe listOf(subcategoryId)
+            viewModel.state.value.topicCount shouldBe 1
+        }
+
+    @Test
+    fun `multi topic sessions ignore any routed tag filter, filtering by difficulty only`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(multiTopicRoute.copy(filterTagIds = listOf("State")))
+            flashcardRepository.flashcardsBySubcategory["android-compose"] =
+                Result.success(listOf(flashcard(id = "card-1", tags = listOf("State"))))
+            flashcardRepository.flashcardsBySubcategory["android-coroutines"] = Result.success(
+                listOf(flashcard(id = "card-2", subcategoryId = "android-coroutines", tags = listOf("Modifiers")))
+            )
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            // Both cards count: a tags = {"State"} config carried on the route would otherwise
+            // exclude card-2, but a multi-Subcategory pool is never filtered by tags.
+            viewModel.state.value.selectedCardCount shouldBe 2
+        }
+
+    @Test
+    fun `onResetFilters restores the routed filters exactly and reselects`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(singleTopicRoute.copy(filterTagIds = listOf("State"), difficultyMin = 3, difficultyMax = 7))
+            flashcardRepository.flashcardsToReturn = Result.success(
+                listOf(
+                    flashcard(id = "card-1", tags = listOf("State"), difficulty = 5),
+                    flashcard(id = "card-2", tags = listOf("Modifiers"), difficulty = 5),
+                )
+            )
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onDialogEvent(
+                Open(
+                    Filters(
+                        draft = FlashcardFilters(selectedTags = setOf("Modifiers"), difficultyRange = 1..1),
+                        availableTags = viewModel.state.value.availableTags,
+                    ),
+                ),
+            )
+            val filtersDialog = viewModel.state.value.activeDialog as Filters
+            viewModel.onDialogEvent(
+                DraftChange(
+                    filtersDialog.copy(draft = FlashcardFilters(selectedTags = setOf("Modifiers"), difficultyRange = 1..1)),
+                ),
+            )
+            viewModel.onDialogEvent(Confirm)
+            advanceUntilIdle()
+            viewModel.state.value.selectedCardCount shouldBe 0
+
+            viewModel.onResetFilters()
+            advanceUntilIdle()
+
+            viewModel.state.value.config.tagIds shouldBe setOf("State")
+            viewModel.state.value.config.difficultyRange shouldBe 3..7
+            viewModel.state.value.selectedCardCount shouldBe 1
+            viewModel.state.value.activeDialog shouldBe null
+        }
 }
