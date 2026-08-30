@@ -5,6 +5,7 @@ import com.google.firebase.firestore.Source
 import com.rossomak.flashcards.core.data.model.CategoryDto
 import com.rossomak.flashcards.core.data.model.FlashcardDto
 import com.rossomak.flashcards.core.data.model.FlashcardShardDto
+import com.rossomak.flashcards.core.data.model.MetaSeedDto
 import com.rossomak.flashcards.core.data.model.SubcategoryDto
 import javax.inject.Inject
 import kotlinx.coroutines.tasks.await
@@ -76,6 +77,18 @@ class FlashcardRemoteDataSource @Inject constructor(
         .mapNotNull { document -> document.toObject(FlashcardShardDto::class.java) }
         .flatMap { it.flashcards.values }
 
+    /**
+     * `meta/seed.value`, the cache-generation freshness signal (ADR-0039). Always [Source.SERVER]
+     * — a cache read here would defeat the purpose of checking at all.
+     */
+    suspend fun getCacheSeed(): Int = firestore.collection(COLLECTION_META)
+        .document(DOCUMENT_SEED)
+        .get(Source.SERVER)
+        .await()
+        .toObject(MetaSeedDto::class.java)
+        ?.value
+        ?: throw NoSuchElementException("meta/seed document missing or empty")
+
     private fun FlashcardReadSource.toFirestoreSource(): Source = when (this) {
         FlashcardReadSource.Cache -> Source.CACHE
         FlashcardReadSource.Server -> Source.SERVER
@@ -85,6 +98,8 @@ class FlashcardRemoteDataSource @Inject constructor(
         const val COLLECTION_CATEGORIES = "categories"
         const val COLLECTION_SUBCATEGORIES = "subcategories"
         const val COLLECTION_SHARDS = "shards"
+        const val COLLECTION_META = "meta"
+        const val DOCUMENT_SEED = "seed"
         const val FIELD_ORDER = "order"
         const val FIELD_CATEGORY_ID = "categoryId"
         const val FIELD_NAME_LOWER = "nameLower"
