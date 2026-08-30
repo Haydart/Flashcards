@@ -24,6 +24,8 @@ class FakeFlashcardRepository : FlashcardRepository {
     var invalidationCount: Int = 0
         private set
 
+    var cacheSeedToReturn: Result<Int> = Result.success(0)
+
     override suspend fun fetchCategories(): Result<List<Category>> = categoriesToReturn
 
     override suspend fun fetchSubcategories(categoryId: String): Result<List<Subcategory>> = subcategoriesToReturn
@@ -41,4 +43,6 @@ class FakeFlashcardRepository : FlashcardRepository {
     override fun invalidateFlashcardCache() {
         invalidationCount++
     }
+
+    override suspend fun fetchCacheSeed(): Result<Int> = cacheSeedToReturn
 }

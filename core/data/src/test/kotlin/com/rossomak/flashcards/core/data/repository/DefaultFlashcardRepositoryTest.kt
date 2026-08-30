@@ -1,5 +1,6 @@
 package com.rossomak.flashcards.core.data.repository
 
+import android.util.Log
 import com.rossomak.flashcards.core.data.model.CategoryDto
 import com.rossomak.flashcards.core.data.model.FlashcardDto
 import com.rossomak.flashcards.core.data.model.SubcategoryDto
@@ -8,10 +9,17 @@ import com.rossomak.flashcards.core.data.source.FlashcardRemoteDataSource
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
+import org.junit.After
+import org.junit.Before
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -21,6 +29,19 @@ class DefaultFlashcardRepositoryTest {
 
     private fun createRepository(): DefaultFlashcardRepository =
         DefaultFlashcardRepository(remoteDataSource)
+
+    @Before
+    fun setUp() {
+        // invalidateFlashcardCache() logs via android.util.Log, unavailable outside instrumented/
+        // Robolectric tests — stub it rather than pull in either just for this one call.
+        mockkStatic(Log::class)
+        every { Log.d(any(), any()) } returns 0
+    }
+
+    @After
+    fun tearDown() {
+        unmockkStatic(Log::class)
+    }
 
     @Test
     fun `fetchCategories maps dtos to domain in order`() = runTest {
@@ -275,6 +296,64 @@ class DefaultFlashcardRepositoryTest {
         } catch (exception: CancellationException) {
             thrown = exception
         }
+
+        (thrown is CancellationException) shouldBe true
+    }
+
+    @Test
+    fun `fetchCacheSeed returns the remote value`() = runTest {
+        coEvery { remoteDataSource.getCacheSeed() } returns 7
+
+        val result = createRepository().fetchCacheSeed()
+
+        result.getOrThrow() shouldBe 7
+        coVerify(exactly = 1) { remoteDataSource.getCacheSeed() }
+    }
+
+    @Test
+    fun `fetchCacheSeed wraps data source failure in failure result`() = runTest {
+        val error = IllegalStateException("firestore down")
+        coEvery { remoteDataSource.getCacheSeed() } throws error
+
+        val result = createRepository().fetchCacheSeed()
+
+        result.isFailure shouldBe true
+        result.exceptionOrNull() shouldBe error
+    }
+
+    @Test
+    fun `a read in flight when invalidation lands is not stamped into the new generation`() = runTest {
+        val subcategoryId = "sub-1"
+        val dto = FlashcardDto(id = "card-1", question = "q", answer = "a", difficulty = 4)
+        val readStarted = CompletableDeferred<Unit>()
+        val readGate = CompletableDeferred<Unit>()
+        coEvery { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId, FlashcardReadSource.Server) } coAnswers {
+            readStarted.complete(Unit)
+            readGate.await()
+            listOf(dto)
+        }
+        val repository = createRepository()
+
+        // Started under generation 0, but doesn't reach the server response until after invalidation.
+        val inFlightRead = async { repository.fetchFlashcards(subcategoryId) }
+        readStarted.await()
+        repository.invalidateFlashcardCache()
+        readGate.complete(Unit)
+        inFlightRead.await().getOrThrow().single().id shouldBe dto.id
+
+        // A second read must still hit the server: the in-flight read must not have been stamped
+        // as belonging to generation 1, even though its response only arrived after the bump.
+        coEvery { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId, FlashcardReadSource.Server) } returns listOf(dto)
+        repository.fetchFlashcards(subcategoryId)
+
+        coVerify(exactly = 2) { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId, FlashcardReadSource.Server) }
+    }
+
+    @Test
+    fun `fetchCacheSeed rethrows cancellation instead of wrapping it`() = runTest {
+        coEvery { remoteDataSource.getCacheSeed() } throws CancellationException("cancelled")
+
+        val thrown = runCatching { createRepository().fetchCacheSeed() }.exceptionOrNull()
 
         (thrown is CancellationException) shouldBe true
     }

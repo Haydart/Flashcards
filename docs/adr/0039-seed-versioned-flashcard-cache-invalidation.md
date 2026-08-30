@@ -134,9 +134,23 @@ that this scheme cannot fix — documented as a fact, not built as a feature.
   `CacheSeed(value: Int)` case. Both device-scoped, same as the rest of that model.
 - A new domain use case reads the remote seed, compares it against the stored local copy via a
   `.first()` snapshot, and on mismatch calls `invalidateFlashcardCache()` and persists the new
-  value. Swallows read failure silently — offline-at-launch is not an error state here.
-- `AppStartViewModel` runs this alongside its existing auth check, timeout-bounded the same way, so
-  a slow or absent network does not extend startup.
+  value. A read failure (remote or local) is a true no-op, silently swallowed — offline-at-launch
+  is not an error state here. A *persist* failure is different: invalidation already ran by that
+  point, so it's a partial success, not a no-op — the mismatch reappears and retries next launch.
+- `AppStartViewModel` runs this alongside its existing auth check, but fully decoupled — its own
+  `viewModelScope.launch`, no timeout of its own — rather than "timeout-bounded the same way" as
+  originally decided here. A live check against production caught why: a cold-start Firestore
+  `SERVER` read routinely outlasts the 1000ms the auth check bounds itself to, which would have
+  silently defeated this scheme on exactly the launch it exists to catch. Decoupling already
+  guarantees a slow or absent network can't extend startup, so no timeout is needed to promise
+  that a second time — `viewModelScope` cancelling the coroutine when the ViewModel clears is
+  bound enough.
+- `invalidateFlashcardCache()`'s generation counter is an `AtomicLong`, and the per-Subcategory
+  server-read stamp captures the generation before the network call and only commits it if the
+  generation is unchanged after — not incidental: a bump landing mid-flight on an in-progress
+  `readFlashcards` must not have its stale (pre-invalidation) response stamped as belonging to the
+  new generation. Caught in PR review, not designed in up front; see
+  `DefaultFlashcardRepository.readFromServer`'s KDoc for the mechanism.
 - `seed_firestore.py` writes `meta/seed.value = previous + 1` as the last step of every run.
 - First launch after this ships mismatches unconditionally (`localCacheSeed` starts `null`) — one
   extra `SERVER` read per subcategory the user visits, once, on every existing install.

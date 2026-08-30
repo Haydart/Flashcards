@@ -232,6 +232,49 @@ Reached via the flag icon in the study session top app bar (Rated and Fast alike
 
 See [ADR-0017](docs/adr/0017-curation-report-system.md).
 
+## Flashcard Cache
+
+Two-part scheme: an always-on cache-first read policy (ADR-0038), plus a startup check that
+decides when to throw the cache away (ADR-0039). Both fully built and wired.
+
+**Cache-first reads (`DefaultFlashcardRepository`, `core:data`).** Firestore's own default read
+is server-*first* — it suppresses the cached snapshot whenever it believes it is online — so
+without an explicit policy, every read of a Subcategory's cards costs a network round trip, and
+browse, session preview, and every filter/sort confirm each re-pay it. The repository owns a
+**cache generation** (an in-memory counter, `@Singleton`-scoped, so it lives as long as the
+process): the first `fetchFlashcards(subcategoryId)` for a given Subcategory in the current
+generation goes to the server; every read after that in the same generation is served from the
+on-device Firestore cache. An empty cache result falls through to the server rather than
+surfacing as an empty success — sound only because a Subcategory always contains at least one
+Flashcard (`CONTEXT.md`), so an empty cache result unambiguously means "not cached yet," never
+"genuinely empty." `invalidateFlashcardCache()` bumps the generation, re-arming the server read
+for every Subcategory.
+
+**Seed-versioned invalidation (what calls `invalidateFlashcardCache()`).** A single Firestore
+document, `meta/seed` (`{ value: <monotonic int> }`), is the freshness signal for the whole
+knowledge base — one seed for everything, not one per Subcategory. `seed_firestore.py` increments
+it by one as the last write of every import run, after every content write has already committed,
+so a run that fails partway never bumps it. At app startup, `SyncFlashcardCacheGenerationUseCase`
+(`core:domain`) reads `meta/seed` with a live (never cached) Firestore read and compares it
+against a locally stored copy (`UserPreferences.localCacheSeed`, device-scoped, nullable with no
+default — `null` means "never checked" and forces a mismatch on every device's first launch after
+this shipped). On a mismatch, it calls `invalidateFlashcardCache()` and persists the new value. A
+match, or a failure *reading* the remote seed (most commonly: offline at launch), is a true no-op —
+tolerated as ordinary behavior, not an error state. A failure *persisting* the new local value is
+different: the generation already bumped by that point, so it's a partial success, not a no-op —
+the mismatch simply reappears and retries on the next launch. See
+`SyncFlashcardCacheGenerationUseCase`'s KDoc for the full breakdown, including the local-read
+failure case.
+
+`AppStartViewModel` fires this as a decoupled side effect in `init{}` (its own
+`viewModelScope.launch`, no timeout of its own — a cold-start Firestore read routinely outlasts
+the 1000ms the auth check bounds itself to, and nothing here waits on the result; `viewModelScope`
+cancelling the coroutine when the ViewModel clears is bound enough), never gating the auth-driven
+`startupState` it exposes — a slow or absent network delays neither. See
+[ADR-0038](docs/adr/0038-one-sort-order-and-flashcard-selection-seam.md) (cache-first reads,
+generation seam) and
+[ADR-0039](docs/adr/0039-seed-versioned-flashcard-cache-invalidation.md) (what drives the seam).
+
 ## Firestore Schema
 
 ```
@@ -243,6 +286,9 @@ subcategories/{categoryId-subSlug}/shards/{n}         → { flashcards: { "<card
                                                            questionCode?, answerCode?,
                                                            extendedContext?,
                                                            questionSpoken?, answerSpoken? }, ... } }
+
+// Cache freshness signal (ADR-0039)
+meta/seed                                             → { value: Int }  // monotonic, bumped by seed_firestore.py
 
 // Per-user
 users/{uid}/favorites/{subcategoryId}                 → { createdAt }
