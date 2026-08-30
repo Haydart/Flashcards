@@ -1,5 +1,6 @@
 package com.rossomak.flashcards.core.ui.composables
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,12 +22,17 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.airbnb.android.showkase.annotation.ShowkaseComposable
 import com.rossomak.flashcards.core.ui.composables.FlashcardsEmptyStateTone.Error
 import com.rossomak.flashcards.core.ui.composables.FlashcardsEmptyStateTone.Info
 import com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsFilledButton
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle.OnGradient
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle.OnSurface
 import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
+import com.rossomak.flashcards.core.ui.theme.brandColors
 import com.rossomak.flashcards.core.ui.theme.semanticColors
 import com.rossomak.flashcards.core.ui.theme.sizes
 import com.rossomak.flashcards.core.ui.theme.spacing
@@ -43,6 +49,12 @@ import com.rossomak.flashcards.core.ui.theme.spacing
  *
  * [ctaLabel] and [onCtaClick] gate the CTA together: the button only renders when both are
  * non-null, so passing one without the other silently omits the button rather than crashing.
+ *
+ * [style] follows the shared on-surface/on-gradient axis every `Flashcards*` component family uses
+ * (ADR-0034). [OnGradient] always renders the **Info** treatment regardless of [tone] — a
+ * translucent white fill, hairline border, and white glyph, the same tokens
+ * [FlashcardsIconCircle]'s and [FlashcardsMetadataBadge]'s own `OnGradient` styles use — since a
+ * red/Error variant does not exist on the brand gradient.
  */
 @Composable
 fun FlashcardsEmptyState(
@@ -51,33 +63,51 @@ fun FlashcardsEmptyState(
     supportingText: String,
     modifier: Modifier = Modifier,
     tone: FlashcardsEmptyStateTone = Info,
+    style: FlashcardsComponentStyle = OnSurface,
     ctaLabel: String? = null,
     ctaIcon: ImageVector? = null,
     onCtaClick: (() -> Unit)? = null,
 ) {
     val semanticColors = MaterialTheme.semanticColors
-    val (containerColor, contentColor) = when (tone) {
-        Info -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
-        Error -> semanticColors.negativeContainer to semanticColors.onNegativeContainer
+    val brandColors = MaterialTheme.brandColors
+    val containerColor = when (style) {
+        OnSurface -> when (tone) {
+            Info -> MaterialTheme.colorScheme.secondaryContainer
+            Error -> semanticColors.negativeContainer
+        }
+        OnGradient -> brandColors.onGradientContainer
+    }
+    val contentColor = when (style) {
+        OnSurface -> when (tone) {
+            Info -> MaterialTheme.colorScheme.onSecondaryContainer
+            Error -> semanticColors.onNegativeContainer
+        }
+        OnGradient -> brandColors.onGradientContent
+    }
+    val border = when (style) {
+        OnSurface -> null
+        OnGradient -> BorderStroke(width = MaterialTheme.sizes.hairline, color = brandColors.onGradientBorder)
     }
 
     Column(
         modifier = modifier.padding(horizontal = MaterialTheme.spacing.large),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(
-            modifier = Modifier
-                .size(MaterialTheme.sizes.emptyStateIconCircle)
-                .background(color = containerColor, shape = CircleShape),
-            contentAlignment = Alignment.Center,
+        Surface(
+            modifier = Modifier.size(MaterialTheme.sizes.emptyStateIconCircle),
+            shape = CircleShape,
+            color = containerColor,
+            contentColor = contentColor,
+            border = border,
         ) {
-            Icon(
-                imageVector = icon,
-                // Decorative: the title below already names the state for a screen reader.
-                contentDescription = null,
-                tint = contentColor,
-                modifier = Modifier.size(MaterialTheme.sizes.emptyStateIcon),
-            )
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    // Decorative: the title below already names the state for a screen reader.
+                    contentDescription = null,
+                    modifier = Modifier.size(MaterialTheme.sizes.emptyStateIcon),
+                )
+            }
         }
 
         Text(
@@ -158,6 +188,35 @@ private fun FlashcardsEmptyStateErrorShowcase() {
                     supportingText = "Couldn't load your categories. Check your connection and try again.",
                     tone = Error,
                     ctaLabel = "Retry",
+                    onCtaClick = {},
+                )
+            }
+        }
+    }
+}
+
+/**
+ * [Error] is passed deliberately: [OnGradient] renders the Info treatment regardless of [tone] —
+ * this showcase proves that ignoring, not merely demonstrating a happy path.
+ */
+@ShowkaseComposable(name = "Empty state — on gradient", group = "Empty states")
+@Preview
+@Composable
+private fun FlashcardsEmptyStateOnGradientShowcase() {
+    FlashcardsTheme {
+        Surface(color = MaterialTheme.brandColors.screenGradientBase) {
+            Box(
+                modifier = Modifier
+                    .background(MaterialTheme.brandColors.screenGradient)
+                    .padding(MaterialTheme.spacing.normal),
+            ) {
+                FlashcardsEmptyState(
+                    icon = Icons.Filled.SearchOff,
+                    title = "No matches",
+                    supportingText = "Nothing matches the current filters.",
+                    tone = Error,
+                    style = OnGradient,
+                    ctaLabel = "Reset filters",
                     onCtaClick = {},
                 )
             }
