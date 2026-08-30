@@ -13,6 +13,7 @@ import com.rossomak.flashcards.core.domain.model.StudySessionPreference.RatedAtt
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.ReadAloudEnabled
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SessionLength
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SortOrder
+import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SubcategoryCountRange
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.VoiceAnsweringEnabled
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.VoicePlayback
 import com.rossomak.flashcards.core.domain.model.StudySessionPreferences
@@ -70,6 +71,7 @@ class DataStoreStudySessionPreferencesLocalDataSourceTest {
         localDataSource.save(SessionLength(35))
         localDataSource.save(SortOrder(FlashcardSortOrder.HardestFirst))
         localDataSource.save(VoicePlayback(VoiceSettings(speechRate = 1.5f, voiceId = "en-us-x-1")))
+        localDataSource.save(SubcategoryCountRange(2..4))
         val preferences = localDataSource.studySessionPreferences().first()
 
         preferences shouldBe StudySessionPreferences(
@@ -80,7 +82,15 @@ class DataStoreStudySessionPreferencesLocalDataSourceTest {
             sessionLength = 35,
             sortOrder = FlashcardSortOrder.HardestFirst,
             voiceSettings = VoiceSettings(speechRate = 1.5f, voiceId = "en-us-x-1"),
+            subcategoryCountRange = 2..4,
         )
+    }
+
+    @Test
+    fun `subcategoryCountRange defaults to StudySessionConfig's default`() = runTest {
+        val preferences = createLocalDataSource().studySessionPreferences().first()
+
+        preferences.subcategoryCountRange shouldBe StudySessionConfig.DEFAULT_SUBCATEGORY_COUNT_RANGE
     }
 
     @Test

@@ -18,6 +18,7 @@ import com.rossomak.flashcards.core.domain.model.StudySessionPreference.RatedAtt
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.ReadAloudEnabled
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SessionLength
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SortOrder
+import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SubcategoryCountRange
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.VoiceAnsweringEnabled
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.VoicePlayback
 import com.rossomak.flashcards.core.domain.model.StudySessionPreferences
@@ -48,6 +49,7 @@ class DataStoreStudySessionPreferencesLocalDataSource @Inject constructor(
                     speechRate = prefs[VOICE_SPEECH_RATE_KEY] ?: DEFAULT_VOICE_SPEECH_RATE,
                     voiceId = prefs[VOICE_ID_KEY],
                 ),
+                subcategoryCountRange = prefs.toSubcategoryCountRange(),
             )
         }
 
@@ -60,6 +62,10 @@ class DataStoreStudySessionPreferencesLocalDataSource @Inject constructor(
                 is ReadAloudEnabled -> prefs[READ_ALOUD_ENABLED_KEY] = preference.value
                 is SessionLength -> prefs[SESSION_LENGTH_KEY] = preference.value
                 is SortOrder -> prefs[SORT_ORDER_KEY] = preference.value.name
+                is SubcategoryCountRange -> {
+                    prefs[SUBCATEGORY_COUNT_MIN_KEY] = preference.value.first
+                    prefs[SUBCATEGORY_COUNT_MAX_KEY] = preference.value.last
+                }
                 is VoicePlayback -> {
                     prefs[VOICE_SPEECH_RATE_KEY] = preference.value.speechRate
                     val voiceId = preference.value.voiceId
@@ -84,12 +90,19 @@ class DataStoreStudySessionPreferencesLocalDataSource @Inject constructor(
     private fun String?.toSortOrder(): FlashcardSortOrder =
         FlashcardSortOrder.entries.firstOrNull { it.name == this } ?: DEFAULT_SORT_ORDER
 
+    private fun Preferences.toSubcategoryCountRange(): IntRange {
+        val min = this[SUBCATEGORY_COUNT_MIN_KEY] ?: DEFAULT_SUBCATEGORY_COUNT_RANGE.first
+        val max = this[SUBCATEGORY_COUNT_MAX_KEY] ?: DEFAULT_SUBCATEGORY_COUNT_RANGE.last
+        return min..max
+    }
+
     private companion object {
         val DEFAULT_STUDY_MODE = StudySessionPreferences().defaultStudyMode
         val DEFAULT_VOICE_ANSWERING_ENABLED = StudySessionPreferences().voiceAnsweringEnabled
         val DEFAULT_READ_ALOUD_ENABLED = StudySessionPreferences().readAloudEnabled
         val DEFAULT_SORT_ORDER = StudySessionPreferences().sortOrder
         val DEFAULT_VOICE_SPEECH_RATE = VoiceSettings().speechRate
+        val DEFAULT_SUBCATEGORY_COUNT_RANGE = StudySessionPreferences().subcategoryCountRange
         val DEFAULT_STUDY_MODE_KEY = stringPreferencesKey("default_study_mode")
         val VOICE_ANSWERING_ENABLED_KEY = booleanPreferencesKey("voice_answering_enabled")
         val RATED_ATTEMPTS_KEY = intPreferencesKey("rated_attempts")
@@ -98,5 +111,7 @@ class DataStoreStudySessionPreferencesLocalDataSource @Inject constructor(
         val SORT_ORDER_KEY = stringPreferencesKey("sort_order")
         val VOICE_SPEECH_RATE_KEY = floatPreferencesKey("voice_speech_rate")
         val VOICE_ID_KEY = stringPreferencesKey("voice_id")
+        val SUBCATEGORY_COUNT_MIN_KEY = intPreferencesKey("subcategory_count_min")
+        val SUBCATEGORY_COUNT_MAX_KEY = intPreferencesKey("subcategory_count_max")
     }
 }
