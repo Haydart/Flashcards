@@ -258,13 +258,17 @@ so a run that fails partway never bumps it. At app startup, `SyncFlashcardCacheG
 (`core:domain`) reads `meta/seed` with a live (never cached) Firestore read and compares it
 against a locally stored copy (`UserPreferences.localCacheSeed`, device-scoped, nullable with no
 default — `null` means "never checked" and forces a mismatch on every device's first launch after
-this shipped). On a mismatch, it calls `invalidateFlashcardCache()` and persists the new value; on
-a match, or on any failure along the way (most commonly: offline at launch), it does nothing —
-tolerated as ordinary behavior, not an error state.
+this shipped). On a mismatch, it calls `invalidateFlashcardCache()` and persists the new value. A
+match, or a failure *reading* the remote seed (most commonly: offline at launch), is a true no-op —
+tolerated as ordinary behavior, not an error state. A failure *persisting* the new local value is
+different: the generation already bumped by that point, so it's a partial success, not a no-op —
+the mismatch simply reappears and retries on the next launch. See
+`SyncFlashcardCacheGenerationUseCase`'s KDoc for the full breakdown, including the local-read
+failure case.
 
 `AppStartViewModel` fires this as a decoupled side effect in `init{}` (its own
 `viewModelScope.launch`, no timeout of its own — a cold-start Firestore read routinely outlasts
-the 800ms the auth check bounds itself to, and nothing here waits on the result; `viewModelScope`
+the 1000ms the auth check bounds itself to, and nothing here waits on the result; `viewModelScope`
 cancelling the coroutine when the ViewModel clears is bound enough), never gating the auth-driven
 `startupState` it exposes — a slow or absent network delays neither. See
 [ADR-0038](docs/adr/0038-one-sort-order-and-flashcard-selection-seam.md) (cache-first reads,
