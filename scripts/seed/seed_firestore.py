@@ -314,10 +314,17 @@ def bump_cache_seed(db, *, dry_run: bool) -> int:
     check: a solo, manually-run pipeline, not a concurrent/scheduled one. Two overlapping runs could
     each read the same value and net only one increment. Revisit with db.transaction() if that ever
     changes.
+
+    `value` is validated as an int before the increment: a corrupt or hand-edited doc (e.g.
+    `{"value": null}`) must fail loudly here rather than raise a bare TypeError after every other
+    write in the run has already committed.
     """
     ref = db.collection("meta").document("seed")
     current = ref.get().to_dict() or {}
-    next_value = current.get("value", 0) + 1
+    current_value = current.get("value", 0)
+    if not isinstance(current_value, int):
+        raise ValueError(f"meta/seed.value is {current_value!r}, expected an int")
+    next_value = current_value + 1
     if not dry_run:
         ref.set({"value": next_value})
     return next_value
