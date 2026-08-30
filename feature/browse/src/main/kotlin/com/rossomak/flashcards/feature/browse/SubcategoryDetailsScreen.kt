@@ -242,7 +242,7 @@ private fun SubcategoryDetailsTopBar(
             FlashcardsOverlineLabel(
                 text = if (state.hasActiveFilters) {
                     pluralStringResource(
-                        R.plurals.subcategory_details_filtered_card_count,
+                        R.plurals.subcategory_details_filtered_card_count_label,
                         state.totalCount,
                         cards.flashcards.size,
                         state.totalCount,
