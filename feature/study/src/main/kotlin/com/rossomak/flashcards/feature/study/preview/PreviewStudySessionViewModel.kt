@@ -14,6 +14,7 @@ import com.rossomak.flashcards.core.domain.model.StudySessionPreference.VoiceAns
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.VoicePlayback
 import com.rossomak.flashcards.core.domain.model.VoiceOption
 import com.rossomak.flashcards.core.domain.usecase.ObserveStudySessionPreferencesUseCase
+import com.rossomak.flashcards.core.domain.usecase.SampleQuickSessionSubcategoriesUseCase
 import com.rossomak.flashcards.core.domain.usecase.SaveStudySessionPreferenceUseCase
 import com.rossomak.flashcards.core.domain.usecase.SelectSessionFlashcardsUseCase
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
@@ -49,12 +50,17 @@ import kotlinx.coroutines.launch
 class PreviewStudySessionViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val selectSessionFlashcards: SelectSessionFlashcardsUseCase,
+    private val sampleQuickSessionSubcategories: SampleQuickSessionSubcategoriesUseCase,
     private val observeStudySessionPreferences: ObserveStudySessionPreferencesUseCase,
     private val saveStudySessionPreference: SaveStudySessionPreferenceUseCase,
     private val voiceSettingsController: VoiceSettingsController,
 ) : ViewModel() {
 
     private val route = savedStateHandle.decodeRoute<PreviewStudySessionRoute>()
+
+    /** `route`'s parallel id/name lists, indexed once rather than re-scanned per sampled id. */
+    private val candidateSubcategoryNamesById: Map<String, String> =
+        route.subcategoryIds.zip(route.subcategoryNames).toMap()
 
     private val _state = MutableStateFlow(
         PreviewStudySessionScreenState(
@@ -251,6 +257,23 @@ class PreviewStudySessionViewModel @Inject constructor(
         is Filters -> null
     }
 
+    /**
+     * Restores the filters the screen was originally handed — `route.filterTagIds`/
+     * `route.difficultyRange` — discarding any in-screen narrowing. Does not open the Filters
+     * dialog: this is a direct reset, not a shortcut into editing.
+     */
+    fun onResetFilters() {
+        _state.update {
+            it.copy(
+                config = it.config.copy(
+                    tagIds = route.filterTagIds.toSet(),
+                    difficultyRange = route.difficultyRange,
+                ),
+            )
+        }
+        selectCards()
+    }
+
     fun onStartSession() {
         if (selectedCardIds.isEmpty() || sessionStartInFlight) return
         sessionStartInFlight = true
@@ -260,7 +283,7 @@ class PreviewStudySessionViewModel @Inject constructor(
                     StudySessionRoute(
                         categoryId = route.categoryId,
                         sessionTitle = sessionTitle(),
-                        subcategoryIds = route.subcategoryIds,
+                        subcategoryIds = _state.value.config.subcategoryIds,
                         cardIds = selectedCardIds,
                         studyMode = _state.value.config.mode,
                         voiceAnsweringEnabled = _state.value.config.voiceAnsweringEnabled,
@@ -277,7 +300,15 @@ class PreviewStudySessionViewModel @Inject constructor(
     private fun selectCards(showLoading: Boolean = false) {
         viewModelScope.launch {
             if (showLoading) _state.update { it.copy(isLoading = true, error = null) }
-            selectSessionFlashcards(_state.value.config)
+            val resolved = resolveSubcategories()
+            _state.update {
+                it.copy(
+                    subcategoryNames = resolved.names,
+                    config = it.config.copy(subcategoryIds = resolved.ids),
+                )
+            }
+            val selectionConfig = _state.value.config.forSelection(isSingleTopic = _state.value.isSingleTopic)
+            selectSessionFlashcards(selectionConfig)
                 .onSuccess { plan ->
                     selectedCardIds = plan.cards.map { it.id }
                     _state.update { state ->
@@ -310,6 +341,42 @@ class PreviewStudySessionViewModel @Inject constructor(
         }
     }
 
+    /** A resolved Subcategory selection: ids plus the names they display under, kept together. */
+    private data class ResolvedSubcategories(val ids: List<String>, val names: List<String>)
+
+    /**
+     * Every session type but Quick hands [SelectSessionFlashcardsUseCase] the fixed Subcategory
+     * list the route carries. Quick is the only scenario where the Subcategory *set itself* can
+     * change between resolutions: it resamples a bounded subset via
+     * [SampleQuickSessionSubcategoriesUseCase], seeded off the same
+     * [StudySessionConfig.seed][com.rossomak.flashcards.core.domain.model.StudySessionConfig.seed]
+     * the card draw uses, so re-randomizing re-rolls the sample itself, not just the draw within it
+     * (ADR-0040). Sampled ids are mapped back to names through [candidateSubcategoryNamesById] —
+     * the pool this resolution is allowed to draw its sample from.
+     */
+    private suspend fun resolveSubcategories(): ResolvedSubcategories {
+        if (!route.isQuickSession) {
+            return ResolvedSubcategories(route.subcategoryIds, route.subcategoryNames)
+        }
+        val sampledIds = sampleQuickSessionSubcategories(
+            SampleQuickSessionSubcategoriesUseCase.Params(
+                candidateSubcategoryIds = route.subcategoryIds,
+                countRange = _state.value.config.subcategoryCountRange,
+                seed = _state.value.config.seed,
+            )
+        )
+        val sampledNames = sampledIds.map { id -> candidateSubcategoryNamesById.getValue(id) }
+        return ResolvedSubcategories(sampledIds, sampledNames)
+    }
+
     private fun sessionTitle(): String =
         if (_state.value.isSingleTopic) route.subcategoryNames.first() else route.categoryName
+
+    /**
+     * Tags belong to one subcategory, so a multi-Subcategory pool has no coherent tag vocabulary
+     * to filter by at all — asserted here rather than relied on staying empty by omission
+     * elsewhere (ADR-0030).
+     */
+    private fun StudySessionConfig.forSelection(isSingleTopic: Boolean): StudySessionConfig =
+        if (isSingleTopic) this else copy(tagIds = emptySet())
 }
