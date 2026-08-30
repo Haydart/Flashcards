@@ -11,6 +11,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import org.junit.Test
@@ -61,7 +62,7 @@ class AppStartViewModelTest {
     }
 
     @Test
-    fun `auth timeout emits Ready with false after 800ms`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `auth timeout emits Ready with false after 1000ms`() = runTest(mainDispatcherRule.testDispatcher) {
         coEvery { getCurrentAuthUserUseCase() } coAnswers {
             delay(Long.MAX_VALUE)
             null
@@ -71,7 +72,7 @@ class AppStartViewModelTest {
         advanceUntilIdle()
 
         viewModel.startupState.value shouldBe AppStartupState.Ready(authenticated = false)
-        testScheduler.currentTime shouldBe 800L
+        testScheduler.currentTime shouldBe 1000L
     }
 
     @Test
@@ -90,8 +91,14 @@ class AppStartViewModelTest {
         coEvery { syncFlashcardCacheGenerationUseCase() } coAnswers { delay(Long.MAX_VALUE) }
 
         val viewModel = createViewModel()
-        advanceUntilIdle()
+        // runCurrent(), not advanceUntilIdle(): advanceUntilIdle() fast-forwards virtual time
+        // through the mocked Long.MAX_VALUE delay too, so it would let this "hanging" coroutine
+        // finish and pass even if Ready were actually gated behind it. runCurrent() only runs work
+        // already scheduled at the current instant, proving Ready arrives while the sync is still
+        // parked on its delay, not merely that it arrives eventually.
+        runCurrent()
 
         viewModel.startupState.value shouldBe AppStartupState.Ready(authenticated = true)
+        testScheduler.currentTime shouldBe 0L
     }
 }
