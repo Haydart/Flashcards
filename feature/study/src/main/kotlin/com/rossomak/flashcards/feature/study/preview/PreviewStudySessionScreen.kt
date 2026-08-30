@@ -18,6 +18,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -50,6 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.ui.R as CoreUiR
+import com.rossomak.flashcards.core.ui.composables.FlashcardsEmptyState
 import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardFilters
 import com.rossomak.flashcards.core.ui.composables.dialogs.label
 import com.rossomak.flashcards.core.ui.composables.dialogs.readAloudLabel
@@ -90,6 +93,7 @@ fun PreviewStudySessionScreen(
         onRetry = viewModel::onRetry,
         onRerandomize = viewModel::onRerandomize,
         onDialogEvent = viewModel::onDialogEvent,
+        onResetFilters = viewModel::onResetFilters,
         onStartSession = viewModel::onStartSession,
     )
 }
@@ -103,6 +107,7 @@ fun PreviewStudySessionContent(
     onRetry: () -> Unit,
     onRerandomize: () -> Unit,
     onDialogEvent: (PreviewDialogEvent) -> Unit,
+    onResetFilters: () -> Unit,
     onStartSession: () -> Unit,
 ) {
     PreviewDialogHost(
@@ -148,6 +153,7 @@ fun PreviewStudySessionContent(
                 state = state,
                 onRerandomize = onRerandomize,
                 onDialogEvent = onDialogEvent,
+                onResetFilters = onResetFilters,
                 onStartSession = onStartSession,
             )
         }
@@ -179,6 +185,7 @@ private fun ReadyContent(
     state: PreviewStudySessionScreenState,
     onRerandomize: () -> Unit,
     onDialogEvent: (PreviewDialogEvent) -> Unit,
+    onResetFilters: () -> Unit,
     onStartSession: () -> Unit,
 ) {
     Column(
@@ -189,27 +196,38 @@ private fun ReadyContent(
     ) {
         Spacer(modifier = Modifier.height(24.dp))
 
-        Text(
-            text = "Ready to start?",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = scopeDescription(state),
-            style = MaterialTheme.typography.bodyLarge,
-        )
-        Spacer(modifier = Modifier.height(16.dp))
+        if (state.selectedCardCount == 0) {
+            FlashcardsEmptyState(
+                icon = Icons.Default.SearchOff,
+                title = stringResource(R.string.preview_session_empty_state_title),
+                supportingText = stringResource(R.string.preview_session_empty_state_message),
+                ctaLabel = stringResource(R.string.preview_session_empty_state_reset_button),
+                ctaIcon = Icons.Default.Refresh,
+                onCtaClick = onResetFilters,
+            )
+        } else {
+            Text(
+                text = "Ready to start?",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = scopeDescription(state),
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
 
-        Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            AssistChip(onClick = {}, label = { Text(text = "~ ${state.estimatedMinutes} min") })
-            if (!state.isSingleTopic) {
-                AssistChip(onClick = {}, label = { Text(text = "${state.topicCount} topics") })
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                AssistChip(onClick = {}, label = { Text(text = "~ ${state.estimatedMinutes} min") })
+                if (!state.isSingleTopic) {
+                    AssistChip(onClick = {}, label = { Text(text = "${state.topicCount} topics") })
+                }
+                AssistChip(onClick = {}, label = { Text(text = "${state.selectedCardCount} cards") })
             }
-            AssistChip(onClick = {}, label = { Text(text = "${state.selectedCardCount} cards") })
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -220,9 +238,12 @@ private fun ReadyContent(
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             if (state.canRerandomize) {
+                // Enabled independent of canStart: a new Subcategory sample or a loosened filter
+                // might turn an empty result into a match, so re-randomizing must stay reachable
+                // through the empty state, not just once cards are already selected.
                 FilledTonalButton(
                     onClick = onRerandomize,
-                    enabled = state.canStart,
+                    enabled = !state.isLoading,
                     modifier = Modifier.weight(1f),
                 ) {
                     Icon(imageVector = Icons.Default.Shuffle, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -469,6 +490,7 @@ private fun PreviewStudySessionLoadingPreview() {
         onRetry = {},
         onRerandomize = {},
         onDialogEvent = {},
+        onResetFilters = {},
         onStartSession = {},
     )
 }
@@ -487,6 +509,33 @@ private fun PreviewStudySessionErrorPreview() {
         onRetry = {},
         onRerandomize = {},
         onDialogEvent = {},
+        onResetFilters = {},
+        onStartSession = {},
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun PreviewStudySessionEmptyStatePreview() {
+    PreviewStudySessionContent(
+        state = PreviewStudySessionScreenState(
+            categoryName = "Android",
+            subcategoryNames = listOf("Compose"),
+            isLoading = false,
+            config = StudySessionConfig(
+                subcategoryIds = listOf("compose"),
+                tagIds = setOf("state"),
+                difficultyRange = 9..10,
+            ),
+            selectedCardCount = 0,
+            estimatedMinutes = 0,
+            availableTags = listOf("state", "modifiers", "recomposition"),
+        ),
+        onNavigateBack = {},
+        onRetry = {},
+        onRerandomize = {},
+        onDialogEvent = {},
+        onResetFilters = {},
         onStartSession = {},
     )
 }
@@ -512,6 +561,7 @@ private fun PreviewStudySessionSingleTopicPreview() {
         onRetry = {},
         onRerandomize = {},
         onDialogEvent = {},
+        onResetFilters = {},
         onStartSession = {},
     )
 }
@@ -532,6 +582,7 @@ private fun PreviewStudySessionQuickSessionPreview() {
         onRetry = {},
         onRerandomize = {},
         onDialogEvent = {},
+        onResetFilters = {},
         onStartSession = {},
     )
 }
@@ -552,6 +603,7 @@ private fun PreviewStudySessionCustomSessionPreview() {
         onRetry = {},
         onRerandomize = {},
         onDialogEvent = {},
+        onResetFilters = {},
         onStartSession = {},
     )
 }
