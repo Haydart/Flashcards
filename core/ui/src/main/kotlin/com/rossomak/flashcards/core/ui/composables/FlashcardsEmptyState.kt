@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -110,30 +111,38 @@ fun FlashcardsEmptyState(
             }
         }
 
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = MaterialTheme.spacing.normal),
-        )
+        Surface(color = Color.Transparent, contentColor = contentColor) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = MaterialTheme.spacing.normal),
+                )
 
-        Text(
-            text = supportingText,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = MaterialTheme.spacing.xsmall),
-        )
+                Text(
+                    text = supportingText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    // OnSurface keeps the muted onSurfaceVariant tone; OnGradient has no separate
+                    // "muted" token on the brand gradient, so it falls back to the same
+                    // contentColor the title uses (set on the Surface this Text inherits from).
+                    color = if (style == OnSurface) MaterialTheme.colorScheme.onSurfaceVariant else Color.Unspecified,
+                    textAlign = TextAlign.Center,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = MaterialTheme.spacing.xsmall),
+                )
 
-        if (ctaLabel != null && onCtaClick != null) {
-            FlashcardsFilledButton(
-                text = ctaLabel,
-                onClick = onCtaClick,
-                icon = ctaIcon,
-                modifier = Modifier.padding(top = MaterialTheme.spacing.normal),
-            )
+                if (ctaLabel != null && onCtaClick != null) {
+                    FlashcardsFilledButton(
+                        text = ctaLabel,
+                        onClick = onCtaClick,
+                        icon = ctaIcon,
+                        style = style,
+                        modifier = Modifier.padding(top = MaterialTheme.spacing.normal),
+                    )
+                }
+            }
         }
     }
 }
