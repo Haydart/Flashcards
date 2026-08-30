@@ -21,6 +21,10 @@ package com.rossomak.flashcards.core.domain.model
  * The Fast counterpart of [voiceAnsweringEnabled], and ignored in Rated mode for the same reason.
  * @param tagIds OR-within: a card matches if it carries any of them. Empty means "no tag filter".
  * @param difficultyRange AND-combined with [tagIds].
+ * @param subcategoryCountRange how many Subcategories a Quick Session samples its pool from
+ * (ADR-0040). Carried unconditionally and ignored outside Quick — same idiom as [ratedAttempts] in
+ * Fast mode — since single-Subcategory and Custom sessions hand a fixed, already-resolved
+ * Subcategory list to selection.
  */
 data class StudySessionConfig(
     val subcategoryIds: List<String>,
@@ -33,6 +37,7 @@ data class StudySessionConfig(
     val voiceSettings: VoiceSettings = VoiceSettings(),
     val difficultyRange: IntRange = MIN_DIFFICULTY..MAX_DIFFICULTY,
     val tagIds: Set<String> = emptySet(),
+    val subcategoryCountRange: IntRange = DEFAULT_SUBCATEGORY_COUNT_RANGE,
     val seed: Long = 0L,
 ) {
 
@@ -43,6 +48,7 @@ data class StudySessionConfig(
         const val DEFAULT_LENGTH = 20
         const val MIN_DIFFICULTY = 1
         const val MAX_DIFFICULTY = 10
+        val DEFAULT_SUBCATEGORY_COUNT_RANGE = 3..5
 
         /**
          * One attempt means no retry — a legitimate strict setting, not a broken state. The
