@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import com.rossomak.flashcards.core.data.di.UserPreferencesDataStore
 import com.rossomak.flashcards.core.domain.model.DailyGoal
 import com.rossomak.flashcards.core.domain.model.UserPreference
+import com.rossomak.flashcards.core.domain.model.UserPreference.CacheSeed
 import com.rossomak.flashcards.core.domain.model.UserPreference.DailyGoalMinutes
 import com.rossomak.flashcards.core.domain.model.UserPreference.HasSeenOnboarding
 import com.rossomak.flashcards.core.domain.model.UserPreference.VoiceAnswerConsent
@@ -32,6 +33,8 @@ class DataStoreUserPreferencesLocalDataSource @Inject constructor(
                 hasSeenOnboarding = prefs[HAS_SEEN_ONBOARDING_KEY] ?: DEFAULT_HAS_SEEN_ONBOARDING,
                 dailyGoalMinutes = prefs[DAILY_GOAL_MINUTES_KEY] ?: DailyGoal.DEFAULT_MINUTES,
                 voiceAnswerConsentGranted = prefs[VOICE_ANSWER_CONSENT_KEY] ?: DEFAULT_VOICE_ANSWER_CONSENT_GRANTED,
+                // No default: absent unambiguously means "never checked" (ADR-0039), never coerced to 0.
+                localCacheSeed = prefs[CACHE_SEED_KEY],
             )
         }
 
@@ -41,6 +44,7 @@ class DataStoreUserPreferencesLocalDataSource @Inject constructor(
                 is DailyGoalMinutes -> prefs[DAILY_GOAL_MINUTES_KEY] = DailyGoal.coerce(preference.value)
                 is HasSeenOnboarding -> prefs[HAS_SEEN_ONBOARDING_KEY] = preference.value
                 is VoiceAnswerConsent -> prefs[VOICE_ANSWER_CONSENT_KEY] = preference.value
+                is CacheSeed -> prefs[CACHE_SEED_KEY] = preference.value
             }
         }
     }
@@ -51,5 +55,6 @@ class DataStoreUserPreferencesLocalDataSource @Inject constructor(
         val HAS_SEEN_ONBOARDING_KEY = booleanPreferencesKey("has_seen_onboarding")
         val DAILY_GOAL_MINUTES_KEY = intPreferencesKey("daily_goal_minutes")
         val VOICE_ANSWER_CONSENT_KEY = booleanPreferencesKey("voice_answer_consent")
+        val CACHE_SEED_KEY = intPreferencesKey("cache_seed")
     }
 }
