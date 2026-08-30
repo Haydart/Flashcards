@@ -25,7 +25,7 @@ Subcategories were originally stored in the `categories/` collection alongside C
 ## Consequences
 
 - Fetching all Flashcards for a Subcategory: single `getDocuments()` on `subcategories/{subcategoryId}/flashcards` — no WHERE, no index.
-- Multi-subcategory fetch (Quick Session, composite Preview Study Session): N parallel `getDocuments()` calls, one per Subcategory.
+- Multi-subcategory fetch (Quick Session, Custom Preview Study Session): N parallel `getDocuments()` calls, one per Subcategory.
 - `subcategoryId` field dropped from Flashcard documents — redundant with path, cannot drift out of sync.
 - Favorites and Recents look up Subcategory docs directly: `subcategories/android-testing` — one read, no join.
 - Category Details loads Subcategories via `subcategories.where("categoryId", "==", "android")` — single indexed query.

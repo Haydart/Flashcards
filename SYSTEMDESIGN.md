@@ -82,7 +82,7 @@ Home empty state CTA ("Start your first session") triggers a tab switch to Study
 - Lists all Subcategories (labeled **Topics**) for the Category
 - Three session-start options:
   - **Quick Session** button — system auto-selects Subcategories → Preview Study Session Screen → composite Study Session begins
-  - **Start Composite Session** button — transforms the list into multi-select mode; user selects Topics; "Start" button becomes active after ≥1 selected → Preview Study Session Screen → composite Study Session begins
+  - **Start Custom Session** button — transforms the list into multi-select mode; user selects Topics; "Start" button becomes active after ≥1 selected → Preview Study Session Screen → composite Study Session begins
   - **Fast-start action on each Topic row** — routes directly to Preview Study Session Screen for that Subcategory (skips Subcategory Details), without navigating away from Category Details
 - Tapping a Topic row (not its fast-start action) → Subcategory Details screen
 
@@ -118,7 +118,7 @@ This is the only place Study Mode (and, up front, Voice answering) is chosen for
 4. Apply scoring and selection (MVP: random shuffle; target: performance-weighted sort → pick top N — see "Flashcard Selection Algorithm" below for the scoring formula)
 5. Pass resolved `cardIds` to `StudySession`; presentation order within the session is then set independently by the Preview screen's Sort row (Default/Easiest/Hardest), not by this selection step
 
-`filterTagIds` is only ever non-empty for single-subcategory sessions launched from Subcategory Details. All other entry points (Quick Session, fast-start, Composite) pass `filterTagIds = emptyList()`.
+`filterTagIds` is only ever non-empty for single-subcategory sessions launched from Subcategory Details. All other entry points (Quick Session, fast-start, Custom) pass `filterTagIds = emptyList()`.
 
 ## Study Session Flow
 

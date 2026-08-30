@@ -64,7 +64,7 @@ Status quo retained — no intermediate "TTS reads question, rate by hand" mode.
 One **merged filter popup**, shared with Subcategory Details (ADR-0022 shape): tag
 multi-select (OR within tags) + difficulty `RangeSlider`, the two facets combined with
 AND. Tags are derived per subcategory, so the tag section appears for **single-subcategory
-sessions only**; multi-subcategory (Quick / Composite) sessions show **difficulty only**.
+sessions only**; multi-subcategory (Quick / Custom) sessions show **difficulty only**.
 
 ## Persistence
 
