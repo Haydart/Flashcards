@@ -113,11 +113,14 @@ clutter/read-count problem.
   session (not an empty-chips fallback), and the filter call passes `tagIds = emptySet()` explicitly
   for multi-Subcategory rather than relying on it staying empty by omission — a separate, smaller
   decision bundled into the same implementation pass, recorded in
-  `docs/temp/quick-session-subcategory-sampling-spec.md`.
+  `docs/temp/quick-session-subcategory-sampling-spec.md`. That file is intentionally absent from the
+  repository — `docs/temp/` is gitignored planning scratch, not a durable reference — so this ADR is
+  the durable record of the decision; the spec file itself is a working artifact, not a citation a
+  reader can expect to fetch.
 - A 0-card resolution (Difficulty filter narrowed too far, on any session) gets an explicit empty
   state instead of a silently disabled Start button — `FlashcardsEmptyState` gains an `OnGradient`
-  style for this, detailed in the same spec file rather than here, since it's a UI-composition
-  decision with no real alternative that was seriously considered.
+  style for this, detailed in the same (gitignored) spec file rather than here, since it's a
+  UI-composition decision with no real alternative that was seriously considered.
 - Until Custom's own entry point is built (Category Details multi-select, tracked separately), this
   ADR's `subcategoryCountRange` exclusion for Custom is unverified by any actual code path — it is a
   constraint on that future work, not yet an enforced one.

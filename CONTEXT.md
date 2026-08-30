@@ -98,7 +98,7 @@ _Avoid_: Flag Action, Curation Type, Curation Flag Action
 The flow a user goes through to start a Study Session. All entry points route through the **Preview Study Session Screen** before the session begins.
 - **Single-subcategory**: tap a Subcategory on Category Details (or "Start" in the app bar of Subcategory Details) → Preview Study Session Screen → session begins.
 - **Quick Session**: tap "Quick Session" on Category Details → system samples a random count of Subcategories — bounded by the user's `subcategoryCountRange` preference — then randomly selects that many Subcategories and draws Flashcards from them → Preview Study Session Screen → session begins. Re-randomize re-rolls the Subcategory sample itself, not just the card draw.
-- **Custom**: tap "Start Custom Session" on Category Details → list enters multi-select → user manually chooses every Subcategory that enters the session → taps Start → Preview Study Session Screen → session begins. A Composite session (see **Study Session**), but not every Composite session is Custom — Quick is the other way in.
+- **Custom**: tap "Start Custom Session" on Category Details → list enters multi-select → user manually chooses every Subcategory that enters the session → taps Start → Preview Study Session Screen → session begins. A Composite session when multiple Subcategories are selected (see **Study Session**) — a single selection makes it a single-subcategory session instead. Not every Composite session is Custom — Quick is the other way in.
 _Avoid_: Composite Session (retired name for this entry point; Composite itself survives as the broader structural term)
 _Avoid_: Session setup, Session wizard
 

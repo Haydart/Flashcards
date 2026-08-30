@@ -69,9 +69,9 @@ sessions only**; multi-subcategory (Quick / Custom) sessions show **difficulty o
 ## Persistence
 
 Every edit popup carries a **"keep as default"** checkbox — Mode, Voice answering, Length,
-Sort, Voice. Checking it persists that value as the user's default for future sessions;
-unchecked, the change is session-scoped. Voice's "keep as default" writes the existing
-global voice preference.
+Sort, Voice, Quick Session topic count. Checking it persists that value as the user's
+default for future sessions; unchecked, the change is session-scoped. Voice's "keep as
+default" writes the existing global voice preference.
 
 **Filters is the one exception**: no "keep as default" — tag and difficulty selections are
 always session-scoped (a per-subcategory tag set can't carry to a different Subcategory).

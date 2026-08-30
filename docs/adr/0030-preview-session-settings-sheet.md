@@ -28,9 +28,9 @@ glance, while deferring each control to its own popup.
   single-subcategory sessions only; multi-subcategory (Quick / Custom) sessions filter
   by difficulty only.
 - **Persistence is "keep as default" per popup** (Mode, Voice answering, Length, Sort,
-  Voice) — checked persists a global default, unchecked is session-scoped. The **Filters
-  popup is exempt** (tags + difficulty always session-scoped), since a per-subcategory tag
-  set can't carry to a different Subcategory.
+  Voice, Quick Session topic count) — checked persists a global default, unchecked is
+  session-scoped. The **Filters popup is exempt** (tags + difficulty always
+  session-scoped), since a per-subcategory tag set can't carry to a different Subcategory.
 - **Every popup is a dialog, on this screen and on the Settings screen alike** — the same
   `core:ui` dialog primitives, shell included, keyed on action count rather than on which
   screen opened them. A setting's popup shape therefore never depends on where it was
