@@ -39,6 +39,7 @@ import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceSettings
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlin.random.Random
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -84,6 +85,13 @@ class PreviewStudySessionViewModel @Inject constructor(
 
     private var sessionStartInFlight = false
 
+    /**
+     * The in-flight [selectCards] job, if any. A new call cancels whatever's still running so a
+     * slower, stale resolution can never land after a newer one — `subcategoryIds` and
+     * [selectedCardIds] would otherwise pair up across two different resolutions.
+     */
+    private var selectionJob: Job? = null
+
     internal var selectedCardIds: List<String> = emptyList()
         private set
 
@@ -118,7 +126,7 @@ class PreviewStudySessionViewModel @Inject constructor(
                     ),
                 )
             }
-            selectCards(showLoading = true)
+            selectCards()
         }
         // The voice row shows the voice's name, not its id, so the list is needed before the
         // dialog is ever opened — same reason Settings loads it eagerly.
@@ -126,7 +134,7 @@ class PreviewStudySessionViewModel @Inject constructor(
     }
 
     fun onRetry() {
-        selectCards(showLoading = true)
+        selectCards()
     }
 
     /** A different draw from the same pool — selection is a pure function of the config's seed. */
@@ -302,14 +310,30 @@ class PreviewStudySessionViewModel @Inject constructor(
         }
     }
 
-    private fun selectCards(showLoading: Boolean = false) {
-        viewModelScope.launch {
-            if (showLoading) _state.update { it.copy(isLoading = true, error = null) }
+    /**
+     * `isLoading` is set unconditionally, not just on the initial load: [canStart] gates the Start
+     * button on it, and a resample or filter change needs that same gate — otherwise Start stays
+     * clickable against a [selectedCardIds] that hasn't caught up with the Subcategory set just
+     * written to `config.subcategoryIds` below.
+     */
+    private fun selectCards() {
+        selectionJob?.cancel()
+        selectionJob = viewModelScope.launch {
+            _state.update { it.copy(isLoading = true, error = null) }
             val resolved = resolveSubcategories()
-            _state.update {
-                it.copy(
+            _state.update { state ->
+                state.copy(
                     subcategoryNames = resolved.names,
-                    config = it.config.copy(subcategoryIds = resolved.ids),
+                    config = state.config.copy(
+                        subcategoryIds = resolved.ids,
+                        // A changed Subcategory set invalidates any tags carried from the
+                        // previous one — tags belong to a single Subcategory (ADR-0030).
+                        tagIds = if (resolved.ids != state.config.subcategoryIds) {
+                            emptySet()
+                        } else {
+                            state.config.tagIds
+                        },
+                    ),
                 )
             }
             val selectionConfig = _state.value.config.forSelection(isSingleTopic = _state.value.isSingleTopic)
@@ -375,7 +399,7 @@ class PreviewStudySessionViewModel @Inject constructor(
     }
 
     private fun sessionTitle(): String =
-        if (_state.value.isSingleTopic) route.subcategoryNames.first() else route.categoryName
+        if (_state.value.isSingleTopic) _state.value.subcategoryNames.first() else route.categoryName
 
     /**
      * Tags belong to one subcategory, so a multi-Subcategory pool has no coherent tag vocabulary
