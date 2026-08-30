@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.time.Duration.Companion.milliseconds
 
 @HiltViewModel
 class AppStartViewModel @Inject constructor(
@@ -21,7 +22,7 @@ class AppStartViewModel @Inject constructor(
 
     val startupState: StateFlow<AppStartupState> =
         flow {
-            val authenticated = withTimeoutOrNull(STARTUP_AUTH_TIMEOUT_MS) {
+            val authenticated = withTimeoutOrNull(STARTUP_AUTH_TIMEOUT_MS.milliseconds) {
                 getCurrentAuthUser() != null
             } ?: false
             emit(AppStartupState.Ready(authenticated = authenticated))
@@ -48,6 +49,6 @@ class AppStartViewModel @Inject constructor(
     }
 
     private companion object {
-        const val STARTUP_AUTH_TIMEOUT_MS = 800L
+        const val STARTUP_AUTH_TIMEOUT_MS = 1000L
     }
 }
