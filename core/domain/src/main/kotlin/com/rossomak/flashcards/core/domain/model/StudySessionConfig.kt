@@ -48,6 +48,8 @@ data class StudySessionConfig(
         const val DEFAULT_LENGTH = 20
         const val MIN_DIFFICULTY = 1
         const val MAX_DIFFICULTY = 10
+        const val MIN_SUBCATEGORY_COUNT = 1
+        const val MAX_SUBCATEGORY_COUNT = 5
         val DEFAULT_SUBCATEGORY_COUNT_RANGE = 3..5
 
         /**
