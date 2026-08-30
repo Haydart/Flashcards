@@ -31,6 +31,7 @@ import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Length
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Mode
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.ReadAloud
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Sort
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.SubcategoryCountRange
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceAnswering
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceSettings
 import com.rossomak.flashcards.testutil.MainDispatcherRule
@@ -67,6 +68,9 @@ class PreviewStudySessionViewModelTest {
 
     /** Anything but [StudySessionConfig.DEFAULT_LENGTH], so a seeded value is visible. */
     private val seededLength = StudySessionConfig.MIN_LENGTH
+
+    /** Narrower than [StudySessionConfig.DEFAULT_SUBCATEGORY_COUNT_RANGE], so seeding it is visible. */
+    private val narrowerSubcategoryCountRange = 1..2
 
     private val categoryId = "android"
     private val categoryName = "Android"
@@ -502,6 +506,55 @@ class PreviewStudySessionViewModelTest {
         }
 
     @Test
+    fun `confirming a subcategory count range with keepAsDefault true writes the preference`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(quickSessionRoute)
+            quickSessionRoute.subcategoryIds.forEach { id ->
+                flashcardRepository.flashcardsBySubcategory[id] =
+                    Result.success(listOf(flashcard(id = "$id-card", subcategoryId = id)))
+            }
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            val draftDialog = SubcategoryCountRange(draft = viewModel.state.value.config.subcategoryCountRange)
+            viewModel.onDialogEvent(Open(draftDialog))
+            viewModel.onDialogEvent(
+                DraftChange(SubcategoryCountRange(draft = narrowerSubcategoryCountRange, keepAsDefault = true))
+            )
+            viewModel.onDialogEvent(Confirm)
+            advanceUntilIdle()
+
+            studySessionPreferencesRepository.preferences.value.subcategoryCountRange shouldBe
+                narrowerSubcategoryCountRange
+            viewModel.state.value.config.subcategoryCountRange shouldBe narrowerSubcategoryCountRange
+            (viewModel.state.value.config.subcategoryIds.size in narrowerSubcategoryCountRange) shouldBe true
+        }
+
+    @Test
+    fun `confirming a subcategory count range with keepAsDefault false applies the draft but writes nothing`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(quickSessionRoute)
+            quickSessionRoute.subcategoryIds.forEach { id ->
+                flashcardRepository.flashcardsBySubcategory[id] =
+                    Result.success(listOf(flashcard(id = "$id-card", subcategoryId = id)))
+            }
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            val committedRange = studySessionPreferencesRepository.preferences.value.subcategoryCountRange
+            val draftDialog = SubcategoryCountRange(draft = viewModel.state.value.config.subcategoryCountRange)
+            viewModel.onDialogEvent(Open(draftDialog))
+            viewModel.onDialogEvent(
+                DraftChange(SubcategoryCountRange(draft = narrowerSubcategoryCountRange, keepAsDefault = false))
+            )
+            viewModel.onDialogEvent(Confirm)
+            advanceUntilIdle()
+
+            studySessionPreferencesRepository.preferences.value.subcategoryCountRange shouldBe committedRange
+            viewModel.state.value.config.subcategoryCountRange shouldBe narrowerSubcategoryCountRange
+        }
+
+    @Test
     fun `confirming filters never writes a default`() = runTest(mainDispatcherRule.testDispatcher) {
         stubRoute(singleTopicRoute)
         flashcardRepository.flashcardsToReturn = Result.success(
@@ -802,6 +855,25 @@ class PreviewStudySessionViewModelTest {
             (sampledIds.size in StudySessionConfig.DEFAULT_SUBCATEGORY_COUNT_RANGE) shouldBe true
             viewModel.state.value.topicCount shouldBe sampledIds.size
             sampledIds.forEach { id -> (id in quickSessionRoute.subcategoryIds) shouldBe true }
+        }
+
+    @Test
+    fun `a quick session's sample respects a seeded subcategoryCountRange preference`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(quickSessionRoute)
+            studySessionPreferencesRepository.preferences.value = StudySessionPreferences(
+                subcategoryCountRange = narrowerSubcategoryCountRange,
+            )
+            quickSessionRoute.subcategoryIds.forEach { id ->
+                flashcardRepository.flashcardsBySubcategory[id] =
+                    Result.success(listOf(flashcard(id = "$id-card", subcategoryId = id)))
+            }
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            val sampledIds = viewModel.state.value.config.subcategoryIds
+            (sampledIds.size in narrowerSubcategoryCountRange) shouldBe true
         }
 
     @Test
