@@ -36,11 +36,18 @@ class SampleQuickSessionSubcategoriesUseCase @Inject constructor() :
      * When the candidate pool is smaller than [Params.countRange]'s minimum, the whole pool is
      * used silently — no warning, no error, the same idiom [SelectSessionFlashcardsUseCase] uses
      * when a card pool is smaller than the session length.
+     *
+     * The range is clamped to the pool size **before** drawing, not after: clamping a drawn value
+     * biases the feasible counts toward the pool size (e.g. a `3..5` range over a 4-candidate pool
+     * would draw 4 twice as often as 3, since both 4 and 5 collapse to 4). Clamping the bounds
+     * first keeps every feasible count equally likely.
      */
     override suspend fun invoke(params: Params): List<String> {
         val random = Random(params.seed)
-        val count = random.nextInt(params.countRange.first, params.countRange.last + 1)
-            .coerceAtMost(params.candidateSubcategoryIds.size)
+        val poolSize = params.candidateSubcategoryIds.size
+        val lowerBound = params.countRange.first.coerceAtMost(poolSize)
+        val upperBound = params.countRange.last.coerceAtMost(poolSize)
+        val count = random.nextInt(lowerBound, upperBound + 1)
         return params.candidateSubcategoryIds.shuffled(random).take(count)
     }
 }
