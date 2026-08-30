@@ -30,10 +30,16 @@ interface FlashcardRepository {
      * Starts a new cache generation: the next [fetchFlashcards] for each Subcategory goes to the
      * backend, and reads after that are served from cache again.
      *
-     * Nothing calls this yet. It is the seam the seed-versioned invalidation effort drives — that
-     * effort compares a server-side knowledge-base seed against a locally stored copy at app start
-     * and calls this on a mismatch (ADR-0038). Until it lands, a curation update stays invisible
-     * on-device for the life of a cache entry.
+     * Called by `SyncFlashcardCacheGenerationUseCase` (core:domain) on app start, when [fetchCacheSeed]
+     * disagrees with the locally stored copy (ADR-0039).
      */
     fun invalidateFlashcardCache()
+
+    /**
+     * The server-side knowledge-base seed (`meta/seed.value`) — a monotonic int bumped by the
+     * import script every time it writes new content. Compared against a locally stored copy to
+     * decide whether to call [invalidateFlashcardCache] (ADR-0039). Always a live read, never
+     * served from cache — that would defeat the purpose of checking at all.
+     */
+    suspend fun fetchCacheSeed(): Result<Int>
 }

@@ -1,5 +1,6 @@
 package com.rossomak.flashcards.core.data.repository
 
+import android.util.Log
 import com.rossomak.flashcards.core.data.mapper.toDomain
 import com.rossomak.flashcards.core.data.model.FlashcardDto
 import com.rossomak.flashcards.core.data.source.FlashcardReadSource
@@ -89,6 +90,17 @@ class DefaultFlashcardRepository @Inject constructor(
 
     override fun invalidateFlashcardCache() {
         cacheGeneration++
+        Log.d(TAG, "Flashcard cache invalidated, generation is now $cacheGeneration")
+    }
+
+    override suspend fun fetchCacheSeed(): Result<Int> = withContext(Dispatchers.IO) {
+        try {
+            Result.success(remoteDataSource.getCacheSeed())
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: Exception) {
+            Result.failure(exception)
+        }
     }
 
     /**
@@ -123,5 +135,9 @@ class DefaultFlashcardRepository @Inject constructor(
         val fromServer = remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId, FlashcardReadSource.Server)
         cacheMutex.withLock { serverReadGenerations[subcategoryId] = cacheGeneration }
         return fromServer
+    }
+
+    private companion object {
+        const val TAG = "FlashcardRepository"
     }
 }
