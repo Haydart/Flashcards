@@ -46,6 +46,10 @@ import com.rossomak.flashcards.core.ui.theme.spacing
  *
  * @param onConfirm applies the draft. Fired by the action button only.
  * @param onDismiss discards the draft. Fired by the scrim and the back press only.
+ * @param confirmEnabled disables the action button while the draft is invalid — e.g.
+ * [FlashcardFiltersDialog][com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardFiltersDialog]
+ * disabling confirm once every tag has been deselected. Defaults to always-enabled, matching every
+ * dialog that has nothing to validate.
  */
 @Composable
 fun FlashcardsSingleActionDialog(
@@ -56,6 +60,7 @@ fun FlashcardsSingleActionDialog(
     icon: ImageVector? = null,
     supportingText: String? = null,
     actionLabel: String = stringResource(R.string.common_done_button),
+    confirmEnabled: Boolean = true,
     keepAsDefault: Boolean? = null,
     onKeepAsDefaultChange: (Boolean) -> Unit = {},
     content: @Composable ColumnScope.() -> Unit = {},
@@ -63,7 +68,9 @@ fun FlashcardsSingleActionDialog(
     FlashcardsDialog(
         title = title,
         onDismissRequest = onDismiss,
-        confirmButton = { FlashcardsFilledButton(text = actionLabel, onClick = onConfirm) },
+        confirmButton = {
+            FlashcardsFilledButton(text = actionLabel, onClick = onConfirm, enabled = confirmEnabled)
+        },
         modifier = modifier,
         icon = icon,
         supportingText = supportingText,

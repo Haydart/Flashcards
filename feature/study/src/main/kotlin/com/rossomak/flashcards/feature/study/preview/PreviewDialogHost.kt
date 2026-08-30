@@ -10,7 +10,6 @@ import com.rossomak.flashcards.core.ui.composables.dialogs.SessionLengthDialog
 import com.rossomak.flashcards.core.ui.composables.dialogs.StudyModeDialog
 import com.rossomak.flashcards.core.ui.composables.dialogs.VoiceAnsweringDialog
 import com.rossomak.flashcards.core.ui.composables.dialogs.VoiceSettingsDialog
-import com.rossomak.flashcards.core.ui.composables.dialogs.withTag
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Dismiss
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.DraftChange
@@ -186,9 +185,10 @@ private fun LengthDialog(
 }
 
 /**
- * The one case whose edits are not a single field assignment — a tag toggle folds through
- * [withTag] — so it is lifted out of [PreviewDialogHost]'s `when` to keep that dispatch readable.
- * Still only a total `copy()` of an already-narrowed case, as ADR-0036 requires of a host.
+ * Same reason as [AttemptsDialog]/[LengthDialog]: computing [difficultyBounds][StudySessionConfig]
+ * pushes this branch past a single-line call, so it is lifted out of [PreviewDialogHost]'s `when`.
+ * Still only a total `copy()` of an already-narrowed case, as ADR-0036 requires of a host —
+ * [FlashcardFiltersDialog] folds every tag/difficulty edit into one new filters value itself.
  */
 @Composable
 private fun FiltersDialog(
@@ -201,12 +201,7 @@ private fun FiltersDialog(
         availableTags = dialog.availableTags,
         filters = dialog.draft,
         difficultyBounds = StudySessionConfig.MIN_DIFFICULTY..StudySessionConfig.MAX_DIFFICULTY,
-        onTagSelectedChange = { tag, isSelected ->
-            onDialogEvent(DraftChange(dialog.copy(draft = dialog.draft.withTag(tag, isSelected))))
-        },
-        onDifficultyRangeChange = {
-            onDialogEvent(DraftChange(dialog.copy(draft = dialog.draft.copy(difficultyRange = it))))
-        },
+        onFiltersChange = { onDialogEvent(DraftChange(dialog.copy(draft = it))) },
         onConfirm = onConfirm,
         onDismiss = onDismiss,
     )

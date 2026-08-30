@@ -4,17 +4,12 @@
   <CurrentIssues>
     <ID>CyclomaticComplexMethod:StudySessionScreen.kt$@Composable private fun StudySessionSheetContent( state: StudySessionScreenState, onShowAnswer: () -&gt; Unit, onRating: (FlashcardRating) -&gt; Unit, onVoicePlayPause: () -&gt; Unit, onVoiceNext: () -&gt; Unit, onVoicePrevious: () -&gt; Unit, onVoiceSettingsCogClick: () -&gt; Unit, onVoiceAnswerToggle: () -&gt; Unit, )</ID>
     <ID>CyclomaticComplexMethod:StudySessionScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun StudySessionContent( modifier: Modifier = Modifier, state: StudySessionScreenState, snackbarHostState: SnackbarHostState, onShowAnswer: () -&gt; Unit, onNextCard: () -&gt; Unit, onRating: (FlashcardRating) -&gt; Unit, onVoicePlayPause: () -&gt; Unit, onVoiceNext: () -&gt; Unit, onVoicePrevious: () -&gt; Unit, onVoiceAnswerToggle: () -&gt; Unit, onDialogEvent: (StudySessionDialogEvent) -&gt; Unit, )</ID>
+    <ID>LargeClass:PreviewStudySessionViewModelTest.kt$PreviewStudySessionViewModelTest</ID>
     <ID>LongMethod:StudySessionScreen.kt$@Composable fun StudySessionScreen( modifier: Modifier = Modifier, viewModel: StudySessionViewModel = hiltViewModel(), onNavigateBack: () -&gt; Unit, )</ID>
     <ID>LongMethod:StudySessionScreen.kt$@Composable private fun StudySessionSheetContent( state: StudySessionScreenState, onShowAnswer: () -&gt; Unit, onRating: (FlashcardRating) -&gt; Unit, onVoicePlayPause: () -&gt; Unit, onVoiceNext: () -&gt; Unit, onVoicePrevious: () -&gt; Unit, onVoiceSettingsCogClick: () -&gt; Unit, onVoiceAnswerToggle: () -&gt; Unit, )</ID>
     <ID>LongMethod:StudySessionScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun StudySessionContent( modifier: Modifier = Modifier, state: StudySessionScreenState, snackbarHostState: SnackbarHostState, onShowAnswer: () -&gt; Unit, onNextCard: () -&gt; Unit, onRating: (FlashcardRating) -&gt; Unit, onVoicePlayPause: () -&gt; Unit, onVoiceNext: () -&gt; Unit, onVoicePrevious: () -&gt; Unit, onVoiceAnswerToggle: () -&gt; Unit, onDialogEvent: (StudySessionDialogEvent) -&gt; Unit, )</ID>
     <ID>LongParameterList:StudySessionScreen.kt$( modifier: Modifier = Modifier, state: StudySessionScreenState, snackbarHostState: SnackbarHostState, onShowAnswer: () -&gt; Unit, onNextCard: () -&gt; Unit, onRating: (FlashcardRating) -&gt; Unit, onVoicePlayPause: () -&gt; Unit, onVoiceNext: () -&gt; Unit, onVoicePrevious: () -&gt; Unit, onVoiceAnswerToggle: () -&gt; Unit, onDialogEvent: (StudySessionDialogEvent) -&gt; Unit, )</ID>
     <ID>LongParameterList:StudySessionScreen.kt$( state: StudySessionScreenState, onShowAnswer: () -&gt; Unit, onRating: (FlashcardRating) -&gt; Unit, onVoicePlayPause: () -&gt; Unit, onVoiceNext: () -&gt; Unit, onVoicePrevious: () -&gt; Unit, onVoiceSettingsCogClick: () -&gt; Unit, onVoiceAnswerToggle: () -&gt; Unit, )</ID>
-    <ID>MagicNumber:StudySessionScreen.kt$0xFF3E9556</ID>
-    <ID>MagicNumber:StudySessionScreen.kt$0xFFC94F4F</ID>
-    <ID>MagicNumber:StudySessionScreen.kt$0xFFC98F2B</ID>
-    <ID>MagicNumber:StudySessionScreen.kt$0xFFD3EBD6</ID>
-    <ID>MagicNumber:StudySessionScreen.kt$0xFFF6D9DA</ID>
-    <ID>MagicNumber:StudySessionScreen.kt$0xFFF6E8C8</ID>
     <ID>TooManyFunctions:StudySessionViewModel.kt$StudySessionViewModel : ViewModel</ID>
     <ID>TooManyFunctions:TtsPlayer.kt$TtsPlayer : SimpleBasePlayer</ID>
     <ID>UnusedParameter:StudySessionScreen.kt$onNextCard: () -&gt; Unit</ID>

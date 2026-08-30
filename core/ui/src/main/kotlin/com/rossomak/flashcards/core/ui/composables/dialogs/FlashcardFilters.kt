@@ -21,3 +21,19 @@ data class FlashcardFilters(
  */
 fun FlashcardFilters.withTag(tag: String, isSelected: Boolean): FlashcardFilters =
     copy(selectedTags = if (isSelected) selectedTags + tag else selectedTags - tag)
+
+/**
+ * Checks every tag in [availableTags] — the "Select all" action.
+ *
+ * Lives here for the same reason as [withTag]: a host may only do total field-level `copy()`
+ * (ADR-0036), so the set assignment belongs in a testable helper, not inline in a composable.
+ */
+fun FlashcardFilters.selectAllTags(availableTags: List<String>): FlashcardFilters =
+    copy(selectedTags = availableTags.toSet())
+
+/**
+ * Unchecks every tag — the "Deselect all" action. Reachable, but [FlashcardFiltersDialog] disables
+ * its confirm button while [FlashcardFilters.selectedTags] is empty and tags are on offer, so this
+ * state can be shown but never committed: at least one tag must stay selected.
+ */
+fun FlashcardFilters.deselectAllTags(): FlashcardFilters = copy(selectedTags = emptySet())

@@ -3,6 +3,7 @@ package com.rossomak.flashcards.core.data.repository
 import com.rossomak.flashcards.core.data.model.CategoryDto
 import com.rossomak.flashcards.core.data.model.FlashcardDto
 import com.rossomak.flashcards.core.data.model.SubcategoryDto
+import com.rossomak.flashcards.core.data.source.FlashcardReadSource
 import com.rossomak.flashcards.core.data.source.FlashcardRemoteDataSource
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
@@ -102,7 +103,7 @@ class DefaultFlashcardRepositoryTest {
         val subcategoryId = "sub-1"
         val ratedDto = FlashcardDto(id = "card-1", question = "q", answer = "a", difficulty = 4)
         val unratedDto = FlashcardDto(id = "card-2", question = "q2", answer = "a2", difficulty = null)
-        coEvery { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId) } returns listOf(ratedDto, unratedDto)
+        coEvery { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId, FlashcardReadSource.Server) } returns listOf(ratedDto, unratedDto)
 
         val result = createRepository().fetchFlashcards(subcategoryId)
 
@@ -111,20 +112,20 @@ class DefaultFlashcardRepositoryTest {
         flashcard.id shouldBe ratedDto.id
         flashcard.subcategoryId shouldBe subcategoryId
         flashcard.difficulty shouldBe 4
-        coVerify(exactly = 1) { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId) }
+        coVerify(exactly = 1) { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId, FlashcardReadSource.Server) }
     }
 
     @Test
     fun `fetchFlashcards wraps data source failure in failure result`() = runTest {
         val subcategoryId = "sub-1"
         val error = IllegalStateException("firestore down")
-        coEvery { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId) } throws error
+        coEvery { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId, FlashcardReadSource.Server) } throws error
 
         val result = createRepository().fetchFlashcards(subcategoryId)
 
         result.isFailure shouldBe true
         result.exceptionOrNull() shouldBe error
-        coVerify(exactly = 1) { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId) }
+        coVerify(exactly = 1) { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId, FlashcardReadSource.Server) }
     }
 
     @Test
@@ -172,5 +173,109 @@ class DefaultFlashcardRepositoryTest {
 
         (thrown is CancellationException) shouldBe true
         coVerify(exactly = 1) { remoteDataSource.searchSubcategoriesByNamePrefix(namePrefix) }
+    }
+
+    @Test
+    fun `fetchFlashcards serves a repeat read from cache without contacting the server`() = runTest {
+        val subcategoryId = "sub-1"
+        val dto = FlashcardDto(id = "card-1", question = "q", answer = "a", difficulty = 4)
+        coEvery { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId, FlashcardReadSource.Server) } returns listOf(dto)
+        coEvery { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId, FlashcardReadSource.Cache) } returns listOf(dto)
+        val repository = createRepository()
+
+        repository.fetchFlashcards(subcategoryId)
+        val second = repository.fetchFlashcards(subcategoryId)
+        val third = repository.fetchFlashcards(subcategoryId)
+
+        second.getOrThrow().single().id shouldBe dto.id
+        third.getOrThrow().single().id shouldBe dto.id
+        coVerify(exactly = 1) { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId, FlashcardReadSource.Server) }
+        coVerify(exactly = 2) { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId, FlashcardReadSource.Cache) }
+    }
+
+    @Test
+    fun `fetchFlashcards falls through to the server when the cache read comes back empty`() = runTest {
+        val subcategoryId = "sub-1"
+        val dto = FlashcardDto(id = "card-1", question = "q", answer = "a", difficulty = 4)
+        coEvery { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId, FlashcardReadSource.Server) } returns listOf(dto)
+        coEvery { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId, FlashcardReadSource.Cache) } returns emptyList()
+        val repository = createRepository()
+
+        repository.fetchFlashcards(subcategoryId)
+        val afterEviction = repository.fetchFlashcards(subcategoryId)
+
+        afterEviction.getOrThrow().single().id shouldBe dto.id
+        coVerify(exactly = 2) { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId, FlashcardReadSource.Server) }
+        coVerify(exactly = 1) { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId, FlashcardReadSource.Cache) }
+    }
+
+    @Test
+    fun `fetchFlashcards reads from the server again for the first read of a new generation`() = runTest {
+        val subcategoryId = "sub-1"
+        val dto = FlashcardDto(id = "card-1", question = "q", answer = "a", difficulty = 4)
+        coEvery { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId, FlashcardReadSource.Server) } returns listOf(dto)
+        coEvery { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId, FlashcardReadSource.Cache) } returns listOf(dto)
+        val repository = createRepository()
+
+        repository.fetchFlashcards(subcategoryId)
+        repository.fetchFlashcards(subcategoryId)
+        repository.invalidateFlashcardCache()
+        repository.fetchFlashcards(subcategoryId)
+        repository.fetchFlashcards(subcategoryId)
+
+        coVerify(exactly = 2) { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId, FlashcardReadSource.Server) }
+        coVerify(exactly = 2) { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId, FlashcardReadSource.Cache) }
+    }
+
+    @Test
+    fun `fetchFlashcards caches each subcategory independently`() = runTest {
+        val first = "sub-1"
+        val second = "sub-2"
+        val dto = FlashcardDto(id = "card-1", question = "q", answer = "a", difficulty = 4)
+        coEvery { remoteDataSource.getFlashcardsBySubcategoryId(any(), FlashcardReadSource.Server) } returns listOf(dto)
+        coEvery { remoteDataSource.getFlashcardsBySubcategoryId(any(), FlashcardReadSource.Cache) } returns listOf(dto)
+        val repository = createRepository()
+
+        repository.fetchFlashcards(first)
+        repository.fetchFlashcards(second)
+        repository.fetchFlashcards(first)
+
+        coVerify(exactly = 1) { remoteDataSource.getFlashcardsBySubcategoryId(first, FlashcardReadSource.Server) }
+        coVerify(exactly = 1) { remoteDataSource.getFlashcardsBySubcategoryId(second, FlashcardReadSource.Server) }
+        coVerify(exactly = 1) { remoteDataSource.getFlashcardsBySubcategoryId(first, FlashcardReadSource.Cache) }
+        coVerify(exactly = 0) { remoteDataSource.getFlashcardsBySubcategoryId(second, FlashcardReadSource.Cache) }
+    }
+
+    @Test
+    fun `fetchFlashcards retries the server after a failed read rather than falling through to cache`() = runTest {
+        val subcategoryId = "sub-1"
+        val dto = FlashcardDto(id = "card-1", question = "q", answer = "a", difficulty = 4)
+        coEvery { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId, FlashcardReadSource.Server) } throws
+            IllegalStateException("firestore down") andThen listOf(dto)
+        val repository = createRepository()
+
+        repository.fetchFlashcards(subcategoryId).isFailure shouldBe true
+        val retried = repository.fetchFlashcards(subcategoryId)
+
+        retried.getOrThrow().single().id shouldBe dto.id
+        coVerify(exactly = 2) { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId, FlashcardReadSource.Server) }
+        coVerify(exactly = 0) { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId, FlashcardReadSource.Cache) }
+    }
+
+    @Test
+    fun `fetchFlashcards rethrows cancellation rather than wrapping it in a failure`() = runTest {
+        val subcategoryId = "sub-1"
+        coEvery { remoteDataSource.getFlashcardsBySubcategoryId(subcategoryId, FlashcardReadSource.Server) } throws
+            CancellationException("cancelled")
+        val repository = createRepository()
+
+        var thrown: Throwable? = null
+        try {
+            repository.fetchFlashcards(subcategoryId)
+        } catch (exception: CancellationException) {
+            thrown = exception
+        }
+
+        (thrown is CancellationException) shouldBe true
     }
 }

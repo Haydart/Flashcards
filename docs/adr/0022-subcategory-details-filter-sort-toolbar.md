@@ -34,3 +34,21 @@ Difficulty-aware sorting/filtering relies on every card — global or Private �
 
 - `SubcategoryDetailsScreenState` needs new fields for active tag selection, active difficulty range, active sort mode, and (pending implementation) a distinct empty-filtered-results case.
 - Empty-filtered-results state and FAB-disable-on-zero-results are specified here but left as a follow-up implementation task.
+
+## Amendments
+
+**2026-08-29 — the Sort icon carries no badge.** This ADR specified a badge dot on both the Filter
+and Sort icons "whenever their state is non-default". [ADR-0038](0038-one-sort-order-and-flashcard-selection-seam.md)
+makes sort order a single notion seeded from the user's saved `StudySessionPreference.SortOrder`,
+which makes "non-default" ambiguous: read literally, any user whose saved preference is not
+`Default` gets a permanently lit dot they cannot clear without changing their preference. The Sort
+badge is dropped. **The Filter badge is unaffected** — it marks a genuinely session-scoped
+selection over a well-defined empty state, and it stays.
+
+**2026-08-29 — the empty-filtered-results state is now specified concretely.** This ADR left it
+"designed but not yet implemented". `SubcategoryDetailsScreenState` now carries a sealed content
+field with four cases — `Loading`, `Error`, `Cards`, `NoMatches`. There is deliberately no
+fifth case for a Subcategory with no flashcards at all: `CONTEXT.md` records that a Subcategory
+always contains at least one Flashcard, which also makes the repository's cache-first read path
+sound (see ADR-0038). The "Clear filters" action clears tags and difficulty only and leaves sort
+untouched, matching this ADR's separation of the two axes.

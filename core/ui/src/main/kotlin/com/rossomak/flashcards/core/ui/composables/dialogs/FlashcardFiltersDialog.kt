@@ -17,6 +17,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.rossomak.flashcards.core.ui.R
 import com.rossomak.flashcards.core.ui.composables.FlashcardsDifficultyRangePill
 import com.rossomak.flashcards.core.ui.composables.FlashcardsTagChip
+import com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsTextButton
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentSize
 import com.rossomak.flashcards.core.ui.theme.spacing
 import kotlin.math.roundToInt
 
@@ -29,6 +31,17 @@ import kotlin.math.roundToInt
  *
  * Tags are OR-within (any selected tag matches) and AND-combined with the difficulty range.
  * [availableTags] is empty for multi-subcategory sessions, which filter by difficulty only.
+ *
+ * The screen this dialog is opened from is expected to already carry every tag selected by
+ * default — [filters] is never seeded empty-meaning-all here, unlike the difficulty range. Every
+ * Flashcard carries at least one Tag (`CONTEXT.md`), so at least one must stay checked: the
+ * confirm button disables once [FlashcardFilters.selectedTags] is empty while [availableTags] is
+ * not, via the Select all / Deselect all row above the chip grid.
+ *
+ * A single [onFiltersChange] rather than one callback per field: every edit here — a tag toggle,
+ * select/deselect all, the difficulty slider — is a whole new [FlashcardFilters], so the host does
+ * exactly the total `copy(draft = it)` ADR-0036 calls for, and this composable stays under
+ * detekt's parameter-count limit as the tag bulk-actions were added.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -36,8 +49,7 @@ fun FlashcardFiltersDialog(
     availableTags: List<String>,
     filters: FlashcardFilters,
     difficultyBounds: IntRange,
-    onTagSelectedChange: (String, Boolean) -> Unit,
-    onDifficultyRangeChange: (IntRange) -> Unit,
+    onFiltersChange: (FlashcardFilters) -> Unit,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
@@ -46,6 +58,7 @@ fun FlashcardFiltersDialog(
         title = stringResource(R.string.flashcard_filters_dialog_title),
         onConfirm = onConfirm,
         onDismiss = onDismiss,
+        confirmEnabled = filters.selectedTags.isNotEmpty() || availableTags.isEmpty(),
         modifier = modifier,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall)) {
@@ -57,6 +70,20 @@ fun FlashcardFiltersDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    FlashcardsTextButton(
+                        text = stringResource(R.string.flashcard_filters_select_all_button),
+                        onClick = { onFiltersChange(filters.selectAllTags(availableTags)) },
+                        size = FlashcardsComponentSize.Small,
+                        enabled = filters.selectedTags != availableTags.toSet(),
+                    )
+                    FlashcardsTextButton(
+                        text = stringResource(R.string.flashcard_filters_deselect_all_button),
+                        onClick = { onFiltersChange(filters.deselectAllTags()) },
+                        size = FlashcardsComponentSize.Small,
+                        enabled = filters.selectedTags.isNotEmpty(),
+                    )
+                }
                 FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall),
@@ -66,7 +93,9 @@ fun FlashcardFiltersDialog(
                         FlashcardsTagChip(
                             label = tag,
                             selected = tag in filters.selectedTags,
-                            onSelectedChange = { selected -> onTagSelectedChange(tag, selected) },
+                            onSelectedChange = { selected ->
+                                onFiltersChange(filters.withTag(tag, selected))
+                            },
                         )
                     }
                 }
@@ -89,7 +118,8 @@ fun FlashcardFiltersDialog(
             RangeSlider(
                 value = filters.difficultyRange.first.toFloat()..filters.difficultyRange.last.toFloat(),
                 onValueChange = { range ->
-                    onDifficultyRangeChange(range.start.roundToInt()..range.endInclusive.roundToInt())
+                    val newRange = range.start.roundToInt()..range.endInclusive.roundToInt()
+                    onFiltersChange(filters.copy(difficultyRange = newRange))
                 },
                 valueRange = difficultyBounds.first.toFloat()..difficultyBounds.last.toFloat(),
                 // One step per whole difficulty level, minus the two endpoints.
@@ -120,8 +150,7 @@ private fun FlashcardFiltersDialogPreview() {
         availableTags = listOf("state", "recomposition", "side-effects", "modifiers"),
         filters = FlashcardFilters(selectedTags = setOf("state", "modifiers"), difficultyRange = 3..8),
         difficultyBounds = 1..10,
-        onTagSelectedChange = { _, _ -> },
-        onDifficultyRangeChange = {},
+        onFiltersChange = {},
         onConfirm = {},
         onDismiss = {},
     )
@@ -134,8 +163,7 @@ private fun FlashcardFiltersDialogNoTagsPreview() {
         availableTags = emptyList(),
         filters = FlashcardFilters(selectedTags = emptySet(), difficultyRange = 1..10),
         difficultyBounds = 1..10,
-        onTagSelectedChange = { _, _ -> },
-        onDifficultyRangeChange = {},
+        onFiltersChange = {},
         onConfirm = {},
         onDismiss = {},
     )

@@ -17,5 +17,23 @@ interface FlashcardRepository {
      */
     suspend fun searchSubcategories(namePrefix: String): Result<List<Subcategory>>
 
+    /**
+     * A Subcategory's whole flashcard pool.
+     *
+     * Cached: repeat calls within a cache generation are served without contacting the backend, so
+     * a caller may re-read freely rather than holding a pool of its own. Invalidated only by
+     * [invalidateFlashcardCache].
+     */
     suspend fun fetchFlashcards(subcategoryId: String): Result<List<Flashcard>>
+
+    /**
+     * Starts a new cache generation: the next [fetchFlashcards] for each Subcategory goes to the
+     * backend, and reads after that are served from cache again.
+     *
+     * Nothing calls this yet. It is the seam the seed-versioned invalidation effort drives — that
+     * effort compares a server-side knowledge-base seed against a locally stored copy at app start
+     * and calls this on a mismatch (ADR-0038). Until it lands, a curation update stays invisible
+     * on-device for the life of a cache entry.
+     */
+    fun invalidateFlashcardCache()
 }

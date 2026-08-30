@@ -1,93 +1,92 @@
 package com.rossomak.flashcards.core.domain.usecase
 
+import com.rossomak.flashcards.core.domain.model.FilteredFlashcards
 import com.rossomak.flashcards.core.domain.model.Flashcard
-import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.domain.model.StudySessionPlan
-import com.rossomak.flashcards.core.domain.repository.FlashcardRepository
+import com.rossomak.flashcards.core.domain.model.orderedBy
 import com.rossomak.flashcards.core.domain.usecase.base.UseCase
 import javax.inject.Inject
 import kotlin.random.Random
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 
 /**
  * Resolves a [StudySessionConfig] into the concrete list of cards a session will run.
  *
- * **The use case owns the fetch.** A caller hands over `{subcategoryIds, filters, length, sort,
- * seed}` — small, and exactly the shape a server-side or AI-driven selector would be POSTed. A
- * variant taking a pre-fetched pool would be easier to test in isolation but would mean uploading
- * the user's whole card pool on every re-selection once that selector exists.
+ * A composite: it loads each Subcategory's pool through [GetFlashcardsUseCase], narrows it with the
+ * shared [FilterFlashcardsUseCase], then draws and orders. It owns none of those three steps — the
+ * filter in particular is shared with browsing, so a filter can never mean one thing in a list and
+ * another in a session (ADR-0038).
  *
- * Holds an in-memory pool cache keyed on subcategory id, following [SearchCategoriesUseCase]:
- * unscoped, so it lives exactly as long as the ViewModel that injected it. Re-selecting after a
- * dialog confirm therefore costs no read, which is what makes "re-run selection on every confirm"
- * affordable.
+ * **It holds no cache.** Repeat reads of the same Subcategory are the repository's problem, which is
+ * what keeps "re-run selection on every dialog confirm" affordable without this use case knowing
+ * anything about caching.
  *
- * `suspend` + [Result] from day one even though the local path only fails on the fetch —
- * retrofitting [Result] later would touch every call site.
+ * Session-only. Browsing a Subcategory does not come through here: a browsed list is complete and
+ * stably ordered, where a session draw is capped and shuffled.
  */
 class SelectSessionFlashcardsUseCase @Inject constructor(
-    private val flashcardRepository: FlashcardRepository,
+    private val getFlashcards: GetFlashcardsUseCase,
+    private val filterFlashcards: FilterFlashcardsUseCase,
 ) : UseCase<StudySessionConfig, Result<StudySessionPlan>> {
 
-    private val cacheMutex = Mutex()
-    private val cachedCardsBySubcategoryId = mutableMapOf<String, List<Flashcard>>()
+    /**
+     * Not `mapCatching`: [buildPlan] suspends, and mapCatching would turn a `CancellationException`
+     * into a failed [Result] instead of letting it propagate.
+     */
+    override suspend fun invoke(params: StudySessionConfig): Result<StudySessionPlan> {
+        val pool = loadPool(params.subcategoryIds).getOrElse { failure -> return Result.failure(failure) }
+        return Result.success(buildPlan(pool, params))
+    }
 
-    override suspend fun invoke(params: StudySessionConfig): Result<StudySessionPlan> =
-        loadPool(params.subcategoryIds).map { pool -> buildPlan(select(pool, params), pool) }
+    private suspend fun buildPlan(pool: List<Flashcard>, config: StudySessionConfig): StudySessionPlan {
+        val filtered = filterFlashcards(
+            FilterFlashcardsUseCase.Params(
+                tagIds = config.tagIds,
+                difficultyRange = config.difficultyRange,
+                pool = pool,
+            )
+        )
+        val drawn = draw(filtered, config)
+        return StudySessionPlan(
+            cards = drawn,
+            estimatedMinutes = estimateMinutes(drawn.size),
+            // From the whole pool, not the draw: these are what a filter picker offers, and deriving
+            // them from the drawn cards would hide the very tags the user filtered on.
+            poolTags = filtered.poolTags,
+        )
+    }
 
     /**
-     * [poolTags] comes from the whole pool rather than from [cards]: it is what a filter UI offers
-     * as options, and deriving it from the drawn cards would make tags disappear from the picker
-     * precisely because the user filtered them out.
+     * Draw, then order. Drawing first is deliberate: ordering the whole eligible pool and taking the
+     * head would hand back the same easiest — or hardest — cards every session.
      */
-    private fun buildPlan(cards: List<Flashcard>, pool: List<Flashcard>): StudySessionPlan = StudySessionPlan(
-        cards = cards,
-        estimatedMinutes = estimateMinutes(cards.size),
-        poolTags = pool.flatMap { it.tags }.distinct().sorted(),
-    )
+    private fun draw(filtered: FilteredFlashcards, config: StudySessionConfig): List<Flashcard> =
+        filtered.cards
+            .shuffled(Random(config.seed))
+            .take(config.length)
+            .orderedBy(config.sortOrder)
 
     /** Rounds up so a plan with any cards at all never reads as "~0 min". */
     private fun estimateMinutes(cardCount: Int): Int =
         ((cardCount * SECONDS_PER_CARD) + SECONDS_PER_MINUTE - 1) / SECONDS_PER_MINUTE
 
+    /**
+     * Loads every Subcategory in parallel and flattens them into one pool. The first failure wins:
+     * a partial pool would silently narrow the session rather than reporting that something is
+     * wrong.
+     */
     private suspend fun loadPool(subcategoryIds: List<String>): Result<List<Flashcard>> = coroutineScope {
         val results = subcategoryIds
-            .map { subcategoryId -> async { subcategoryId to fetchCards(subcategoryId) } }
+            .map { subcategoryId -> async { getFlashcards(subcategoryId) } }
             .awaitAll()
-        val failure = results.firstNotNullOfOrNull { (_, result) -> result.exceptionOrNull() }
+        val failure = results.firstNotNullOfOrNull { result -> result.exceptionOrNull() }
         if (failure != null) {
             Result.failure(failure)
         } else {
-            Result.success(results.flatMap { (_, result) -> result.getOrDefault(emptyList()) })
-        }
-    }
-
-    private suspend fun fetchCards(subcategoryId: String): Result<List<Flashcard>> {
-        val cached = cacheMutex.withLock { cachedCardsBySubcategoryId[subcategoryId] }
-        if (cached != null) return Result.success(cached)
-        return flashcardRepository.fetchFlashcards(subcategoryId)
-            .onSuccess { cards -> cacheMutex.withLock { cachedCardsBySubcategoryId[subcategoryId] = cards } }
-    }
-
-    /**
-     * Filter, draw, then order. Drawing before ordering is deliberate: sorting the whole eligible
-     * pool and taking the head would hand back the same easiest (or hardest) cards every session.
-     */
-    private fun select(pool: List<Flashcard>, config: StudySessionConfig): List<Flashcard> {
-        val drawnCards = pool
-            .filter { card -> card.difficulty in config.difficultyRange }
-            .filter { card -> config.tagIds.isEmpty() || card.tags.any(config.tagIds::contains) }
-            .shuffled(Random(config.seed))
-            .take(config.length)
-        return when (config.sortOrder) {
-            FlashcardSortOrder.Default -> drawnCards
-            FlashcardSortOrder.EasiestFirst -> drawnCards.sortedBy { it.difficulty }
-            FlashcardSortOrder.HardestFirst -> drawnCards.sortedByDescending { it.difficulty }
+            Result.success(results.flatMap { result -> result.getOrDefault(emptyList()) })
         }
     }
 
