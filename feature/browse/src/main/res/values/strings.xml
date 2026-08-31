@@ -24,14 +24,25 @@
     <string name="subcategory_details_reset_filters_button">Reset filters</string>
     <string name="subcategory_details_load_error_message">Could not load flashcards</string>
     <string name="category_details_subtitle_label">Category</string>
-    <string name="category_details_start_session_button">Start session</string>
     <string name="category_details_bookmark_label">Bookmark</string>
     <string name="category_details_add_shortcut_label">Add to home screen</string>
     <string name="category_details_more_options_cd">More options</string>
-    <string name="category_details_filter_cd">Filter topics</string>
-    <string name="category_details_sort_cd">Sort topics</string>
-    <string name="category_details_add_topic_cd">Add topic</string>
     <string name="category_details_topic_play_cd">Study %1$s</string>
+    <string name="category_details_quick_session_button">Quick session</string>
+    <string name="category_details_custom_session_button">Custom session · %1$d</string>
+    <string name="category_details_selection_mode_enter_cd">Select topics</string>
+    <string name="category_details_selection_mode_exit_cd">Exit selection</string>
+    <string name="category_details_select_all_cd">Select all topics</string>
+    <string name="category_details_deselect_all_cd">Deselect all topics</string>
+    <string name="category_details_selection_subtitle_label">Custom session</string>
+    <plurals name="category_details_selection_subtitle_with_count_label">
+        <item quantity="one">Custom session · %1$d card</item>
+        <item quantity="other">Custom session · %1$d cards</item>
+    </plurals>
+    <plurals name="category_details_selection_overline_label">
+        <item quantity="one">%1$d of %2$d topic selected</item>
+        <item quantity="other">%1$d of %2$d topics selected</item>
+    </plurals>
     <string name="browse_category_placeholder_subtitle">Tap to explore</string>
     <string name="browse_search_hint">Search categories or topics…</string>
     <string name="browse_categories_label">Categories</string>

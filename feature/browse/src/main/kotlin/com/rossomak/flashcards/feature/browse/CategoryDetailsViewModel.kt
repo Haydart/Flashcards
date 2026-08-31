@@ -3,16 +3,19 @@ package com.rossomak.flashcards.feature.browse
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.rossomak.flashcards.core.domain.model.Subcategory
 import com.rossomak.flashcards.core.domain.usecase.GetSubcategoriesUseCase
 import com.rossomak.flashcards.core.ui.navigation.decodeRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -27,6 +30,9 @@ class CategoryDetailsViewModel @Inject constructor(
     private val _state = MutableStateFlow(CategoryDetailsScreenState(categoryId = route.categoryId, categoryName = route.categoryName))
     val state: StateFlow<CategoryDetailsScreenState> = _state.asStateFlow()
 
+    private val eventChannel = Channel<CategoryDetailsDestination>(Channel.BUFFERED)
+    val events = eventChannel.receiveAsFlow()
+
     private val _messages = MutableSharedFlow<CategoryDetailsMessage>(extraBufferCapacity = 1)
 
     /** Transient one-shot messages for the snackbar. Never screen state. */
@@ -34,6 +40,81 @@ class CategoryDetailsViewModel @Inject constructor(
 
     init {
         loadSubcategories()
+    }
+
+    /**
+     * Enters Selection Mode with nothing selected, or leaves it. Leaving sets the field back to
+     * `null`, not an empty set — the selection is discarded, never parked, so re-entering later
+     * starts clean.
+     */
+    fun onSelectionModeToggle() {
+        _state.update {
+            it.copy(selectedSubcategoryIds = if (it.isSelectionMode) null else emptySet())
+        }
+    }
+
+    /** Long-pressing a topic enters Selection Mode **and** selects the pressed topic, in one update. */
+    fun onSubcategoryLongPress(subcategoryId: String) {
+        _state.update { it.copy(selectedSubcategoryIds = setOf(subcategoryId)) }
+    }
+
+    fun onSubcategorySelectionChange(subcategoryId: String, selected: Boolean) {
+        _state.update {
+            val current = it.selectedSubcategoryIds ?: return@update it
+            it.copy(
+                selectedSubcategoryIds = if (selected) current + subcategoryId else current - subcategoryId,
+            )
+        }
+    }
+
+    /**
+     * Two-state on [CategoryDetailsScreenState.isAllSelected]: all selected clears to empty,
+     * anything else — including a partial selection — selects every topic. There is no
+     * indeterminate third state; the partial case and the empty case both want "select everything".
+     */
+    fun onSelectAllToggle() {
+        _state.update {
+            it.copy(
+                selectedSubcategoryIds = if (it.isAllSelected) {
+                    emptySet()
+                } else {
+                    it.subcategories.map { subcategory -> subcategory.id }.toSet()
+                },
+            )
+        }
+    }
+
+    /** Every Subcategory in the Category, sampled by the Preview screen — not honoured literally. */
+    fun onQuickSessionStart() {
+        emitPreviewSession(subcategories = _state.value.subcategories, isQuickSession = true)
+    }
+
+    /**
+     * Exactly the selected Subcategories, honoured literally — not sampled. Emitted in **list
+     * order, not selection order**, so a session's topic order does not depend on the order the
+     * user happened to tap.
+     */
+    fun onCustomSessionStart() {
+        val state = _state.value
+        val selectedIds = state.selectedSubcategoryIds ?: return
+        emitPreviewSession(
+            subcategories = state.subcategories.filter { it.id in selectedIds },
+            isQuickSession = false,
+        )
+    }
+
+    private fun emitPreviewSession(subcategories: List<Subcategory>, isQuickSession: Boolean) {
+        viewModelScope.launch {
+            eventChannel.send(
+                CategoryDetailsDestination.PreviewStudySession(
+                    categoryId = route.categoryId,
+                    categoryName = route.categoryName,
+                    subcategoryIds = subcategories.map { it.id },
+                    subcategoryNames = subcategories.map { it.name },
+                    isQuickSession = isQuickSession,
+                )
+            )
+        }
     }
 
     /**
