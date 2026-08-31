@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -16,11 +15,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.rossomak.flashcards.core.ui.R
 import com.rossomak.flashcards.core.ui.composables.FlashcardsDifficultyRangePill
+import com.rossomak.flashcards.core.ui.composables.FlashcardsIntRangeSlider
 import com.rossomak.flashcards.core.ui.composables.FlashcardsTagChip
 import com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsTextButton
 import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentSize
 import com.rossomak.flashcards.core.ui.theme.spacing
-import kotlin.math.roundToInt
 
 /**
  * Narrows a session's card pool by tag and difficulty.
@@ -30,7 +29,10 @@ import kotlin.math.roundToInt
  * (ADR-0030). That is expressed by simply not passing `keepAsDefault` down to the scaffold.
  *
  * Tags are OR-within (any selected tag matches) and AND-combined with the difficulty range.
- * [availableTags] is empty for multi-subcategory sessions, which filter by difficulty only.
+ * [availableTags] is empty for multi-subcategory sessions, which filter by difficulty only — in
+ * that case the whole Tag section (label, bulk actions, chips) is omitted rather than shown with
+ * an empty-chips fallback message, since a multi-subcategory pool has no coherent tag vocabulary
+ * to offer at all.
  *
  * The screen this dialog is opened from is expected to already carry every tag selected by
  * default — [filters] is never seeded empty-meaning-all here, unlike the difficulty range. Every
@@ -61,15 +63,9 @@ fun FlashcardFiltersDialog(
         confirmEnabled = filters.selectedTags.isNotEmpty() || availableTags.isEmpty(),
         modifier = modifier,
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall)) {
-            SectionLabel(text = stringResource(R.string.flashcard_filters_tags_label))
-            if (availableTags.isEmpty()) {
-                Text(
-                    text = stringResource(R.string.flashcard_filters_no_tags_message),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
+        if (availableTags.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall)) {
+                SectionLabel(text = stringResource(R.string.flashcard_filters_tags_label))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     FlashcardsTextButton(
                         text = stringResource(R.string.flashcard_filters_select_all_button),
@@ -115,16 +111,10 @@ fun FlashcardFiltersDialog(
                     highLevel = filters.difficultyRange.last,
                 )
             }
-            RangeSlider(
-                value = filters.difficultyRange.first.toFloat()..filters.difficultyRange.last.toFloat(),
-                onValueChange = { range ->
-                    val newRange = range.start.roundToInt()..range.endInclusive.roundToInt()
-                    onFiltersChange(filters.copy(difficultyRange = newRange))
-                },
-                valueRange = difficultyBounds.first.toFloat()..difficultyBounds.last.toFloat(),
-                // One step per whole difficulty level, minus the two endpoints.
-                steps = (difficultyBounds.last - difficultyBounds.first - 1).coerceAtLeast(0),
-                modifier = Modifier.fillMaxWidth(),
+            FlashcardsIntRangeSlider(
+                value = filters.difficultyRange,
+                bounds = difficultyBounds,
+                onValueChange = { onFiltersChange(filters.copy(difficultyRange = it)) },
             )
         }
     }
@@ -158,7 +148,7 @@ private fun FlashcardFiltersDialogPreview() {
 
 @Preview
 @Composable
-private fun FlashcardFiltersDialogNoTagsPreview() {
+private fun FlashcardFiltersDialogMultiSubcategoryPreview() {
     FlashcardFiltersDialog(
         availableTags = emptyList(),
         filters = FlashcardFilters(selectedTags = emptySet(), difficultyRange = 1..10),

@@ -18,4 +18,5 @@ data class StudySessionPreferences(
     val sessionLength: Int = StudySessionConfig.DEFAULT_LENGTH,
     val sortOrder: FlashcardSortOrder = FlashcardSortOrder.Default,
     val voiceSettings: VoiceSettings = VoiceSettings(),
+    val subcategoryCountRange: IntRange = StudySessionConfig.DEFAULT_SUBCATEGORY_COUNT_RANGE,
 )

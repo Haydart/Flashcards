@@ -45,14 +45,27 @@
     <string name="preview_session_read_aloud_label">Read-aloud</string>
     <string name="preview_session_voice_settings_label">Voice</string>
     <string name="preview_session_length_label">Length</string>
+    <string name="preview_session_subcategory_count_range_label">Topics</string>
     <string name="preview_session_filters_label">Filters</string>
     <string name="preview_session_sort_label">Sort</string>
     <string name="preview_session_edit_setting_cd">Edit %1$s</string>
     <string name="preview_session_filters_difficulty_value_label">Difficulty %1$d\u2013%2$d</string>
     <string name="preview_session_setting_value_separator_label">%1$s \u00B7 %2$s</string>
+    <string name="preview_session_empty_state_title">No cards match</string>
+    <string name="preview_session_empty_state_message">Nothing meets the current filters. Reset them to try again.</string>
+    <string name="preview_session_empty_state_reset_button">Reset filters</string>
+    <string name="preview_session_scope_quick_session_message">" auto-selected across "</string>
+    <string name="preview_session_scope_single_topic_prefix_message">" from your "</string>
+    <string name="preview_session_scope_single_topic_suffix_message">" deck."</string>
+    <string name="preview_session_scope_multi_topic_message">" from "</string>
 
     <plurals name="preview_session_filters_tags_value_label">
         <item quantity="one">%1$d tag</item>
         <item quantity="other">%1$d tags</item>
+    </plurals>
+
+    <plurals name="preview_session_scope_other_topics_count">
+        <item quantity="one">" and %1$d other topic"</item>
+        <item quantity="other">" and %1$d other topics"</item>
     </plurals>
 </resources>

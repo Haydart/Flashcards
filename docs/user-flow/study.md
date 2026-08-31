@@ -31,7 +31,7 @@ flowchart TD
     CatDetails --> TapSubcatRow[/Tap Subcategory row/]
     CatDetails --> TapFastStart[/Fast-start on row\nsingle subcat · skips Subcategory Details/]
     CatDetails --> TapQuickSession[/Quick Session\nauto-selects subcategories/]
-    CatDetails --> TapComposite[/Start Composite Session\nlist → multi-select mode/]
+    CatDetails --> TapCustom[/Start Custom Session\nlist → multi-select mode/]
     CatDetails --> CatAddShortcut[/⋮ → Add to home screen/]
 
     TapSubcatRow --> SubcatDetails
@@ -39,10 +39,10 @@ flowchart TD
     TapQuickSession --> PreviewStudySession
     CatAddShortcut --> ShortcutPinDialog[Android system\nshortcut pin dialog]
 
-    TapComposite --> CatMultiselect(CATEGORY DETAILS\nmulti-select active)
+    TapCustom --> CatMultiselect(CATEGORY DETAILS\nmulti-select active)
     CatMultiselect --> SelectSubcats[/Select ≥1 subcategories/]
-    SelectSubcats --> TapStartComposite[/Tap Start/]
-    TapStartComposite --> PreviewStudySession
+    SelectSubcats --> TapStartCustom[/Tap Start/]
+    TapStartCustom --> PreviewStudySession
 
     %% ── Subcategory Details ───────────────────────────────────────
     SubcatDetails(SUBCATEGORY DETAILS SCREEN\nFlashcard list · collapsible items\nApp bar: back · bookmark · overflow)

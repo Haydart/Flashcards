@@ -18,6 +18,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -50,6 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.ui.R as CoreUiR
+import com.rossomak.flashcards.core.ui.composables.FlashcardsEmptyState
 import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardFilters
 import com.rossomak.flashcards.core.ui.composables.dialogs.label
 import com.rossomak.flashcards.core.ui.composables.dialogs.readAloudLabel
@@ -65,6 +68,7 @@ import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Length
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Mode
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.ReadAloud
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Sort
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.SubcategoryCountRange
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceAnswering
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceSettings
 
@@ -90,6 +94,7 @@ fun PreviewStudySessionScreen(
         onRetry = viewModel::onRetry,
         onRerandomize = viewModel::onRerandomize,
         onDialogEvent = viewModel::onDialogEvent,
+        onResetFilters = viewModel::onResetFilters,
         onStartSession = viewModel::onStartSession,
     )
 }
@@ -103,6 +108,7 @@ fun PreviewStudySessionContent(
     onRetry: () -> Unit,
     onRerandomize: () -> Unit,
     onDialogEvent: (PreviewDialogEvent) -> Unit,
+    onResetFilters: () -> Unit,
     onStartSession: () -> Unit,
 ) {
     PreviewDialogHost(
@@ -148,6 +154,7 @@ fun PreviewStudySessionContent(
                 state = state,
                 onRerandomize = onRerandomize,
                 onDialogEvent = onDialogEvent,
+                onResetFilters = onResetFilters,
                 onStartSession = onStartSession,
             )
         }
@@ -179,6 +186,7 @@ private fun ReadyContent(
     state: PreviewStudySessionScreenState,
     onRerandomize: () -> Unit,
     onDialogEvent: (PreviewDialogEvent) -> Unit,
+    onResetFilters: () -> Unit,
     onStartSession: () -> Unit,
 ) {
     Column(
@@ -189,27 +197,38 @@ private fun ReadyContent(
     ) {
         Spacer(modifier = Modifier.height(24.dp))
 
-        Text(
-            text = "Ready to start?",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = scopeDescription(state),
-            style = MaterialTheme.typography.bodyLarge,
-        )
-        Spacer(modifier = Modifier.height(16.dp))
+        if (state.selectedCardCount == 0) {
+            FlashcardsEmptyState(
+                icon = Icons.Default.SearchOff,
+                title = stringResource(R.string.preview_session_empty_state_title),
+                supportingText = stringResource(R.string.preview_session_empty_state_message),
+                ctaLabel = stringResource(R.string.preview_session_empty_state_reset_button),
+                ctaIcon = Icons.Default.Refresh,
+                onCtaClick = onResetFilters,
+            )
+        } else {
+            Text(
+                text = "Ready to start?",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = scopeDescription(state),
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
 
-        Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            AssistChip(onClick = {}, label = { Text(text = "~ ${state.estimatedMinutes} min") })
-            if (!state.isSingleTopic) {
-                AssistChip(onClick = {}, label = { Text(text = "${state.topicCount} topics") })
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                AssistChip(onClick = {}, label = { Text(text = "~ ${state.estimatedMinutes} min") })
+                if (!state.isSingleTopic) {
+                    AssistChip(onClick = {}, label = { Text(text = "${state.topicCount} topics") })
+                }
+                AssistChip(onClick = {}, label = { Text(text = "${state.selectedCardCount} cards") })
             }
-            AssistChip(onClick = {}, label = { Text(text = "${state.selectedCardCount} cards") })
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -220,9 +239,12 @@ private fun ReadyContent(
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             if (state.canRerandomize) {
+                // Enabled independent of canStart: a new Subcategory sample or a loosened filter
+                // might turn an empty result into a match, so re-randomizing must stay reachable
+                // through the empty state, not just once cards are already selected.
                 FilledTonalButton(
                     onClick = onRerandomize,
-                    enabled = state.canStart,
+                    enabled = !state.isLoading,
                     modifier = Modifier.weight(1f),
                 ) {
                     Icon(imageVector = Icons.Default.Shuffle, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -309,6 +331,9 @@ private fun SessionSettingRows(
             ),
             onClick = { onDialogEvent(Open(Length(draft = state.config.length))) },
         )
+        if (state.isQuickSession) {
+            SubcategoryCountRangeSettingRow(state = state, onDialogEvent = onDialogEvent)
+        }
         SessionSettingRow(
             label = stringResource(R.string.preview_session_filters_label),
             value = filtersLabel(state),
@@ -332,6 +357,26 @@ private fun SessionSettingRows(
             onClick = { onDialogEvent(Open(Sort(draft = state.config.sortOrder))) },
         )
     }
+}
+
+/**
+ * Lifted out of [SessionSettingRows] purely to keep that function under detekt's `LongMethod` — a
+ * single-Subcategory or Custom session has nothing to sample and never shows this row (ADR-0040).
+ */
+@Composable
+private fun SubcategoryCountRangeSettingRow(
+    state: PreviewStudySessionScreenState,
+    onDialogEvent: (PreviewDialogEvent) -> Unit,
+) {
+    SessionSettingRow(
+        label = stringResource(R.string.preview_session_subcategory_count_range_label),
+        value = stringResource(
+            CoreUiR.string.subcategory_count_range_value_label,
+            state.config.subcategoryCountRange.first,
+            state.config.subcategoryCountRange.last,
+        ),
+        onClick = { onDialogEvent(Open(SubcategoryCountRange(draft = state.config.subcategoryCountRange))) },
+    )
 }
 
 @Composable
@@ -419,29 +464,72 @@ private fun screenTitle(state: PreviewStudySessionScreenState): String = when {
     else -> "${state.categoryName} · Custom session"
 }
 
-private fun scopeDescription(state: PreviewStudySessionScreenState): AnnotatedString = buildAnnotatedString {
-    fun appendBold(text: String) {
-        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(text) }
-    }
+@Composable
+private fun scopeDescription(state: PreviewStudySessionScreenState): AnnotatedString {
+    val cardsText = pluralStringResource(
+        CoreUiR.plurals.session_length_cards_label,
+        state.selectedCardCount,
+        state.selectedCardCount,
+    )
+    // Resolved here, not inside appendSubcategoryList, so that function can stay a plain (non-
+    // @Composable) builder step — matching appendOxfordList — instead of tripping detekt/lint's
+    // ComposableNaming rule for a lowercase Unit-returning @Composable.
+    val otherTopicsText = (state.subcategoryNames.size - SUBCATEGORY_LIST_VISIBLE_COUNT)
+        .takeIf { state.subcategoryNames.size > SUBCATEGORY_LIST_TRUNCATION_THRESHOLD }
+        ?.let { otherCount ->
+            pluralStringResource(R.plurals.preview_session_scope_other_topics_count, otherCount, otherCount)
+        }
+    return buildAnnotatedString {
+        fun appendBold(text: String) {
+            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(text) }
+        }
 
-    when {
-        state.isQuickSession -> {
-            appendBold("${state.selectedCardCount} cards")
-            append(" auto-selected across ")
-            appendBold("${state.topicCount} ${state.categoryName}")
-            append(" topics.")
-        }
-        state.isSingleTopic -> {
-            appendBold("${state.selectedCardCount} cards")
-            append(" from your ${state.subcategoryNames.first()} deck.")
-        }
-        else -> {
-            appendBold("${state.selectedCardCount} cards")
-            append(" from ")
-            appendOxfordList(state.subcategoryNames, ::appendBold)
-            append(".")
+        when {
+            state.isQuickSession -> {
+                appendBold(cardsText)
+                append(stringResource(R.string.preview_session_scope_quick_session_message))
+                appendSubcategoryList(state.subcategoryNames, ::appendBold, otherTopicsText)
+                append(".")
+            }
+            state.isSingleTopic -> {
+                appendBold(cardsText)
+                append(stringResource(R.string.preview_session_scope_single_topic_prefix_message))
+                append(state.subcategoryNames.first())
+                append(stringResource(R.string.preview_session_scope_single_topic_suffix_message))
+            }
+            else -> {
+                appendBold(cardsText)
+                append(stringResource(R.string.preview_session_scope_multi_topic_message))
+                appendSubcategoryList(state.subcategoryNames, ::appendBold, otherTopicsText)
+                append(".")
+            }
         }
     }
+}
+
+/** Names past this count stop being useful to read at a glance and collapse into a count instead. */
+private const val SUBCATEGORY_LIST_TRUNCATION_THRESHOLD = 4
+private const val SUBCATEGORY_LIST_VISIBLE_COUNT = 3
+
+/**
+ * Lists every Subcategory name in full when [otherTopicsText] is `null` (fits within
+ * [SUBCATEGORY_LIST_TRUNCATION_THRESHOLD]); otherwise the first [SUBCATEGORY_LIST_VISIBLE_COUNT]
+ * plus that pre-resolved "and N other topics" summary of the rest.
+ */
+private fun AnnotatedString.Builder.appendSubcategoryList(
+    names: List<String>,
+    appendBold: (String) -> Unit,
+    otherTopicsText: String?,
+) {
+    if (otherTopicsText == null) {
+        appendOxfordList(names, appendBold)
+        return
+    }
+    names.take(SUBCATEGORY_LIST_VISIBLE_COUNT).forEachIndexed { index, name ->
+        if (index > 0) append(", ")
+        appendBold(name)
+    }
+    append(otherTopicsText)
 }
 
 // Joins names as "A and B" (2 items) or "A, B, and C" (3+ items), bolding each name.
@@ -469,6 +557,7 @@ private fun PreviewStudySessionLoadingPreview() {
         onRetry = {},
         onRerandomize = {},
         onDialogEvent = {},
+        onResetFilters = {},
         onStartSession = {},
     )
 }
@@ -487,6 +576,33 @@ private fun PreviewStudySessionErrorPreview() {
         onRetry = {},
         onRerandomize = {},
         onDialogEvent = {},
+        onResetFilters = {},
+        onStartSession = {},
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun PreviewStudySessionEmptyStatePreview() {
+    PreviewStudySessionContent(
+        state = PreviewStudySessionScreenState(
+            categoryName = "Android",
+            subcategoryNames = listOf("Compose"),
+            isLoading = false,
+            config = StudySessionConfig(
+                subcategoryIds = listOf("compose"),
+                tagIds = setOf("state"),
+                difficultyRange = 9..10,
+            ),
+            selectedCardCount = 0,
+            estimatedMinutes = 0,
+            availableTags = listOf("state", "modifiers", "recomposition"),
+        ),
+        onNavigateBack = {},
+        onRetry = {},
+        onRerandomize = {},
+        onDialogEvent = {},
+        onResetFilters = {},
         onStartSession = {},
     )
 }
@@ -512,6 +628,7 @@ private fun PreviewStudySessionSingleTopicPreview() {
         onRetry = {},
         onRerandomize = {},
         onDialogEvent = {},
+        onResetFilters = {},
         onStartSession = {},
     )
 }
@@ -532,6 +649,7 @@ private fun PreviewStudySessionQuickSessionPreview() {
         onRetry = {},
         onRerandomize = {},
         onDialogEvent = {},
+        onResetFilters = {},
         onStartSession = {},
     )
 }
@@ -552,6 +670,7 @@ private fun PreviewStudySessionCustomSessionPreview() {
         onRetry = {},
         onRerandomize = {},
         onDialogEvent = {},
+        onResetFilters = {},
         onStartSession = {},
     )
 }

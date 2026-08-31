@@ -17,6 +17,9 @@ sealed interface StudySessionPreference {
 
     data class SortOrder(val value: FlashcardSortOrder) : StudySessionPreference
 
+    /** How many Subcategories a Quick Session samples its pool from (ADR-0040). */
+    data class SubcategoryCountRange(val value: IntRange) : StudySessionPreference
+
     /**
      * The one case carrying two keys: the voice dialog confirms rate and voice together, so
      * splitting it would let a failure persist a rate against the old voice.

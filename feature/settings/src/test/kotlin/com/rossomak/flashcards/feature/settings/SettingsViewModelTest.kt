@@ -26,6 +26,7 @@ import com.rossomak.flashcards.feature.settings.SettingsDialog.Mode
 import com.rossomak.flashcards.feature.settings.SettingsDialog.ReadAloud
 import com.rossomak.flashcards.feature.settings.SettingsDialog.SignOut
 import com.rossomak.flashcards.feature.settings.SettingsDialog.Sort
+import com.rossomak.flashcards.feature.settings.SettingsDialog.SubcategoryCountRange
 import com.rossomak.flashcards.feature.settings.SettingsDialog.VoiceAnswering
 import com.rossomak.flashcards.feature.settings.SettingsDialog.VoiceSettings
 import com.rossomak.flashcards.testutil.MainDispatcherRule
@@ -176,6 +177,21 @@ class SettingsViewModelTest {
         studySessionPreferencesRepository.preferences.value.sortOrder shouldBe FlashcardSortOrder.EasiestFirst
         viewModel.state.value.sortOrder shouldBe FlashcardSortOrder.EasiestFirst
     }
+
+    @Test
+    fun `confirming the subcategory count range writes it to the store`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val viewModel = createViewModel()
+
+            viewModel.onDialogEvent(Open(SubcategoryCountRange(draft = DEFAULT_SUBCATEGORY_COUNT_RANGE)))
+            viewModel.onDialogEvent(DraftChange(SubcategoryCountRange(draft = NARROWER_SUBCATEGORY_COUNT_RANGE)))
+            viewModel.onDialogEvent(Confirm)
+            advanceUntilIdle()
+
+            studySessionPreferencesRepository.preferences.value.subcategoryCountRange shouldBe
+                NARROWER_SUBCATEGORY_COUNT_RANGE
+            viewModel.state.value.subcategoryCountRange shouldBe NARROWER_SUBCATEGORY_COUNT_RANGE
+        }
 
     @Test
     fun `confirming voice answering writes it to the store`() = runTest(mainDispatcherRule.testDispatcher) {
@@ -401,6 +417,8 @@ class SettingsViewModelTest {
         const val LONGER_LENGTH = 35
         const val DEFAULT_ATTEMPTS = 3
         const val FEWER_ATTEMPTS = 1
+        val DEFAULT_SUBCATEGORY_COUNT_RANGE = 3..5
+        val NARROWER_SUBCATEGORY_COUNT_RANGE = 2..3
         const val LONGER_GOAL = DailyGoal.DEFAULT_MINUTES + DailyGoal.STEP_MINUTES
         const val FASTER_SPEECH_RATE = 1.25f
         const val VOICE_ID = "en-us-x-tpf-local"

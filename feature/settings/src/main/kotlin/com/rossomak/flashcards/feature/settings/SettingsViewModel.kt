@@ -7,6 +7,7 @@ import com.rossomak.flashcards.core.domain.model.StudySessionPreference.RatedAtt
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.ReadAloudEnabled
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SessionLength
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SortOrder
+import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SubcategoryCountRange as SubcategoryCountRangePreference
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.VoiceAnsweringEnabled
 import com.rossomak.flashcards.core.domain.model.UserPreference.DailyGoalMinutes
 import com.rossomak.flashcards.core.domain.model.VoiceOption
@@ -28,6 +29,7 @@ import com.rossomak.flashcards.feature.settings.SettingsDialog.Mode
 import com.rossomak.flashcards.feature.settings.SettingsDialog.ReadAloud
 import com.rossomak.flashcards.feature.settings.SettingsDialog.SignOut
 import com.rossomak.flashcards.feature.settings.SettingsDialog.Sort
+import com.rossomak.flashcards.feature.settings.SettingsDialog.SubcategoryCountRange
 import com.rossomak.flashcards.feature.settings.SettingsDialog.VoiceAnswering
 import com.rossomak.flashcards.feature.settings.SettingsDialog.VoiceSettings
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -71,6 +73,7 @@ class SettingsViewModel @Inject constructor(
                         ratedAttempts = preferences.ratedAttempts,
                         defaultStudyMode = preferences.defaultStudyMode,
                         sortOrder = preferences.sortOrder,
+                        subcategoryCountRange = preferences.subcategoryCountRange,
                         voiceAnsweringEnabled = preferences.voiceAnsweringEnabled,
                         readAloudEnabled = preferences.readAloudEnabled,
                         speechRate = preferences.voiceSettings.speechRate,
@@ -196,6 +199,7 @@ class SettingsViewModel @Inject constructor(
                 is Attempts -> saveStudySessionPreference(RatedAttempts(dialog.draft))
                 is Mode -> saveStudySessionPreference(DefaultStudyMode(dialog.draft))
                 is Sort -> saveStudySessionPreference(SortOrder(dialog.draft))
+                is SubcategoryCountRange -> saveStudySessionPreference(SubcategoryCountRangePreference(dialog.draft))
                 is VoiceAnswering -> saveStudySessionPreference(VoiceAnsweringEnabled(dialog.draft))
                 is ReadAloud -> saveStudySessionPreference(ReadAloudEnabled(dialog.draft))
                 is Goal -> saveUserPreference(DailyGoalMinutes(dialog.draft))

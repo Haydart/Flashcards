@@ -13,6 +13,7 @@ import com.rossomak.flashcards.core.domain.repository.FakeStudySessionPreference
 import com.rossomak.flashcards.core.domain.usecase.FilterFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.ObserveStudySessionPreferencesUseCase
+import com.rossomak.flashcards.core.domain.usecase.SampleQuickSessionSubcategoriesUseCase
 import com.rossomak.flashcards.core.domain.usecase.SaveStudySessionPreferenceUseCase
 import com.rossomak.flashcards.core.domain.usecase.SelectSessionFlashcardsUseCase
 import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardFilters
@@ -30,6 +31,7 @@ import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Length
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Mode
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.ReadAloud
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Sort
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.SubcategoryCountRange
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceAnswering
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceSettings
 import com.rossomak.flashcards.testutil.MainDispatcherRule
@@ -67,6 +69,9 @@ class PreviewStudySessionViewModelTest {
     /** Anything but [StudySessionConfig.DEFAULT_LENGTH], so a seeded value is visible. */
     private val seededLength = StudySessionConfig.MIN_LENGTH
 
+    /** Narrower than [StudySessionConfig.DEFAULT_SUBCATEGORY_COUNT_RANGE], so seeding it is visible. */
+    private val narrowerSubcategoryCountRange = 1..2
+
     private val categoryId = "android"
     private val categoryName = "Android"
     private val subcategoryId = "android-compose"
@@ -82,6 +87,13 @@ class PreviewStudySessionViewModelTest {
     private val multiTopicRoute = singleTopicRoute.copy(
         subcategoryIds = listOf("android-compose", "android-coroutines"),
         subcategoryNames = listOf("Compose", "Coroutines"),
+    )
+
+    /** More candidates than [StudySessionConfig.DEFAULT_SUBCATEGORY_COUNT_RANGE]'s maximum. */
+    private val quickSessionRoute = singleTopicRoute.copy(
+        subcategoryIds = (1..8).map { index -> "android-sub-$index" },
+        subcategoryNames = (1..8).map { index -> "Sub $index" },
+        isQuickSession = true,
     )
 
     @Before
@@ -104,6 +116,7 @@ class PreviewStudySessionViewModelTest {
             getFlashcards = GetFlashcardsUseCase(flashcardRepository),
             filterFlashcards = FilterFlashcardsUseCase(),
         ),
+        SampleQuickSessionSubcategoriesUseCase(),
         ObserveStudySessionPreferencesUseCase(studySessionPreferencesRepository),
         SaveStudySessionPreferenceUseCase(studySessionPreferencesRepository),
         voiceSettingsController,
@@ -493,6 +506,55 @@ class PreviewStudySessionViewModelTest {
         }
 
     @Test
+    fun `confirming a subcategory count range with keepAsDefault true writes the preference`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(quickSessionRoute)
+            quickSessionRoute.subcategoryIds.forEach { id ->
+                flashcardRepository.flashcardsBySubcategory[id] =
+                    Result.success(listOf(flashcard(id = "$id-card", subcategoryId = id)))
+            }
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            val draftDialog = SubcategoryCountRange(draft = viewModel.state.value.config.subcategoryCountRange)
+            viewModel.onDialogEvent(Open(draftDialog))
+            viewModel.onDialogEvent(
+                DraftChange(SubcategoryCountRange(draft = narrowerSubcategoryCountRange, keepAsDefault = true))
+            )
+            viewModel.onDialogEvent(Confirm)
+            advanceUntilIdle()
+
+            studySessionPreferencesRepository.preferences.value.subcategoryCountRange shouldBe
+                narrowerSubcategoryCountRange
+            viewModel.state.value.config.subcategoryCountRange shouldBe narrowerSubcategoryCountRange
+            (viewModel.state.value.config.subcategoryIds.size in narrowerSubcategoryCountRange) shouldBe true
+        }
+
+    @Test
+    fun `confirming a subcategory count range with keepAsDefault false applies the draft but writes nothing`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(quickSessionRoute)
+            quickSessionRoute.subcategoryIds.forEach { id ->
+                flashcardRepository.flashcardsBySubcategory[id] =
+                    Result.success(listOf(flashcard(id = "$id-card", subcategoryId = id)))
+            }
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            val committedRange = studySessionPreferencesRepository.preferences.value.subcategoryCountRange
+            val draftDialog = SubcategoryCountRange(draft = viewModel.state.value.config.subcategoryCountRange)
+            viewModel.onDialogEvent(Open(draftDialog))
+            viewModel.onDialogEvent(
+                DraftChange(SubcategoryCountRange(draft = narrowerSubcategoryCountRange, keepAsDefault = false))
+            )
+            viewModel.onDialogEvent(Confirm)
+            advanceUntilIdle()
+
+            studySessionPreferencesRepository.preferences.value.subcategoryCountRange shouldBe committedRange
+            viewModel.state.value.config.subcategoryCountRange shouldBe narrowerSubcategoryCountRange
+        }
+
+    @Test
     fun `confirming filters never writes a default`() = runTest(mainDispatcherRule.testDispatcher) {
         stubRoute(singleTopicRoute)
         flashcardRepository.flashcardsToReturn = Result.success(
@@ -776,4 +838,130 @@ class PreviewStudySessionViewModelTest {
         stubRoute(multiTopicRoute)
         createViewModel().state.value.canRerandomize.shouldBeTrue()
     }
+
+    @Test
+    fun `a quick session samples a bounded subset of the candidate subcategories`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(quickSessionRoute)
+            quickSessionRoute.subcategoryIds.forEach { id ->
+                flashcardRepository.flashcardsBySubcategory[id] =
+                    Result.success(listOf(flashcard(id = "$id-card", subcategoryId = id)))
+            }
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            val sampledIds = viewModel.state.value.config.subcategoryIds
+            (sampledIds.size in StudySessionConfig.DEFAULT_SUBCATEGORY_COUNT_RANGE) shouldBe true
+            viewModel.state.value.topicCount shouldBe sampledIds.size
+            sampledIds.forEach { id -> (id in quickSessionRoute.subcategoryIds) shouldBe true }
+        }
+
+    @Test
+    fun `a quick session's sample respects a seeded subcategoryCountRange preference`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(quickSessionRoute)
+            studySessionPreferencesRepository.preferences.value = StudySessionPreferences(
+                subcategoryCountRange = narrowerSubcategoryCountRange,
+            )
+            quickSessionRoute.subcategoryIds.forEach { id ->
+                flashcardRepository.flashcardsBySubcategory[id] =
+                    Result.success(listOf(flashcard(id = "$id-card", subcategoryId = id)))
+            }
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            val sampledIds = viewModel.state.value.config.subcategoryIds
+            (sampledIds.size in narrowerSubcategoryCountRange) shouldBe true
+        }
+
+    @Test
+    fun `re-randomizing a quick session changes the subcategory sample, not just the draw`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(quickSessionRoute)
+            quickSessionRoute.subcategoryIds.forEach { id ->
+                flashcardRepository.flashcardsBySubcategory[id] =
+                    Result.success(listOf(flashcard(id = "$id-card", subcategoryId = id)))
+            }
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            val sampleBeforeRerandomize = viewModel.state.value.config.subcategoryIds
+
+            viewModel.onRerandomize()
+            advanceUntilIdle()
+
+            viewModel.state.value.config.subcategoryIds shouldNotBe sampleBeforeRerandomize
+        }
+
+    @Test
+    fun `a single subcategory quick session samples the same one subcategory`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(singleTopicRoute.copy(isQuickSession = true))
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.state.value.config.subcategoryIds shouldBe listOf(subcategoryId)
+            viewModel.state.value.topicCount shouldBe 1
+        }
+
+    @Test
+    fun `multi topic sessions ignore any routed tag filter, filtering by difficulty only`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(multiTopicRoute.copy(filterTagIds = listOf("State")))
+            flashcardRepository.flashcardsBySubcategory["android-compose"] =
+                Result.success(listOf(flashcard(id = "card-1", tags = listOf("State"))))
+            flashcardRepository.flashcardsBySubcategory["android-coroutines"] = Result.success(
+                listOf(flashcard(id = "card-2", subcategoryId = "android-coroutines", tags = listOf("Modifiers")))
+            )
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            // Both cards count: a tags = {"State"} config carried on the route would otherwise
+            // exclude card-2, but a multi-Subcategory pool is never filtered by tags.
+            viewModel.state.value.selectedCardCount shouldBe 2
+        }
+
+    @Test
+    fun `onResetFilters restores the routed filters exactly and reselects`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(singleTopicRoute.copy(filterTagIds = listOf("State"), difficultyMin = 3, difficultyMax = 7))
+            flashcardRepository.flashcardsToReturn = Result.success(
+                listOf(
+                    flashcard(id = "card-1", tags = listOf("State"), difficulty = 5),
+                    flashcard(id = "card-2", tags = listOf("Modifiers"), difficulty = 5),
+                )
+            )
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onDialogEvent(
+                Open(
+                    Filters(
+                        draft = FlashcardFilters(selectedTags = setOf("Modifiers"), difficultyRange = 1..1),
+                        availableTags = viewModel.state.value.availableTags,
+                    ),
+                ),
+            )
+            val filtersDialog = viewModel.state.value.activeDialog as Filters
+            viewModel.onDialogEvent(
+                DraftChange(
+                    filtersDialog.copy(draft = FlashcardFilters(selectedTags = setOf("Modifiers"), difficultyRange = 1..1)),
+                ),
+            )
+            viewModel.onDialogEvent(Confirm)
+            advanceUntilIdle()
+            viewModel.state.value.selectedCardCount shouldBe 0
+
+            viewModel.onResetFilters()
+            advanceUntilIdle()
+
+            viewModel.state.value.config.tagIds shouldBe setOf("State")
+            viewModel.state.value.config.difficultyRange shouldBe 3..7
+            viewModel.state.value.selectedCardCount shouldBe 1
+            viewModel.state.value.activeDialog shouldBe null
+        }
 }

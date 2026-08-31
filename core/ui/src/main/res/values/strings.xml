@@ -35,7 +35,6 @@
     <string name="flashcard_filters_select_all_button">Select all</string>
     <string name="flashcard_filters_deselect_all_button">Deselect all</string>
     <string name="flashcard_filters_difficulty_label">DIFFICULTY</string>
-    <string name="flashcard_filters_no_tags_message">This session has no tags to filter by.</string>
 
     <string name="study_mode_dialog_title">Study mode</string>
     <string name="study_mode_rated_label">Rated</string>
@@ -74,4 +73,8 @@
         <item quantity="one">%1$d attempt</item>
         <item quantity="other">%1$d attempts</item>
     </plurals>
+
+    <string name="subcategory_count_range_dialog_title">Quick Session topics</string>
+    <string name="subcategory_count_range_dialog_message">How many topics should a Quick Session randomly sample from?</string>
+    <string name="subcategory_count_range_value_label">%1$d–%2$d topics</string>
 </resources>

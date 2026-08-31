@@ -82,7 +82,7 @@ Home empty state CTA ("Start your first session") triggers a tab switch to Study
 - Lists all Subcategories (labeled **Topics**) for the Category
 - Three session-start options:
   - **Quick Session** button — system auto-selects Subcategories → Preview Study Session Screen → composite Study Session begins
-  - **Start Composite Session** button — transforms the list into multi-select mode; user selects Topics; "Start" button becomes active after ≥1 selected → Preview Study Session Screen → composite Study Session begins
+  - **Start Custom Session** button — transforms the list into multi-select mode; user selects Topics; "Start" button becomes active after ≥1 selected → Preview Study Session Screen → Study Session begins (composite when ≥2 Topics are selected, single-subcategory otherwise)
   - **Fast-start action on each Topic row** — routes directly to Preview Study Session Screen for that Subcategory (skips Subcategory Details), without navigating away from Category Details
 - Tapping a Topic row (not its fast-start action) → Subcategory Details screen
 
@@ -107,7 +107,7 @@ Full-screen modal that precedes every Study Session. Receives `categoryId`, `cat
 
 **Not yet built (ADR-0030 designs both):** a persistent no-scrim bottom-sheet chrome wrapping these rows, and a separate **Voice** row (TTS voice + speed, shown for Fast or Rated+voice-answering-on) — today that setting is reachable only from the session cog and the Settings screen.
 
-Each edit popup carries a "keep as default" checkbox (persists a global default; unchecked is session-scoped), except the Filters popup (tags + difficulty always session-scoped) — though note the persistence write itself is a `TODO`, see Settings Screen below. "Start session" launches the session with the chosen settings; a "Re-randomize" button (multi-topic and Quick sessions only) re-runs card selection over the same pool with a new seed. See [ADR-0030](docs/adr/0030-preview-session-settings-sheet.md) and [docs/design/study-session-preview-sheet.md](docs/design/study-session-preview-sheet.md).
+Each edit popup carries a "keep as default" checkbox (persists a global default; unchecked is session-scoped), except the Filters popup (tags + difficulty always session-scoped) — though note the persistence write itself is a `TODO`, see Settings Screen below. "Start session" launches the session with the chosen settings; a "Re-randomize" button (multi-topic and Quick sessions only) re-samples Subcategories with a new seed for Quick Sessions, and re-runs card selection over the current pool with a new seed for other multi-subcategory sessions. See [ADR-0030](docs/adr/0030-preview-session-settings-sheet.md) and [docs/design/study-session-preview-sheet.md](docs/design/study-session-preview-sheet.md).
 
 This is the only place Study Mode (and, up front, Voice answering) is chosen for a concrete session — onboarding and the Settings screen only set the persisted default preference, neither starts a session. The "keep as default" checkbox on each Preview popup (see above) is what lets this screen also update that persisted default, without leaving session scope.
 
@@ -118,7 +118,7 @@ This is the only place Study Mode (and, up front, Voice answering) is chosen for
 4. Apply scoring and selection (MVP: random shuffle; target: performance-weighted sort → pick top N — see "Flashcard Selection Algorithm" below for the scoring formula)
 5. Pass resolved `cardIds` to `StudySession`; presentation order within the session is then set independently by the Preview screen's Sort row (Default/Easiest/Hardest), not by this selection step
 
-`filterTagIds` is only ever non-empty for single-subcategory sessions launched from Subcategory Details. All other entry points (Quick Session, fast-start, Composite) pass `filterTagIds = emptyList()`.
+`filterTagIds` is only ever non-empty for single-subcategory sessions launched from Subcategory Details. All other entry points (Quick Session, fast-start, Custom) pass `filterTagIds = emptyList()`.
 
 ## Study Session Flow
 
@@ -248,7 +248,11 @@ on-device Firestore cache. An empty cache result falls through to the server rat
 surfacing as an empty success — sound only because a Subcategory always contains at least one
 Flashcard (`CONTEXT.md`), so an empty cache result unambiguously means "not cached yet," never
 "genuinely empty." `invalidateFlashcardCache()` bumps the generation, re-arming the server read
-for every Subcategory.
+for every Subcategory. A server read in flight when a bump lands captures its starting generation
+before the network call and only stamps that Subcategory as current if the generation is still
+unchanged afterward — otherwise the response still returns to its own caller, but isn't trusted as
+belonging to the new generation, so the next read of that Subcategory goes to the server again
+instead of treating a pre-invalidation response as fresh.
 
 **Seed-versioned invalidation (what calls `invalidateFlashcardCache()`).** A single Firestore
 document, `meta/seed` (`{ value: <monotonic int> }`), is the freshness signal for the whole

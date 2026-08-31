@@ -111,7 +111,9 @@ private fun NavHostController.navigateToPreviewStudySessionWithSelection(
 }
 
 /**
- * Category Details starts a session across every topic it lists, so unlike
+ * Category Details is today's only Quick Session entry point: it hands over every Subcategory the
+ * category lists as the *candidate pool*, and the Preview screen samples a bounded subset from it
+ * (ADR-0040) rather than starting a session across all of them — unlike
  * [navigateToPreviewStudySession] it passes the subcategories through as the lists the route
  * already models rather than wrapping a single one.
  *
@@ -130,6 +132,7 @@ private fun NavHostController.navigateToPreviewStudySessionForCategory(
             categoryName = categoryName,
             subcategoryIds = subcategoryIds,
             subcategoryNames = subcategoryNames,
+            isQuickSession = true,
         )
     )
 }

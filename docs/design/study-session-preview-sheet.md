@@ -64,14 +64,14 @@ Status quo retained — no intermediate "TTS reads question, rate by hand" mode.
 One **merged filter popup**, shared with Subcategory Details (ADR-0022 shape): tag
 multi-select (OR within tags) + difficulty `RangeSlider`, the two facets combined with
 AND. Tags are derived per subcategory, so the tag section appears for **single-subcategory
-sessions only**; multi-subcategory (Quick / Composite) sessions show **difficulty only**.
+sessions only**; multi-subcategory (Quick / Custom) sessions show **difficulty only**.
 
 ## Persistence
 
 Every edit popup carries a **"keep as default"** checkbox — Mode, Voice answering, Length,
-Sort, Voice. Checking it persists that value as the user's default for future sessions;
-unchecked, the change is session-scoped. Voice's "keep as default" writes the existing
-global voice preference.
+Sort, Voice, Quick Session topic count. Checking it persists that value as the user's
+default for future sessions; unchecked, the change is session-scoped. Voice's "keep as
+default" writes the existing global voice preference.
 
 **Filters is the one exception**: no "keep as default" — tag and difficulty selections are
 always session-scoped (a per-subcategory tag set can't carry to a different Subcategory).

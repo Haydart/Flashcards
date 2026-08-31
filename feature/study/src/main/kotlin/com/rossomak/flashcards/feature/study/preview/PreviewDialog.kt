@@ -43,6 +43,12 @@ sealed interface PreviewDialog {
     data class Sort(val draft: FlashcardSortOrder, val keepAsDefault: Boolean = false) : PreviewDialog
 
     /**
+     * Quick Session only — the row that opens it is not offered for a single-Subcategory or
+     * Custom session (ADR-0040).
+     */
+    data class SubcategoryCountRange(val draft: IntRange, val keepAsDefault: Boolean = false) : PreviewDialog
+
+    /**
      * Offered for Fast mode, or Rated with voice answering on — the same gate the summary row
      * itself uses (ADR-0030). The draft comes from
      * [VoiceSettingsController][com.rossomak.flashcards.core.ui.voice.VoiceSettingsController]'s

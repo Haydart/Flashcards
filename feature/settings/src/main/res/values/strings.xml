@@ -13,6 +13,7 @@
     <string name="settings_rated_attempts_label">Rated flashcard attempts</string>
     <string name="settings_study_mode_label">Default study mode</string>
     <string name="settings_sort_order_label">Flashcard sort order</string>
+    <string name="settings_subcategory_count_range_label">Topics</string>
 
     <string name="settings_voice_label">Voice</string>
     <string name="settings_voice_answering_label">Speak your answer aloud</string>
