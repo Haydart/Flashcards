@@ -143,15 +143,33 @@ class BrowseViewModel @Inject constructor(
         }
     }
 
-    /** Only ever called with a query already known to meet the minimum length. */
+    /**
+     * Only ever called with a query already known to meet the minimum length.
+     *
+     * [debounce] sitting upstream of [collectLatest] in [observeSearchQuery] only cancels a
+     * previous [runSearch] once the *next* debounce window elapses — not the instant the query
+     * changes. A search already in flight when the query changes again can therefore complete
+     * during that window and land here for a query that is no longer current. Both completion
+     * branches guard against that by checking [query] is still [BrowseScreenState.searchQuery]
+     * before touching [BrowseScreenState.searchStatus], so a stale result or error can never
+     * clobber the status the newer, still-running (or already-superseding) query set.
+     */
     private suspend fun runSearch(query: String) {
         searchCategories(SearchCategoriesParams(query = query, categories = _state.value.categories))
             .onSuccess { results ->
                 _state.update {
-                    it.copy(searchStatus = if (results.isEmpty) SearchStatus.NoMatch else SearchStatus.Results(results))
+                    if (it.searchQuery != query) {
+                        it
+                    } else {
+                        it.copy(searchStatus = if (results.isEmpty) SearchStatus.NoMatch else SearchStatus.Results(results))
+                    }
                 }
             }
-            .onFailure { _state.update { it.copy(searchStatus = SearchStatus.Error) } }
+            .onFailure {
+                _state.update { current ->
+                    if (current.searchQuery != query) current else current.copy(searchStatus = SearchStatus.Error)
+                }
+            }
     }
 
     private fun loadCategories() {
