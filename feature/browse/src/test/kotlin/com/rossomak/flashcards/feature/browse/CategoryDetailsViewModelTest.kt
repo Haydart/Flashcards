@@ -1,6 +1,7 @@
 package com.rossomak.flashcards.feature.browse
 
 import androidx.lifecycle.SavedStateHandle
+import app.cash.turbine.test
 import com.rossomak.flashcards.core.domain.model.Subcategory
 import com.rossomak.flashcards.core.domain.repository.FakeFlashcardRepository
 import com.rossomak.flashcards.core.domain.usecase.GetSubcategoriesUseCase
@@ -89,6 +90,302 @@ class CategoryDetailsViewModelTest {
             isLoading shouldBe false
             subcategories shouldBe emptyList()
             error shouldBe "Could not load topics"
+        }
+    }
+
+    // --- fake favourite ---
+
+    @Test
+    fun `toggling the favourite flips the flag and emits a message without persisting anything`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val viewModel = createViewModel()
+
+            viewModel.messages.test {
+                viewModel.onFavoriteToggle()
+
+                awaitItem() shouldBe CategoryDetailsMessage.AddedToFavorites
+                viewModel.state.value.isFavorite shouldBe true
+            }
+        }
+
+    @Test
+    fun `undoing the favourite flips it back`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = createViewModel()
+        viewModel.onFavoriteToggle()
+
+        viewModel.onFavoriteUndo(restoreTo = false)
+
+        viewModel.state.value.isFavorite shouldBe false
+    }
+
+    @Test
+    fun `toggling an already favourited category removes it`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val viewModel = createViewModel()
+            viewModel.onFavoriteToggle()
+
+            viewModel.messages.test {
+                viewModel.onFavoriteToggle()
+
+                awaitItem() shouldBe CategoryDetailsMessage.RemovedFromFavorites
+                viewModel.state.value.isFavorite shouldBe false
+            }
+        }
+
+    /**
+     * A snackbar outlives the tap that raised it, so Undo restores the value the toggle moved away
+     * from rather than flipping whatever is current.
+     */
+    @Test
+    fun `a stale undo does not invert a later toggle`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = createViewModel()
+
+        viewModel.onFavoriteToggle()
+        viewModel.onFavoriteToggle()
+
+        viewModel.onFavoriteUndo(restoreTo = false)
+
+        viewModel.state.value.isFavorite shouldBe false
+    }
+
+    // --- Selection Mode ---
+
+    @Test
+    fun `long-pressing a topic enters Selection Mode with exactly that topic selected`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val subcategories = listOf(subcategory("sub-1"), subcategory("sub-2"))
+            flashcardRepository.subcategoriesToReturn = Result.success(subcategories)
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            val pressedId = subcategories[1].id
+
+            viewModel.onSubcategoryLongPress(pressedId)
+
+            viewModel.state.assertValue {
+                isSelectionMode shouldBe true
+                selectedSubcategoryIds shouldBe setOf(pressedId)
+            }
+        }
+
+    @Test
+    fun `toggling the mode control from default mode enters Selection Mode with an empty selection`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onSelectionModeToggle()
+
+            viewModel.state.assertValue {
+                isSelectionMode shouldBe true
+                selectedSubcategoryIds shouldBe emptySet()
+            }
+        }
+
+    @Test
+    fun `leaving Selection Mode returns the field to null, discarding the selection`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val subcategories = listOf(subcategory("sub-1"), subcategory("sub-2"))
+            flashcardRepository.subcategoriesToReturn = Result.success(subcategories)
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onSubcategoryLongPress("sub-1")
+
+            viewModel.onSelectionModeToggle()
+
+            viewModel.state.assertValue {
+                isSelectionMode shouldBe false
+                selectedSubcategoryIds shouldBe null
+            }
+        }
+
+    @Test
+    fun `selecting and deselecting individual topics adds to and removes from the set`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val subcategories = listOf(subcategory("sub-1"), subcategory("sub-2"), subcategory("sub-3"))
+            flashcardRepository.subcategoriesToReturn = Result.success(subcategories)
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onSelectionModeToggle()
+            val (firstId, secondId) = subcategories[0].id to subcategories[1].id
+
+            viewModel.onSubcategorySelectionChange(firstId, true)
+            viewModel.onSubcategorySelectionChange(secondId, true)
+            viewModel.state.value.selectedSubcategoryIds shouldBe setOf(firstId, secondId)
+
+            viewModel.onSubcategorySelectionChange(firstId, false)
+            viewModel.state.value.selectedSubcategoryIds shouldBe setOf(secondId)
+        }
+
+    @Test
+    fun `select-all from a partial selection selects every topic`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val subcategories = listOf(subcategory("sub-1"), subcategory("sub-2"), subcategory("sub-3"))
+            flashcardRepository.subcategoriesToReturn = Result.success(subcategories)
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onSubcategoryLongPress(subcategories[0].id)
+
+            viewModel.onSelectAllToggle()
+
+            viewModel.state.value.selectedSubcategoryIds shouldBe subcategories.map { it.id }.toSet()
+        }
+
+    @Test
+    fun `select-all from a full selection clears to empty`() = runTest(mainDispatcherRule.testDispatcher) {
+        val subcategories = listOf(subcategory("sub-1"), subcategory("sub-2"))
+        flashcardRepository.subcategoriesToReturn = Result.success(subcategories)
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onSelectionModeToggle()
+        viewModel.onSelectAllToggle()
+
+        viewModel.onSelectAllToggle()
+
+        viewModel.state.value.selectedSubcategoryIds shouldBe emptySet()
+    }
+
+    @Test
+    fun `isAllSelected is false for an empty Category`() = runTest(mainDispatcherRule.testDispatcher) {
+        flashcardRepository.subcategoriesToReturn = Result.success(emptyList())
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onSelectionModeToggle()
+
+        viewModel.state.value.isAllSelected shouldBe false
+    }
+
+    @Test
+    fun `select-all with nothing selected selects every topic`() = runTest(mainDispatcherRule.testDispatcher) {
+        val subcategories = listOf(subcategory("sub-1"), subcategory("sub-2"), subcategory("sub-3"))
+        flashcardRepository.subcategoriesToReturn = Result.success(subcategories)
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onSelectionModeToggle()
+
+        viewModel.onSelectAllToggle()
+
+        viewModel.state.value.selectedSubcategoryIds shouldBe subcategories.map { it.id }.toSet()
+    }
+
+    /**
+     * Clearing a full selection is a bulk deselect, not an exit: it must leave the user in
+     * Selection Mode with an empty (not null) selection and a disabled session button.
+     */
+    @Test
+    fun `clearing a full selection stays in Selection Mode with the session button disabled`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val subcategories = listOf(subcategory("sub-1"), subcategory("sub-2"))
+            flashcardRepository.subcategoriesToReturn = Result.success(subcategories)
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onSelectionModeToggle()
+            viewModel.onSelectAllToggle()
+
+            viewModel.onSelectAllToggle()
+
+            viewModel.state.assertValue {
+                isSelectionMode shouldBe true
+                selectedSubcategoryIds shouldBe emptySet()
+                selectedCount shouldBe 0
+            }
+        }
+
+    @Test
+    fun `selecting everything via select-all and starting a Custom session covers every topic, unsampled`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val subcategories = listOf(subcategory("sub-1"), subcategory("sub-2"), subcategory("sub-3"))
+            flashcardRepository.subcategoriesToReturn = Result.success(subcategories)
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onSelectionModeToggle()
+            viewModel.onSelectAllToggle()
+
+            viewModel.events.test {
+                viewModel.onCustomSessionStart()
+
+                val destination = awaitItem() as CategoryDetailsDestination.PreviewStudySession
+                destination.subcategoryIds shouldBe subcategories.map { it.id }
+                destination.subcategoryNames shouldBe subcategories.map { it.name }
+                destination.isQuickSession shouldBe false
+            }
+        }
+
+    @Test
+    fun `the Quick CTA emits every Subcategory as a sampled session`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val subcategories = listOf(subcategory("sub-1"), subcategory("sub-2"))
+            flashcardRepository.subcategoriesToReturn = Result.success(subcategories)
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.events.test {
+                viewModel.onQuickSessionStart()
+
+                val destination = awaitItem() as CategoryDetailsDestination.PreviewStudySession
+                destination.subcategoryIds shouldBe subcategories.map { it.id }
+                destination.subcategoryNames shouldBe subcategories.map { it.name }
+                destination.isQuickSession shouldBe true
+            }
+        }
+
+    @Test
+    fun `the Custom CTA emits only the selected topics, unsampled`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val subcategories = listOf(subcategory("sub-1"), subcategory("sub-2"), subcategory("sub-3"))
+            flashcardRepository.subcategoriesToReturn = Result.success(subcategories)
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onSelectionModeToggle()
+            viewModel.onSubcategorySelectionChange("sub-1", true)
+            viewModel.onSubcategorySelectionChange("sub-3", true)
+            val selected = listOf(subcategories[0], subcategories[2])
+
+            viewModel.events.test {
+                viewModel.onCustomSessionStart()
+
+                val destination = awaitItem() as CategoryDetailsDestination.PreviewStudySession
+                destination.subcategoryIds shouldBe selected.map { it.id }
+                destination.subcategoryNames shouldBe selected.map { it.name }
+                destination.isQuickSession shouldBe false
+            }
+        }
+
+    /** Ids come out in list order, not the order the user happened to tap them in. */
+    @Test
+    fun `the Custom CTA's ids come out in list order when selected in a different order`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val subcategories = listOf(subcategory("sub-1"), subcategory("sub-2"), subcategory("sub-3"))
+            flashcardRepository.subcategoriesToReturn = Result.success(subcategories)
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onSelectionModeToggle()
+            viewModel.onSubcategorySelectionChange("sub-3", true)
+            viewModel.onSubcategorySelectionChange("sub-1", true)
+
+            viewModel.events.test {
+                viewModel.onCustomSessionStart()
+
+                val destination = awaitItem() as CategoryDetailsDestination.PreviewStudySession
+                destination.subcategoryIds shouldBe listOf(subcategories[0], subcategories[2]).map { it.id }
+            }
+        }
+
+    @Test
+    fun `derived counts reflect the selection`() = runTest(mainDispatcherRule.testDispatcher) {
+        val subcategories = listOf(subcategory("sub-1"), subcategory("sub-2"), subcategory("sub-3"))
+        flashcardRepository.subcategoriesToReturn = Result.success(subcategories)
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onSelectionModeToggle()
+        viewModel.onSubcategorySelectionChange("sub-1", true)
+        viewModel.onSubcategorySelectionChange("sub-2", true)
+
+        viewModel.state.assertValue {
+            selectedCount shouldBe 2
+            // Each fake subcategory() carries cardCount = 3.
+            selectedCardCount shouldBe 6
         }
     }
 }

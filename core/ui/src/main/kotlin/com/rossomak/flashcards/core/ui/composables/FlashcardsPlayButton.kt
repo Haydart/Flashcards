@@ -16,9 +16,9 @@ import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.sizes
 
 /**
- * Circular, tinted play affordance used as the leading element of topic and search-result
- * rows. It is an independent tap target, distinct from the row's own click, so it carries its
- * own required [contentDescription].
+ * Circular, tinted play affordance used as a trailing element of topic and search-result rows,
+ * beside the chevron (see ADR-0041). It is an independent tap target, distinct from the row's
+ * own click, so it carries its own required [contentDescription].
  */
 @Composable
 fun FlashcardsPlayButton(

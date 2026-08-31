@@ -96,11 +96,16 @@ _Avoid_: Flag Action, Curation Type, Curation Flag Action
 
 **Study Creation**:
 The flow a user goes through to start a Study Session. All entry points route through the **Preview Study Session Screen** before the session begins.
-- **Single-subcategory**: tap a Subcategory on Category Details (or "Start" in the app bar of Subcategory Details) → Preview Study Session Screen → session begins.
+- **Single-subcategory**: tap a Subcategory's **play button** on Category Details (or "Start session" in the bottom toolbar of Subcategory Details) → Preview Study Session Screen → session begins. Tapping the Subcategory row itself opens **Subcategory Details** and starts nothing — the row browses, the play button studies ([ADR-0041](docs/adr/0041-topic-row-tap-browses-play-button-studies.md)).
 - **Quick Session**: tap "Quick Session" on Category Details → system samples a random count of Subcategories — bounded by the user's `subcategoryCountRange` preference — then randomly selects that many Subcategories and draws Flashcards from them → Preview Study Session Screen → session begins. Re-randomize re-rolls the Subcategory sample itself, not just the card draw.
-- **Custom**: tap "Start Custom Session" on Category Details → list enters multi-select → user manually chooses every Subcategory that enters the session → taps Start → Preview Study Session Screen → session begins. A Composite session when multiple Subcategories are selected (see **Study Session**) — a single selection makes it a single-subcategory session instead. Not every Composite session is Custom — Quick is the other way in.
+- **Custom**: enter **Selection Mode** on Category Details (bottom-toolbar toggle, or long-press any Subcategory row) → user manually chooses every Subcategory that enters the session → taps "Custom session" → Preview Study Session Screen → session begins. A Composite session when multiple Subcategories are selected (see **Study Session**) — a single selection makes it a single-subcategory session instead. Not every Composite session is Custom — Quick is the other way in.
 _Avoid_: Composite Session (retired name for this entry point; Composite itself survives as the broader structural term)
+_Avoid_: "Start Custom Session" (retired label — never built; the entry point is the Selection Mode toggle, and the CTA it reveals reads "Custom session")
 _Avoid_: Session setup, Session wizard
+
+**Selection Mode**:
+The second mode of the Category Details screen, in which its Subcategory list becomes a multi-select instead of a set of navigation rows: each row swaps its play button and chevron for a checkbox, a selected row tints, and the bottom toolbar's CTA becomes the **Custom** Study Creation entry point. Entered by the bottom-toolbar toggle or by long-pressing any Subcategory row (which also selects that row); left by that same toggle, the top app bar's back arrow, or system back. A selection is a transient gesture, not a saved document: leaving Selection Mode discards it, and it does not survive process death. No other screen has a Selection Mode.
+_Avoid_: Multi-select mode, Edit mode, Selection state
 
 **Browse Search**:
 The inline search flow on the Browse screen: a query typed into the search box live-queries Subcategories by name prefix and locally prefix-matches loaded Categories, rendering matches as two sections — Subcategories (labelled **Topic** per the Subcategory UI name) above Categories. Not a separate route; takes no back-stack entry. See [docs/design/category-search.md](docs/design/category-search.md).

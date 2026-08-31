@@ -111,20 +111,23 @@ private fun NavHostController.navigateToPreviewStudySessionWithSelection(
 }
 
 /**
- * Category Details is today's only Quick Session entry point: it hands over every Subcategory the
+ * Category Details' two session CTAs both land here. **Quick** hands over every Subcategory the
  * category lists as the *candidate pool*, and the Preview screen samples a bounded subset from it
- * (ADR-0040) rather than starting a session across all of them — unlike
- * [navigateToPreviewStudySession] it passes the subcategories through as the lists the route
- * already models rather than wrapping a single one.
+ * (ADR-0040) rather than starting a session across all of them. **Custom** hands over exactly the
+ * Subcategories the user selected, and [isQuickSession] is `false`, so the Preview screen honours
+ * them literally rather than sampling. Either way — unlike [navigateToPreviewStudySession] — the
+ * subcategories pass through as the lists the route already models rather than wrapping a single
+ * one.
  *
- * It also passes no sort order: there is no browsed card list behind this entry point, so the route
- * carries null and the Preview screen falls back to the user's saved default (ADR-0038).
+ * It also passes no sort order: there is no browsed card list behind either entry point, so the
+ * route carries null and the Preview screen falls back to the user's saved default (ADR-0038).
  */
 private fun NavHostController.navigateToPreviewStudySessionForCategory(
     categoryId: String,
     categoryName: String,
     subcategoryIds: List<String>,
     subcategoryNames: List<String>,
+    isQuickSession: Boolean,
 ) {
     navigate(
         PreviewStudySessionRoute(
@@ -132,7 +135,7 @@ private fun NavHostController.navigateToPreviewStudySessionForCategory(
             categoryName = categoryName,
             subcategoryIds = subcategoryIds,
             subcategoryNames = subcategoryNames,
-            isQuickSession = true,
+            isQuickSession = isQuickSession,
         )
     )
 }
@@ -244,7 +247,8 @@ fun FlashcardsNavGraph(
                     CategoryDetailsScreen(
                         onNavigateBack = { navController.popBackStack() },
                         onNavigateToSubcategoryDetails = navController::navigateToSubcategoryDetails,
-                        onNavigateToPreviewStudySession = navController::navigateToPreviewStudySessionForCategory,
+                        onNavigateToPreviewStudySession = navController::navigateToPreviewStudySession,
+                        onNavigateToPreviewStudySessionForCategory = navController::navigateToPreviewStudySessionForCategory,
                     )
                 }
                 composable<SubcategoryDetailsRoute> {

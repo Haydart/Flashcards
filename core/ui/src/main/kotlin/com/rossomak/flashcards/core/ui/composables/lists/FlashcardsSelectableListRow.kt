@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -22,6 +24,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.airbnb.android.showkase.annotation.ShowkaseComposable
+import com.rossomak.flashcards.core.ui.composables.FlashcardsIconTile
 import com.rossomak.flashcards.core.ui.theme.FlashcardsMotion
 import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.sizes
@@ -34,10 +37,12 @@ private const val SELECTED_TINT_ALPHA = 0.12f
 private const val DISABLED_ALPHA = 0.6f
 
 /**
- * A multi-select list row: a leading checkbox, a title with optional [subtitle], and a
- * selection tint that animates in when [selected]. The whole row is one toggleable node with
- * `Role.Checkbox`, so the inner [Checkbox] takes `onCheckedChange = null` and TalkBack
- * announces the row as a single checked/unchecked control.
+ * A multi-select list row: an optional [leading] slot, a title with optional [subtitle], a
+ * trailing checkbox, and a selection tint that animates in when [selected]. The whole row is one
+ * toggleable node with `Role.Checkbox`, so the inner [Checkbox] takes `onCheckedChange = null`
+ * and TalkBack announces the row as a single checked/unchecked control rather than a row and a
+ * checkbox announced separately. There is no second trailing slot — a row that needs to keep
+ * showing e.g. a chevron alongside the checkbox isn't this row's shape.
  */
 @Composable
 fun FlashcardsSelectableListRow(
@@ -47,7 +52,7 @@ fun FlashcardsSelectableListRow(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     enabled: Boolean = true,
-    trailing: @Composable (() -> Unit)? = null,
+    leading: @Composable (() -> Unit)? = null,
 ) {
     val backgroundColor by animateColorAsState(
         targetValue = if (selected) {
@@ -75,11 +80,15 @@ fun FlashcardsSelectableListRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
     ) {
-        Checkbox(
-            checked = selected,
-            onCheckedChange = null,
-        )
-        Column(modifier = Modifier.weight(1f)) {
+        if (leading != null) {
+            leading()
+        }
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = if (leading != null) MaterialTheme.spacing.xxsmall else MaterialTheme.spacing.none),
+            verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.none),
+        ) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
@@ -90,14 +99,17 @@ fun FlashcardsSelectableListRow(
             if (subtitle != null) {
                 Text(
                     text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
-        if (trailing != null) {
-            trailing()
-        }
+        Checkbox(
+            checked = selected,
+            onCheckedChange = null,
+        )
     }
 }
 
@@ -111,7 +123,12 @@ fun FlashcardsSelectableListRowCheckedShowcase() {
                 selected = true,
                 onSelectedChange = {},
                 subtitle = "80 cards",
-                trailing = { FlashcardsChevron() },
+                leading = {
+                    FlashcardsIconTile(
+                        icon = Icons.Default.Star,
+                        contentDescription = null,
+                    )
+                },
             )
         }
     }
@@ -127,7 +144,12 @@ fun FlashcardsSelectableListRowUncheckedShowcase() {
                 selected = false,
                 onSelectedChange = {},
                 subtitle = "25 cards",
-                trailing = { FlashcardsChevron() },
+                leading = {
+                    FlashcardsIconTile(
+                        icon = Icons.Default.Star,
+                        contentDescription = null,
+                    )
+                },
             )
         }
     }
@@ -149,7 +171,12 @@ private fun FlashcardsSelectableListRowPreview() {
                     selected = true,
                     onSelectedChange = {},
                     subtitle = "80 cards",
-                    trailing = { FlashcardsChevron() },
+                    leading = {
+                        FlashcardsIconTile(
+                            icon = Icons.Default.Star,
+                            contentDescription = null,
+                        )
+                    },
                 )
                 FlashcardsSelectableListRow(
                     modifier = Modifier.flashcardsListItemShape(FlashcardsListItemPosition.Bottom),
@@ -157,7 +184,12 @@ private fun FlashcardsSelectableListRowPreview() {
                     selected = false,
                     onSelectedChange = {},
                     subtitle = "25 cards",
-                    trailing = { FlashcardsChevron() },
+                    leading = {
+                        FlashcardsIconTile(
+                            icon = Icons.Default.Star,
+                            contentDescription = null,
+                        )
+                    },
                 )
             }
         }

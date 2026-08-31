@@ -1,20 +1,27 @@
 package com.rossomak.flashcards.feature.browse
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Sort
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AddToHomeScreen
+import androidx.compose.material.icons.automirrored.filled.AddToHomeScreen
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
-import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Deselect
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material3.AppBarRow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -22,29 +29,42 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.Subcategory
+import com.rossomak.flashcards.core.ui.R as CoreUiR
 import com.rossomak.flashcards.core.ui.composables.FlashcardsOverlineLabel
+import com.rossomak.flashcards.core.ui.composables.FlashcardsPlayButton
+import com.rossomak.flashcards.core.ui.composables.FlashcardsProgressRing
 import com.rossomak.flashcards.core.ui.composables.bars.FlashcardsBottomToolbar
 import com.rossomak.flashcards.core.ui.composables.bars.FlashcardsTopAppBar
 import com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsFilledButton
 import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentSize
 import com.rossomak.flashcards.core.ui.composables.flashcardsListScrollFade
+import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsChevron
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListGroupItem
 import com.rossomak.flashcards.core.ui.composables.lists.flashcardsListGroupContainer
 import com.rossomak.flashcards.core.ui.composables.lists.flashcardsListGroupItems
+import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import com.rossomak.flashcards.core.ui.theme.spacing
+import kotlinx.coroutines.launch
 
 @Composable
 fun CategoryDetailsScreen(
@@ -52,72 +72,141 @@ fun CategoryDetailsScreen(
     viewModel: CategoryDetailsViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
     onNavigateToSubcategoryDetails: (String, String, String, String) -> Unit,
-    onNavigateToPreviewStudySession: (categoryId: String, categoryName: String, subcategoryIds: List<String>, subcategoryNames: List<String>) -> Unit,
+    onNavigateToPreviewStudySession: (categoryId: String, categoryName: String, subcategoryId: String, subcategoryName: String) -> Unit,
+    onNavigateToPreviewStudySessionForCategory: (
+        categoryId: String,
+        categoryName: String,
+        subcategoryIds: List<String>,
+        subcategoryNames: List<String>,
+        isQuickSession: Boolean,
+    ) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Only the two session CTAs go through the ViewModel's event channel — they're the only
+    // navigations that aggregate state across rows. The row's own tap and its play button stay
+    // inline lambdas below: each already holds the Subcategory it needs.
+    observeAsEvents(viewModel.events) { destination ->
+        when (destination) {
+            is CategoryDetailsDestination.PreviewStudySession ->
+                onNavigateToPreviewStudySessionForCategory(
+                    destination.categoryId,
+                    destination.categoryName,
+                    destination.subcategoryIds,
+                    destination.subcategoryNames,
+                    destination.isQuickSession,
+                )
+        }
+    }
+
+    val addedToFavorites = stringResource(R.string.favorites_added_message)
+    val removedFromFavorites = stringResource(R.string.favorites_removed_message)
+    val undoLabel = stringResource(R.string.favorites_undo_button)
+
+    // showSnackbar suspends until the snackbar is dismissed, and observeAsEvents hands over a plain
+    // lambda, so the wait is launched rather than blocking the collector.
+    val snackbarScope = rememberCoroutineScope()
+    observeAsEvents(viewModel.messages) { message ->
+        val text = when (message) {
+            CategoryDetailsMessage.AddedToFavorites -> addedToFavorites
+            CategoryDetailsMessage.RemovedFromFavorites -> removedFromFavorites
+        }
+        snackbarScope.launch {
+            val result = snackbarHostState.showSnackbar(
+                message = text,
+                actionLabel = undoLabel,
+                duration = SnackbarDuration.Short,
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                viewModel.onFavoriteUndo(restoreTo = message != CategoryDetailsMessage.AddedToFavorites)
+            }
+        }
+    }
 
     CategoryDetailsContent(
         modifier = modifier,
         state = state,
         onNavigateBack = onNavigateBack,
         onNavigateToSubcategoryDetails = onNavigateToSubcategoryDetails,
-        onStartSession = {
+        onNavigateToPreviewStudySession = { subcategory ->
             onNavigateToPreviewStudySession(
-                state.categoryId,
-                state.categoryName,
-                state.subcategories.map { subcategory -> subcategory.id },
-                state.subcategories.map { subcategory -> subcategory.name },
+                subcategory.categoryId,
+                subcategory.categoryName,
+                subcategory.id,
+                subcategory.name,
             )
         },
+        onSelectionModeToggle = viewModel::onSelectionModeToggle,
+        onSubcategoryLongPress = viewModel::onSubcategoryLongPress,
+        onSubcategorySelectionChange = viewModel::onSubcategorySelectionChange,
+        onSelectAllToggle = viewModel::onSelectAllToggle,
+        onQuickSessionStart = viewModel::onQuickSessionStart,
+        onCustomSessionStart = viewModel::onCustomSessionStart,
+        onFavoriteToggle = viewModel::onFavoriteToggle,
+        snackbarHostState = snackbarHostState,
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+@Suppress("LongParameterList") // one callback per hoisted ViewModel action; a holder class would only rename the sprawl.
 @Composable
 fun CategoryDetailsContent(
     modifier: Modifier = Modifier,
     state: CategoryDetailsScreenState,
     onNavigateBack: () -> Unit,
     onNavigateToSubcategoryDetails: (String, String, String, String) -> Unit,
-    onStartSession: () -> Unit,
+    onNavigateToPreviewStudySession: (Subcategory) -> Unit,
+    onSelectionModeToggle: () -> Unit,
+    onSubcategoryLongPress: (String) -> Unit,
+    onSubcategorySelectionChange: (String, Boolean) -> Unit,
+    onSelectAllToggle: () -> Unit,
+    onQuickSessionStart: () -> Unit,
+    onCustomSessionStart: () -> Unit,
+    onFavoriteToggle: () -> Unit,
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     val scrollBehavior =
         TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
 
+    // Hoisted here, and never reset: the row set is identical in both modes and only the chrome
+    // changes, unlike Subcategory Details where filtering changes which items exist. Resetting on
+    // mode switch would throw a user who long-pressed halfway down the list back to the top.
+    val listState = rememberLazyListState()
+
+    // System back leaves Selection Mode rather than the screen, same as the top app bar's back
+    // arrow below — cancelling a selection can never cost the user the whole Category.
+    BackHandler(enabled = state.isSelectionMode, onBack = onSelectionModeToggle)
+
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             Column {
                 FlashcardsTopAppBar(
                     title = state.categoryName,
-                    subtitle = stringResource(R.string.category_details_subtitle_label),
-                    onNavigateBack = onNavigateBack,
+                    subtitle = categoryDetailsSubtitle(state),
+                    onNavigateBack = if (state.isSelectionMode) onSelectionModeToggle else onNavigateBack,
                     scrollBehavior = scrollBehavior,
-                    actions = { CategoryDetailsActions() },
+                    actions = {
+                        CategoryDetailsActions(
+                            isFavorite = state.isFavorite,
+                            onFavoriteToggle = onFavoriteToggle,
+                        )
+                    },
                 )
                 if (!state.isLoading && state.error == null) {
-                    FlashcardsOverlineLabel(
-                        text = pluralStringResource(
-                            R.plurals.browse_category_topic_count,
-                            state.subcategories.size,
-                            state.subcategories.size,
-                        ),
-                    )
+                    FlashcardsOverlineLabel(text = categoryDetailsOverline(state))
                 }
             }
         },
         bottomBar = {
-            FlashcardsBottomToolbar(
-                actions = { CategoryDetailsToolbarActions() },
-                trailing = {
-                    FlashcardsFilledButton(
-                        text = stringResource(R.string.category_details_start_session_button),
-                        onClick = onStartSession,
-                        size = FlashcardsComponentSize.Small,
-                        enabled = state.subcategories.isNotEmpty(),
-                        icon = Icons.Filled.PlayArrow,
-                    )
-                },
+            CategoryDetailsBottomBar(
+                state = state,
+                onSelectionModeToggle = onSelectionModeToggle,
+                onSelectAllToggle = onSelectAllToggle,
+                onQuickSessionStart = onQuickSessionStart,
+                onCustomSessionStart = onCustomSessionStart,
             )
         },
     ) { innerPadding ->
@@ -142,20 +231,153 @@ fun CategoryDetailsContent(
 
             else -> SubcategoryList(
                 modifier = Modifier.padding(innerPadding),
+                listState = listState,
                 subcategories = state.subcategories,
+                isSelectionMode = state.isSelectionMode,
+                selectedSubcategoryIds = state.selectedSubcategoryIds ?: emptySet(),
                 onNavigateToSubcategoryDetails = onNavigateToSubcategoryDetails,
+                onNavigateToPreviewStudySession = onNavigateToPreviewStudySession,
+                onSubcategoryLongPress = onSubcategoryLongPress,
+                onSubcategorySelectionChange = onSubcategorySelectionChange,
             )
         }
     }
 }
 
 /**
- * Bookmark stays in the bar and everything past it falls into the overflow menu — [AppBarRow]
- * renders `maxItemCount - 1` items inline. Neither action is wired to the ViewModel yet: the
- * screen shows the action set the design calls for while the state behind it is still being built.
+ * "Category" by default; in Selection Mode, the selection's total card count — so the size of a
+ * Custom session is legible before starting it — falling back to a bare label rather than
+ * rendering "· 0 cards" while nothing is selected yet.
  */
 @Composable
-private fun RowScope.CategoryDetailsActions() {
+private fun categoryDetailsSubtitle(state: CategoryDetailsScreenState): String =
+    if (state.isSelectionMode) {
+        if (state.selectedCount > 0) {
+            pluralStringResource(
+                R.plurals.category_details_selection_subtitle_with_count_label,
+                state.selectedCardCount,
+                state.selectedCardCount,
+            )
+        } else {
+            stringResource(R.string.category_details_selection_subtitle_label)
+        }
+    } else {
+        stringResource(R.string.category_details_subtitle_label)
+    }
+
+@Composable
+private fun categoryDetailsOverline(state: CategoryDetailsScreenState): String =
+    if (state.isSelectionMode) {
+        pluralStringResource(
+            R.plurals.category_details_selection_overline_label,
+            state.subcategories.size,
+            state.selectedCount,
+            state.subcategories.size,
+        )
+    } else {
+        pluralStringResource(
+            R.plurals.browse_category_topic_count,
+            state.subcategories.size,
+            state.subcategories.size,
+        )
+    }
+
+/**
+ * Default mode carries one control — the Selection Mode toggle — beside the **Quick session** CTA.
+ * Selection Mode swaps it for exit plus select-all/deselect-all, beside **Custom session**. The bar
+ * itself is always rendered (it holds the screen's primary action, per
+ * [FlashcardsBottomToolbar]'s own contract) — availability is expressed through `enabled` instead,
+ * so Selection Mode is simply unreachable while loading, errored, or on an empty Category.
+ */
+@Composable
+private fun CategoryDetailsBottomBar(
+    modifier: Modifier = Modifier,
+    state: CategoryDetailsScreenState,
+    onSelectionModeToggle: () -> Unit,
+    onSelectAllToggle: () -> Unit,
+    onQuickSessionStart: () -> Unit,
+    onCustomSessionStart: () -> Unit,
+) {
+    val hasSubcategories = state.subcategories.isNotEmpty()
+    FlashcardsBottomToolbar(
+        modifier = modifier,
+        actions = {
+            if (state.isSelectionMode) {
+                SelectionModeToolbarActions(
+                    isAllSelected = state.isAllSelected,
+                    onSelectionModeToggle = onSelectionModeToggle,
+                    onSelectAllToggle = onSelectAllToggle,
+                )
+            } else {
+                IconButton(onClick = onSelectionModeToggle, enabled = hasSubcategories) {
+                    Icon(
+                        imageVector = Icons.Filled.Checklist,
+                        contentDescription = stringResource(R.string.category_details_selection_mode_enter_cd),
+                    )
+                }
+            }
+        },
+        trailing = {
+            if (state.isSelectionMode) {
+                FlashcardsFilledButton(
+                    text = stringResource(R.string.category_details_custom_session_button, state.selectedCount),
+                    onClick = onCustomSessionStart,
+                    size = FlashcardsComponentSize.Small,
+                    enabled = state.selectedCount > 0,
+                    icon = Icons.Filled.PlayArrow,
+                )
+            } else {
+                FlashcardsFilledButton(
+                    text = stringResource(R.string.category_details_quick_session_button),
+                    onClick = onQuickSessionStart,
+                    size = FlashcardsComponentSize.Small,
+                    enabled = hasSubcategories,
+                    icon = Icons.Filled.Bolt,
+                )
+            }
+        },
+    )
+}
+
+/**
+ * Exit sits where the mode toggle sat, so the control that changes meaning does not also change
+ * position. Select-all's icon and content description both swap on [isAllSelected], since it is
+ * one control with two meanings rather than two controls.
+ */
+@Composable
+private fun RowScope.SelectionModeToolbarActions(
+    isAllSelected: Boolean,
+    onSelectionModeToggle: () -> Unit,
+    onSelectAllToggle: () -> Unit,
+) {
+    IconButton(onClick = onSelectionModeToggle) {
+        Icon(
+            imageVector = Icons.Filled.Close,
+            contentDescription = stringResource(R.string.category_details_selection_mode_exit_cd),
+        )
+    }
+    IconButton(onClick = onSelectAllToggle) {
+        Icon(
+            imageVector = if (isAllSelected) Icons.Filled.Deselect else Icons.Filled.SelectAll,
+            contentDescription = stringResource(
+                if (isAllSelected) R.string.category_details_deselect_all_cd else R.string.category_details_select_all_cd,
+            ),
+        )
+    }
+}
+
+/**
+ * Bookmark stays in the bar; anything past it falls into the overflow menu, which is how
+ * [AppBarRow] renders `maxItemCount - 1` items inline.
+ *
+ * The bookmark is **deliberately cosmetic** — see [CategoryDetailsViewModel.onFavoriteToggle].
+ * Add-to-home-screen is still unwired, pending the dynamic launcher shortcut work.
+ */
+@Composable
+private fun RowScope.CategoryDetailsActions(
+    isFavorite: Boolean,
+    onFavoriteToggle: () -> Unit,
+) {
     val bookmarkLabel = stringResource(R.string.category_details_bookmark_label)
     val addShortcutLabel = stringResource(R.string.category_details_add_shortcut_label)
 
@@ -171,48 +393,41 @@ private fun RowScope.CategoryDetailsActions() {
         maxItemCount = 2,
     ) {
         clickableItem(
-            onClick = {},
-            icon = { Icon(imageVector = Icons.Filled.BookmarkBorder, contentDescription = null) },
+            onClick = onFavoriteToggle,
+            icon = {
+                Icon(
+                    imageVector = if (isFavorite) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
+                    contentDescription = null,
+                )
+            },
             label = bookmarkLabel,
         )
         clickableItem(
             onClick = {},
-            icon = { Icon(imageVector = Icons.Filled.AddToHomeScreen, contentDescription = null) },
+            icon = { Icon(imageVector = Icons.AutoMirrored.Filled.AddToHomeScreen, contentDescription = null) },
             label = addShortcutLabel,
         )
     }
 }
 
-/** Filter, sort and add-topic, matching the Subcategory details toolbar. Not yet wired up. */
-@Composable
-private fun RowScope.CategoryDetailsToolbarActions() {
-    IconButton(onClick = {}) {
-        Icon(
-            imageVector = Icons.Filled.FilterList,
-            contentDescription = stringResource(R.string.category_details_filter_cd),
-        )
-    }
-    IconButton(onClick = {}) {
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.Sort,
-            contentDescription = stringResource(R.string.category_details_sort_cd),
-        )
-    }
-    IconButton(onClick = {}) {
-        Icon(
-            imageVector = Icons.Filled.Add,
-            contentDescription = stringResource(R.string.category_details_add_topic_cd),
-        )
-    }
-}
-
+@Suppress("LongParameterList") // one callback per hoisted ViewModel action; a holder class would only rename the sprawl.
 @Composable
 private fun SubcategoryList(
     modifier: Modifier = Modifier,
+    listState: LazyListState,
     subcategories: List<Subcategory>,
+    isSelectionMode: Boolean,
+    selectedSubcategoryIds: Set<String>,
     onNavigateToSubcategoryDetails: (String, String, String, String) -> Unit,
+    onNavigateToPreviewStudySession: (Subcategory) -> Unit,
+    onSubcategoryLongPress: (String) -> Unit,
+    onSubcategorySelectionChange: (String, Boolean) -> Unit,
 ) {
-    val listState = rememberLazyListState()
+    // The lazy content builder below is not a composable context (only each item's own composed
+    // slot is), so per-row formatted strings are resolved through Resources here rather than
+    // `stringResource` inside the `.map`. `LocalResources.current` (not `LocalContext.current`) so
+    // the read is invalidated on a Configuration change (locale, etc.), same as `stringResource`.
+    val resources = LocalResources.current
     LazyColumn(
         state = listState,
         modifier = modifier
@@ -223,13 +438,105 @@ private fun SubcategoryList(
     ) {
         flashcardsListGroupItems(
             items = subcategories.map { subcategory ->
-                FlashcardsListGroupItem.Row(
-                    key = subcategory.id,
-                    title = subcategory.name,
-                    secondaryText = "${subcategory.cardCount} cards",
-                    onClick = { onNavigateToSubcategoryDetails(subcategory.categoryId, subcategory.categoryName, subcategory.id, subcategory.name) }
+                subcategory.toListGroupItem(
+                    isSelectionMode = isSelectionMode,
+                    isSelected = subcategory.id in selectedSubcategoryIds,
+                    playContentDescription = resources.getString(R.string.category_details_topic_play_cd, subcategory.name),
+                    masteryContentDescription = resources.getString(
+                        CoreUiR.string.common_mastery_progress_cd,
+                        (subcategory.fakeMasteryProgress() * FAKE_PROGRESS_PERCENT_SCALE).toInt(),
+                    ),
+                    // Shared with Subcategory Details, hence the `subcategory_details_` name despite the
+                    // call site — see the `favorites_*` strings below for the same cross-screen pattern.
+                    cardCountLabel = resources.getQuantityString(
+                        R.plurals.subcategory_details_card_count_label,
+                        subcategory.cardCount,
+                        subcategory.cardCount,
+                    ),
+                    onNavigateToSubcategoryDetails = onNavigateToSubcategoryDetails,
+                    onNavigateToPreviewStudySession = onNavigateToPreviewStudySession,
+                    onLongPress = onSubcategoryLongPress,
+                    onSelectedChange = onSubcategorySelectionChange,
                 )
             }
+        )
+    }
+}
+
+private const val FAKE_PROGRESS_PERCENT_SCALE = 100
+
+/**
+ * Deliberately fake, mirroring [CategoryDetailsViewModel.onFavoriteToggle]. There is no
+ * `masteredCards` read anywhere in the codebase — the concept exists only in `CONTEXT.md`. The
+ * value is derived deterministically from the topic's id rather than randomly on every call, so it
+ * stays put across recomposition, scrolling and mode switches instead of flickering to a new
+ * number. Real per-topic progress is separate work and does not change this row's shape, only the
+ * number the ring shows.
+ */
+private fun Subcategory.fakeMasteryProgress(): Float =
+    id.hashCode().mod(FAKE_PROGRESS_PERCENT_SCALE) / FAKE_PROGRESS_PERCENT_SCALE.toFloat()
+
+/**
+ * A topic row, shaped by [isSelectionMode]:
+ *
+ * - **Default mode** (ADR-0041): mastery ring leading, two separate destinations trailing — the
+ *   play button jumps straight into the Preview Study Session Screen for this one topic while the
+ *   row itself drills into Subcategory Details and starts nothing. Long-pressing enters Selection
+ *   Mode with this topic selected.
+ * - **Selection Mode**: the play button and chevron are gone — starting a single-topic session
+ *   mid-selection would throw away the selection being assembled — and the row becomes a
+ *   checkbox, still leading with the same ring, so its identity doesn't jump as the mode changes.
+ */
+@Suppress("LongParameterList") // one callback per hoisted ViewModel action; a holder class would only rename the sprawl.
+private fun Subcategory.toListGroupItem(
+    isSelectionMode: Boolean,
+    isSelected: Boolean,
+    playContentDescription: String,
+    masteryContentDescription: String,
+    cardCountLabel: String,
+    onNavigateToSubcategoryDetails: (String, String, String, String) -> Unit,
+    onNavigateToPreviewStudySession: (Subcategory) -> Unit,
+    onLongPress: (String) -> Unit,
+    onSelectedChange: (String, Boolean) -> Unit,
+): FlashcardsListGroupItem {
+    val subcategory = this
+    val ring: @Composable () -> Unit = {
+        FlashcardsProgressRing(
+            progress = subcategory.fakeMasteryProgress(),
+            contentDescription = masteryContentDescription,
+        )
+    }
+    return if (isSelectionMode) {
+        FlashcardsListGroupItem.Selectable(
+            key = subcategory.id,
+            title = subcategory.name,
+            subtitle = cardCountLabel,
+            selected = isSelected,
+            onSelectedChange = { selected -> onSelectedChange(subcategory.id, selected) },
+            leading = ring,
+        )
+    } else {
+        FlashcardsListGroupItem.Row(
+            key = subcategory.id,
+            title = subcategory.name,
+            secondaryText = cardCountLabel,
+            onClick = {
+                onNavigateToSubcategoryDetails(subcategory.categoryId, subcategory.categoryName, subcategory.id, subcategory.name)
+            },
+            onLongClick = { onLongPress(subcategory.id) },
+            leading = ring,
+            trailing = {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    FlashcardsPlayButton(
+                        onClick = { onNavigateToPreviewStudySession(subcategory) },
+                        contentDescription = playContentDescription,
+                    )
+                    FlashcardsChevron()
+                }
+            },
         )
     }
 }
