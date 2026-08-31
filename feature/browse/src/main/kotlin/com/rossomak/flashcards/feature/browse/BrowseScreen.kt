@@ -237,12 +237,11 @@ fun BrowseContent(
 }
 
 /**
- * The three things [PullToRefreshBox]'s content slot can show: a spinner during the initial or
- * refresh load, an error card, or the category list. A successfully-empty category list is
- * expected to never materialize in practice (categories are seeded data), but is handled
- * identically to a load error rather than left to [CategoryList]'s own empty branch: retrying
- * can't fix either cause, and the person looking at the screen has no way to tell them apart
- * anyway.
+ * The four things [PullToRefreshBox]'s content slot can show: a spinner during the initial or
+ * refresh load, an error card, an empty-but-successful load, or the category list.
+ * [BrowseScreenState.hasLoadError] is the only signal that reads as failure — a successfully-empty
+ * category list (expected to never materialize in practice; categories are seeded data) gets its
+ * own informational empty state instead, since retrying can't fix a load that already succeeded.
  */
 @Composable
 private fun BoxScope.CategoryListContent(
@@ -252,7 +251,7 @@ private fun BoxScope.CategoryListContent(
 ) {
     when {
         state.isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-        state.hasLoadError || state.categories.isEmpty() -> CenteredEmptyState(
+        state.hasLoadError -> CenteredEmptyState(
             icon = Icons.Filled.ErrorOutline,
             title = stringResource(R.string.browse_categories_error_title),
             supportingText = stringResource(R.string.browse_categories_error_message),
@@ -260,6 +259,11 @@ private fun BoxScope.CategoryListContent(
             ctaLabel = stringResource(R.string.browse_categories_retry_button),
             ctaIcon = Icons.Filled.Refresh,
             onCtaClick = onRefresh,
+        )
+        state.categories.isEmpty() -> CenteredEmptyState(
+            icon = Icons.Filled.Search,
+            title = stringResource(R.string.browse_categories_empty_title),
+            supportingText = stringResource(R.string.browse_categories_empty_message),
         )
         else -> CategoryList(categories = state.categories, onCategoryClick = onCategoryClick)
     }
@@ -384,7 +388,6 @@ private fun CenteredEmptyState(
         )
     }
 }
-
 
 /**
  * Categories are a short, fixed set (roughly a dozen) so this binds [FlashcardsListGroup]
