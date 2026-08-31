@@ -41,19 +41,41 @@ data class BrowseSearchActions(
 )
 
 /**
- * [searchResults] is the switch between the two things the expanded search bar can show: `null`
- * means no query has been made yet (or one too short to run), non-null means render the sections —
- * including when both are empty, which is the "no matches" state.
+ * The one thing the expanded search bar renders, replacing a nullable-results-plus-error-flag pair
+ * so illegal combinations (an error alongside stale results, say) can't be represented. Mirrors
+ * [com.rossomak.flashcards.feature.browse.SubcategoryDetailsContentState]'s flat-sealed style in
+ * this same feature.
  *
+ * [NoMatch] is deliberately distinct from [Error]: a query that ran cleanly and matched nothing is
+ * a successful, empty result, not a failure — conflating the two would make "no matches" read as
+ * something having gone wrong. [Results] never carries an empty [CategorySearchResults]; an empty
+ * one is always [NoMatch] instead, so call sites never need an `isEmpty` check of their own.
+ */
+sealed interface SearchStatus {
+    /** No query typed yet, or one shorter than [com.rossomak.flashcards.core.domain.usecase.SearchCategoriesUseCase.MIN_QUERY_LENGTH]. */
+    data object Prompt : SearchStatus
+
+    /** A long-enough query is queued or running — covers the debounce wait and the fetch itself. */
+    data object Loading : SearchStatus
+
+    data class Results(val results: CategorySearchResults) : SearchStatus
+
+    /** The query ran and matched nothing. */
+    data object NoMatch : SearchStatus
+
+    /** The query failed to run at all (e.g. no connectivity). */
+    data object Error : SearchStatus
+}
+
+/**
  * [isSearchActive] records whether search is open. The expanded/collapsed state the UI actually
  * renders from is Material 3's own `SearchBarState`; this mirrors it so the ViewModel can clear the
  * query on dismissal without reaching into the UI.
  *
- * [hasSearchError] is kept separate from [hasLoadError] because the two fail differently:
- * [hasLoadError] means the category list itself could not load and there is nothing to show, while
- * [hasSearchError] leaves the loaded categories intact and only reports that one query failed.
- * Both are flags rather than messages so the display copy stays in the UI layer as string
- * resources, not as hardcoded text in the ViewModel.
+ * [hasLoadError] means the category list itself could not load and there is nothing to show; it is
+ * a flag rather than a message so the display copy stays in the UI layer as string resources, not
+ * as hardcoded text in the ViewModel. It is orthogonal to [searchStatus]'s own [SearchStatus.Error]
+ * — the category list and a single search query fail independently of each other.
  */
 data class BrowseScreenState(
     val isLoading: Boolean = false,
@@ -61,6 +83,5 @@ data class BrowseScreenState(
     val hasLoadError: Boolean = false,
     val searchQuery: String = "",
     val isSearchActive: Boolean = false,
-    val searchResults: CategorySearchResults? = null,
-    val hasSearchError: Boolean = false,
+    val searchStatus: SearchStatus = SearchStatus.Prompt,
 )
