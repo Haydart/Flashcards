@@ -54,7 +54,7 @@ deduplicated, in stored `order`. Branch 1 is what puts `Android` under a search 
 
 **Ordering within TOPICS** is whatever the Firestore range query returns — `nameLower` ascending, since Firestore forces the range field to be the first `orderBy`. That needs no client-side sort and no composite index, and it is the right ranking for prefix search besides: alphabetical order on a shared prefix is effectively shortest-first, so the exact match (`Compose`) sorts above its longer extensions (`Compose Navigation`). This is a separate question from the ordering *inside a chip line*, which is prominence-based — see below.
 
-**No matches:** both sections are empty and the screen shows a single static line of copy (no query interpolation).
+**Screen states.** The expanded search overlay is one of five mutually exclusive states (`SearchStatus`): **Prompt** (no query, or one shorter than the 2-character floor) — a `FlashcardsEmptyState` card inviting a search, distinct from the plain "no query yet" framing this doc used to describe; **Loading** — a centered spinner, shown from the first keystroke past the floor through both the debounce wait and the live fetch, not just the fetch itself; **Results** — the two sections below; **No matches** — both sections came back empty, a `FlashcardsEmptyState` card, not an error; **Error** — the query itself failed to run (e.g. no connectivity), a separate `FlashcardsEmptyState` card in the Error tone. No-matches and Error are deliberately distinct states rather than one "nothing to show" catch-all: a clean query that matched nothing is not a failure.
 
 ## Firestore schema additions (ADR-0007)
 
