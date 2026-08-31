@@ -27,7 +27,7 @@ Row anatomy that follows from it, in the default (non-Selection-Mode) list:
                    N cards
 ```
 
-Leading is a `FlashcardsCircularProgressRing`; trailing is a `Row` of `FlashcardsPlayButton` and
+Leading is a `FlashcardsProgressRing`; trailing is a `Row` of `FlashcardsPlayButton` and
 `FlashcardsChevron`. This corrects `FlashcardsPlayButton`'s own KDoc, which described itself as
 "the leading element of topic and search-result rows" — it is trailing, next to the chevron, so the
 two navigating affordances sit together on the edge the user's thumb reaches and the ring keeps the
