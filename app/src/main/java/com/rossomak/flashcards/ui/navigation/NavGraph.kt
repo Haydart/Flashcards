@@ -244,7 +244,8 @@ fun FlashcardsNavGraph(
                     CategoryDetailsScreen(
                         onNavigateBack = { navController.popBackStack() },
                         onNavigateToSubcategoryDetails = navController::navigateToSubcategoryDetails,
-                        onNavigateToPreviewStudySession = navController::navigateToPreviewStudySessionForCategory,
+                        onNavigateToPreviewStudySession = navController::navigateToPreviewStudySession,
+                        onNavigateToPreviewStudySessionForCategory = navController::navigateToPreviewStudySessionForCategory,
                     )
                 }
                 composable<SubcategoryDetailsRoute> {

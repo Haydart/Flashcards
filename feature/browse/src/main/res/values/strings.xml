@@ -34,6 +34,7 @@
     <string name="category_details_filter_cd">Filter topics</string>
     <string name="category_details_sort_cd">Sort topics</string>
     <string name="category_details_add_topic_cd">Add topic</string>
+    <string name="category_details_topic_play_cd">Study %1$s</string>
     <string name="browse_category_placeholder_subtitle">Tap to explore</string>
     <string name="browse_search_hint">Search categories or topics…</string>
     <string name="browse_categories_label">Categories</string>
