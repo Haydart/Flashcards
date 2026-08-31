@@ -8,4 +8,6 @@ data class CategoryDetailsScreenState(
     val isLoading: Boolean = false,
     val subcategories: List<Subcategory> = emptyList(),
     val error: String? = null,
+    /** Deliberately fake — see [CategoryDetailsViewModel.onFavoriteToggle]. */
+    val isFavorite: Boolean = false,
 )

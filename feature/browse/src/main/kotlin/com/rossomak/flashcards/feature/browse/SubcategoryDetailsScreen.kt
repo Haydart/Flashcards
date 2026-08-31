@@ -101,9 +101,9 @@ fun SubcategoryDetailsScreen(
         }
     }
 
-    val addedToFavorites = stringResource(R.string.subcategory_details_added_to_favorites_message)
-    val removedFromFavorites = stringResource(R.string.subcategory_details_removed_from_favorites_message)
-    val undoLabel = stringResource(R.string.subcategory_details_undo_button)
+    val addedToFavorites = stringResource(R.string.favorites_added_message)
+    val removedFromFavorites = stringResource(R.string.favorites_removed_message)
+    val undoLabel = stringResource(R.string.favorites_undo_button)
 
     // showSnackbar suspends until the snackbar is dismissed, and observeAsEvents hands over a plain
     // lambda, so the wait is launched rather than blocking the collector.

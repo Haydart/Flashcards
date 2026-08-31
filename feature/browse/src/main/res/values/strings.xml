@@ -23,9 +23,6 @@
     <string name="subcategory_details_no_matches_message">Try different tags or widen the difficulty range.</string>
     <string name="subcategory_details_reset_filters_button">Reset filters</string>
     <string name="subcategory_details_load_error_message">Could not load flashcards</string>
-    <string name="subcategory_details_added_to_favorites_message">Added to favorites</string>
-    <string name="subcategory_details_removed_from_favorites_message">Removed from favorites</string>
-    <string name="subcategory_details_undo_button">Undo</string>
     <string name="category_details_subtitle_label">Category</string>
     <string name="category_details_start_session_button">Start session</string>
     <string name="category_details_bookmark_label">Bookmark</string>
@@ -50,4 +47,13 @@
         <item quantity="one">%d topic</item>
         <item quantity="other">%d topics</item>
     </plurals>
+    <!--
+      Shared by CategoryDetailsScreen and SubcategoryDetailsScreen (ADR-0023's promotion rule is
+      about crossing module boundaries; both screens live in :feature:browse). Deliberately not
+      `browse_`-prefixed: that would read as BrowseScreen's own namespace and reintroduce the
+      collision ADR-0023's key pattern exists to avoid.
+    -->
+    <string name="favorites_added_message">Added to favorites</string>
+    <string name="favorites_removed_message">Removed from favorites</string>
+    <string name="favorites_undo_button">Undo</string>
 </resources>

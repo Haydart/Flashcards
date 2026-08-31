@@ -1,6 +1,7 @@
 package com.rossomak.flashcards.feature.browse
 
 import androidx.lifecycle.SavedStateHandle
+import app.cash.turbine.test
 import com.rossomak.flashcards.core.domain.model.Subcategory
 import com.rossomak.flashcards.core.domain.repository.FakeFlashcardRepository
 import com.rossomak.flashcards.core.domain.usecase.GetSubcategoriesUseCase
@@ -90,5 +91,60 @@ class CategoryDetailsViewModelTest {
             subcategories shouldBe emptyList()
             error shouldBe "Could not load topics"
         }
+    }
+
+    // --- fake favourite ---
+
+    @Test
+    fun `toggling the favourite flips the flag and emits a message without persisting anything`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val viewModel = createViewModel()
+
+            viewModel.messages.test {
+                viewModel.onFavoriteToggle()
+
+                awaitItem() shouldBe CategoryDetailsMessage.AddedToFavorites
+                viewModel.state.value.isFavorite shouldBe true
+            }
+        }
+
+    @Test
+    fun `undoing the favourite flips it back`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = createViewModel()
+        viewModel.onFavoriteToggle()
+
+        viewModel.onFavoriteUndo(restoreTo = false)
+
+        viewModel.state.value.isFavorite shouldBe false
+    }
+
+    @Test
+    fun `toggling an already favourited category removes it`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val viewModel = createViewModel()
+            viewModel.onFavoriteToggle()
+
+            viewModel.messages.test {
+                viewModel.onFavoriteToggle()
+
+                awaitItem() shouldBe CategoryDetailsMessage.RemovedFromFavorites
+                viewModel.state.value.isFavorite shouldBe false
+            }
+        }
+
+    /**
+     * A snackbar outlives the tap that raised it, so Undo restores the value the toggle moved away
+     * from rather than flipping whatever is current.
+     */
+    @Test
+    fun `a stale undo does not invert a later toggle`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = createViewModel()
+
+        viewModel.onFavoriteToggle()
+        viewModel.onFavoriteToggle()
+
+        viewModel.onFavoriteUndo(restoreTo = false)
+
+        viewModel.state.value.isFavorite shouldBe false
     }
 }
