@@ -66,9 +66,12 @@ private const val ON_GRADIENT_ERROR_BORDER_ALPHA = 0.5f
  * [FlashcardsXpBreakdownRow][com.rossomak.flashcards.core.ui.composables.banners.FlashcardsXpBreakdownRow]'s
  * own `Loss` tone: `semanticColors.onGradientLossContainer` at a low alpha for the fill and a higher
  * one for the border, so the gradient shows through rather than sitting under a flat, opaque circle.
- * The icon and title keep [OnSurface]'s own `onNegativeContainer` red — unchanged from [OnSurface] —
- * and the supporting text stays the same white [OnGradient] always uses regardless of [tone]: a
- * muted, low-contrast tone reads as illegible on the dark brand gradient.
+ * The icon and title use `brandColors.onGradientLoss` rather than [OnSurface]'s own
+ * `onNegativeContainer` red: that token is tuned for a themed surface and falls short of the
+ * body-text contrast floor against the gradient, whereas `onGradientLoss` is pinned for exactly this
+ * background (see `BrandColors.kt`). The supporting text stays the same white [OnGradient] always
+ * uses regardless of [tone]: a muted, low-contrast tone reads as illegible on the dark brand
+ * gradient.
  */
 private data class EmptyStateColors(
     val container: Color,
@@ -123,8 +126,8 @@ private fun emptyStateColors(
             )
             Error -> EmptyStateColors(
                 container = semanticColors.onGradientLossContainer.copy(alpha = ON_GRADIENT_ERROR_CONTAINER_ALPHA),
-                icon = semanticColors.onNegativeContainer,
-                title = semanticColors.onNegativeContainer,
+                icon = brandColors.onGradientLoss,
+                title = brandColors.onGradientLoss,
                 supportingText = brandColors.onGradientContent,
                 border = BorderStroke(
                     width = MaterialTheme.sizes.hairline,
