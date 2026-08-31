@@ -9,6 +9,7 @@ import com.rossomak.flashcards.core.domain.usecase.SearchCategoriesUseCase
 import com.rossomak.flashcards.testutil.MainDispatcherRule
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -106,8 +107,28 @@ class BrowseViewModelTest {
 
         advanceUntilIdle()
         flashcardRepository.searchedPrefixes shouldContainExactly listOf("compose")
-        viewModel.state.value.searchResults?.subcategories shouldContainExactly listOf(compose)
+        val status = viewModel.state.value.searchStatus
+        status.shouldBeInstanceOf<SearchStatus.Results>()
+        status.results.subcategories shouldContainExactly listOf(compose)
     }
+
+    @Test
+    fun `a query still below the debounce reports loading rather than the too-short prompt once it is long enough`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            flashcardRepository.categoriesToReturn = Result.success(listOf(android))
+            flashcardRepository.searchResultsByPrefix["ap"] = Result.success(emptyList())
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onSearchQueryChange("app")
+            advanceUntilIdle()
+            viewModel.onSearchQueryChange("ap")
+
+            viewModel.state.value.searchStatus shouldBe SearchStatus.Loading
+
+            advanceUntilIdle()
+            flashcardRepository.searchedPrefixes shouldContainExactly listOf("app", "ap")
+        }
 
     @Test
     fun `keystrokes inside the debounce window only search the final query`() =
@@ -128,20 +149,48 @@ class BrowseViewModelTest {
         }
 
     @Test
-    fun `a query below the minimum length falls back to the default list rather than no matches`() =
+    fun `a query below the minimum length reports the prompt status rather than no matches`() =
         runTest(mainDispatcherRule.testDispatcher) {
             val viewModel = createViewModel()
             advanceUntilIdle()
 
             viewModel.onSearchQueryChange("c")
-            advanceUntilIdle()
 
-            viewModel.state.value.searchResults shouldBe null
+            viewModel.state.value.searchStatus shouldBe SearchStatus.Prompt
+
+            advanceUntilIdle()
             flashcardRepository.searchedPrefixes shouldContainExactly emptyList()
         }
 
     @Test
-    fun `a failed search reports an error instead of claiming nothing matched`() =
+    fun `a query at or above the minimum length reports loading until the debounce elapses`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            flashcardRepository.categoriesToReturn = Result.success(listOf(android))
+            flashcardRepository.searchResultsByPrefix["compose"] = Result.success(listOf(compose))
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onSearchQueryChange("compose")
+
+            viewModel.state.value.searchStatus shouldBe SearchStatus.Loading
+        }
+
+    @Test
+    fun `a search matching nothing reports NoMatch rather than Results`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            flashcardRepository.searchResultsByPrefix["xyz"] = Result.success(emptyList())
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onSearchQueryChange("xyz")
+            advanceUntilIdle()
+
+            viewModel.state.value.searchStatus shouldBe SearchStatus.NoMatch
+        }
+
+    @Test
+    fun `a failed search reports Error instead of claiming nothing matched`() =
         runTest(mainDispatcherRule.testDispatcher) {
             flashcardRepository.searchResultsByPrefix["compose"] = Result.failure(IllegalStateException("offline"))
 
@@ -150,8 +199,7 @@ class BrowseViewModelTest {
             viewModel.onSearchQueryChange("compose")
             advanceUntilIdle()
 
-            viewModel.state.value.hasSearchError shouldBe true
-            viewModel.state.value.searchResults shouldBe null
+            viewModel.state.value.searchStatus shouldBe SearchStatus.Error
         }
 
     @Test
@@ -164,6 +212,7 @@ class BrowseViewModelTest {
 
         viewModel.state.value.searchQuery shouldBe ""
         viewModel.state.value.isSearchActive shouldBe false
+        viewModel.state.value.searchStatus shouldBe SearchStatus.Prompt
     }
 
     private companion object {
