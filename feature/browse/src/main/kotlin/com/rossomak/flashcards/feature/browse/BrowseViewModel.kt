@@ -75,13 +75,26 @@ class BrowseViewModel @Inject constructor(
         }
     }
 
+    /**
+     * [SyncSearchBarState][com.rossomak.flashcards.feature.browse.SyncSearchBarState] re-collects
+     * the text field's current value into a fresh [LaunchedEffect][androidx.compose.runtime.LaunchedEffect]
+     * whenever the screen re-enters composition (e.g. back-navigating from a search result), which
+     * replays the same, unchanged [query]. A no-op guard here keeps that replay from wiping
+     * [BrowseScreenState.searchResults]: without it, `searchResults` is nulled immediately while
+     * [observeSearchQuery]'s `distinctUntilChanged` sees no real change and never reruns the search
+     * to repopulate them.
+     */
     fun onSearchQueryChange(query: String) {
-        _state.update {
-            it.copy(
-                searchQuery = query,
-                searchResults = null,
-                hasSearchError = false,
-            )
+        _state.update { current ->
+            if (query == current.searchQuery) {
+                current
+            } else {
+                current.copy(
+                    searchQuery = query,
+                    searchResults = null,
+                    hasSearchError = false,
+                )
+            }
         }
     }
 
