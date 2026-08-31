@@ -67,6 +67,7 @@ sealed interface FlashcardsListGroupItem {
     data class Row(
         val title: String,
         val onClick: () -> Unit,
+        val onLongClick: (() -> Unit)? = null,
         val secondaryText: String? = null,
         val enabled: Boolean = true,
         val leading: (@Composable () -> Unit)? = null,
@@ -97,7 +98,7 @@ sealed interface FlashcardsListGroupItem {
         val onSelectedChange: (Boolean) -> Unit,
         val subtitle: String? = null,
         val enabled: Boolean = true,
-        val trailing: (@Composable () -> Unit)? = null,
+        val leading: (@Composable () -> Unit)? = null,
         override val key: Any? = null,
     ) : FlashcardsListGroupItem
 
@@ -127,6 +128,7 @@ private fun FlashcardsListGroupRow(item: FlashcardsListGroupItem, modifier: Modi
             modifier = modifier,
             title = item.title,
             onClick = item.onClick,
+            onLongClick = item.onLongClick,
             secondaryText = item.secondaryText,
             enabled = item.enabled,
             leading = item.leading,
@@ -149,7 +151,7 @@ private fun FlashcardsListGroupRow(item: FlashcardsListGroupItem, modifier: Modi
             onSelectedChange = item.onSelectedChange,
             subtitle = item.subtitle,
             enabled = item.enabled,
-            trailing = item.trailing,
+            leading = item.leading,
         )
         is FlashcardsListGroupItem.ExpandableRow -> FlashcardsExpandableListRow(
             modifier = modifier,
@@ -457,35 +459,45 @@ fun FlashcardsListGroupMultiSelectShowcase() {
                             selected = true,
                             onSelectedChange = {},
                             subtitle = "80 cards",
-                            trailing = { FlashcardsChevron() },
+                            leading = {
+                                FlashcardsIconTile(icon = Icons.Default.Android, contentDescription = null)
+                            },
                         ),
                         FlashcardsListGroupItem.Selectable(
                             title = "Coroutines",
                             selected = true,
                             onSelectedChange = {},
                             subtitle = "40 cards",
-                            trailing = { FlashcardsChevron() },
+                            leading = {
+                                FlashcardsIconTile(icon = Icons.Default.Android, contentDescription = null)
+                            },
                         ),
                         FlashcardsListGroupItem.Selectable(
                             title = "Compose Navigation",
                             selected = false,
                             onSelectedChange = {},
                             subtitle = "30 cards",
-                            trailing = { FlashcardsChevron() },
+                            leading = {
+                                FlashcardsIconTile(icon = Icons.Default.Android, contentDescription = null)
+                            },
                         ),
                         FlashcardsListGroupItem.Selectable(
                             title = "Testing",
                             selected = false,
                             onSelectedChange = {},
                             subtitle = "25 cards",
-                            trailing = { FlashcardsChevron() },
+                            leading = {
+                                FlashcardsIconTile(icon = Icons.Default.Android, contentDescription = null)
+                            },
                         ),
                         FlashcardsListGroupItem.Selectable(
                             title = "Architecture",
                             selected = true,
                             onSelectedChange = {},
                             subtitle = "20 cards",
-                            trailing = { FlashcardsChevron() },
+                            leading = {
+                                FlashcardsIconTile(icon = Icons.Default.Android, contentDescription = null)
+                            },
                         ),
                     ),
                 )

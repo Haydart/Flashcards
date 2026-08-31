@@ -1,7 +1,9 @@
 package com.rossomak.flashcards.core.ui.composables.lists
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,6 +20,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
@@ -41,24 +45,46 @@ private const val DISABLED_ALPHA = 0.6f
  * The whole row is one merged, clickable node with the given [role]; decorative trailing
  * chevrons should pass `contentDescription = null` (see [FlashcardsChevron]). When [enabled] is
  * `false`, the whole row dims rather than only disabling the click.
+ *
+ * [onLongClick] is opt-in: leaving it `null` keeps the row on the cheaper [Modifier.clickable]
+ * path with its existing click semantics, unchanged. Passing it switches the row to
+ * [Modifier.combinedClickable] and fires a [HapticFeedbackType.LongPress] haptic from inside the
+ * row itself, so every future long-press row feels the same without its caller remembering to
+ * add one.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FlashcardsListRow(
     title: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
     secondaryText: String? = null,
     enabled: Boolean = true,
     role: Role = Role.Button,
     leading: @Composable (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)? = null,
 ) {
+    val hapticFeedback = LocalHapticFeedback.current
+    val clickModifier = if (onLongClick != null) {
+        Modifier.combinedClickable(
+            enabled = enabled,
+            role = role,
+            onLongClick = {
+                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                onLongClick()
+            },
+            onClick = onClick,
+        )
+    } else {
+        Modifier.clickable(enabled = enabled, role = role, onClick = onClick)
+    }
     Row(
         modifier = modifier
             .alpha(if (enabled) 1f else DISABLED_ALPHA)
             .background(MaterialTheme.colorScheme.surfaceContainerLowest)
             .heightIn(min = MaterialTheme.sizes.listRowMinHeight)
-            .clickable(enabled = enabled, role = role, onClick = onClick)
+            .then(clickModifier)
             .padding(
                 horizontal = MaterialTheme.spacing.normal,
                 vertical = MaterialTheme.spacing.small,
@@ -136,6 +162,38 @@ fun FlashcardsListRowDisabledShowcase() {
                 onClick = {},
                 secondaryText = "Coming soon",
                 enabled = false,
+                trailing = { FlashcardsChevron() },
+            )
+        }
+    }
+}
+
+@ShowkaseComposable(name = "List row — long-press", group = "Lists")
+@Composable
+fun FlashcardsListRowLongPressShowcase() {
+    FlashcardsTheme {
+        Surface {
+            FlashcardsListRow(
+                title = "Compose",
+                onClick = {},
+                onLongClick = {},
+                secondaryText = "Long-press to select",
+                trailing = { FlashcardsChevron() },
+            )
+        }
+    }
+}
+
+@PreviewLightDark
+@Composable
+private fun FlashcardsListRowLongPressPreview() {
+    FlashcardsTheme {
+        Surface {
+            FlashcardsListRow(
+                title = "Compose",
+                onClick = {},
+                onLongClick = {},
+                secondaryText = "Long-press to select",
                 trailing = { FlashcardsChevron() },
             )
         }
