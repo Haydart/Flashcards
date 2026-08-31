@@ -149,6 +149,7 @@ fun CategoryDetailsScreen(
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+@Suppress("LongParameterList") // one callback per hoisted ViewModel action; a holder class would only rename the sprawl.
 @Composable
 fun CategoryDetailsContent(
     modifier: Modifier = Modifier,
@@ -409,6 +410,7 @@ private fun RowScope.CategoryDetailsActions(
     }
 }
 
+@Suppress("LongParameterList") // one callback per hoisted ViewModel action; a holder class would only rename the sprawl.
 @Composable
 private fun SubcategoryList(
     modifier: Modifier = Modifier,
@@ -444,6 +446,13 @@ private fun SubcategoryList(
                         CoreUiR.string.common_mastery_progress_cd,
                         (subcategory.fakeMasteryProgress() * FAKE_PROGRESS_PERCENT_SCALE).toInt(),
                     ),
+                    // Shared with Subcategory Details, hence the `subcategory_details_` name despite the
+                    // call site — see the `favorites_*` strings below for the same cross-screen pattern.
+                    cardCountLabel = resources.getQuantityString(
+                        R.plurals.subcategory_details_card_count_label,
+                        subcategory.cardCount,
+                        subcategory.cardCount,
+                    ),
                     onNavigateToSubcategoryDetails = onNavigateToSubcategoryDetails,
                     onNavigateToPreviewStudySession = onNavigateToPreviewStudySession,
                     onLongPress = onSubcategoryLongPress,
@@ -478,11 +487,13 @@ private fun Subcategory.fakeMasteryProgress(): Float =
  *   mid-selection would throw away the selection being assembled — and the row becomes a
  *   checkbox, still leading with the same ring, so its identity doesn't jump as the mode changes.
  */
+@Suppress("LongParameterList") // one callback per hoisted ViewModel action; a holder class would only rename the sprawl.
 private fun Subcategory.toListGroupItem(
     isSelectionMode: Boolean,
     isSelected: Boolean,
     playContentDescription: String,
     masteryContentDescription: String,
+    cardCountLabel: String,
     onNavigateToSubcategoryDetails: (String, String, String, String) -> Unit,
     onNavigateToPreviewStudySession: (Subcategory) -> Unit,
     onLongPress: (String) -> Unit,
@@ -499,7 +510,7 @@ private fun Subcategory.toListGroupItem(
         FlashcardsListGroupItem.Selectable(
             key = subcategory.id,
             title = subcategory.name,
-            subtitle = "${subcategory.cardCount} cards",
+            subtitle = cardCountLabel,
             selected = isSelected,
             onSelectedChange = { selected -> onSelectedChange(subcategory.id, selected) },
             leading = ring,
@@ -508,7 +519,7 @@ private fun Subcategory.toListGroupItem(
         FlashcardsListGroupItem.Row(
             key = subcategory.id,
             title = subcategory.name,
-            secondaryText = "${subcategory.cardCount} cards",
+            secondaryText = cardCountLabel,
             onClick = {
                 onNavigateToSubcategoryDetails(subcategory.categoryId, subcategory.categoryName, subcategory.id, subcategory.name)
             },

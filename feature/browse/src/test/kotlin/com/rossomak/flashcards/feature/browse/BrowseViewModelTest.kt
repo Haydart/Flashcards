@@ -131,6 +131,28 @@ class BrowseViewModelTest {
         }
 
     @Test
+    fun `replaying the same query preserves populated search results`() = runTest(mainDispatcherRule.testDispatcher) {
+        // Regresses the back-navigation bug: SyncSearchBarState re-collects the text field's
+        // current value into a fresh LaunchedEffect on re-composition (e.g. returning from a
+        // result), replaying the unchanged query. onSearchQueryChange must no-op on that replay
+        // rather than reset searchStatus, since distinctUntilChanged downstream never reruns
+        // the search for a query that didn't actually change.
+        flashcardRepository.categoriesToReturn = Result.success(listOf(android))
+        flashcardRepository.searchResultsByPrefix["compose"] = Result.success(listOf(compose))
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onSearchQueryChange("compose")
+        advanceUntilIdle()
+
+        viewModel.onSearchQueryChange("compose")
+
+        val status = viewModel.state.value.searchStatus
+        status.shouldBeInstanceOf<SearchStatus.Results>()
+        status.results.subcategories shouldContainExactly listOf(compose)
+    }
+
+    @Test
     fun `keystrokes inside the debounce window only search the final query`() =
         runTest(mainDispatcherRule.testDispatcher) {
             flashcardRepository.categoriesToReturn = Result.success(listOf(android))

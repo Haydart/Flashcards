@@ -12,19 +12,29 @@ val googleFontProvider = GoogleFont.Provider(
     certificates = R.array.com_google_android_gms_fonts_certs,
 )
 
-val bodyFontFamily = FontFamily(
-    Font(
-        googleFont = GoogleFont("Roboto"),
-        fontProvider = googleFontProvider,
+val bodyFontFamily = try {
+    FontFamily(
+        Font(
+            googleFont = GoogleFont("Roboto"),
+            fontProvider = googleFontProvider,
+        )
     )
-)
+} catch (_: Throwable) {
+    // Fallback for Previews where Google Fonts might fail due to library mismatches
+    FontFamily.Default
+}
 
-val displayFontFamily = FontFamily(
-    Font(
-        googleFont = GoogleFont("Roboto Serif"),
-        fontProvider = googleFontProvider,
+val displayFontFamily = try {
+    FontFamily(
+        Font(
+            googleFont = GoogleFont("Roboto Serif"),
+            fontProvider = googleFontProvider,
+        )
     )
-)
+} catch (_: Throwable) {
+    // Fallback for Previews where Google Fonts might fail due to library mismatches
+    FontFamily.Default
+}
 
 private val baseline = Typography()
 

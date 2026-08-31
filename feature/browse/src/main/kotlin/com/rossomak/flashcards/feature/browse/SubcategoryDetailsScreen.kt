@@ -11,7 +11,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.AddToHomeScreen
 import androidx.compose.material.icons.automirrored.filled.Sort
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Close
@@ -346,12 +345,12 @@ private fun RowScope.SubcategoryDetailsActions(
 }
 
 /**
- * Filter, sort and add-card, in the order ADR-0022 fixes them.
+ * Filter and sort, in the order ADR-0022 fixes them. Add-card is deliberately absent until a
+ * Private flashcard creation flow exists — it comes back with that work.
  *
  * Sort carries **no badge**, unlike Filter: it is seeded from the user's saved preference, so a
  * "non-default" dot would be permanently lit for anyone whose saved order is not Default — a dot
- * they could never clear from this screen (ADR-0038). Add-card is inert until a Private flashcard
- * creation flow exists.
+ * they could never clear from this screen (ADR-0038).
  */
 @Composable
 private fun RowScope.SubcategoryDetailsToolbarActions(
@@ -371,12 +370,6 @@ private fun RowScope.SubcategoryDetailsToolbarActions(
         Icon(
             imageVector = Icons.AutoMirrored.Filled.Sort,
             contentDescription = stringResource(R.string.subcategory_details_sort_cd),
-        )
-    }
-    IconButton(onClick = {}) {
-        Icon(
-            imageVector = Icons.Filled.Add,
-            contentDescription = stringResource(R.string.subcategory_details_add_card_cd),
         )
     }
 }

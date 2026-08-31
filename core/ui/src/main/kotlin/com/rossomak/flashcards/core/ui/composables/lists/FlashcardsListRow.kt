@@ -21,7 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
@@ -48,9 +47,8 @@ private const val DISABLED_ALPHA = 0.6f
  *
  * [onLongClick] is opt-in: leaving it `null` keeps the row on the cheaper [Modifier.clickable]
  * path with its existing click semantics, unchanged. Passing it switches the row to
- * [Modifier.combinedClickable] and fires a [HapticFeedbackType.LongPress] haptic from inside the
- * row itself, so every future long-press row feels the same without its caller remembering to
- * add one.
+ * [Modifier.combinedClickable], which already fires a [HapticFeedbackType.LongPress] haptic on
+ * long-press itself — this row doesn't call it a second time.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -65,15 +63,11 @@ fun FlashcardsListRow(
     leading: @Composable (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)? = null,
 ) {
-    val hapticFeedback = LocalHapticFeedback.current
     val clickModifier = if (onLongClick != null) {
         Modifier.combinedClickable(
             enabled = enabled,
             role = role,
-            onLongClick = {
-                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                onLongClick()
-            },
+            onLongClick = onLongClick,
             onClick = onClick,
         )
     } else {

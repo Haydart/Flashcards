@@ -10,7 +10,6 @@
     <string name="subcategory_details_more_options_cd">More options</string>
     <string name="subcategory_details_filter_cd">Filter cards</string>
     <string name="subcategory_details_sort_cd">Sort cards</string>
-    <string name="subcategory_details_add_card_cd">Add card</string>
     <plurals name="subcategory_details_card_count_label">
         <item quantity="one">%d card</item>
         <item quantity="other">%d cards</item>
