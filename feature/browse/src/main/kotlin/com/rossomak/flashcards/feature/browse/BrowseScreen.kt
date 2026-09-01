@@ -2,6 +2,7 @@ package com.rossomak.flashcards.feature.browse
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,7 +16,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExpandedFullScreenSearchBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,6 +43,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.pluralStringResource
@@ -51,6 +56,8 @@ import com.rossomak.flashcards.core.domain.model.CategorySearchResults
 import com.rossomak.flashcards.core.domain.model.CategoryWithSubcategorySummary
 import com.rossomak.flashcards.core.domain.model.Subcategory
 import com.rossomak.flashcards.core.ui.R as CoreUiR
+import com.rossomak.flashcards.core.ui.composables.FlashcardsEmptyState
+import com.rossomak.flashcards.core.ui.composables.FlashcardsEmptyStateTone
 import com.rossomak.flashcards.core.ui.composables.FlashcardsOverlineLabel
 import com.rossomak.flashcards.core.ui.composables.FlashcardsPlayButton
 import com.rossomak.flashcards.core.ui.composables.FlashcardsProgressRing
@@ -209,11 +216,7 @@ fun BrowseContent(
             onRefresh = onRefresh,
             modifier = Modifier.fillMaxSize(),
         ) {
-            when {
-                state.isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                state.hasLoadError -> CenteredMessage(stringResource(R.string.browse_categories_error_message))
-                else -> CategoryList(categories = state.categories, onCategoryClick = onCategoryClick)
-            }
+            CategoryListContent(state = state, onRefresh = onRefresh, onCategoryClick = onCategoryClick)
         }
     }
 
@@ -230,6 +233,39 @@ fun BrowseContent(
             onSubcategoryClick = onSubcategoryClick,
             onSubcategorySessionStart = onSubcategorySessionStart,
         )
+    }
+}
+
+/**
+ * The four things [PullToRefreshBox]'s content slot can show: a spinner during the initial or
+ * refresh load, an error card, an empty-but-successful load, or the category list.
+ * [BrowseScreenState.hasLoadError] is the only signal that reads as failure — a successfully-empty
+ * category list (expected to never materialize in practice; categories are seeded data) gets its
+ * own informational empty state instead, since retrying can't fix a load that already succeeded.
+ */
+@Composable
+private fun BoxScope.CategoryListContent(
+    state: BrowseScreenState,
+    onRefresh: () -> Unit,
+    onCategoryClick: (String, String) -> Unit,
+) {
+    when {
+        state.isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+        state.hasLoadError -> CenteredEmptyState(
+            icon = Icons.Filled.ErrorOutline,
+            title = stringResource(R.string.browse_categories_error_title),
+            supportingText = stringResource(R.string.browse_categories_error_message),
+            tone = FlashcardsEmptyStateTone.Error,
+            ctaLabel = stringResource(R.string.browse_categories_retry_button),
+            ctaIcon = Icons.Filled.Refresh,
+            onCtaClick = onRefresh,
+        )
+        state.categories.isEmpty() -> CenteredEmptyState(
+            icon = Icons.Filled.Search,
+            title = stringResource(R.string.browse_categories_empty_title),
+            supportingText = stringResource(R.string.browse_categories_empty_message),
+        )
+        else -> CategoryList(categories = state.categories, onCategoryClick = onCategoryClick)
     }
 }
 
@@ -284,7 +320,7 @@ private fun containedSearchBarColors(): SearchBarColors = SearchBarDefaults.colo
     ),
 )
 
-/** The three things the expanded bar can show: a failed query, results, or nothing typed yet. */
+/** The five things the expanded bar can show, one per [SearchStatus]. */
 @Composable
 private fun ExpandedSearchContent(
     state: BrowseScreenState,
@@ -292,24 +328,64 @@ private fun ExpandedSearchContent(
     onSubcategoryClick: (Subcategory) -> Unit,
     onSubcategorySessionStart: (Subcategory) -> Unit,
 ) {
-    val searchResults = state.searchResults
-    when {
-        state.hasSearchError -> CenteredMessage(stringResource(R.string.browse_search_error_message))
-        searchResults != null -> SearchResults(
-            results = searchResults,
+    when (val status = state.searchStatus) {
+        SearchStatus.Prompt -> CenteredEmptyState(
+            icon = Icons.Filled.Search,
+            title = stringResource(R.string.browse_search_prompt_title),
+            supportingText = stringResource(R.string.browse_search_prompt_message),
+        )
+
+        SearchStatus.Loading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+
+        is SearchStatus.Results -> SearchResults(
+            results = status.results,
             onCategoryClick = onCategoryClick,
             onSubcategoryClick = onSubcategoryClick,
             onSubcategorySessionStart = onSubcategorySessionStart,
         )
 
-        else -> CenteredMessage(stringResource(R.string.browse_search_prompt_message))
+        SearchStatus.NoMatch -> CenteredEmptyState(
+            icon = Icons.Filled.SearchOff,
+            title = stringResource(R.string.browse_search_no_results_title),
+            supportingText = stringResource(R.string.browse_search_no_results_message),
+        )
+
+        SearchStatus.Error -> CenteredEmptyState(
+            icon = Icons.Filled.ErrorOutline,
+            title = stringResource(R.string.browse_search_error_title),
+            supportingText = stringResource(R.string.browse_search_error_message),
+            tone = FlashcardsEmptyStateTone.Error,
+        )
     }
 }
 
+/**
+ * [FlashcardsEmptyState] does not size or center itself by design (see its own doc), so every call
+ * site otherwise repeats the same fill-and-center `Box`. Centralized here rather than duplicated
+ * per branch above.
+ */
 @Composable
-internal fun CenteredMessage(text: String) {
+private fun CenteredEmptyState(
+    icon: ImageVector,
+    title: String,
+    supportingText: String,
+    tone: FlashcardsEmptyStateTone = FlashcardsEmptyStateTone.Info,
+    ctaLabel: String? = null,
+    ctaIcon: ImageVector? = null,
+    onCtaClick: (() -> Unit)? = null,
+) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text = text, style = MaterialTheme.typography.bodyMedium)
+        FlashcardsEmptyState(
+            icon = icon,
+            title = title,
+            supportingText = supportingText,
+            tone = tone,
+            ctaLabel = ctaLabel,
+            ctaIcon = ctaIcon,
+            onCtaClick = onCtaClick,
+        )
     }
 }
 
@@ -319,16 +395,15 @@ internal fun CenteredMessage(text: String) {
  * subcategory list nested under one category can run into the dozens and should use
  *
  * `flashcardsListGroupItems` inside a `LazyColumn` instead.
+ *
+ * Callers only reach this with a non-empty [categories]: the empty case is handled upstream in
+ * [BrowseContent], alongside [BrowseScreenState.hasLoadError].
  */
 @Composable
 internal fun CategoryList(
     categories: List<Category>,
     onCategoryClick: (String, String) -> Unit,
 ) {
-    if (categories.isEmpty()) {
-        CenteredMessage(stringResource(R.string.browse_categories_empty_message))
-        return
-    }
     ScrollableSectionColumn {
         FlashcardsOverlineLabel(text = stringResource(R.string.browse_categories_label))
         CategoryListGroup(
@@ -346,6 +421,9 @@ internal fun CategoryList(
  * Matched Subcategories above matched categories, each under its own section header. Both
  * sections are bounded — Subcategories by the search query's page limit, categories by how many
  * exist — so neither needs a lazy container.
+ *
+ * Callers only reach this with a non-empty [results]: an empty result is [SearchStatus.NoMatch],
+ * rendered upstream in [ExpandedSearchContent] instead.
  */
 @Composable
 internal fun SearchResults(
@@ -354,10 +432,6 @@ internal fun SearchResults(
     onSubcategoryClick: (Subcategory) -> Unit,
     onSubcategorySessionStart: (Subcategory) -> Unit,
 ) {
-    if (results.isEmpty) {
-        CenteredMessage(stringResource(R.string.browse_search_no_results_message))
-        return
-    }
     ScrollableSectionColumn {
         if (results.subcategories.isNotEmpty()) {
             FlashcardsOverlineLabel(text = stringResource(R.string.browse_topics_label))
@@ -582,11 +656,31 @@ private fun SearchResultsPreview() {
 
 @Preview(showBackground = true)
 @Composable
-private fun SearchResultsNoMatchesPreview() {
-    SearchResults(
-        results = CategorySearchResults.EMPTY,
-        onCategoryClick = { _, _ -> },
-        onSubcategoryClick = {},
-        onSubcategorySessionStart = {},
+private fun SearchNoMatchPreview() {
+    CenteredEmptyState(
+        icon = Icons.Filled.SearchOff,
+        title = stringResource(R.string.browse_search_no_results_title),
+        supportingText = stringResource(R.string.browse_search_no_results_message),
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun SearchPromptPreview() {
+    CenteredEmptyState(
+        icon = Icons.Filled.Search,
+        title = stringResource(R.string.browse_search_prompt_title),
+        supportingText = stringResource(R.string.browse_search_prompt_message),
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun SearchErrorPreview() {
+    CenteredEmptyState(
+        icon = Icons.Filled.ErrorOutline,
+        title = stringResource(R.string.browse_search_error_title),
+        supportingText = stringResource(R.string.browse_search_error_message),
+        tone = FlashcardsEmptyStateTone.Error,
     )
 }

@@ -38,11 +38,21 @@ import com.rossomak.flashcards.core.ui.theme.semanticColors
 import com.rossomak.flashcards.core.ui.theme.sizes
 import com.rossomak.flashcards.core.ui.theme.spacing
 
+/** Container fill alpha for [FlashcardsEmptyStateTone.Error]'s [OnGradient] circle. */
+private const val ON_GRADIENT_ERROR_CONTAINER_ALPHA = 0.33f
+
+/** Border alpha for [FlashcardsEmptyStateTone.Error]'s [OnGradient] circle. */
+private const val ON_GRADIENT_ERROR_BORDER_ALPHA = 0.5f
+
 /**
  * The shared layout for "nothing to show" and "something went wrong" screens: a tinted, color-coded
  * icon circle, a title, up to two lines of supporting copy, and an optional [FlashcardsFilledButton]
  * CTA. Used for empty search results, empty lists, cleared filters, and load errors alike — [tone]
  * is the only thing that shifts between "empty" and "error".
+ *
+ * The title only picks up [tone]'s color for [FlashcardsEmptyStateTone.Error] (red, matching the
+ * icon); for [FlashcardsEmptyStateTone.Info] it stays the plain on-surface text color rather than
+ * the icon circle's own tint, which reads as an unrelated accent color on body-sized title text.
  *
  * Does not size or center itself — pass a `modifier` that does (`Modifier.fillMaxSize()` plus
  * whatever alignment the call site needs), same as every other `core:ui` composable that doesn't
@@ -52,11 +62,82 @@ import com.rossomak.flashcards.core.ui.theme.spacing
  * non-null, so passing one without the other silently omits the button rather than crashing.
  *
  * [style] follows the shared on-surface/on-gradient axis every `Flashcards*` component family uses
- * (ADR-0034). [OnGradient] always renders the **Info** treatment regardless of [tone] — a
- * translucent white fill, hairline border, and white glyph, the same tokens
- * [FlashcardsIconCircle]'s and [FlashcardsMetadataBadge]'s own `OnGradient` styles use — since a
- * red/Error variant does not exist on the brand gradient.
+ * (ADR-0034). [OnGradient]'s [FlashcardsEmptyStateTone.Error] circle mirrors
+ * [FlashcardsXpBreakdownRow][com.rossomak.flashcards.core.ui.composables.banners.FlashcardsXpBreakdownRow]'s
+ * own `Loss` tone: `semanticColors.onGradientLossContainer` at a low alpha for the fill and a higher
+ * one for the border, so the gradient shows through rather than sitting under a flat, opaque circle.
+ * The icon and title use `brandColors.onGradientLoss` rather than [OnSurface]'s own
+ * `onNegativeContainer` red: that token is tuned for a themed surface and falls short of the
+ * body-text contrast floor against the gradient, whereas `onGradientLoss` is pinned for exactly this
+ * background (see `BrandColors.kt`). The supporting text stays the same white [OnGradient] always
+ * uses regardless of [tone]: a muted, low-contrast tone reads as illegible on the dark brand
+ * gradient.
  */
+private data class EmptyStateColors(
+    val container: Color,
+    val icon: Color,
+    val title: Color,
+    val supportingText: Color,
+    val border: BorderStroke?,
+)
+
+/**
+ * [EmptyStateColors.icon] tints both the icon glyph and its circle's own container — that pairing
+ * is what a tinted icon circle *is*. [EmptyStateColors.title] is deliberately its own field rather
+ * than reusing [EmptyStateColors.icon]: on [FlashcardsEmptyStateTone.Info] the icon tint reads as a
+ * stray accent color on body-sized title text, so the title falls back to the plain on-surface (or,
+ * [OnGradient], on-gradient-content) color instead; only [FlashcardsEmptyStateTone.Error] needs
+ * (and gets) the same color both places. [EmptyStateColors.supportingText] is its own field too,
+ * rather than inheriting whatever [EmptyStateColors.title] resolves to: it never carries [tone]'s
+ * color, on either [style] — muted on [OnSurface], plain white on [OnGradient] — same as
+ * [EmptyStateColors.title] would if [tone] were always [FlashcardsEmptyStateTone.Info].
+ */
+@Composable
+private fun emptyStateColors(
+    tone: FlashcardsEmptyStateTone,
+    style: FlashcardsComponentStyle,
+): EmptyStateColors {
+    val semanticColors = MaterialTheme.semanticColors
+    val brandColors = MaterialTheme.brandColors
+    return when (style) {
+        OnSurface -> when (tone) {
+            Info -> EmptyStateColors(
+                container = MaterialTheme.colorScheme.secondaryContainer,
+                icon = MaterialTheme.colorScheme.onSecondaryContainer,
+                title = MaterialTheme.colorScheme.onSurface,
+                supportingText = MaterialTheme.colorScheme.onSurfaceVariant,
+                border = null,
+            )
+            Error -> EmptyStateColors(
+                container = semanticColors.negativeContainer,
+                icon = semanticColors.onNegativeContainer,
+                title = semanticColors.onNegativeContainer,
+                supportingText = MaterialTheme.colorScheme.onSurfaceVariant,
+                border = null,
+            )
+        }
+        OnGradient -> when (tone) {
+            Info -> EmptyStateColors(
+                container = brandColors.onGradientContainer,
+                icon = brandColors.onGradientContent,
+                title = brandColors.onGradientContent,
+                supportingText = brandColors.onGradientContent,
+                border = BorderStroke(width = MaterialTheme.sizes.hairline, color = brandColors.onGradientBorder),
+            )
+            Error -> EmptyStateColors(
+                container = semanticColors.onGradientLossContainer.copy(alpha = ON_GRADIENT_ERROR_CONTAINER_ALPHA),
+                icon = brandColors.onGradientLoss,
+                title = brandColors.onGradientLoss,
+                supportingText = brandColors.onGradientContent,
+                border = BorderStroke(
+                    width = MaterialTheme.sizes.hairline,
+                    color = semanticColors.onGradientLossContainer.copy(alpha = ON_GRADIENT_ERROR_BORDER_ALPHA),
+                ),
+            )
+        }
+    }
+}
+
 @Composable
 fun FlashcardsEmptyState(
     icon: ImageVector,
@@ -69,26 +150,7 @@ fun FlashcardsEmptyState(
     ctaIcon: ImageVector? = null,
     onCtaClick: (() -> Unit)? = null,
 ) {
-    val semanticColors = MaterialTheme.semanticColors
-    val brandColors = MaterialTheme.brandColors
-    val containerColor = when (style) {
-        OnSurface -> when (tone) {
-            Info -> MaterialTheme.colorScheme.secondaryContainer
-            Error -> semanticColors.negativeContainer
-        }
-        OnGradient -> brandColors.onGradientContainer
-    }
-    val contentColor = when (style) {
-        OnSurface -> when (tone) {
-            Info -> MaterialTheme.colorScheme.onSecondaryContainer
-            Error -> semanticColors.onNegativeContainer
-        }
-        OnGradient -> brandColors.onGradientContent
-    }
-    val border = when (style) {
-        OnSurface -> null
-        OnGradient -> BorderStroke(width = MaterialTheme.sizes.hairline, color = brandColors.onGradientBorder)
-    }
+    val colors = emptyStateColors(tone, style)
 
     Column(
         modifier = modifier.padding(horizontal = MaterialTheme.spacing.large),
@@ -97,9 +159,9 @@ fun FlashcardsEmptyState(
         Surface(
             modifier = Modifier.size(MaterialTheme.sizes.emptyStateIconCircle),
             shape = CircleShape,
-            color = containerColor,
-            contentColor = contentColor,
-            border = border,
+            color = colors.container,
+            contentColor = colors.icon,
+            border = colors.border,
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
@@ -111,7 +173,7 @@ fun FlashcardsEmptyState(
             }
         }
 
-        Surface(color = Color.Transparent, contentColor = contentColor) {
+        Surface(color = Color.Transparent, contentColor = colors.title) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = title,
@@ -124,10 +186,7 @@ fun FlashcardsEmptyState(
                 Text(
                     text = supportingText,
                     style = MaterialTheme.typography.bodyMedium,
-                    // OnSurface keeps the muted onSurfaceVariant tone; OnGradient has no separate
-                    // "muted" token on the brand gradient, so it falls back to the same
-                    // contentColor the title uses (set on the Surface this Text inherits from).
-                    color = if (style == OnSurface) MaterialTheme.colorScheme.onSurfaceVariant else Color.Unspecified,
+                    color = colors.supportingText,
                     textAlign = TextAlign.Center,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = MaterialTheme.spacing.xsmall),
@@ -204,14 +263,10 @@ private fun FlashcardsEmptyStateErrorShowcase() {
     }
 }
 
-/**
- * [Error] is passed deliberately: [OnGradient] renders the Info treatment regardless of [tone] —
- * this showcase proves that ignoring, not merely demonstrating a happy path.
- */
-@ShowkaseComposable(name = "Empty state — on gradient", group = "Empty states")
+@ShowkaseComposable(name = "Empty state — on gradient, Info", group = "Empty states")
 @Preview
 @Composable
-private fun FlashcardsEmptyStateOnGradientShowcase() {
+private fun FlashcardsEmptyStateOnGradientInfoShowcase() {
     FlashcardsTheme {
         Surface(color = MaterialTheme.brandColors.screenGradientBase) {
             Box(
@@ -223,9 +278,33 @@ private fun FlashcardsEmptyStateOnGradientShowcase() {
                     icon = Icons.Filled.SearchOff,
                     title = "No matches",
                     supportingText = "Nothing matches the current filters.",
-                    tone = Error,
                     style = OnGradient,
                     ctaLabel = "Reset filters",
+                    onCtaClick = {},
+                )
+            }
+        }
+    }
+}
+
+@ShowkaseComposable(name = "Empty state — on gradient, Error", group = "Empty states")
+@Preview
+@Composable
+private fun FlashcardsEmptyStateOnGradientErrorShowcase() {
+    FlashcardsTheme {
+        Surface(color = MaterialTheme.brandColors.screenGradientBase) {
+            Box(
+                modifier = Modifier
+                    .background(MaterialTheme.brandColors.screenGradient)
+                    .padding(MaterialTheme.spacing.normal),
+            ) {
+                FlashcardsEmptyState(
+                    icon = Icons.Filled.ErrorOutline,
+                    title = "Something went wrong",
+                    supportingText = "Couldn't load your categories. Check your connection and try again.",
+                    tone = Error,
+                    style = OnGradient,
+                    ctaLabel = "Retry",
                     onCtaClick = {},
                 )
             }

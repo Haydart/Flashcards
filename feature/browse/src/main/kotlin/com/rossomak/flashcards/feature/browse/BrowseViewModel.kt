@@ -80,9 +80,16 @@ class BrowseViewModel @Inject constructor(
      * the text field's current value into a fresh [LaunchedEffect][androidx.compose.runtime.LaunchedEffect]
      * whenever the screen re-enters composition (e.g. back-navigating from a search result), which
      * replays the same, unchanged [query]. A no-op guard here keeps that replay from wiping
-     * [BrowseScreenState.searchResults]: without it, `searchResults` is nulled immediately while
+     * [BrowseScreenState.searchStatus]: without it, it is reset immediately while
      * [observeSearchQuery]'s `distinctUntilChanged` sees no real change and never reruns the search
-     * to repopulate them.
+     * to repopulate it.
+     *
+     * [SearchStatus.Loading] is set here, synchronously, rather than left for [runSearch] to set
+     * once the debounce elapses — a query already long enough to search is "loading" for the whole
+     * debounce-plus-fetch window, not just the fetch. Setting it only in [runSearch] left that
+     * window showing the stale previous status (typically [SearchStatus.Prompt] moments after
+     * deleting a character below the minimum and back above it), which read as "type more
+     * characters" for a query that was already long enough.
      */
     fun onSearchQueryChange(query: String) {
         _state.update { current ->
@@ -91,8 +98,7 @@ class BrowseViewModel @Inject constructor(
             } else {
                 current.copy(
                     searchQuery = query,
-                    searchResults = null,
-                    hasSearchError = false,
+                    searchStatus = if (query.meetsSearchMinimumLength()) SearchStatus.Loading else SearchStatus.Prompt,
                 )
             }
         }
@@ -108,8 +114,7 @@ class BrowseViewModel @Inject constructor(
             it.copy(
                 searchQuery = "",
                 isSearchActive = false,
-                searchResults = null,
-                hasSearchError = false,
+                searchStatus = SearchStatus.Prompt,
             )
         }
     }
@@ -119,6 +124,10 @@ class BrowseViewModel @Inject constructor(
      * and this pipeline can't disagree about what was typed. `distinctUntilChanged` sits *before*
      * `debounce` so that unrelated state changes (a category load finishing, a navigation event)
      * don't restart the debounce timer for a query that never changed.
+     *
+     * A query below the minimum length is skipped here rather than handled inside [runSearch]:
+     * [onSearchQueryChange] already set [SearchStatus.Prompt] for it synchronously, so there is
+     * nothing left to do once the debounce elapses.
      */
     private fun observeSearchQuery() {
         viewModelScope.launch {
@@ -126,18 +135,41 @@ class BrowseViewModel @Inject constructor(
                 .map { it.searchQuery }
                 .distinctUntilChanged()
                 .debounce(SEARCH_DEBOUNCE_MILLIS)
-                .collectLatest { query -> runSearch(query) }
+                .collectLatest { query ->
+                    if (query.meetsSearchMinimumLength()) {
+                        runSearch(query)
+                    }
+                }
         }
     }
 
+    /**
+     * Only ever called with a query already known to meet the minimum length.
+     *
+     * [debounce] sitting upstream of [collectLatest] in [observeSearchQuery] only cancels a
+     * previous [runSearch] once the *next* debounce window elapses — not the instant the query
+     * changes. A search already in flight when the query changes again can therefore complete
+     * during that window and land here for a query that is no longer current. Both completion
+     * branches guard against that by checking [query] is still [BrowseScreenState.searchQuery]
+     * before touching [BrowseScreenState.searchStatus], so a stale result or error can never
+     * clobber the status the newer, still-running (or already-superseding) query set.
+     */
     private suspend fun runSearch(query: String) {
-        if (query.trim().length < SearchCategoriesUseCase.MIN_QUERY_LENGTH) {
-            _state.update { it.copy(searchResults = null, hasSearchError = false) }
-            return
-        }
         searchCategories(SearchCategoriesParams(query = query, categories = _state.value.categories))
-            .onSuccess { results -> _state.update { it.copy(searchResults = results, hasSearchError = false) } }
-            .onFailure { _state.update { it.copy(searchResults = null, hasSearchError = true) } }
+            .onSuccess { results ->
+                _state.update {
+                    if (it.searchQuery != query) {
+                        it
+                    } else {
+                        it.copy(searchStatus = if (results.isEmpty) SearchStatus.NoMatch else SearchStatus.Results(results))
+                    }
+                }
+            }
+            .onFailure {
+                _state.update { current ->
+                    if (current.searchQuery != query) current else current.copy(searchStatus = SearchStatus.Error)
+                }
+            }
     }
 
     private fun loadCategories() {
@@ -160,10 +192,15 @@ class BrowseViewModel @Inject constructor(
 
     private suspend fun rerunActiveSearch() {
         val query = _state.value.searchQuery
-        if (_state.value.isSearchActive && query.trim().length >= SearchCategoriesUseCase.MIN_QUERY_LENGTH) {
+        if (_state.value.isSearchActive && query.meetsSearchMinimumLength()) {
+            _state.update { it.copy(searchStatus = SearchStatus.Loading) }
             runSearch(query)
         }
     }
+
+    /** Whether [this], once trimmed, is long enough to actually run a search. */
+    private fun String.meetsSearchMinimumLength(): Boolean =
+        trim().length >= SearchCategoriesUseCase.MIN_QUERY_LENGTH
 
     private companion object {
         const val SEARCH_DEBOUNCE_MILLIS = 500L
