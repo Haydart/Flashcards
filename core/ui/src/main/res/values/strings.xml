@@ -10,6 +10,7 @@
     <string name="common_difficulty_level_cd">Difficulty %1$d out of %2$d</string>
     <string name="common_difficulty_range_cd">Difficulty %1$d to %2$d out of %3$d</string>
     <string name="common_navigate_back_cd">Back</string>
+    <string name="common_close_cd">Close</string>
     <string name="common_edit_button">Edit</string>
     <string name="common_search_clear_cd">Clear search</string>
     <string name="common_search_dismiss_cd">Close search</string>
