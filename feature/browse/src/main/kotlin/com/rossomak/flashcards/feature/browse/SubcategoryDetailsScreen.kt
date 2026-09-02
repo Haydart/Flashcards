@@ -203,9 +203,13 @@ fun SubcategoryDetailsContent(
                     icon = Icons.Filled.SearchOff,
                     title = stringResource(R.string.subcategory_details_no_matches_title),
                     supportingText = stringResource(R.string.subcategory_details_no_matches_message),
-                    ctaLabel = stringResource(R.string.subcategory_details_reset_filters_button),
-                    ctaIcon = Icons.Filled.Close,
-                    onCtaClick = onResetFilters,
+                    button = {
+                        FlashcardsFilledButton(
+                            text = stringResource(R.string.subcategory_details_reset_filters_button),
+                            onClick = onResetFilters,
+                            icon = Icons.Filled.Close,
+                        )
+                    },
                 )
             }
         }

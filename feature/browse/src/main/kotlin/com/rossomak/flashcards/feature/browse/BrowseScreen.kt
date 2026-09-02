@@ -62,6 +62,7 @@ import com.rossomak.flashcards.core.ui.composables.FlashcardsEmptyStateTone
 import com.rossomak.flashcards.core.ui.composables.FlashcardsOverlineLabel
 import com.rossomak.flashcards.core.ui.composables.FlashcardsProgressRing
 import com.rossomak.flashcards.core.ui.composables.FlashcardsVectorIconTile
+import com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsFilledButton
 import com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsIconButton
 import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentSize
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsChevron
@@ -258,9 +259,13 @@ private fun BoxScope.CategoryListContent(
             title = stringResource(R.string.browse_categories_error_title),
             supportingText = stringResource(R.string.browse_categories_error_message),
             tone = FlashcardsEmptyStateTone.Error,
-            ctaLabel = stringResource(R.string.browse_categories_retry_button),
-            ctaIcon = Icons.Filled.Refresh,
-            onCtaClick = onRefresh,
+            button = {
+                FlashcardsFilledButton(
+                    text = stringResource(R.string.browse_categories_retry_button),
+                    onClick = onRefresh,
+                    icon = Icons.Filled.Refresh,
+                )
+            },
         )
         state.categories.isEmpty() -> CenteredEmptyState(
             icon = Icons.Filled.Search,
@@ -374,9 +379,7 @@ private fun CenteredEmptyState(
     title: String,
     supportingText: String,
     tone: FlashcardsEmptyStateTone = FlashcardsEmptyStateTone.Info,
-    ctaLabel: String? = null,
-    ctaIcon: ImageVector? = null,
-    onCtaClick: (() -> Unit)? = null,
+    button: (@Composable () -> Unit)? = null,
 ) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         FlashcardsEmptyState(
@@ -384,9 +387,7 @@ private fun CenteredEmptyState(
             title = title,
             supportingText = supportingText,
             tone = tone,
-            ctaLabel = ctaLabel,
-            ctaIcon = ctaIcon,
-            onCtaClick = onCtaClick,
+            button = button,
         )
     }
 }
