@@ -1,6 +1,5 @@
 package com.rossomak.flashcards.feature.study.preview
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,18 +14,17 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SearchOff
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -35,7 +33,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
@@ -52,13 +54,20 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.ui.R as CoreUiR
+import com.rossomak.flashcards.core.ui.composables.FlashcardsBottomSheet
+import com.rossomak.flashcards.core.ui.composables.FlashcardsBottomSheetHeader
+import com.rossomak.flashcards.core.ui.composables.FlashcardsBottomSheetState
+import com.rossomak.flashcards.core.ui.composables.FlashcardsDifficultyRangePill
 import com.rossomak.flashcards.core.ui.composables.FlashcardsEmptyState
 import com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsFilledButton
+import com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsIconButton
 import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardFilters
 import com.rossomak.flashcards.core.ui.composables.dialogs.label
 import com.rossomak.flashcards.core.ui.composables.dialogs.readAloudLabel
 import com.rossomak.flashcards.core.ui.composables.dialogs.speechRateLabel
 import com.rossomak.flashcards.core.ui.composables.dialogs.voiceAnsweringLabel
+import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsSettingRow
+import com.rossomak.flashcards.core.ui.composables.rememberFlashcardsBottomSheetState
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import com.rossomak.flashcards.feature.study.R
@@ -100,6 +109,15 @@ fun PreviewStudySessionScreen(
     )
 }
 
+/**
+ * Settings live behind a sheet hidden until asked for (ticket 07). Its open/closed value is
+ * screen-local view state — [rememberSaveable] here, not [PreviewStudySessionScreenState] — since
+ * it has no bearing on card selection and would only bloat that state with a UI-only flag.
+ * [FlashcardsBottomSheet]'s own [SheetState][androidx.compose.material3.SheetState] is hoisted
+ * alongside it, above the loading/error/ready `when` below, so both survive the loading flicker a
+ * dialog confirm or a subcategory reshuffle briefly puts the screen through — the sheet reappears
+ * exactly as the user left it rather than resetting.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PreviewStudySessionContent(
@@ -116,6 +134,13 @@ fun PreviewStudySessionContent(
         activeDialog = state.activeDialog,
         onDialogEvent = onDialogEvent,
     )
+
+    var settingsSheetOpen by rememberSaveable { mutableStateOf(false) }
+    val settingsSheetState = rememberFlashcardsBottomSheetState()
+    LaunchedEffect(settingsSheetOpen) {
+        if (settingsSheetOpen) settingsSheetState.sheetState.show() else settingsSheetState.sheetState.hide()
+    }
+
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -128,6 +153,15 @@ fun PreviewStudySessionContent(
                             contentDescription = "Close session preview",
                         )
                     }
+                },
+                actions = {
+                    // Temporary spot for the settings entry point — ticket 08 moves it into the
+                    // on-gradient action row.
+                    FlashcardsIconButton(
+                        icon = Icons.Default.Settings,
+                        contentDescription = stringResource(R.string.preview_session_open_settings_cd),
+                        onClick = { settingsSheetOpen = true },
+                    )
                 },
             )
         },
@@ -148,16 +182,26 @@ fun PreviewStudySessionContent(
                 error = state.error,
                 onRetry = onRetry,
             )
-            else -> ReadyContent(
+            else -> Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
-                state = state,
-                onReshuffleSubcategories = onReshuffleSubcategories,
-                onDialogEvent = onDialogEvent,
-                onResetFilters = onResetFilters,
-                onStartSession = onStartSession,
-            )
+            ) {
+                ReadyContent(
+                    modifier = Modifier.fillMaxSize(),
+                    state = state,
+                    onReshuffleSubcategories = onReshuffleSubcategories,
+                    onResetFilters = onResetFilters,
+                    onStartSession = onStartSession,
+                )
+                SessionSettingsSheet(
+                    state = state,
+                    sheetState = settingsSheetState,
+                    onDismissRequest = { settingsSheetOpen = false },
+                    onDialogEvent = onDialogEvent,
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                )
+            }
         }
     }
 }
@@ -186,7 +230,6 @@ private fun ReadyContent(
     modifier: Modifier = Modifier,
     state: PreviewStudySessionScreenState,
     onReshuffleSubcategories: () -> Unit,
-    onDialogEvent: (PreviewDialogEvent) -> Unit,
     onResetFilters: () -> Unit,
     onStartSession: () -> Unit,
 ) {
@@ -238,10 +281,6 @@ private fun ReadyContent(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SessionSettingRows(state = state, onDialogEvent = onDialogEvent)
-
-        Spacer(modifier = Modifier.height(24.dp))
-
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             if (state.canReshuffleSubcategories) {
                 // Enabled independent of canStart: a new Subcategory sample or a loosened filter
@@ -271,14 +310,51 @@ private fun ReadyContent(
 }
 
 /**
- * One row per adjustable setting, each opening its own dialog (ADR-0030). The rows are a plain
- * column for now — the persistent bottom-sheet chrome the ADR describes is a later pass, and the
- * rows and their dialogs are what carry the behavior.
+ * The settings sheet itself: [FlashcardsBottomSheet] docked over the ready screen, hidden until
+ * the top bar's settings button opens it (ticket 07). [sheetState] and its open/closed value are
+ * owned by the caller — this composable only renders what's inside once shown.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SessionSettingsSheet(
+    modifier: Modifier = Modifier,
+    state: PreviewStudySessionScreenState,
+    sheetState: FlashcardsBottomSheetState,
+    onDismissRequest: () -> Unit,
+    onDialogEvent: (PreviewDialogEvent) -> Unit,
+) {
+    FlashcardsBottomSheet(
+        state = sheetState,
+        onDismissRequest = onDismissRequest,
+        modifier = modifier,
+    ) {
+        FlashcardsBottomSheetHeader(
+            title = stringResource(R.string.preview_session_settings_sheet_title),
+            onClose = onDismissRequest,
+        )
+        // weight(fill = false), not fillMaxHeight: a short row set should keep the sheet's
+        // today's compact, content-hugging height, only capping — and scrolling — once the rows
+        // actually run out of room (ticket 07).
+        Column(
+            modifier = Modifier
+                .weight(weight = 1f, fill = false)
+                .verticalScroll(rememberScrollState()),
+        ) {
+            SessionSettingRows(state = state, onDialogEvent = onDialogEvent)
+        }
+    }
+}
+
+/**
+ * One row per adjustable setting, each opening its own dialog (ADR-0030), through the shared
+ * [FlashcardsSettingRow].
  *
  * Voice answering and attempts are Rated-only: Fast mode has no rating step for either to drive
  * (ADR-0025). Read-aloud is the Fast-only counterpart — voice *output* plus hands-free advance,
  * where voice answering is voice *input*. Each is not offered outside its mode rather than being
- * offered and ignored, so the two branches are exclusive.
+ * offered and ignored, so the two branches are exclusive. The Voice row itself only joins them
+ * when something will actually speak: Fast with read-aloud on, or voice answering on — Fast alone
+ * has nothing to configure yet, since read-aloud might still be off.
  */
 @Composable
 private fun SessionSettingRows(
@@ -287,24 +363,24 @@ private fun SessionSettingRows(
     onDialogEvent: (PreviewDialogEvent) -> Unit,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        SessionSettingRow(
+        FlashcardsSettingRow(
             label = stringResource(R.string.preview_session_mode_label),
-            value = state.config.mode.label(),
+            valueText = state.config.mode.label(),
             onClick = { onDialogEvent(Open(Mode(draft = state.config.mode))) },
         )
         if (state.config.mode == StudyMode.Rated) {
-            SessionSettingRow(
+            FlashcardsSettingRow(
                 label = stringResource(R.string.preview_session_voice_answering_label),
-                value = voiceAnsweringLabel(state.config.voiceAnsweringEnabled),
+                valueText = voiceAnsweringLabel(state.config.voiceAnsweringEnabled),
                 onClick = {
                     onDialogEvent(
                         Open(VoiceAnswering(draft = state.config.voiceAnsweringEnabled))
                     )
                 },
             )
-            SessionSettingRow(
+            FlashcardsSettingRow(
                 label = stringResource(R.string.preview_session_attempts_label),
-                value = pluralStringResource(
+                valueText = pluralStringResource(
                     CoreUiR.plurals.rated_attempts_label,
                     state.config.ratedAttempts,
                     state.config.ratedAttempts,
@@ -312,24 +388,23 @@ private fun SessionSettingRows(
                 onClick = { onDialogEvent(Open(Attempts(draft = state.config.ratedAttempts))) },
             )
         } else {
-            SessionSettingRow(
+            FlashcardsSettingRow(
                 label = stringResource(R.string.preview_session_read_aloud_label),
-                value = readAloudLabel(state.config.readAloudEnabled),
+                valueText = readAloudLabel(state.config.readAloudEnabled),
                 onClick = { onDialogEvent(Open(ReadAloud(draft = state.config.readAloudEnabled))) },
             )
         }
-        // Fast mode always plays cards aloud; Rated only when voice answering is on — the same
-        // gate the row itself opens into (ADR-0030).
-        if (state.config.mode == StudyMode.Fast || state.config.voiceAnsweringEnabled) {
-            SessionSettingRow(
+        val fastModeSpeaksAloud = state.config.mode == StudyMode.Fast && state.config.readAloudEnabled
+        if (fastModeSpeaksAloud || state.config.voiceAnsweringEnabled) {
+            FlashcardsSettingRow(
                 label = stringResource(R.string.preview_session_voice_settings_label),
-                value = voicePlaybackSummary(state),
+                valueText = voicePlaybackSummary(state),
                 onClick = { onDialogEvent(Open(VoiceSettings())) },
             )
         }
-        SessionSettingRow(
+        FlashcardsSettingRow(
             label = stringResource(R.string.preview_session_length_label),
-            value = pluralStringResource(
+            valueText = pluralStringResource(
                 CoreUiR.plurals.session_length_cards_label,
                 state.config.length,
                 state.config.length,
@@ -339,9 +414,9 @@ private fun SessionSettingRows(
         if (state.isQuickSession) {
             SubcategoryCountRangeSettingRow(state = state, onDialogEvent = onDialogEvent)
         }
-        SessionSettingRow(
+        FlashcardsSettingRow(
             label = stringResource(R.string.preview_session_filters_label),
-            value = filtersLabel(state),
+            value = { FiltersSettingValue(state = state) },
             onClick = {
                 onDialogEvent(
                     Open(
@@ -356,9 +431,9 @@ private fun SessionSettingRows(
                 )
             },
         )
-        SessionSettingRow(
+        FlashcardsSettingRow(
             label = stringResource(R.string.preview_session_sort_label),
-            value = state.config.sortOrder.label(),
+            valueText = state.config.sortOrder.label(),
             onClick = { onDialogEvent(Open(Sort(draft = state.config.sortOrder))) },
         )
     }
@@ -373,54 +448,15 @@ private fun SubcategoryCountRangeSettingRow(
     state: PreviewStudySessionScreenState,
     onDialogEvent: (PreviewDialogEvent) -> Unit,
 ) {
-    SessionSettingRow(
+    FlashcardsSettingRow(
         label = stringResource(R.string.preview_session_subcategory_count_range_label),
-        value = stringResource(
+        valueText = stringResource(
             CoreUiR.string.subcategory_count_range_value_label,
             state.config.subcategoryCountRange.first,
             state.config.subcategoryCountRange.last,
         ),
         onClick = { onDialogEvent(Open(SubcategoryCountRange(draft = state.config.subcategoryCountRange))) },
     )
-}
-
-@Composable
-private fun SessionSettingRow(
-    modifier: Modifier = Modifier,
-    label: String,
-    value: String,
-    onClick: () -> Unit,
-) {
-    Column(modifier = modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(
-                    onClick = onClick,
-                    onClickLabel = stringResource(R.string.preview_session_edit_setting_cd, label),
-                )
-                .padding(vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = label,
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.bodyLarge,
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.size(4.dp))
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-    }
 }
 
 /**
@@ -438,27 +474,37 @@ private fun voicePlaybackSummary(state: PreviewStudySessionScreenState): String 
 }
 
 /**
- * Difficulty always reads; the tag count only joins it when tags are actually narrowing the pool.
+ * The Filters row's value slot: a tag count beside [FlashcardsDifficultyRangePill], rather than
+ * the plain text every other row uses (ticket 07). Difficulty always renders; the tag count only
+ * joins it when tags are actually narrowing the pool.
  *
  * `config.tagIds` is materialized to every available tag by default (mirroring SubcategoryDetails,
  * ADR-0038), so "narrowing" means it is a *proper* subset of [PreviewStudySessionScreenState.availableTags]
  * — comparing against emptiness alone would show a tag count even when nothing was narrowed.
  */
 @Composable
-private fun filtersLabel(state: PreviewStudySessionScreenState): String {
+private fun FiltersSettingValue(state: PreviewStudySessionScreenState) {
     val config = state.config
-    val difficultyLabel = stringResource(
-        R.string.preview_session_filters_difficulty_value_label,
-        config.difficultyRange.first,
-        config.difficultyRange.last,
-    )
-    if (config.tagIds.isEmpty() || config.tagIds == state.availableTags.toSet()) return difficultyLabel
-    val tagsLabel = pluralStringResource(
-        R.plurals.preview_session_filters_tags_value_label,
-        config.tagIds.size,
-        config.tagIds.size,
-    )
-    return stringResource(R.string.preview_session_setting_value_separator_label, tagsLabel, difficultyLabel)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        if (config.tagIds.isNotEmpty() && config.tagIds != state.availableTags.toSet()) {
+            Text(
+                text = pluralStringResource(
+                    R.plurals.preview_session_filters_tags_value_label,
+                    config.tagIds.size,
+                    config.tagIds.size,
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        FlashcardsDifficultyRangePill(
+            lowLevel = config.difficultyRange.first,
+            highLevel = config.difficultyRange.last,
+        )
+    }
 }
 
 // isQuickSession is checked before isSingleSubcategory so a quick session that happens to land on
