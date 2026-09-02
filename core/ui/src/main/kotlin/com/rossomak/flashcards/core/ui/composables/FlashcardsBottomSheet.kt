@@ -127,9 +127,14 @@ fun FlashcardsBottomSheet(
  * impossible to desynchronize. [sheetState] is exposed directly (not hidden behind delegate
  * methods) for anything a caller needs from raw `SheetState` — `currentValue`, `isVisible`,
  * `show()`/`hide()` — matching this component's own "deliberately thin" scope.
+ *
+ * Constructor is private and [rememberFlashcardsBottomSheetState] is the sole factory: a public
+ * constructor (or a public `copy()`, which a `data class` would generate at the same visibility)
+ * would let a caller pair a `sheetState` with a `dismissible` value it wasn't actually built with,
+ * reintroducing the exact desync this type exists to rule out.
  */
 @OptIn(ExperimentalMaterial3Api::class)
-data class FlashcardsBottomSheetState(
+data class FlashcardsBottomSheetState private constructor(
     val sheetState: SheetState,
     val dismissible: Boolean,
 )
