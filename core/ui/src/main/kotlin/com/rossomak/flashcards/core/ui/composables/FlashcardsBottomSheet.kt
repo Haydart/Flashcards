@@ -128,13 +128,20 @@ fun FlashcardsBottomSheet(
  * methods) for anything a caller needs from raw `SheetState` — `currentValue`, `isVisible`,
  * `show()`/`hide()` — matching this component's own "deliberately thin" scope.
  *
- * Constructor is private and [rememberFlashcardsBottomSheetState] is the sole factory: a public
+ * Constructor is `internal` and [rememberFlashcardsBottomSheetState] is the sole factory: a public
  * constructor (or a public `copy()`, which a `data class` would generate at the same visibility)
  * would let a caller pair a `sheetState` with a `dismissible` value it wasn't actually built with,
- * reintroducing the exact desync this type exists to rule out.
+ * reintroducing the exact desync this type exists to rule out. `private` was tried first but a
+ * class-member `private` constructor is scoped to the class body, not the file — unlike top-level
+ * `private` declarations — so even [rememberFlashcardsBottomSheetState] in this same file couldn't
+ * call it; `internal` is the tightest visibility Kotlin allows a same-file-but-not-same-class caller.
+ * [ConsistentCopyVisibility] pins the generated `copy()` to that same `internal` visibility — plain
+ * `data class` only does this by default in a future Kotlin language version (KT-11914); without the
+ * annotation, `copy()` stays public today and reopens the exact hole this constructor closes.
  */
 @OptIn(ExperimentalMaterial3Api::class)
-data class FlashcardsBottomSheetState private constructor(
+@ConsistentCopyVisibility
+data class FlashcardsBottomSheetState internal constructor(
     val sheetState: SheetState,
     val dismissible: Boolean,
 )
