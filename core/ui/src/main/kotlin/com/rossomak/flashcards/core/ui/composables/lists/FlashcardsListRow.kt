@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
@@ -113,7 +114,16 @@ fun FlashcardsListRow(
             }
         }
         if (trailing != null) {
-            trailing()
+            // weight(1f, fill = false): trailing is otherwise measured at its own natural width
+            // *before* the title column's weight(1f) claims what's left — a long trailing value
+            // (e.g. a settings row's current-value text) would then have no bound to ellipsize
+            // against, and would squeeze the title down to near nothing instead of wrapping or
+            // truncating itself. Sharing the weighted budget evenly with title fixes that: normal,
+            // short trailing content (a chevron, a switch) is far under its half and renders
+            // unchanged, while a wide one is finally capped and can truncate as designed.
+            Box(modifier = Modifier.weight(1f, fill = false)) {
+                trailing()
+            }
         }
     }
 }
