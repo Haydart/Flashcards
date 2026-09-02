@@ -41,20 +41,25 @@ private const val DISABLED_ALPHA = 0.6f
  * line is [FlashcardsDetailedListRow] instead — this row has no `subtitle` slot, so the two
  * shapes can't be conflated at a call site.
  *
- * The whole row is one merged, clickable node with the given [role]; decorative trailing
- * chevrons should pass `contentDescription = null` (see [FlashcardsChevron]). When [enabled] is
- * `false`, the whole row dims rather than only disabling the click.
+ * The whole row is one merged, clickable node with the given [role] — unless [onClick] is `null`,
+ * in which case the row carries no click semantics at all (a caller with its own separately
+ * clickable trailing content, e.g. [FlashcardsSettingRow]'s Edit button, wants the row itself to
+ * be inert). Decorative trailing chevrons should pass `contentDescription = null` (see
+ * [FlashcardsChevron]). When [enabled] is `false`, the whole row dims rather than only disabling
+ * the click.
  *
  * [onLongClick] is opt-in: leaving it `null` keeps the row on the cheaper [Modifier.clickable]
  * path with its existing click semantics, unchanged. Passing it switches the row to
  * [Modifier.combinedClickable], which already fires a [HapticFeedbackType.LongPress] haptic on
- * long-press itself — this row doesn't call it a second time.
+ * long-press itself — this row doesn't call it a second time. Pairing [onLongClick] with a `null`
+ * [onClick] is nonsensical and unsupported; every caller that wants long-press also has a real tap
+ * target.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FlashcardsListRow(
     title: String,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
     onLongClick: (() -> Unit)? = null,
     secondaryText: String? = null,
@@ -63,15 +68,15 @@ fun FlashcardsListRow(
     leading: @Composable (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)? = null,
 ) {
-    val clickModifier = if (onLongClick != null) {
-        Modifier.combinedClickable(
+    val clickModifier = when {
+        onClick == null -> Modifier
+        onLongClick != null -> Modifier.combinedClickable(
             enabled = enabled,
             role = role,
             onLongClick = onLongClick,
             onClick = onClick,
         )
-    } else {
-        Modifier.clickable(enabled = enabled, role = role, onClick = onClick)
+        else -> Modifier.clickable(enabled = enabled, role = role, onClick = onClick)
     }
     Row(
         modifier = modifier

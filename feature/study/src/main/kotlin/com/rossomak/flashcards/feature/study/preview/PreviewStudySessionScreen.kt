@@ -53,6 +53,7 @@ import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.ui.R as CoreUiR
 import com.rossomak.flashcards.core.ui.composables.FlashcardsEmptyState
+import com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsFilledButton
 import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardFilters
 import com.rossomak.flashcards.core.ui.composables.dialogs.label
 import com.rossomak.flashcards.core.ui.composables.dialogs.readAloudLabel
@@ -202,9 +203,13 @@ private fun ReadyContent(
                 icon = Icons.Default.SearchOff,
                 title = stringResource(R.string.preview_session_empty_state_title),
                 supportingText = stringResource(R.string.preview_session_empty_state_message),
-                ctaLabel = stringResource(R.string.preview_session_empty_state_reset_button),
-                ctaIcon = Icons.Default.Refresh,
-                onCtaClick = onResetFilters,
+                button = {
+                    FlashcardsFilledButton(
+                        text = stringResource(R.string.preview_session_empty_state_reset_button),
+                        onClick = onResetFilters,
+                        icon = Icons.Default.Refresh,
+                    )
+                },
             )
         } else {
             Text(

@@ -1,5 +1,9 @@
 package com.rossomak.flashcards.core.ui.composables.dialogs
 
+import android.os.Build
+import android.view.Window
+import android.view.WindowManager
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -12,16 +16,23 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.offset
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import com.rossomak.flashcards.core.ui.theme.AppSpacing
 import com.rossomak.flashcards.core.ui.theme.cornerRadius
 import com.rossomak.flashcards.core.ui.theme.spacing
+import java.util.function.Consumer
 
 /**
  * The dialog scaffold every `Flashcards*Dialog` is built on — a thin skin over M3's [AlertDialog].
@@ -73,6 +84,7 @@ internal fun FlashcardsDialog(
         icon = icon?.let { { Icon(imageVector = it, contentDescription = null) } },
         title = { Text(text = title, style = MaterialTheme.typography.headlineSmall) },
         text = {
+            DialogBlurBehindEffect()
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -100,6 +112,61 @@ internal fun FlashcardsDialog(
         textContentColor = MaterialTheme.colorScheme.onSurface,
         properties = properties,
     )
+}
+
+/** Blur-behind radius applied to a dialog's window when cross-window blur is available. */
+private val DIALOG_BLUR_RADIUS = 32.dp
+
+/**
+ * Blurs whatever is behind the dialog's own window, on top of the unchanged scrim dim — never
+ * instead of it. Two gates guard this, both live for the dialog's lifetime:
+ *
+ * - **API 31+** ([Build.VERSION.SDK_INT]): cross-window blur is a platform capability introduced
+ *   in Android 12; below that this is a no-op.
+ * - **Runtime availability** ([WindowManager.isCrossWindowBlurEnabled]): even on 31+, the system
+ *   can disable cross-window blur (battery saver, low-RAM devices, a developer option), and it can
+ *   flip mid-session — [WindowManager.addCrossWindowBlurEnabledListener] is how a dialog already on
+ *   screen reacts to that.
+ *
+ * This is not [androidx.compose.ui.draw.blur] — a Compose dialog is its own window, so blurring
+ * what's *behind* it means reaching that window (via [DialogWindowProvider], the same seam M3's own
+ * [AlertDialog] is built on) and setting blur-behind flags on its layout params, not blurring the
+ * dialog's own content.
+ */
+@Composable
+private fun DialogBlurBehindEffect() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+
+    val view = LocalView.current
+    val context = LocalContext.current
+    val blurRadiusPx = with(LocalDensity.current) { DIALOG_BLUR_RADIUS.roundToPx() }
+
+    DisposableEffect(view, blurRadiusPx) {
+        val window = (view.parent as? DialogWindowProvider)?.window
+        val windowManager = context.getSystemService(WindowManager::class.java)
+        if (window == null || windowManager == null) return@DisposableEffect onDispose {}
+
+        val listener = Consumer<Boolean> { enabled -> window.applyBlurBehind(enabled, blurRadiusPx) }
+        with(windowManager) {
+            window.applyBlurBehind(isCrossWindowBlurEnabled, blurRadiusPx)
+            addCrossWindowBlurEnabledListener(context.mainExecutor, listener)
+        }
+
+        onDispose {
+            windowManager.removeCrossWindowBlurEnabledListener(listener)
+            window.applyBlurBehind(enabled = false, blurRadiusPx = blurRadiusPx)
+        }
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.S)
+private fun Window.applyBlurBehind(enabled: Boolean, blurRadiusPx: Int) {
+    if (enabled) {
+        addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+        attributes = attributes.also { it.blurBehindRadius = blurRadiusPx }
+    } else {
+        clearFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+    }
 }
 
 /** Geometry of the dialog scaffold that its content composables have to line up against. */
