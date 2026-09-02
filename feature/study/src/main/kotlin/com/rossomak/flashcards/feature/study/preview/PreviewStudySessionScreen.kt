@@ -546,7 +546,7 @@ private fun scopeDescription(state: PreviewStudySessionScreenState): AnnotatedSt
             state.isSingleSubcategory -> {
                 appendBold(cardsText)
                 append(stringResource(R.string.preview_session_scope_single_subcategory_prefix_message))
-                append(state.subcategoryNames.first())
+                appendBold(state.subcategoryNames.first())
                 append(stringResource(R.string.preview_session_scope_single_subcategory_suffix_message))
             }
             else -> {
@@ -559,8 +559,13 @@ private fun scopeDescription(state: PreviewStudySessionScreenState): AnnotatedSt
     }
 }
 
-/** Names past this count stop being useful to read at a glance and collapse into a count instead. */
-private const val SUBCATEGORY_LIST_TRUNCATION_THRESHOLD = 4
+/**
+ * Names past this count stop being useful to read at a glance and collapse into a count instead.
+ * Pinned to [StudySessionConfig.MAX_SUBCATEGORY_COUNT] — Quick's subcategory-count cap — so a
+ * Quick session, whose topics the user did not choose, making naming them the whole point of a
+ * preview, never truncates. Custom sessions, unbounded, still collapse once they cross it.
+ */
+private val SUBCATEGORY_LIST_TRUNCATION_THRESHOLD = StudySessionConfig.MAX_SUBCATEGORY_COUNT
 private const val SUBCATEGORY_LIST_VISIBLE_COUNT = 3
 
 /**
