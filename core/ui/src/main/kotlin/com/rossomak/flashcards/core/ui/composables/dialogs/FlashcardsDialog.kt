@@ -163,7 +163,7 @@ private fun DialogBlurBehindEffect() {
 private fun Window.applyBlurBehind(enabled: Boolean, blurRadiusPx: Int) {
     if (enabled) {
         addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
-        setBackgroundBlurRadius(blurRadiusPx)
+        attributes = attributes.also { it.blurBehindRadius = blurRadiusPx }
     } else {
         clearFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
     }
