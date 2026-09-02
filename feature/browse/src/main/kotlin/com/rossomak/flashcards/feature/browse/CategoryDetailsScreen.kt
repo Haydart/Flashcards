@@ -51,11 +51,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.Subcategory
 import com.rossomak.flashcards.core.ui.R as CoreUiR
 import com.rossomak.flashcards.core.ui.composables.FlashcardsOverlineLabel
-import com.rossomak.flashcards.core.ui.composables.FlashcardsPlayButton
 import com.rossomak.flashcards.core.ui.composables.FlashcardsProgressRing
 import com.rossomak.flashcards.core.ui.composables.bars.FlashcardsBottomToolbar
 import com.rossomak.flashcards.core.ui.composables.bars.FlashcardsTopAppBar
 import com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsFilledButton
+import com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsIconButton
 import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentSize
 import com.rossomak.flashcards.core.ui.composables.flashcardsListScrollFade
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsChevron
@@ -530,9 +530,11 @@ private fun Subcategory.toListGroupItem(
                     horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    FlashcardsPlayButton(
-                        onClick = { onNavigateToPreviewStudySession(subcategory) },
+                    FlashcardsIconButton(
+                        icon = Icons.Default.PlayArrow,
                         contentDescription = playContentDescription,
+                        onClick = { onNavigateToPreviewStudySession(subcategory) },
+                        size = FlashcardsComponentSize.Small,
                     )
                     FlashcardsChevron()
                 }

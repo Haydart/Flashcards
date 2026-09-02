@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.PhoneIphone
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SwipeUp
 import androidx.compose.material.icons.filled.Tag
@@ -31,8 +32,9 @@ import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.airbnb.android.showkase.annotation.ShowkaseComposable
 import com.rossomak.flashcards.core.ui.composables.FlashcardsIconTile
 import com.rossomak.flashcards.core.ui.composables.FlashcardsOverlineLabel
-import com.rossomak.flashcards.core.ui.composables.FlashcardsPlayButton
 import com.rossomak.flashcards.core.ui.composables.FlashcardsStepper
+import com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsIconButton
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentSize
 import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.spacing
 import kotlinx.collections.immutable.ImmutableList
@@ -415,9 +417,11 @@ fun FlashcardsListGroupSearchResultsShowcase() {
                         secondaryText = "in Android",
                         trailing = {
                             Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall)) {
-                                FlashcardsPlayButton(
-                                    onClick = {},
+                                FlashcardsIconButton(
+                                    icon = Icons.Default.PlayArrow,
                                     contentDescription = "Study Compose",
+                                    onClick = {},
+                                    size = FlashcardsComponentSize.Small,
                                 )
                                 FlashcardsChevron()
                             }
@@ -429,9 +433,11 @@ fun FlashcardsListGroupSearchResultsShowcase() {
                         secondaryText = "in Android",
                         trailing = {
                             Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall)) {
-                                FlashcardsPlayButton(
-                                    onClick = {},
+                                FlashcardsIconButton(
+                                    icon = Icons.Default.PlayArrow,
                                     contentDescription = "Study Compose Navigation",
+                                    onClick = {},
+                                    size = FlashcardsComponentSize.Small,
                                 )
                                 FlashcardsChevron()
                             }

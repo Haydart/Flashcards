@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
@@ -59,9 +60,10 @@ import com.rossomak.flashcards.core.ui.R as CoreUiR
 import com.rossomak.flashcards.core.ui.composables.FlashcardsEmptyState
 import com.rossomak.flashcards.core.ui.composables.FlashcardsEmptyStateTone
 import com.rossomak.flashcards.core.ui.composables.FlashcardsOverlineLabel
-import com.rossomak.flashcards.core.ui.composables.FlashcardsPlayButton
 import com.rossomak.flashcards.core.ui.composables.FlashcardsProgressRing
 import com.rossomak.flashcards.core.ui.composables.FlashcardsVectorIconTile
+import com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsIconButton
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentSize
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsChevron
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListGroup
 import com.rossomak.flashcards.core.ui.composables.lists.FlashcardsListGroupItem
@@ -553,9 +555,11 @@ private fun Subcategory.toListGroupItem(
                 horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                FlashcardsPlayButton(
-                    onClick = { onSubcategorySessionStart(subcategory) },
+                FlashcardsIconButton(
+                    icon = Icons.Default.PlayArrow,
                     contentDescription = startSessionContentDescription,
+                    onClick = { onSubcategorySessionStart(subcategory) },
+                    size = FlashcardsComponentSize.Small,
                 )
                 FlashcardsChevron()
             }
