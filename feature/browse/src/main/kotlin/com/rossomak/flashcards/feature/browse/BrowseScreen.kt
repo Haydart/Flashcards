@@ -261,7 +261,7 @@ private fun BoxScope.CategoryListContent(
             tone = FlashcardsEmptyStateTone.Error,
             button = {
                 FlashcardsFilledButton(
-                    text = stringResource(R.string.browse_categories_retry_button),
+                    text = stringResource(CoreUiR.string.common_retry_button),
                     onClick = onRefresh,
                     icon = Icons.Filled.Refresh,
                 )

@@ -50,6 +50,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
+import com.rossomak.flashcards.core.ui.R as CoreUiR
 import com.rossomak.flashcards.core.ui.composables.FlashcardsEmptyState
 import com.rossomak.flashcards.core.ui.composables.FlashcardsOverlineLabel
 import com.rossomak.flashcards.core.ui.composables.bars.FlashcardsBottomToolbar
@@ -292,7 +293,7 @@ private fun SubcategoryDetailsBottomBar(
                         state.sessionCardCount,
                     )
                 } else {
-                    stringResource(R.string.subcategory_details_start_session_button)
+                    stringResource(CoreUiR.string.common_start_session_button)
                 },
                 onClick = onStartSession,
                 size = FlashcardsComponentSize.Small,
