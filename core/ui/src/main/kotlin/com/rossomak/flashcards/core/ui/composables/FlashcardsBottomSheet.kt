@@ -178,6 +178,9 @@ fun rememberFlashcardsBottomSheetState(
     return remember(sheetState, dismissible) { FlashcardsBottomSheetState(sheetState, dismissible) }
 }
 
+/** Number of mock rows rendered by [MockScreenContent] below the headline. */
+private const val MOCK_SCREEN_CONTENT_ROW_COUNT = 3
+
 /**
  * Stand-in for a real screen's body, so the showcase/preview below reads as "a sheet docked over a
  * screen" rather than the sheet floating alone. Not part of the public API.
@@ -191,7 +194,7 @@ private fun MockScreenContent(modifier: Modifier = Modifier) {
             fontWeight = FontWeight.Bold,
         )
         Spacer(modifier = Modifier.height(MaterialTheme.spacing.normal))
-        repeat(3) { index ->
+        repeat(MOCK_SCREEN_CONTENT_ROW_COUNT) { index ->
             Text(
                 text = "Flashcard #${index + 1}",
                 style = MaterialTheme.typography.bodyLarge,
