@@ -55,16 +55,16 @@
     <string name="preview_session_empty_state_message">Nothing meets the current filters. Reset them to try again.</string>
     <string name="preview_session_empty_state_reset_button">Reset filters</string>
     <string name="preview_session_scope_quick_session_message">" auto-selected across "</string>
-    <string name="preview_session_scope_single_topic_prefix_message">" from your "</string>
-    <string name="preview_session_scope_single_topic_suffix_message">" deck."</string>
-    <string name="preview_session_scope_multi_topic_message">" from "</string>
+    <string name="preview_session_scope_single_subcategory_prefix_message">" from your "</string>
+    <string name="preview_session_scope_single_subcategory_suffix_message">" deck."</string>
+    <string name="preview_session_scope_multi_subcategory_message">" from "</string>
 
     <plurals name="preview_session_filters_tags_value_label">
         <item quantity="one">%1$d tag</item>
         <item quantity="other">%1$d tags</item>
     </plurals>
 
-    <plurals name="preview_session_scope_other_topics_count">
+    <plurals name="preview_session_scope_other_subcategories_count">
         <item quantity="one">" and %1$d other topic"</item>
         <item quantity="other">" and %1$d other topics"</item>
     </plurals>

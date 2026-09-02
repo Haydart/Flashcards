@@ -21,8 +21,8 @@ data class PreviewStudySessionScreenState(
     val availableVoices: List<VoiceOption> = emptyList(),
     val activeDialog: PreviewDialog? = null,
 ) {
-    val isSingleTopic: Boolean get() = subcategoryNames.size == 1
-    val topicCount: Int get() = subcategoryNames.size
-    val canRerandomize: Boolean get() = !isSingleTopic || isQuickSession
+    val isSingleSubcategory: Boolean get() = subcategoryNames.size == 1
+    val subcategoryCount: Int get() = subcategoryNames.size
+    val canReshuffleSubcategories: Boolean get() = !isSingleSubcategory || isQuickSession
     val canStart: Boolean get() = !isLoading && error == null && selectedCardCount > 0
 }

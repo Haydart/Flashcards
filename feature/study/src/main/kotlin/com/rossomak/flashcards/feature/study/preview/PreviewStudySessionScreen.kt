@@ -93,7 +93,7 @@ fun PreviewStudySessionScreen(
         state = state,
         onNavigateBack = onNavigateBack,
         onRetry = viewModel::onRetry,
-        onRerandomize = viewModel::onRerandomize,
+        onReshuffleSubcategories = viewModel::onReshuffleSubcategories,
         onDialogEvent = viewModel::onDialogEvent,
         onResetFilters = viewModel::onResetFilters,
         onStartSession = viewModel::onStartSession,
@@ -107,7 +107,7 @@ fun PreviewStudySessionContent(
     state: PreviewStudySessionScreenState,
     onNavigateBack: () -> Unit,
     onRetry: () -> Unit,
-    onRerandomize: () -> Unit,
+    onReshuffleSubcategories: () -> Unit,
     onDialogEvent: (PreviewDialogEvent) -> Unit,
     onResetFilters: () -> Unit,
     onStartSession: () -> Unit,
@@ -153,7 +153,7 @@ fun PreviewStudySessionContent(
                     .fillMaxSize()
                     .padding(innerPadding),
                 state = state,
-                onRerandomize = onRerandomize,
+                onReshuffleSubcategories = onReshuffleSubcategories,
                 onDialogEvent = onDialogEvent,
                 onResetFilters = onResetFilters,
                 onStartSession = onStartSession,
@@ -185,7 +185,7 @@ private fun ErrorContent(
 private fun ReadyContent(
     modifier: Modifier = Modifier,
     state: PreviewStudySessionScreenState,
-    onRerandomize: () -> Unit,
+    onReshuffleSubcategories: () -> Unit,
     onDialogEvent: (PreviewDialogEvent) -> Unit,
     onResetFilters: () -> Unit,
     onStartSession: () -> Unit,
@@ -229,8 +229,8 @@ private fun ReadyContent(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 AssistChip(onClick = {}, label = { Text(text = "~ ${state.estimatedMinutes} min") })
-                if (!state.isSingleTopic) {
-                    AssistChip(onClick = {}, label = { Text(text = "${state.topicCount} topics") })
+                if (!state.isSingleSubcategory) {
+                    AssistChip(onClick = {}, label = { Text(text = "${state.subcategoryCount} topics") })
                 }
                 AssistChip(onClick = {}, label = { Text(text = "${state.selectedCardCount} cards") })
             }
@@ -243,18 +243,18 @@ private fun ReadyContent(
         Spacer(modifier = Modifier.height(24.dp))
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (state.canRerandomize) {
+            if (state.canReshuffleSubcategories) {
                 // Enabled independent of canStart: a new Subcategory sample or a loosened filter
-                // might turn an empty result into a match, so re-randomizing must stay reachable
+                // might turn an empty result into a match, so reshuffling must stay reachable
                 // through the empty state, not just once cards are already selected.
                 FilledTonalButton(
-                    onClick = onRerandomize,
+                    onClick = onReshuffleSubcategories,
                     enabled = !state.isLoading,
                     modifier = Modifier.weight(1f),
                 ) {
                     Icon(imageVector = Icons.Default.Shuffle, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.size(8.dp))
-                    Text(text = "Re-randomize")
+                    Text(text = "Reshuffle topics")
                 }
             }
             Button(
@@ -461,11 +461,12 @@ private fun filtersLabel(state: PreviewStudySessionScreenState): String {
     return stringResource(R.string.preview_session_setting_value_separator_label, tagsLabel, difficultyLabel)
 }
 
-// isQuickSession is checked before isSingleTopic so a quick session that happens to land on one
-// topic still reads as "Quick session" rather than misreporting as a plain single-topic preview.
+// isQuickSession is checked before isSingleSubcategory so a quick session that happens to land on
+// one subcategory still reads as "Quick session" rather than misreporting as a plain single-subcategory
+// preview.
 private fun screenTitle(state: PreviewStudySessionScreenState): String = when {
     state.isQuickSession -> "${state.categoryName} · Quick session"
-    state.isSingleTopic -> "${state.categoryName} · ${state.subcategoryNames.first()}"
+    state.isSingleSubcategory -> "${state.categoryName} · ${state.subcategoryNames.first()}"
     else -> "${state.categoryName} · Custom session"
 }
 
@@ -479,10 +480,10 @@ private fun scopeDescription(state: PreviewStudySessionScreenState): AnnotatedSt
     // Resolved here, not inside appendSubcategoryList, so that function can stay a plain (non-
     // @Composable) builder step — matching appendOxfordList — instead of tripping detekt/lint's
     // ComposableNaming rule for a lowercase Unit-returning @Composable.
-    val otherTopicsText = (state.subcategoryNames.size - SUBCATEGORY_LIST_VISIBLE_COUNT)
+    val otherSubcategoriesText = (state.subcategoryNames.size - SUBCATEGORY_LIST_VISIBLE_COUNT)
         .takeIf { state.subcategoryNames.size > SUBCATEGORY_LIST_TRUNCATION_THRESHOLD }
         ?.let { otherCount ->
-            pluralStringResource(R.plurals.preview_session_scope_other_topics_count, otherCount, otherCount)
+            pluralStringResource(R.plurals.preview_session_scope_other_subcategories_count, otherCount, otherCount)
         }
     return buildAnnotatedString {
         fun appendBold(text: String) {
@@ -493,19 +494,19 @@ private fun scopeDescription(state: PreviewStudySessionScreenState): AnnotatedSt
             state.isQuickSession -> {
                 appendBold(cardsText)
                 append(stringResource(R.string.preview_session_scope_quick_session_message))
-                appendSubcategoryList(state.subcategoryNames, ::appendBold, otherTopicsText)
+                appendSubcategoryList(state.subcategoryNames, ::appendBold, otherSubcategoriesText)
                 append(".")
             }
-            state.isSingleTopic -> {
+            state.isSingleSubcategory -> {
                 appendBold(cardsText)
-                append(stringResource(R.string.preview_session_scope_single_topic_prefix_message))
+                append(stringResource(R.string.preview_session_scope_single_subcategory_prefix_message))
                 append(state.subcategoryNames.first())
-                append(stringResource(R.string.preview_session_scope_single_topic_suffix_message))
+                append(stringResource(R.string.preview_session_scope_single_subcategory_suffix_message))
             }
             else -> {
                 appendBold(cardsText)
-                append(stringResource(R.string.preview_session_scope_multi_topic_message))
-                appendSubcategoryList(state.subcategoryNames, ::appendBold, otherTopicsText)
+                append(stringResource(R.string.preview_session_scope_multi_subcategory_message))
+                appendSubcategoryList(state.subcategoryNames, ::appendBold, otherSubcategoriesText)
                 append(".")
             }
         }
@@ -517,16 +518,16 @@ private const val SUBCATEGORY_LIST_TRUNCATION_THRESHOLD = 4
 private const val SUBCATEGORY_LIST_VISIBLE_COUNT = 3
 
 /**
- * Lists every Subcategory name in full when [otherTopicsText] is `null` (fits within
+ * Lists every Subcategory name in full when [otherSubcategoriesText] is `null` (fits within
  * [SUBCATEGORY_LIST_TRUNCATION_THRESHOLD]); otherwise the first [SUBCATEGORY_LIST_VISIBLE_COUNT]
  * plus that pre-resolved "and N other topics" summary of the rest.
  */
 private fun AnnotatedString.Builder.appendSubcategoryList(
     names: List<String>,
     appendBold: (String) -> Unit,
-    otherTopicsText: String?,
+    otherSubcategoriesText: String?,
 ) {
-    if (otherTopicsText == null) {
+    if (otherSubcategoriesText == null) {
         appendOxfordList(names, appendBold)
         return
     }
@@ -534,7 +535,7 @@ private fun AnnotatedString.Builder.appendSubcategoryList(
         if (index > 0) append(", ")
         appendBold(name)
     }
-    append(otherTopicsText)
+    append(otherSubcategoriesText)
 }
 
 // Joins names as "A and B" (2 items) or "A, B, and C" (3+ items), bolding each name.
@@ -560,7 +561,7 @@ private fun PreviewStudySessionLoadingPreview() {
         ),
         onNavigateBack = {},
         onRetry = {},
-        onRerandomize = {},
+        onReshuffleSubcategories = {},
         onDialogEvent = {},
         onResetFilters = {},
         onStartSession = {},
@@ -579,7 +580,7 @@ private fun PreviewStudySessionErrorPreview() {
         ),
         onNavigateBack = {},
         onRetry = {},
-        onRerandomize = {},
+        onReshuffleSubcategories = {},
         onDialogEvent = {},
         onResetFilters = {},
         onStartSession = {},
@@ -605,7 +606,7 @@ private fun PreviewStudySessionEmptyStatePreview() {
         ),
         onNavigateBack = {},
         onRetry = {},
-        onRerandomize = {},
+        onReshuffleSubcategories = {},
         onDialogEvent = {},
         onResetFilters = {},
         onStartSession = {},
@@ -614,7 +615,7 @@ private fun PreviewStudySessionEmptyStatePreview() {
 
 @Preview(showBackground = true)
 @Composable
-private fun PreviewStudySessionSingleTopicPreview() {
+private fun PreviewStudySessionSingleSubcategoryPreview() {
     PreviewStudySessionContent(
         state = PreviewStudySessionScreenState(
             categoryName = "Android",
@@ -631,7 +632,7 @@ private fun PreviewStudySessionSingleTopicPreview() {
         ),
         onNavigateBack = {},
         onRetry = {},
-        onRerandomize = {},
+        onReshuffleSubcategories = {},
         onDialogEvent = {},
         onResetFilters = {},
         onStartSession = {},
@@ -652,7 +653,7 @@ private fun PreviewStudySessionQuickSessionPreview() {
         ),
         onNavigateBack = {},
         onRetry = {},
-        onRerandomize = {},
+        onReshuffleSubcategories = {},
         onDialogEvent = {},
         onResetFilters = {},
         onStartSession = {},
@@ -673,7 +674,7 @@ private fun PreviewStudySessionCustomSessionPreview() {
         ),
         onNavigateBack = {},
         onRetry = {},
-        onRerandomize = {},
+        onReshuffleSubcategories = {},
         onDialogEvent = {},
         onResetFilters = {},
         onStartSession = {},
