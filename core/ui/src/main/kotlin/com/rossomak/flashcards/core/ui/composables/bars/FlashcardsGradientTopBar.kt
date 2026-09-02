@@ -50,7 +50,15 @@ fun FlashcardsGradientTopBar(
 
     CenterAlignedTopAppBar(
         title = {
-            Text(text = title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            // titleSmall, not the default titleLarge: this screen's title is a long "Category ·
+            // Subcategory" string (see PreviewStudySessionScreen.screenTitle) and reads as an app
+            // bar label, not a headline — titleLarge dwarfed the hero content beneath it.
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         },
         modifier = modifier,
         navigationIcon = navigationIcon,
