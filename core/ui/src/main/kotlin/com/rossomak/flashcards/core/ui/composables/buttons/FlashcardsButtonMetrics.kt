@@ -23,6 +23,7 @@ import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentSty
 import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle.OnSurface
 import com.rossomak.flashcards.core.ui.theme.AppSizes
 import com.rossomak.flashcards.core.ui.theme.AppSpacing
+import com.rossomak.flashcards.core.ui.theme.brandColors
 import com.rossomak.flashcards.core.ui.theme.sizes
 import com.rossomak.flashcards.core.ui.theme.spacing
 
@@ -86,6 +87,30 @@ internal fun disabledButtonContainerColorFor(style: FlashcardsComponentStyle): C
 internal fun disabledButtonContentColorFor(style: FlashcardsComponentStyle): Color = when (style) {
     OnSurface -> MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_CONTENT_ALPHA)
     OnGradient -> Color.White.copy(alpha = ON_GRADIENT_DISABLED_CONTENT_ALPHA)
+}
+
+/**
+ * Enabled container color for the given [style], shared by every tonal-treatment
+ * `Flashcards*Button` ([FlashcardsTonalButton], [FlashcardsIconButton]). [onSurfaceContainer]
+ * is the one part that varies per type — each picks its own `OnSurface` token — while the
+ * `OnGradient` branch is always [com.rossomak.flashcards.core.ui.theme.BrandColors.onGradientContainer].
+ */
+@Composable
+@ReadOnlyComposable
+internal fun enabledButtonContainerColorFor(style: FlashcardsComponentStyle, onSurfaceContainer: Color): Color = when (style) {
+    OnSurface -> onSurfaceContainer
+    OnGradient -> MaterialTheme.brandColors.onGradientContainer
+}
+
+/**
+ * Enabled content color for the given [style], the content-color counterpart to
+ * [enabledButtonContainerColorFor].
+ */
+@Composable
+@ReadOnlyComposable
+internal fun enabledButtonContentColorFor(style: FlashcardsComponentStyle, onSurfaceContent: Color): Color = when (style) {
+    OnSurface -> onSurfaceContent
+    OnGradient -> MaterialTheme.brandColors.onGradientContent
 }
 
 /**

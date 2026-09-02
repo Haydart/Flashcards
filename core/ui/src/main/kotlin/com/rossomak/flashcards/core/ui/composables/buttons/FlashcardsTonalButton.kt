@@ -55,12 +55,8 @@ fun FlashcardsTonalButton(
         enabled = enabled,
         shape = RoundedCornerShape(MaterialTheme.cornerRadius.full),
         colors = ButtonDefaults.filledTonalButtonColors(
-            containerColor = if (onGradient) {
-                MaterialTheme.brandColors.onGradientContainer
-            } else {
-                MaterialTheme.brandColors.tonalButtonContainer
-            },
-            contentColor = if (onGradient) MaterialTheme.brandColors.onGradientContent else MaterialTheme.brandColors.onTonalButtonContainer,
+            containerColor = enabledButtonContainerColorFor(style, MaterialTheme.brandColors.tonalButtonContainer),
+            contentColor = enabledButtonContentColorFor(style, MaterialTheme.brandColors.onTonalButtonContainer),
             disabledContainerColor = disabledButtonContainerColorFor(style),
             disabledContentColor = disabledButtonContentColorFor(style),
         ),
