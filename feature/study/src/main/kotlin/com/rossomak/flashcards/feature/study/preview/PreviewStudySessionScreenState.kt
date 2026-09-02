@@ -23,6 +23,10 @@ data class PreviewStudySessionScreenState(
 ) {
     val isSingleSubcategory: Boolean get() = subcategoryNames.size == 1
     val subcategoryCount: Int get() = subcategoryNames.size
-    val canReshuffleSubcategories: Boolean get() = !isSingleSubcategory || isQuickSession
+
+    // Quick only: its subcategories were auto-sampled, so a fresh draw is meaningful. Custom's are
+    // hand-picked by the user — nothing to reshuffle, so Custom never offers it, single-subcategory
+    // or not.
+    val canReshuffleSubcategories: Boolean get() = isQuickSession
     val canStart: Boolean get() = !isLoading && error == null && selectedCardCount > 0
 }

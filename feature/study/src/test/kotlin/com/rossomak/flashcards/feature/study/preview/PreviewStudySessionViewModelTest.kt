@@ -831,12 +831,14 @@ class PreviewStudySessionViewModelTest {
     }
 
     @Test
-    fun `single subcategory route cannot reshuffle subcategories, multi subcategory can`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `a Custom session cannot reshuffle subcategories, single or multi`() = runTest(mainDispatcherRule.testDispatcher) {
+        // Custom's subcategories are hand-picked by the user, not sampled — nothing to reshuffle,
+        // unlike Quick (see `quick session on a single subcategory can still reshuffle subcategories`).
         stubRoute(singleSubcategoryRoute)
         createViewModel().state.value.canReshuffleSubcategories shouldBe false
 
         stubRoute(multiSubcategoryRoute)
-        createViewModel().state.value.canReshuffleSubcategories.shouldBeTrue()
+        createViewModel().state.value.canReshuffleSubcategories shouldBe false
     }
 
     @Test
