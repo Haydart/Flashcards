@@ -1,8 +1,10 @@
 package com.rossomak.flashcards.core.ui.composables.lists
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.HorizontalDivider
@@ -15,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
+import androidx.compose.ui.unit.dp
 import com.airbnb.android.showkase.annotation.ShowkaseComposable
 import com.rossomak.flashcards.core.ui.R
 import com.rossomak.flashcards.core.ui.composables.FlashcardsDifficultyRangePill
@@ -24,9 +27,18 @@ import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.spacing
 
 /**
+ * Max width of the [FlashcardsSettingRow.value] slot, so a long value can never starve the label
+ * or the Edit button of space — see [FlashcardsSettingRow]'s `value` doc for the resulting
+ * clipping contract. Local to this row shape, not a shared [com.rossomak.flashcards.core.ui.theme.AppSizes]
+ * token: no second settings-row-shaped caller exists yet to confirm the number generalizes.
+ */
+private val SETTING_ROW_VALUE_MAX_WIDTH = 120.dp
+
+/**
  * One adjustable setting in a settings sheet: `label … value [Edit]`, with a divider beneath.
  * Built on [FlashcardsListRow] for the minimum row height, layout and trailing slot; the row
- * itself carries no click.
+ * itself carries no click — passed `onClick = null` to [FlashcardsListRow] so it attaches no
+ * `clickable` at all, not just an inert one.
  *
  * **The Edit button is the tap target, not the row.** This deliberately departs from
  * (docs/adr/0030)'s "whole row is the tap target" framing: [onClick] is wired to a real, fully
@@ -39,6 +51,12 @@ import com.rossomak.flashcards.core.ui.theme.spacing
  * `String` can't carry. Pass [valueText] instead for the common plain-text case and leave [value]
  * at its default — the call site stays a one-liner. Supplying [value] directly overrides
  * [valueText] entirely.
+ *
+ * [value] is width-capped at [SETTING_ROW_VALUE_MAX_WIDTH] so the Edit button never shrinks and
+ * the label always keeps some space, even for an arbitrarily wide or long-localized value; a
+ * custom [value] composable is clipped past that cap rather than auto-fit, so keep custom slots
+ * (e.g. the tag-count-plus-pill shape) within it — a bare `Text` should still set its own
+ * `maxLines`/`TextOverflow.Ellipsis` as the first line of defense before that hard clip.
  *
  * @param label What the setting is (e.g. "Mode", "Filters").
  * @param onClick Opens the setting's editor. Fires from the Edit button only.
@@ -68,13 +86,15 @@ fun FlashcardsSettingRow(
     Column(modifier = modifier) {
         FlashcardsListRow(
             title = label,
-            onClick = {},
+            onClick = null,
             trailing = {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
                 ) {
-                    value()
+                    Box(modifier = Modifier.widthIn(max = SETTING_ROW_VALUE_MAX_WIDTH).weight(1f, fill = false)) {
+                        value()
+                    }
                     FlashcardsTonalButton(
                         text = stringResource(R.string.common_edit_button),
                         onClick = onClick,
