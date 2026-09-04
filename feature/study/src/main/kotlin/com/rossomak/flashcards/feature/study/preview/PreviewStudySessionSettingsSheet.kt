@@ -196,13 +196,16 @@ private fun voicePlaybackSummary(state: PreviewStudySessionScreenState): String 
 }
 
 /**
- * The Filters row's value slot: a tag count beside [FlashcardsDifficultyRangePill], rather than
- * the plain text every other row uses (ticket 07). Difficulty always renders; the tag count only
- * joins it when tags are actually narrowing the pool.
+ * The Filters row's value slot: a tag summary beside [FlashcardsDifficultyRangePill], rather than
+ * the plain text every other row uses (ticket 07). Difficulty always renders; the tag summary only
+ * joins it when [PreviewStudySessionScreenState.availableTags] is non-empty — multi-subcategory
+ * sessions filter by difficulty only (ADR-0030) and offer no tag vocabulary to summarize.
  *
  * `config.tagIds` is materialized to every available tag by default (mirroring SubcategoryDetails,
- * ADR-0038), so "narrowing" means it is a *proper* subset of [PreviewStudySessionScreenState.availableTags]
- * — comparing against emptiness alone would show a tag count even when nothing was narrowed.
+ * ADR-0038): a *proper* subset of [PreviewStudySessionScreenState.availableTags] is a narrowed
+ * selection and gets a count; matching it exactly means every tag is enabled, which reads as "All
+ * tags" rather than nothing — a filter row silently going blank once nothing was excluded looked
+ * like the row itself had disappeared.
  */
 @Composable
 private fun FiltersSettingValue(state: PreviewStudySessionScreenState) {
@@ -211,13 +214,17 @@ private fun FiltersSettingValue(state: PreviewStudySessionScreenState) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xxsmall),
     ) {
-        if (config.tagIds.isNotEmpty() && config.tagIds != state.availableTags.toSet()) {
+        if (state.availableTags.isNotEmpty()) {
             Text(
-                text = pluralStringResource(
-                    R.plurals.preview_session_filters_tags_value_label,
-                    config.tagIds.size,
-                    config.tagIds.size,
-                ),
+                text = if (config.tagIds == state.availableTags.toSet()) {
+                    stringResource(R.string.preview_session_filters_all_tags_value_label)
+                } else {
+                    pluralStringResource(
+                        R.plurals.preview_session_filters_tags_value_label,
+                        config.tagIds.size,
+                        config.tagIds.size,
+                    )
+                },
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
