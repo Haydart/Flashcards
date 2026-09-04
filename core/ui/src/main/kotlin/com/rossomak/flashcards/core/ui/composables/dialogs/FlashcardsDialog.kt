@@ -179,11 +179,18 @@ private fun DialogBlurBehindEffect() {
     }
 }
 
+/**
+ * `Window.setBackgroundBlurRadius` blurs *within* this window's own bounds — the wrong API here,
+ * since [FLAG_BLUR_BEHIND][WindowManager.LayoutParams.FLAG_BLUR_BEHIND] asks the compositor to blur
+ * whatever's *behind* the window instead. That radius is a [WindowManager.LayoutParams] field
+ * ([WindowManager.LayoutParams.blurBehindRadius]), set through [attributes] and re-applied via
+ * [setAttributes] — there is no direct `Window` setter for it.
+ */
 @RequiresApi(Build.VERSION_CODES.S)
 private fun Window.applyBlurBehind(enabled: Boolean, blurRadiusPx: Int, defaultDimAmount: Float) {
     if (enabled) {
         addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
-        setBackgroundBlurRadius(blurRadiusPx)
+        setAttributes(attributes.apply { blurBehindRadius = blurRadiusPx })
         setDimAmount(defaultDimAmount)
     } else {
         clearFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
