@@ -215,11 +215,17 @@ fun PreviewStudySessionContent(
                 )
             }
         }
-        // Gated to the ready state only: SessionSettingRows reads state.config directly, which
-        // isn't meaningful yet during loading/error — and nothing reachable in either of those
-        // states can set settingsSheet.open anyway, since ReadyContent's own settings toggle is
-        // what's absent.
-        if (!state.isLoading && state.error == null) {
+        // Gated to error only, deliberately NOT to state.isLoading: a settings edit re-triggers
+        // selectCards(), which flips isLoading true for the reselect and false again once it lands
+        // (see PreviewStudySessionViewModel.selectCards's own doc) — a sheet already open at that
+        // point must ride through untouched, or it unmounts and remounts on every edit, snapping
+        // shut and sliding back open as a visible flicker. Loading is surfaced elsewhere (the
+        // Scaffold content below); the sheet's own open/closed value is settingsSheet-owned and has
+        // no dependency on it. state.config is always populated (a real default, never null) even
+        // before the first load lands, so nothing here is meaningless during that window either —
+        // and the sheet cannot be open yet at that point regardless, since ReadyContent's own
+        // settings toggle is what's absent until the first load lands.
+        if (state.error == null) {
             SessionSettingsSheet(
                 state = state,
                 sheetState = settingsSheet.sheetState,
