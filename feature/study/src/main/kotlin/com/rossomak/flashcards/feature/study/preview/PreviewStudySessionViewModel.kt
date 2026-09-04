@@ -3,6 +3,7 @@ package com.rossomak.flashcards.feature.study.preview
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.DefaultStudyMode
@@ -230,7 +231,7 @@ class PreviewStudySessionViewModel @Inject constructor(
         val dialog = _state.value.activeDialog ?: return
         val updatedConfig = with(_state.value.config) {
             when (dialog) {
-                is Mode -> copy(mode = dialog.draft)
+                is Mode -> withMode(dialog.draft)
                 is VoiceAnswering -> copy(voiceAnsweringEnabled = dialog.draft)
                 is Attempts -> copy(ratedAttempts = dialog.draft)
                 is ReadAloud -> copy(readAloudEnabled = dialog.draft)
@@ -253,6 +254,17 @@ class PreviewStudySessionViewModel @Inject constructor(
         _state.update { it.copy(config = updatedConfig, activeDialog = null) }
         selectCards()
     }
+
+    /**
+     * `voiceAnsweringEnabled` is Rated-only (ADR-0025) — reset it switching away from Rated, not
+     * just gate its *display* at the read sites, since the stale value would otherwise also leak
+     * into [onStartSession]'s `StudySessionRoute` payload unchanged. Its own function purely to keep
+     * [onDialogConfirm]'s cyclomatic complexity under detekt's threshold.
+     */
+    private fun StudySessionConfig.withMode(mode: StudyMode): StudySessionConfig = copy(
+        mode = mode,
+        voiceAnsweringEnabled = voiceAnsweringEnabled && mode == StudyMode.Rated,
+    )
 
     /**
      * `null` when the dialog didn't check "keep as my default" — or, for [Filters], can never
