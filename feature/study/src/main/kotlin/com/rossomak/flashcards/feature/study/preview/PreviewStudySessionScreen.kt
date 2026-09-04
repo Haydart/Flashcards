@@ -22,11 +22,11 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.SearchOff
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Style
 import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -37,9 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -47,9 +45,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.SubcomposeLayout
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -63,7 +58,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.ui.R as CoreUiR
-import com.rossomak.flashcards.core.ui.composables.FlashcardsBottomSheet
 import com.rossomak.flashcards.core.ui.composables.FlashcardsBottomSheetState
 import com.rossomak.flashcards.core.ui.composables.FlashcardsEmptyState
 import com.rossomak.flashcards.core.ui.composables.FlashcardsIconCircle
@@ -82,11 +76,11 @@ import com.rossomak.flashcards.core.ui.theme.brandColors
 import com.rossomak.flashcards.core.ui.theme.spacing
 import com.rossomak.flashcards.feature.study.R
 import com.rossomak.flashcards.feature.study.StudySessionRoute
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Length
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Mode
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.ReadAloud
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.SubcategoryCountRange
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceAnswering
-import kotlin.math.max
-import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -124,14 +118,17 @@ fun PreviewStudySessionScreen(
  * with the unbuilt category icon-and-colour feature, and no route change is needed here to prepare
  * for it.
  *
- * Settings live behind a sheet hidden until asked for (ticket 07). Its open/closed value is
- * screen-local view state — [rememberSaveable] here, not [PreviewStudySessionScreenState] — since
- * it has no bearing on card selection and would only bloat that state with a UI-only flag.
- * [FlashcardsBottomSheet]'s own [SheetState][androidx.compose.material3.SheetState] is hoisted
- * alongside it, above the loading/error/ready `when` below, so both survive the loading flicker a
- * dialog confirm or a subcategory reshuffle briefly puts the screen through — the sheet reappears
- * exactly as the user left it rather than resetting. [initiallySettingsSheetOpen] exists solely so a
- * `@Preview` can render the sheet-open state; every real caller leaves it at its default.
+ * Settings live behind a sheet hidden until asked for (ticket 07). Its open/closed value
+ * ([settingsSheet], built by [rememberSettingsSheetController]) is screen-local view state — see
+ * that function's own doc — owned here rather than down in [ReadyContent], because
+ * [SessionSettingsSheet] renders as a **plain, unaligned sibling of [Scaffold]** in the outer [Box]
+ * below, not nested inside [ReadyContent] or Scaffold's content slot at all. See that [Box]'s own
+ * comment for why. A settings badge (ticket 09) opens the sheet *and* the dialog for the value it
+ * names — but staggered, not together: the sheet slides up first, the dialog fades in a beat later,
+ * since the reveal is how a user discovers the sheet exists at all. [SettingsSheetController.onOpenDialog]
+ * sets the sheet open immediately and only delays the dialog's own open event.
+ * [initiallySettingsSheetOpen] exists solely so a `@Preview` can render the sheet-open state; every
+ * real caller leaves it at its default.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -151,129 +148,131 @@ fun PreviewStudySessionContent(
         onDialogEvent = onDialogEvent,
     )
 
-    Scaffold(
+    val settingsSheet = rememberSettingsSheetController(
+        initiallyOpen = initiallySettingsSheetOpen,
+        onDialogEvent = onDialogEvent,
+    )
+
+    // A plain, unaligned sibling of Scaffold — deliberately *not* docked inside its content slot,
+    // unlike an earlier version of this screen. Scaffold's default contentWindowInsets reserve the
+    // bottom safe-drawing (gesture nav) inset into innerPadding, shrinking whatever sits inside its
+    // content lambda short of the true screen bottom by that inset's height. FlashcardsBottomSheet
+    // wants the opposite: it already handles the bottom system-bar inset internally (see its own
+    // doc) and expects to own the real screen bottom itself. Nesting it inside Scaffold's
+    // inset-shrunk content double-counted that inset — the sheet's hidden position landed short of
+    // the true bottom (a gesture-bar-height sliver stayed visible, "peeking") and its expanded
+    // position gapped, showing this screen's gradient background beneath the sheet. Docking the
+    // sheet out here instead, outside Scaffold entirely, lets it reach the true screen bottom
+    // uncontested. [ReadyContent] (below, inside Scaffold's own content) still wants that inset —
+    // its Start button must stay clear of the gesture bar — so Scaffold itself is untouched.
+    Box(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.brandColors.screenGradient),
-        containerColor = Color.Transparent,
-        topBar = {
-            FlashcardsGradientTopBar(
-                title = screenTitle(state),
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = stringResource(R.string.preview_session_close_cd),
-                        )
-                    }
-                },
-            )
-        },
-    ) { innerPadding ->
-        when {
-            state.isLoading -> Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentAlignment = Alignment.Center,
-            ) {
-                CircularProgressIndicator(color = MaterialTheme.brandColors.onGradientContent)
+    ) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            containerColor = Color.Transparent,
+            topBar = {
+                FlashcardsGradientTopBar(
+                    title = screenTitle(state),
+                    navigationIcon = {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = stringResource(R.string.preview_session_close_cd),
+                            )
+                        }
+                    },
+                )
+            },
+        ) { innerPadding ->
+            when {
+                state.isLoading -> Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(color = MaterialTheme.brandColors.onGradientContent)
+                }
+                state.error != null -> ErrorContent(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    error = state.error,
+                    onRetry = onRetry,
+                )
+                else -> ReadyContent(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    state = state,
+                    settingsSheet = settingsSheet,
+                    onReshuffleSubcategories = onReshuffleSubcategories,
+                    onResetFilters = onResetFilters,
+                    onStartSession = onStartSession,
+                )
             }
-            state.error != null -> ErrorContent(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                error = state.error,
-                onRetry = onRetry,
-            )
-            else -> DockedReadyContent(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
+        }
+        // Gated to the ready state only: SessionSettingRows reads state.config directly, which
+        // isn't meaningful yet during loading/error — and nothing reachable in either of those
+        // states can set settingsSheet.open anyway, since ReadyContent's own settings toggle is
+        // what's absent.
+        if (!state.isLoading && state.error == null) {
+            SessionSettingsSheet(
                 state = state,
-                initiallySettingsSheetOpen = initiallySettingsSheetOpen,
+                sheetState = settingsSheet.sheetState,
+                onDismissRequest = settingsSheet.onDismiss,
                 onDialogEvent = onDialogEvent,
-                onReshuffleSubcategories = onReshuffleSubcategories,
-                onResetFilters = onResetFilters,
-                onStartSession = onStartSession,
             )
         }
     }
 }
 
 /**
- * The ready-state's [Box]: [ReadyContent] with [SessionSettingsSheet] docked over it (ADR-0043's
- * pattern) rather than resizing it — so keeping [HeroActions][ReadyContent]'s CTAs clear of the
- * sheet takes tracking its actual, live screen position rather than reacting to a layout
- * constraint. Both edges are captured in root coordinates (not this [Box]'s own, which the sheet's
- * placement doesn't otherwise expose) and diffed into `reservedBottomPx`; 0 until the sheet's
- * content has been laid out at least once, so a closed/not-yet-measured sheet never steals any
- * space.
- *
- * Also owns the sheet's open/closed value and [FlashcardsBottomSheetState] — screen-local view
- * state, [rememberSaveable] rather than [PreviewStudySessionScreenState], since it has no bearing
- * on card selection and is only ever read by this subtree. A settings badge (ticket 09) opens the
- * sheet *and* the dialog for the value it names — but staggered, not together: the sheet slides up
- * first, the dialog fades in a beat later, since the reveal is how a user discovers the sheet
- * exists at all. [onOpenSettingsDialog] below sets the sheet open immediately and only delays the
- * dialog's own open event.
- *
- * Lifted out of [PreviewStudySessionContent] purely to keep that function under detekt's
- * `LongMethod`/`LongParameterList`.
+ * Bundles the settings sheet's open/closed value, its [FlashcardsBottomSheetState], and the
+ * badge-tap-to-dialog stagger (ticket 09) into one hoisted unit — lifted out of
+ * [PreviewStudySessionContent] purely to keep that function under detekt's `LongMethod`. [open] is
+ * screen-local view state, a plain [rememberSaveable] `Boolean` rather than
+ * [PreviewStudySessionScreenState.activeDialog]'s sibling, since it has no bearing on card selection
+ * and would only bloat that state with a UI-only flag.
  */
+private class SettingsSheetController(
+    val open: Boolean,
+    val sheetState: FlashcardsBottomSheetState,
+    val onOpen: () -> Unit,
+    val onToggle: () -> Unit,
+    val onDismiss: () -> Unit,
+    val onOpenDialog: (PreviewDialog) -> Unit,
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DockedReadyContent(
-    modifier: Modifier = Modifier,
-    state: PreviewStudySessionScreenState,
-    initiallySettingsSheetOpen: Boolean,
+private fun rememberSettingsSheetController(
+    initiallyOpen: Boolean,
     onDialogEvent: (PreviewDialogEvent) -> Unit,
-    onReshuffleSubcategories: () -> Unit,
-    onResetFilters: () -> Unit,
-    onStartSession: () -> Unit,
-) {
-    var settingsSheetOpen by rememberSaveable { mutableStateOf(initiallySettingsSheetOpen) }
-    val settingsSheetState = rememberFlashcardsBottomSheetState(initiallyExpanded = initiallySettingsSheetOpen)
-    LaunchedEffect(settingsSheetOpen) {
-        if (settingsSheetOpen) settingsSheetState.sheetState.show() else settingsSheetState.sheetState.hide()
+): SettingsSheetController {
+    var open by rememberSaveable { mutableStateOf(initiallyOpen) }
+    val sheetState = rememberFlashcardsBottomSheetState(initiallyExpanded = initiallyOpen)
+    LaunchedEffect(open) {
+        if (open) sheetState.sheetState.show() else sheetState.sheetState.hide()
     }
-
     val coroutineScope = rememberCoroutineScope()
-    val onOpenSettingsDialog: (PreviewDialog) -> Unit = { dialog ->
-        settingsSheetOpen = true
-        coroutineScope.launch {
-            delay(BADGE_DIALOG_STAGGER_DELAY_MS)
-            onDialogEvent(Open(dialog))
-        }
-    }
-
-    var containerBottomInRootPx by remember { mutableFloatStateOf(0f) }
-    var sheetTopInRootPx by remember { mutableFloatStateOf(Float.MAX_VALUE) }
-
-    Box(
-        modifier = modifier.onGloballyPositioned { coordinates ->
-            containerBottomInRootPx = coordinates.positionInRoot().y + coordinates.size.height
+    return SettingsSheetController(
+        open = open,
+        sheetState = sheetState,
+        onOpen = { open = true },
+        onToggle = { open = !open },
+        onDismiss = { open = false },
+        onOpenDialog = { dialog ->
+            open = true
+            coroutineScope.launch {
+                delay(BADGE_DIALOG_STAGGER_DELAY_MS)
+                onDialogEvent(Open(dialog))
+            }
         },
-    ) {
-        ReadyContent(
-            modifier = Modifier.fillMaxSize(),
-            state = state,
-            onOpenSettings = { settingsSheetOpen = true },
-            onOpenSettingsDialog = onOpenSettingsDialog,
-            onReshuffleSubcategories = onReshuffleSubcategories,
-            onResetFilters = onResetFilters,
-            onStartSession = onStartSession,
-            reservedBottomPx = (containerBottomInRootPx - sheetTopInRootPx).coerceIn(0f, containerBottomInRootPx),
-        )
-        SessionSettingsSheet(
-            state = state,
-            sheetState = settingsSheetState,
-            onDismissRequest = { settingsSheetOpen = false },
-            onDialogEvent = onDialogEvent,
-            onContentTopChanged = { sheetTopInRootPx = it },
-            modifier = Modifier.align(Alignment.BottomCenter),
-        )
-    }
+    )
 }
 
 @Composable
@@ -304,43 +303,55 @@ private fun ErrorContent(
 
 /**
  * The ready-state body: the hero (play circle, title, scope sentence and badges — or, once the
- * pool is empty, [FlashcardsEmptyState] in its place) above [HeroActions], which stays put either
- * way so Reshuffle topics remains reachable even from the empty state — a fresh sample can turn
- * an empty result into a match. Layout of the two is [AdaptiveHero]'s job.
+ * pool is empty, [FlashcardsEmptyState] in its place), top-anchored, with [HeroActions] pinned to
+ * the screen's true bottom edge below a flexible [Spacer] — the same bottom edge
+ * [SessionSettingsSheet][com.rossomak.flashcards.feature.study.preview.SessionSettingsSheet] docks
+ * up from (see [PreviewStudySessionContent]'s doc), so an expanded sheet — comfortably taller than
+ * this row on any real device, being every setting row stacked — fully covers it rather than
+ * leaving it floating above the sheet's top edge with daylight in between. [HeroActions] stays put
+ * whether the pool is empty or not, so Reshuffle topics remains reachable even from the empty
+ * state — a fresh sample can turn an empty result into a match. Otherwise plain top-down [Column]
+ * flow — no adaptive collapsing, no measuring against the sheet's actual height; see
+ * [PreviewStudySessionContent]'s doc for why that was dropped.
  */
 @Composable
 private fun ReadyContent(
     modifier: Modifier = Modifier,
     state: PreviewStudySessionScreenState,
-    onOpenSettings: () -> Unit,
-    onOpenSettingsDialog: (PreviewDialog) -> Unit,
+    settingsSheet: SettingsSheetController,
     onReshuffleSubcategories: () -> Unit,
     onResetFilters: () -> Unit,
     onStartSession: () -> Unit,
-    reservedBottomPx: Float = 0f,
 ) {
     val isEmpty = state.selectedCardCount == 0
 
-    AdaptiveHero(
-        modifier = modifier.padding(horizontal = MaterialTheme.spacing.medium),
-        reservedBottomPx = reservedBottomPx,
-        heroTop = { if (!isEmpty) HeroTop() },
-        heroBody = {
-            if (isEmpty) {
-                EmptyHeroBody(onResetFilters = onResetFilters, onOpenSettings = onOpenSettings)
-            } else {
-                ScopeHeroBody(state = state, onOpenSettingsDialog = onOpenSettingsDialog)
-            }
-        },
-        actions = {
-            HeroActions(
-                state = state,
-                onOpenSettings = onOpenSettings,
-                onReshuffleSubcategories = onReshuffleSubcategories,
-                onStartSession = onStartSession,
-            )
-        },
-    )
+    Column(
+        modifier = modifier.padding(
+            start = MaterialTheme.spacing.medium,
+            end = MaterialTheme.spacing.medium,
+            top = MaterialTheme.spacing.xxlarge,
+            bottom = MaterialTheme.spacing.medium,
+        ),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        if (!isEmpty) {
+            HeroTop()
+            Spacer(modifier = Modifier.height(MaterialTheme.spacing.normal))
+        }
+        if (isEmpty) {
+            EmptyHeroBody(onResetFilters = onResetFilters)
+        } else {
+            ScopeHeroBody(state = state, onOpenSettings = settingsSheet.onOpen, onOpenSettingsDialog = settingsSheet.onOpenDialog)
+        }
+        Spacer(modifier = Modifier.weight(1f))
+        HeroActions(
+            state = state,
+            settingsSheetOpen = settingsSheet.open,
+            onToggleSettings = settingsSheet.onToggle,
+            onReshuffleSubcategories = onReshuffleSubcategories,
+            onStartSession = onStartSession,
+        )
+    }
 }
 
 /** The play circle and "Ready to start?" title — the one part of the hero [AdaptiveHero] can drop. */
@@ -376,6 +387,7 @@ private fun HeroTop(modifier: Modifier = Modifier) {
 private fun ScopeHeroBody(
     modifier: Modifier = Modifier,
     state: PreviewStudySessionScreenState,
+    onOpenSettings: () -> Unit,
     onOpenSettingsDialog: (PreviewDialog) -> Unit,
 ) {
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
@@ -404,6 +416,7 @@ private fun ScopeHeroBody(
                 ),
                 icon = Icons.Default.Style,
                 style = OnGradient,
+                onClick = { onOpenSettingsDialog(Length(draft = state.config.length)) },
             )
             if (!state.isSingleSubcategory) {
                 FlashcardsMetadataBadge(
@@ -414,6 +427,16 @@ private fun ScopeHeroBody(
                     ),
                     icon = Icons.Default.List,
                     style = OnGradient,
+                    onClick = {
+                        // Quick's topics count is the SubcategoryCountRange setting; Custom's
+                        // subcategories are hand-picked outside this screen, so no dialog matches
+                        // them — the badge falls back to just revealing the sheet (ticket per grill).
+                        if (state.isQuickSession) {
+                            onOpenSettingsDialog(SubcategoryCountRange(draft = state.config.subcategoryCountRange))
+                        } else {
+                            onOpenSettings()
+                        }
+                    },
                 )
             }
         }
@@ -497,18 +520,14 @@ private fun interactionBadgeContent(isRated: Boolean, enabled: Boolean): Interac
 /**
  * Ticket 10's nothing-matches state: [FlashcardsEmptyState] replaces the *whole* hero above it (no
  * play circle, no title, no scope sentence, no badges — [AdaptiveHero] never even composes
- * [HeroTop] when [ReadyContent] finds the pool empty), with two actions of its own. Reset filters,
- * primary, restores what the screen was originally handed; Session settings, secondary, opens the
- * sheet so the user can change what they're asking for rather than only undo it. Reshuffle is
- * deliberately absent from this pair — [HeroActions] itself keeps it off in the empty state — so
- * this state offers exactly two ways forward, not three.
+ * [HeroTop] when [ReadyContent] finds the pool empty), with a single Reset filters action that
+ * restores what the screen was originally handed. Settings remains reachable from an empty pool via
+ * [HeroActions]' own settings toggle, which stays put either way below this body (with Start
+ * session visible but disabled) so it's never out of reach. Reshuffle is deliberately absent too —
+ * [HeroActions] itself keeps it off in the empty state.
  */
 @Composable
-private fun EmptyHeroBody(
-    modifier: Modifier = Modifier,
-    onResetFilters: () -> Unit,
-    onOpenSettings: () -> Unit,
-) {
+private fun EmptyHeroBody(modifier: Modifier = Modifier, onResetFilters: () -> Unit) {
     FlashcardsEmptyState(
         modifier = modifier,
         icon = Icons.Default.SearchOff,
@@ -523,142 +542,119 @@ private fun EmptyHeroBody(
                 style = OnGradient,
             )
         },
-        secondaryButton = {
-            FlashcardsOutlinedButton(
-                text = stringResource(R.string.preview_session_empty_state_settings_button),
-                onClick = onOpenSettings,
-                icon = Icons.Default.Settings,
-                style = OnGradient,
-            )
-        },
     )
 }
 
 /**
- * The unlabelled settings button and **Start session**, with **Reshuffle topics** full-width beneath
- * for Quick sessions only — except when nothing matches (ticket 10): reshuffling there is offered
- * nowhere, not just left off the empty state's own two actions, since a stale sample and a fresh one
- * look identical until reshuffled. Custom never offers it, single- or multi-subcategory alike: its
+ * **Start session** plus the unlabelled settings toggle, with **Reshuffle topics** for Quick
+ * sessions only — except when nothing matches (ticket 10): reshuffling there is offered nowhere,
+ * not just left off the empty state's own two actions, since a stale sample and a fresh one look
+ * identical until reshuffled. Custom never offers it, single- or multi-subcategory alike: its
  * subcategories are hand-picked by the user, not sampled, so there is nothing to reshuffle
  * ([PreviewStudySessionScreenState.canReshuffleSubcategories]). Reshuffle stays enabled independent
  * of [PreviewStudySessionScreenState.canStart] otherwise: a fresh sample can turn an empty result
  * into a match, which is exactly when reshuffling is needed. Start's label never changes with the
  * sheet's open/closed value — the primary action's text must not shift under the user — and it stays
  * visible but disabled whenever nothing is selected, rather than disappearing.
+ *
+ * Two shapes, picked by the same condition that gates Reshuffle itself: when it's offered, Start
+ * gets its own full-width row on top (the settings toggle isn't reachable in that row anyway once
+ * Reshuffle joins it — two weighted buttons plus an icon overflow a phone's width), with the
+ * toggle sharing Reshuffle's row beneath. Everywhere else (single-subcategory, Custom, or an empty
+ * pool) the toggle stays paired with Start, as before.
  */
 @Composable
 private fun HeroActions(
     modifier: Modifier = Modifier,
     state: PreviewStudySessionScreenState,
-    onOpenSettings: () -> Unit,
+    settingsSheetOpen: Boolean,
+    onToggleSettings: () -> Unit,
     onReshuffleSubcategories: () -> Unit,
     onStartSession: () -> Unit,
 ) {
+    val showReshuffle = state.canReshuffleSubcategories && state.selectedCardCount > 0
+
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
     ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            FlashcardsIconButton(
-                icon = Icons.Default.Settings,
-                contentDescription = stringResource(R.string.preview_session_open_settings_cd),
-                onClick = onOpenSettings,
-                style = OnGradient,
-            )
-            FlashcardsFilledButton(
-                text = stringResource(CoreUiR.string.common_start_session_button),
-                onClick = onStartSession,
-                enabled = state.canStart,
-                icon = Icons.Default.PlayArrow,
-                style = OnGradient,
-                modifier = Modifier.weight(1f),
-            )
-        }
-        if (state.canReshuffleSubcategories && state.selectedCardCount > 0) {
-            FlashcardsTonalButton(
-                text = stringResource(R.string.preview_session_reshuffle_button),
-                onClick = onReshuffleSubcategories,
-                enabled = !state.isLoading,
-                icon = Icons.Default.Shuffle,
-                style = OnGradient,
+        if (showReshuffle) {
+            StartSessionButton(
+                state = state,
+                onStartSession = onStartSession,
                 modifier = Modifier.fillMaxWidth(),
             )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SettingsToggleButton(settingsSheetOpen = settingsSheetOpen, onToggleSettings = onToggleSettings)
+                FlashcardsTonalButton(
+                    text = stringResource(R.string.preview_session_reshuffle_button),
+                    onClick = onReshuffleSubcategories,
+                    enabled = !state.isLoading,
+                    icon = Icons.Default.Shuffle,
+                    style = OnGradient,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        } else {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SettingsToggleButton(settingsSheetOpen = settingsSheetOpen, onToggleSettings = onToggleSettings)
+                StartSessionButton(
+                    state = state,
+                    onStartSession = onStartSession,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
     }
+}
+
+/** [HeroActions]' primary action, lifted out purely so both of its row shapes can share it. */
+@Composable
+private fun StartSessionButton(
+    modifier: Modifier = Modifier,
+    state: PreviewStudySessionScreenState,
+    onStartSession: () -> Unit,
+) {
+    FlashcardsFilledButton(
+        text = stringResource(CoreUiR.string.common_start_session_button),
+        onClick = onStartSession,
+        enabled = state.canStart,
+        icon = Icons.Default.PlayArrow,
+        style = OnGradient,
+        modifier = modifier,
+    )
 }
 
 /**
- * Lays [heroBody] and [actions] out top-to-bottom-anchored — [actions] always sits flush with the
- * bottom of the *effective* height (the container's own height, less [reservedBottomPx]), and
- * [heroBody] always renders directly beneath [heroTop] — with whatever height is left over
- * absorbed as the gap between them. [heroTop] (the play circle and title) is the one element
- * allowed to disappear, and it is dropped as a whole rather than compared against a magic dp
- * cutoff: this measures all three slots first, and only places [heroTop] when its height, plus
- * [heroBody]'s and [actions]'s, actually fits the space on offer. [heroBody] and [actions] always
- * render, so the scope sentence, its badges, and the session's actions never disappear regardless
- * of available height.
- *
- * @param reservedBottomPx Live screen-space (px) the settings sheet currently covers at the
- *   bottom, so [actions] rises to sit just above it rather than being buried underneath — the
- *   sheet floats over this content rather than resizing it (ADR-0043's docking pattern), so
- *   nothing about this container's own constraints otherwise reflects the sheet being open. 0
- *   (the default) reserves nothing, matching a closed or not-yet-measured sheet.
+ * The sliders icon: toggles [settingsSheetOpen] rather than only ever opening it, so it can also
+ * close a sheet the user opened from here — ticket per grill. [Icons.Default.Tune], not a gear —
+ * this button opens *session* settings (mode, length, filters…), not the app's Settings screen, so
+ * a gear risks reading as a navigation shortcut to the wrong destination. Purely behavioural: no
+ * visual "active" state exists on [FlashcardsIconButton] to reflect open/closed, only the announced
+ * content description changes. A badge- or empty-state-triggered open never routes through this
+ * button, so those stay force-open (never toggled shut) regardless of this value.
  */
 @Composable
-private fun AdaptiveHero(
-    modifier: Modifier = Modifier,
-    reservedBottomPx: Float = 0f,
-    heroTop: @Composable () -> Unit,
-    heroBody: @Composable () -> Unit,
-    actions: @Composable () -> Unit,
-) {
-    // Gap between HeroTop and the scope body, and the floor kept between the body and HeroActions.
-    val heroSpacing = MaterialTheme.spacing.normal
-    val actionsMinGap = MaterialTheme.spacing.medium
-    // Breathing room kept above the hero and below the actions row (or the sheet's edge), replacing
-    // what used to be this container's own vertical padding — folded in here instead, so it can be
-    // netted against reservedBottomPx rather than stacking on top of it.
-    val edgeMargin = MaterialTheme.spacing.medium
-
-    SubcomposeLayout(modifier = modifier) { constraints ->
-        val looseConstraints = constraints.copy(minWidth = 0, minHeight = 0)
-        val heroSpacingPx = heroSpacing.roundToPx()
-        val actionsMinGapPx = actionsMinGap.roundToPx()
-        val edgeMarginPx = edgeMargin.roundToPx()
-
-        val heroTopPlaceables = subcompose(AdaptiveHeroSlot.HeroTop, heroTop).map { it.measure(looseConstraints) }
-        val heroBodyPlaceables = subcompose(AdaptiveHeroSlot.HeroBody, heroBody).map { it.measure(looseConstraints) }
-        val actionsPlaceables = subcompose(AdaptiveHeroSlot.Actions, actions).map { it.measure(looseConstraints) }
-
-        val heroTopHeight = heroTopPlaceables.sumOf { it.height }
-        val heroBodyHeight = heroBodyPlaceables.sumOf { it.height }
-        val actionsHeight = actionsPlaceables.sumOf { it.height }
-
-        val effectiveBottom = (constraints.maxHeight - reservedBottomPx.roundToInt() - edgeMarginPx)
-            .coerceAtLeast(edgeMarginPx)
-        val availableForHero = effectiveBottom - edgeMarginPx
-        val heightWithHeroTop = heroTopHeight + heroSpacingPx + heroBodyHeight + actionsMinGapPx + actionsHeight
-        val showHeroTop = heroTopPlaceables.isNotEmpty() && heightWithHeroTop <= availableForHero
-
-        layout(constraints.maxWidth, constraints.maxHeight) {
-            var y = edgeMarginPx
-            if (showHeroTop) {
-                heroTopPlaceables.forEach { it.placeRelative((constraints.maxWidth - it.width) / 2, y) }
-                y += heroTopHeight + heroSpacingPx
-            }
-            heroBodyPlaceables.forEach { it.placeRelative((constraints.maxWidth - it.width) / 2, y) }
-            y += heroBodyHeight
-
-            val actionsY = max(y + actionsMinGapPx, effectiveBottom - actionsHeight)
-            actionsPlaceables.forEach { it.placeRelative((constraints.maxWidth - it.width) / 2, actionsY) }
-        }
-    }
+private fun SettingsToggleButton(settingsSheetOpen: Boolean, onToggleSettings: () -> Unit) {
+    FlashcardsIconButton(
+        icon = Icons.Default.Tune,
+        contentDescription = stringResource(
+            if (settingsSheetOpen) {
+                R.string.preview_session_close_settings_cd
+            } else {
+                R.string.preview_session_open_settings_cd
+            },
+        ),
+        onClick = onToggleSettings,
+        style = OnGradient,
+    )
 }
-
-private enum class AdaptiveHeroSlot { HeroTop, HeroBody, Actions }
 
 /**
  * How long a settings badge tap waits after opening the sheet before opening its dialog (ticket
