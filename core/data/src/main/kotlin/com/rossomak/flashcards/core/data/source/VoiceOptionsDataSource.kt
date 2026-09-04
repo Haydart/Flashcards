@@ -17,13 +17,23 @@ class VoiceOptionsDataSource @Inject constructor(
         continuation.invokeOnCancellation { tts?.shutdown() }
         tts = TextToSpeech(context) { status ->
             val voices = if (status == TextToSpeech.SUCCESS) {
+                // ISO country code (VoiceCuration guarantees one of US/GB/AU, never blank), not
+                // Voice.locale.displayCountry: that's localized to the *device's* locale, so an
+                // English voice's own country name would render in whatever language the user's
+                // phone is set to (e.g. "Stany Zjednoczone" for "United States" on a Polish
+                // device) — nonsensical paired with the fixed "English" label.
                 VoiceCuration.curate(tts?.voices.orEmpty()).map { voice ->
-                    val countryLabel = voice.locale.displayCountry.takeIf { it.isNotBlank() }
-                        ?: voice.locale.displayLanguage
-                    val shortName = voice.name.substringAfterLast(":")
+                    val countryLabel = "English (${voice.locale.country})"
+                    // VoiceCuration allows up to 3 voices per country, so countryLabel alone
+                    // can't tell them apart — displayName appends the raw engine variant suffix
+                    // (e.g. "x-tpf-local") so a picker listing every voice side by side stays
+                    // disambiguated. shortLabel omits it: that suffix is internal engine detail,
+                    // meaningless once a single voice is already chosen (the settings row summary
+                    // only ever names the *current* selection, nothing to disambiguate against).
                     VoiceOption(
                         id = voice.name,
-                        displayName = "English ($countryLabel) · $shortName",
+                        displayName = "$countryLabel · ${voice.name.substringAfterLast(":")}",
+                        shortLabel = countryLabel,
                     )
                 }
             } else {
