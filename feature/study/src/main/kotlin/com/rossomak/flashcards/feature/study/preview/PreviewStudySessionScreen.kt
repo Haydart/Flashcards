@@ -38,7 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -58,7 +58,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.ui.R as CoreUiR
-import com.rossomak.flashcards.core.ui.composables.FlashcardsBottomSheetState
 import com.rossomak.flashcards.core.ui.composables.FlashcardsEmptyState
 import com.rossomak.flashcards.core.ui.composables.FlashcardsIconCircle
 import com.rossomak.flashcards.core.ui.composables.FlashcardsMetadataBadge
@@ -82,7 +81,6 @@ import com.rossomak.flashcards.feature.study.preview.PreviewDialog.ReadAloud
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.SubcategoryCountRange
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceAnswering
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 @Composable
 fun PreviewStudySessionScreen(
@@ -119,18 +117,30 @@ fun PreviewStudySessionScreen(
  * for it.
  *
  * Settings live behind a sheet hidden until asked for (ticket 07). Its open/closed value
- * ([settingsSheet], built by [rememberSettingsSheetController]) is screen-local view state — see
- * that function's own doc — owned here rather than down in [ReadyContent], because
- * [SessionSettingsSheet] renders as a **plain, unaligned sibling of [Scaffold]** in the outer [Box]
- * below, not nested inside [ReadyContent] or Scaffold's content slot at all. See that [Box]'s own
- * comment for why. A settings badge (ticket 09) opens the sheet *and* the dialog for the value it
- * names — but staggered, not together: the sheet slides up first, the dialog fades in a beat later,
- * since the reveal is how a user discovers the sheet exists at all. [SettingsSheetController.onOpenDialog]
- * sets the sheet open immediately and only delays the dialog's own open event.
- * [initiallySettingsSheetOpen] exists solely so a `@Preview` can render the sheet-open state; every
- * real caller leaves it at its default.
+ * ([settingsSheetOpen]) is screen-local view state, owned flat in this function rather than in
+ * [ReadyContent] or a separate hoisted controller — see this function's own `@Suppress` for why a
+ * prior extraction was dropped — because [SessionSettingsSheet] renders as a **plain, unaligned
+ * sibling of [Scaffold]** in the outer [Box] below, not nested inside [ReadyContent] or Scaffold's
+ * content slot at all. See that [Box]'s own comment for why. A settings badge (ticket 09) opens the
+ * sheet *and* the dialog for the value it names — but staggered, not together: the sheet slides up
+ * first, the dialog fades in a beat later, since the reveal is how a user discovers the sheet
+ * exists at all. `onOpenSettingsDialog` below sets the sheet open immediately and only delays the
+ * dialog's own open event, via [pendingBadgeDialog] + its own `LaunchedEffect` — a plain `remember`ed
+ * `Job` was tried first and rejected: nothing cancelled it on dismiss or a rapid second badge tap,
+ * so a sheet swiped away mid-delay could still pop its dialog open afterward on a closed sheet.
+ * Keying a `LaunchedEffect` on [pendingBadgeDialog] instead gets cancellation for free — Compose
+ * cancels the previous coroutine whenever the key changes (a new badge tap) or the composable leaves
+ * composition, and setting it back to `null` on dismiss/toggle-close changes the key immediately,
+ * cancelling any in-flight delay the same way. [initiallySettingsSheetOpen] exists solely so a
+ * `@Preview` can render the sheet-open state; every real caller leaves it at its default.
  */
 @OptIn(ExperimentalMaterial3Api::class)
+// This function's job is to own every top-level piece of screen state exactly once (the settings
+// sheet's open value, its FlashcardsBottomSheetState, and the badge-dialog stagger) so nothing
+// downstream duplicates it — splitting that ownership into a separate hoisted controller class was
+// tried and dropped: it added an indirection layer (a class plus its own remember-function) for a
+// detekt threshold alone, with no state actually shared outside this function.
+@Suppress("LongMethod")
 @Composable
 fun PreviewStudySessionContent(
     modifier: Modifier = Modifier,
@@ -148,10 +158,33 @@ fun PreviewStudySessionContent(
         onDialogEvent = onDialogEvent,
     )
 
-    val settingsSheet = rememberSettingsSheetController(
-        initiallyOpen = initiallySettingsSheetOpen,
-        onDialogEvent = onDialogEvent,
-    )
+    var settingsSheetOpen by rememberSaveable { mutableStateOf(initiallySettingsSheetOpen) }
+    val settingsSheetState = rememberFlashcardsBottomSheetState(initiallyExpanded = initiallySettingsSheetOpen)
+    LaunchedEffect(settingsSheetOpen) {
+        if (settingsSheetOpen) settingsSheetState.sheetState.show() else settingsSheetState.sheetState.hide()
+    }
+
+    // The badge-tap-to-dialog stagger (ticket 09) — see this function's own doc for why a
+    // LaunchedEffect keyed on this, not a manually-tracked Job, is what makes it cancellable.
+    var pendingBadgeDialog by remember { mutableStateOf<PreviewDialog?>(null) }
+    LaunchedEffect(pendingBadgeDialog) {
+        val dialog = pendingBadgeDialog ?: return@LaunchedEffect
+        delay(BADGE_DIALOG_STAGGER_DELAY_MS)
+        onDialogEvent(Open(dialog))
+        pendingBadgeDialog = null
+    }
+    val onDismissSettingsSheet = {
+        settingsSheetOpen = false
+        pendingBadgeDialog = null
+    }
+    val onToggleSettings = {
+        settingsSheetOpen = !settingsSheetOpen
+        if (!settingsSheetOpen) pendingBadgeDialog = null
+    }
+    val onOpenSettingsDialog: (PreviewDialog) -> Unit = { dialog ->
+        settingsSheetOpen = true
+        pendingBadgeDialog = dialog
+    }
 
     // A plain, unaligned sibling of Scaffold — deliberately *not* docked inside its content slot,
     // unlike an earlier version of this screen. Scaffold's default contentWindowInsets reserve the
@@ -208,7 +241,10 @@ fun PreviewStudySessionContent(
                         .fillMaxSize()
                         .padding(innerPadding),
                     state = state,
-                    settingsSheet = settingsSheet,
+                    settingsSheetOpen = settingsSheetOpen,
+                    onOpenSettings = { settingsSheetOpen = true },
+                    onToggleSettings = onToggleSettings,
+                    onOpenSettingsDialog = onOpenSettingsDialog,
                     onReshuffleSubcategories = onReshuffleSubcategories,
                     onResetFilters = onResetFilters,
                     onStartSession = onStartSession,
@@ -220,65 +256,20 @@ fun PreviewStudySessionContent(
         // (see PreviewStudySessionViewModel.selectCards's own doc) — a sheet already open at that
         // point must ride through untouched, or it unmounts and remounts on every edit, snapping
         // shut and sliding back open as a visible flicker. Loading is surfaced elsewhere (the
-        // Scaffold content below); the sheet's own open/closed value is settingsSheet-owned and has
-        // no dependency on it. state.config is always populated (a real default, never null) even
+        // Scaffold content below); the sheet's own open/closed value (settingsSheetOpen) has no
+        // dependency on it. state.config is always populated (a real default, never null) even
         // before the first load lands, so nothing here is meaningless during that window either —
         // and the sheet cannot be open yet at that point regardless, since ReadyContent's own
         // settings toggle is what's absent until the first load lands.
         if (state.error == null) {
             SessionSettingsSheet(
                 state = state,
-                sheetState = settingsSheet.sheetState,
-                onDismissRequest = settingsSheet.onDismiss,
+                sheetState = settingsSheetState,
+                onDismissRequest = onDismissSettingsSheet,
                 onDialogEvent = onDialogEvent,
             )
         }
     }
-}
-
-/**
- * Bundles the settings sheet's open/closed value, its [FlashcardsBottomSheetState], and the
- * badge-tap-to-dialog stagger (ticket 09) into one hoisted unit — lifted out of
- * [PreviewStudySessionContent] purely to keep that function under detekt's `LongMethod`. [open] is
- * screen-local view state, a plain [rememberSaveable] `Boolean` rather than
- * [PreviewStudySessionScreenState.activeDialog]'s sibling, since it has no bearing on card selection
- * and would only bloat that state with a UI-only flag.
- */
-private class SettingsSheetController(
-    val open: Boolean,
-    val sheetState: FlashcardsBottomSheetState,
-    val onOpen: () -> Unit,
-    val onToggle: () -> Unit,
-    val onDismiss: () -> Unit,
-    val onOpenDialog: (PreviewDialog) -> Unit,
-)
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun rememberSettingsSheetController(
-    initiallyOpen: Boolean,
-    onDialogEvent: (PreviewDialogEvent) -> Unit,
-): SettingsSheetController {
-    var open by rememberSaveable { mutableStateOf(initiallyOpen) }
-    val sheetState = rememberFlashcardsBottomSheetState(initiallyExpanded = initiallyOpen)
-    LaunchedEffect(open) {
-        if (open) sheetState.sheetState.show() else sheetState.sheetState.hide()
-    }
-    val coroutineScope = rememberCoroutineScope()
-    return SettingsSheetController(
-        open = open,
-        sheetState = sheetState,
-        onOpen = { open = true },
-        onToggle = { open = !open },
-        onDismiss = { open = false },
-        onOpenDialog = { dialog ->
-            open = true
-            coroutineScope.launch {
-                delay(BADGE_DIALOG_STAGGER_DELAY_MS)
-                onDialogEvent(Open(dialog))
-            }
-        },
-    )
 }
 
 @Composable
@@ -320,11 +311,19 @@ private fun ErrorContent(
  * flow — no adaptive collapsing, no measuring against the sheet's actual height; see
  * [PreviewStudySessionContent]'s doc for why that was dropped.
  */
+// Four of these params (settingsSheetOpen, onOpenSettings, onToggleSettings, onOpenSettingsDialog)
+// used to arrive bundled in a single SettingsSheetController — dropped in favor of plain, flat
+// state in the caller (see PreviewStudySessionContent's own doc), which pushes this function over
+// detekt's LongParameterList threshold by one. Not worth re-introducing a bundling type for.
+@Suppress("LongParameterList")
 @Composable
 private fun ReadyContent(
     modifier: Modifier = Modifier,
     state: PreviewStudySessionScreenState,
-    settingsSheet: SettingsSheetController,
+    settingsSheetOpen: Boolean,
+    onOpenSettings: () -> Unit,
+    onToggleSettings: () -> Unit,
+    onOpenSettingsDialog: (PreviewDialog) -> Unit,
     onReshuffleSubcategories: () -> Unit,
     onResetFilters: () -> Unit,
     onStartSession: () -> Unit,
@@ -347,13 +346,13 @@ private fun ReadyContent(
         if (isEmpty) {
             EmptyHeroBody(onResetFilters = onResetFilters)
         } else {
-            ScopeHeroBody(state = state, onOpenSettings = settingsSheet.onOpen, onOpenSettingsDialog = settingsSheet.onOpenDialog)
+            ScopeHeroBody(state = state, onOpenSettings = onOpenSettings, onOpenSettingsDialog = onOpenSettingsDialog)
         }
         Spacer(modifier = Modifier.weight(1f))
         HeroActions(
             state = state,
-            settingsSheetOpen = settingsSheet.open,
-            onToggleSettings = settingsSheet.onToggle,
+            settingsSheetOpen = settingsSheetOpen,
+            onToggleSettings = onToggleSettings,
             onReshuffleSubcategories = onReshuffleSubcategories,
             onStartSession = onStartSession,
         )
