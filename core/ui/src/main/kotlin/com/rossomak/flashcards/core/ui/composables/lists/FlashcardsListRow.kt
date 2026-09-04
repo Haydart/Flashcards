@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
@@ -114,16 +113,15 @@ fun FlashcardsListRow(
             }
         }
         if (trailing != null) {
-            // weight(1f, fill = false): trailing is otherwise measured at its own natural width
-            // *before* the title column's weight(1f) claims what's left — a long trailing value
-            // (e.g. a settings row's current-value text) would then have no bound to ellipsize
-            // against, and would squeeze the title down to near nothing instead of wrapping or
-            // truncating itself. Sharing the weighted budget evenly with title fixes that: normal,
-            // short trailing content (a chevron, a switch) is far under its half and renders
-            // unchanged, while a wide one is finally capped and can truncate as designed.
-            Box(modifier = Modifier.weight(1f, fill = false)) {
-                trailing()
-            }
+            // Unweighted and sized to its own content: every call site's trailing is a chevron,
+            // switch, stepper, or icon button — always small and fixed-size, never long text (a
+            // settings row's current *value* lives in secondaryText, not trailing). Giving trailing
+            // a weight(1f) here — matching the title column's own weight(1f) — split the row 50/50
+            // by allocation regardless of content, forcing the title into exactly half the row even
+            // when short and leaving trailing stranded at that midpoint instead of flush against the
+            // row's right edge. Title's weight(1f) below already claims all space trailing doesn't
+            // use, which is what actually keeps trailing pinned to the end.
+            trailing()
         }
     }
 }
