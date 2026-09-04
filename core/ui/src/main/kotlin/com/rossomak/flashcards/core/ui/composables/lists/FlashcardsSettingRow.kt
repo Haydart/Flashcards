@@ -16,7 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
-import androidx.compose.ui.unit.dp
 import com.airbnb.android.showkase.annotation.ShowkaseComposable
 import com.rossomak.flashcards.core.ui.R
 import com.rossomak.flashcards.core.ui.composables.FlashcardsDifficultyRangePill
@@ -44,19 +43,37 @@ import com.rossomak.flashcards.core.ui.theme.spacing
  * clickable element, with its own accessible label and click semantics. Tapping the row outside
  * the button does nothing.
  *
- * **[label] and Edit are always fully visible; [value] is what gives way.** [label] carries no
- * `weight` at all — it lays out at its own natural (possibly two-line) width so a setting's name
- * is never the thing that gets cut, and Edit is a fixed-size sibling measured the same way. [value]
- * is the row's *only* weighted child, wrapped in a trailing-aligned [Box] that absorbs whatever
- * space [label] and Edit don't claim and ellipsizes past that. This is a deliberate reversal of an
- * earlier version where [label] carried the weight instead: two weighted siblings sharing a row was
- * tried before that and was the actual bug behind Edit visibly drifting left/right per row — a
- * `fill = false` weighted child is *placed* at its shrunk, natural width, not its allotted share, so
- * whatever came after it (Edit) inherited that same drift. Exactly one weighted child avoids that
- * regardless of which slot carries it; here it's [value], since a long `valueText` (e.g. a voice's
- * name and locale) is what's expected to run long, not [label].
+ * **Edit is always fully visible; [label] is always one line; [value] gets everything [label]
+ * doesn't use, flush against Edit.** The row is two nested `Row`s, not three flat siblings. The
+ * *outer* Row has exactly one weighted child — an inner `label`+[value] `Row` (`weight(1f)`) — with
+ * Edit as its only other, unweighted sibling. Since Compose's `Row` measures every unweighted child
+ * at its own full intrinsic width regardless of what else shares the row, three flat
+ * unweighted-then-weighted siblings (an earlier version of this row) let a long `label` and Edit
+ * each independently claim close to the *entire* row width before their sum was ever checked against
+ * it — [value] could be squeezed to nothing, or the row could overflow outright. Nesting
+ * `label`+[value] inside their own weighted segment reserves Edit's width unconditionally at the
+ * outer level first (`Row`'s unweighted-children pass always runs before its weighted one,
+ * regardless of source order), so the inner segment can never claim more than what's left over.
  *
-
+ * *Inside* that inner segment, [label] carries no `weight` at all and [value] is the sole
+ * `weight(1f, fill = true)` child — deliberately not two weighted siblings sharing a static
+ * proportional split. Giving both a `weight` (an intermediate version of this fix tried
+ * `weight(1f, fill = false)` on each) computes each one's share from the weight ratio *before either
+ * is measured for actual content* — so a short [label] (e.g. "Voice") still capped [value] at a
+ * fixed fraction of the row, wasting the space [label] never used and ellipsizing [value] far sooner
+ * than the available room justified (a real, reproduced regression of that version). Compose's `Row`
+ * instead measures every truly unweighted child (bounded only by the *inner segment's own* width,
+ * never past it) for its actual size *first*, then hands the single weighted child *exactly* what's
+ * left — so a short [label] leaves [value] nearly the whole segment, and a long one still leaves
+ * [value] whatever's genuinely left over, never a static cap unrelated to [label]'s real size.
+ * `fill = true` also keeps [value]'s box flush against the inner segment's own trailing edge on every
+ * row deterministically: consuming *exactly* the remainder (not merely up to it) means
+ * `label + value` always sums to the segment's full width, so nothing "drifts" the way two weighted
+ * siblings did. [label] is fixed at `maxLines = 1` (unlike an intermediate version, which allowed 2
+ * and could still visibly wrap) — ellipsizing past the inner segment's own width, in the one
+ * genuinely pathological case where it alone would overflow the segment, beats wrapping the row
+ * disproportionately taller than its siblings in the stack.
+ *
  * No [androidx.compose.material3.HorizontalDivider] beneath the row (unlike the row this replaced
  * — matching the design reference, which separates settings with space, not rules): the caller
  * stacks rows with its own `Arrangement.spacedBy`.
@@ -97,18 +114,24 @@ fun FlashcardsSettingRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Box(
+        Row(
             modifier = Modifier.weight(1f),
-            contentAlignment = Alignment.CenterEnd,
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
         ) {
-            value()
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Box(
+                modifier = Modifier.weight(1f, fill = true),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                value()
+            }
         }
         FlashcardsTonalButton(
             text = stringResource(R.string.common_edit_button),
