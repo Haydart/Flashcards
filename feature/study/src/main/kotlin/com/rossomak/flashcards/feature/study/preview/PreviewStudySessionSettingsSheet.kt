@@ -4,22 +4,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.ui.R as CoreUiR
 import com.rossomak.flashcards.core.ui.composables.FlashcardsBottomSheet
-import com.rossomak.flashcards.core.ui.composables.FlashcardsBottomSheetHeader
 import com.rossomak.flashcards.core.ui.composables.FlashcardsBottomSheetState
 import com.rossomak.flashcards.core.ui.composables.FlashcardsDifficultyRangePill
 import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardFilters
@@ -43,17 +38,13 @@ import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceSettings
 
 /**
  * The settings sheet itself: [FlashcardsBottomSheet] docked over the ready screen, hidden until
- * the top bar's settings button opens it (ticket 07). [sheetState] and its open/closed value are
- * owned by the caller — this composable only renders what's inside once shown.
+ * the top bar's settings button opens it (ticket 07). [sheetState] is owned by the caller — this
+ * composable only renders what's inside.
  *
- * [onContentTopChanged] reports this sheet's actual, live top edge in root coordinates on every
- * layout pass — including mid-drag and mid-animation — so a caller positioning content above the
- * sheet (ticket 08's HeroActions) can track it exactly. It has to be read from inside [content]
- * itself, not from [modifier]: [FlashcardsBottomSheet]'s underlying `BottomSheet` reports its own
- * outer bounds as its *unshifted* natural size and applies the open/closed offset only to the
- * child it places internally, so a `Modifier.onGloballyPositioned` on [modifier] would see a
- * fixed, bottom-anchored box regardless of hidden/expanded state — wrapping the header+rows here
- * instead observes the real, fully-resolved placement.
+ * Deliberately not scrollable: every row renders at once, at its own natural height, and the
+ * sheet is exactly as tall as that needs — see [FlashcardsBottomSheet]'s own doc for why a capped,
+ * internally-scrolling version of this was tried and dropped, and why [FlashcardsBottomSheetState]
+ * only ever enables hidden/expanded, never a partial peek.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,29 +54,13 @@ internal fun SessionSettingsSheet(
     sheetState: FlashcardsBottomSheetState,
     onDismissRequest: () -> Unit,
     onDialogEvent: (PreviewDialogEvent) -> Unit,
-    onContentTopChanged: (Float) -> Unit = {},
 ) {
     FlashcardsBottomSheet(
         state = sheetState,
         onDismissRequest = onDismissRequest,
         modifier = modifier,
     ) {
-        Column(modifier = Modifier.onGloballyPositioned { onContentTopChanged(it.positionInRoot().y) }) {
-            FlashcardsBottomSheetHeader(
-                title = stringResource(R.string.preview_session_settings_sheet_title),
-                onClose = onDismissRequest,
-            )
-            // weight(fill = false), not fillMaxHeight: a short row set should keep the sheet's
-            // today's compact, content-hugging height, only capping — and scrolling — once the rows
-            // actually run out of room (ticket 07).
-            Column(
-                modifier = Modifier
-                    .weight(weight = 1f, fill = false)
-                    .verticalScroll(rememberScrollState()),
-            ) {
-                SessionSettingRows(state = state, onDialogEvent = onDialogEvent)
-            }
-        }
+        SessionSettingRows(state = state, onDialogEvent = onDialogEvent)
     }
 }
 
@@ -106,7 +81,10 @@ private fun SessionSettingRows(
     state: PreviewStudySessionScreenState,
     onDialogEvent: (PreviewDialogEvent) -> Unit,
 ) {
-    Column(modifier = modifier.fillMaxWidth()) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xxsmall),
+    ) {
         FlashcardsSettingRow(
             label = stringResource(R.string.preview_session_mode_label),
             valueText = state.config.mode.label(),
@@ -240,7 +218,7 @@ private fun FiltersSettingValue(state: PreviewStudySessionScreenState) {
                     config.tagIds.size,
                     config.tagIds.size,
                 ),
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }

@@ -58,7 +58,6 @@
     <string name="preview_session_scope_multi_subcategory_message">" from "</string>
     <string name="preview_session_open_settings_cd">Open session settings</string>
     <string name="preview_session_close_settings_cd">Close session settings</string>
-    <string name="preview_session_settings_sheet_title">Session settings</string>
     <string name="preview_session_close_cd">Close session preview</string>
     <string name="preview_session_ready_title">Ready to start?</string>
     <string name="preview_session_reshuffle_button">Reshuffle topics</string>
