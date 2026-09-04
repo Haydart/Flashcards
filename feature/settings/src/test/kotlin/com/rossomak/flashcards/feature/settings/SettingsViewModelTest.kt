@@ -323,7 +323,7 @@ class SettingsViewModelTest {
 
     @Test
     fun `the voice row summary follows the saved settings`() = runTest(mainDispatcherRule.testDispatcher) {
-        val savedVoice = VoiceOption(id = VOICE_ID, displayName = VOICE_DISPLAY_NAME)
+        val savedVoice = VoiceOption(id = VOICE_ID, countryCode = VOICE_COUNTRY_CODE, variantIndex = VOICE_VARIANT_INDEX)
         every { voiceSettingsController.loadVoices(any(), any()) } answers {
             secondArg<(List<VoiceOption>) -> Unit>().invoke(listOf(savedVoice))
         }
@@ -334,7 +334,7 @@ class SettingsViewModelTest {
         val viewModel = createViewModel()
         advanceUntilIdle()
 
-        viewModel.state.value.voiceName shouldBe VOICE_DISPLAY_NAME
+        viewModel.state.value.selectedVoice shouldBe savedVoice
         viewModel.state.value.speechRate shouldBe FASTER_SPEECH_RATE
     }
 
@@ -349,7 +349,7 @@ class SettingsViewModelTest {
             advanceUntilIdle()
 
             viewModel.state.value.voiceId shouldBe VOICE_ID
-            viewModel.state.value.voiceName shouldBe null
+            viewModel.state.value.selectedVoice shouldBe null
         }
 
     @Test
@@ -422,6 +422,7 @@ class SettingsViewModelTest {
         const val LONGER_GOAL = DailyGoal.DEFAULT_MINUTES + DailyGoal.STEP_MINUTES
         const val FASTER_SPEECH_RATE = 1.25f
         const val VOICE_ID = "en-us-x-tpf-local"
-        const val VOICE_DISPLAY_NAME = "English (United States) · en-us-x-tpf-local"
+        const val VOICE_COUNTRY_CODE = "US"
+        const val VOICE_VARIANT_INDEX = 1
     }
 }

@@ -192,7 +192,7 @@ private fun voicePlaybackSummary(state: PreviewStudySessionScreenState): String 
     val rateLabel = speechRateLabel(state.config.voiceSettings.speechRate)
     val voiceName = state.availableVoices
         .firstOrNull { it.id == state.config.voiceSettings.voiceId }
-        ?.shortLabel
+        ?.label()
         ?: return rateLabel
     return stringResource(R.string.preview_session_setting_value_separator_label, voiceName, rateLabel)
 }

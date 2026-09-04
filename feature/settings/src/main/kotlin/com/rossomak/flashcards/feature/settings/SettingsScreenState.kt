@@ -40,9 +40,11 @@ data class SettingsScreenState(
 ) {
 
     /**
-     * The selected voice's display name, or `null` while the platform voice list has not arrived
-     * yet or no longer contains the saved id (an engine can be uninstalled between runs). The row
-     * falls back to showing the speech rate alone rather than an id no one can read.
+     * The selected [VoiceOption], or `null` while the platform voice list has not arrived yet or no
+     * longer contains the saved id (an engine can be uninstalled between runs) — in which case the
+     * row falls back to showing the speech rate alone. Resolved here, not formatted here: labeling
+     * a [VoiceOption] needs `stringResource`, which this plain state class cannot call (the
+     * `core:ui` `VoiceOption.label()` extension does that at the `@Composable` call site instead).
      */
-    val voiceName: String? get() = availableVoices.firstOrNull { it.id == voiceId }?.displayName
+    val selectedVoice: VoiceOption? get() = availableVoices.firstOrNull { it.id == voiceId }
 }

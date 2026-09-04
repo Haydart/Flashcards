@@ -33,6 +33,7 @@
     <string name="voice_settings_voice_hint">Select voice</string>
     <string name="voice_settings_speed_label">SPEED</string>
     <string name="voice_settings_speed_value_label">%1$s\u00D7</string>
+    <string name="voice_option_label">English (%1$s) Voice %2$d</string>
 
     <string name="flashcard_filters_dialog_title">Filters</string>
     <string name="flashcard_filters_tags_label">TAGS</string>

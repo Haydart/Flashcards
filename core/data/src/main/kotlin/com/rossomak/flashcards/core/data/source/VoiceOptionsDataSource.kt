@@ -17,25 +17,19 @@ class VoiceOptionsDataSource @Inject constructor(
         continuation.invokeOnCancellation { tts?.shutdown() }
         tts = TextToSpeech(context) { status ->
             val voices = if (status == TextToSpeech.SUCCESS) {
-                // ISO country code (VoiceCuration guarantees one of US/GB/AU, never blank), not
-                // Voice.locale.displayCountry: that's localized to the *device's* locale, so an
-                // English voice's own country name would render in whatever language the user's
-                // phone is set to (e.g. "Stany Zjednoczone" for "United States" on a Polish
-                // device) — nonsensical paired with the fixed "English" label.
-                VoiceCuration.curate(tts?.voices.orEmpty()).map { voice ->
-                    val countryLabel = "English (${voice.locale.country})"
-                    // VoiceCuration allows up to 3 voices per country, so countryLabel alone
-                    // can't tell them apart — displayName appends the raw engine variant suffix
-                    // (e.g. "x-tpf-local") so a picker listing every voice side by side stays
-                    // disambiguated. shortLabel omits it: that suffix is internal engine detail,
-                    // meaningless once a single voice is already chosen (the settings row summary
-                    // only ever names the *current* selection, nothing to disambiguate against).
-                    VoiceOption(
-                        id = voice.name,
-                        displayName = "$countryLabel · ${voice.name.substringAfterLast(":")}",
-                        shortLabel = countryLabel,
-                    )
-                }
+                // Grouped by ISO country code (VoiceCuration guarantees one of US/GB/AU, never
+                // blank) purely to number each group's voices 1-based — Voice.name is Android's
+                // own unique id, but its format is engine-opaque (not documented as delimited in
+                // any particular way), so parsing it for a display label risks collisions between
+                // unrelated voices; a friendly, collision-free label is built in core:ui instead,
+                // from countryCode + this index alone (see VoiceOption's own doc).
+                VoiceCuration.curate(tts?.voices.orEmpty())
+                    .groupBy { it.locale.country }
+                    .flatMap { (countryCode, countryVoices) ->
+                        countryVoices.mapIndexed { index, voice ->
+                            VoiceOption(id = voice.name, countryCode = countryCode, variantIndex = index + 1)
+                        }
+                    }
             } else {
                 emptyList()
             }

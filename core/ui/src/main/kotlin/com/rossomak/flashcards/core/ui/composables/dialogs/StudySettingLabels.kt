@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
 import com.rossomak.flashcards.core.domain.model.StudyMode
+import com.rossomak.flashcards.core.domain.model.VoiceOption
 import com.rossomak.flashcards.core.ui.R
 import java.util.Locale
 
@@ -45,6 +46,17 @@ fun readAloudLabel(isEnabled: Boolean): String = if (isEnabled) {
 } else {
     stringResource(R.string.read_aloud_off_label)
 }
+
+/**
+ * A friendly, collision-free voice label — "English (US) Voice 1" — built entirely from
+ * [VoiceOption.countryCode] and [VoiceOption.variantIndex], never from the opaque platform
+ * [VoiceOption.id] (see that type's own doc for why parsing it isn't safe). One label for every use
+ * (a picker listing every voice side by side, or a settings row naming only the current selection):
+ * [variantIndex] already disambiguates same-country voices on its own, so there is nothing left for
+ * a second, shorter variant to omit.
+ */
+@Composable
+fun VoiceOption.label(): String = stringResource(R.string.voice_option_label, countryCode, variantIndex)
 
 /**
  * Formats a speech rate as e.g. `1.25×`, capped at 2 decimal places. Fixed [Locale.US] so the

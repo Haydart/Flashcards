@@ -17,7 +17,7 @@ data class PreviewStudySessionScreenState(
      * sessions, which filter by difficulty only (ADR-0030).
      */
     val availableTags: List<String> = emptyList(),
-    /** Resolves `config.voiceSettings.voiceId` to a [VoiceOption.shortLabel] for the voice row's summary. */
+    /** Resolves `config.voiceSettings.voiceId` to a [VoiceOption] for the voice row's summary. */
     val availableVoices: List<VoiceOption> = emptyList(),
     val activeDialog: PreviewDialog? = null,
 ) {
