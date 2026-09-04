@@ -138,23 +138,7 @@ private fun SessionSettingRows(
         if (state.isQuickSession) {
             SubcategoryCountRangeSettingRow(state = state, onDialogEvent = onDialogEvent)
         }
-        FlashcardsSettingRow(
-            label = stringResource(R.string.preview_session_filters_label),
-            value = { FiltersSettingValue(state = state) },
-            onClick = {
-                onDialogEvent(
-                    Open(
-                        Filters(
-                            draft = FlashcardFilters(
-                                selectedTags = state.config.tagIds,
-                                difficultyRange = state.config.difficultyRange,
-                            ),
-                            availableTags = state.availableTags,
-                        )
-                    )
-                )
-            },
-        )
+        FiltersSettingRow(state = state, onDialogEvent = onDialogEvent)
         FlashcardsSettingRow(
             label = stringResource(R.string.preview_session_sort_label),
             valueText = state.config.sortOrder.label(),
@@ -180,6 +164,31 @@ private fun SubcategoryCountRangeSettingRow(
             state.config.subcategoryCountRange.last,
         ),
         onClick = { onDialogEvent(Open(SubcategoryCountRange(draft = state.config.subcategoryCountRange))) },
+    )
+}
+
+/** Lifted out of [SessionSettingRows] purely to keep that function under detekt's `LongMethod`. */
+@Composable
+private fun FiltersSettingRow(
+    state: PreviewStudySessionScreenState,
+    onDialogEvent: (PreviewDialogEvent) -> Unit,
+) {
+    FlashcardsSettingRow(
+        label = stringResource(R.string.preview_session_filters_label),
+        value = { FiltersSettingValue(state = state) },
+        onClick = {
+            onDialogEvent(
+                Open(
+                    Filters(
+                        draft = FlashcardFilters(
+                            selectedTags = state.config.tagIds,
+                            difficultyRange = state.config.difficultyRange,
+                        ),
+                        availableTags = state.availableTags,
+                    )
+                )
+            )
+        },
     )
 }
 
