@@ -1,14 +1,18 @@
 package com.rossomak.flashcards.core.ui.composables
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.BottomSheet
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -93,17 +97,33 @@ import com.rossomak.flashcards.core.ui.theme.spacing
  * handle's expand/collapse/dismiss accessibility actions all come from `BottomSheet` itself,
  * unmodified.
  *
- * **[content] is always shown in full, never scrolled or height-capped.** [rememberFlashcardsBottomSheetState]
- * only ever enables `Hidden`/`Expanded` — never `PartiallyExpanded` — so "expanded" always means
- * [content]'s complete, natural height. Content taller than the screen pins at the top and *clips*
- * rather than scrolling; a caller with variable-length content should keep it short enough to fit
- * rather than reach for `verticalScroll` here (see docs/adr/0043).
+ * **[content] is capped at [maxHeightFraction] of the available height, scrolling past that —
+ * never clipped.** [rememberFlashcardsBottomSheetState] only ever enables `Hidden`/`Expanded` —
+ * never `PartiallyExpanded` — so "expanded" always means [content] measured up to that cap, not an
+ * unbounded natural height. The cap is read from a [BoxWithConstraints] wrapping this entire
+ * composable, deliberately *outside* the `BottomSheet` call it wraps: `BottomSheet`'s own internal
+ * `draggableAnchors` modifier (see the placement note above) relaxes the height constraint it hands
+ * its content down to effectively unbounded, so it can measure that content's true natural height
+ * for its anchor math — measuring *inside* that point (as an earlier, reverted attempt did, with a
+ * bare `verticalScroll` and no cap) crashes with Compose's "measured with infinity maximum height"
+ * exception the moment content exceeds the viewport. Reading [BoxWithConstraints.maxHeight] here
+ * instead, above that relaxation point, sees the real bounded height the caller's own outer
+ * `Box(Modifier.fillMaxSize())` provides (see the placement note above) — `Modifier.heightIn(max = ...)`
+ * against that concrete value clamps correctly even where the inner measurement is later relaxed to
+ * infinity, since an upper bound intersected with infinity is still that bound. See docs/adr/0043's
+ * addendum for the fuller account of why the naive attempt broke and what fixed it.
  *
  * @param state Owns the sheet's hidden/expanded value and its dismissibility. Build it with
  *   [rememberFlashcardsBottomSheetState].
  * @param onDismissRequest Invoked when the sheet is swiped, predictive-backed, or drag-handle-tapped
  *   to hidden. Never called for a non-dismissible [state], since none of those paths can reach
  *   hidden in that case.
+ * @param maxHeightFraction [content]'s height cap, as a fraction (`0f..1f`) of the screen height the
+ *   caller's outer `Box` provides. Past this, [content] scrolls internally rather than clipping.
+ *   Defaults to [DEFAULT_MAX_HEIGHT_FRACTION] — generous enough for every sheet built on this
+ *   component so far, while still leaving a visible sliver of whatever's behind the sheet, since a
+ *   non-modal sheet (no scrim) reading as a full-screen takeover would misrepresent that it's
+ *   non-modal at all.
  * @param content The sheet's body. One slot, no header, no pinned-actions region.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -112,34 +132,43 @@ fun FlashcardsBottomSheet(
     state: FlashcardsBottomSheetState,
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
+    maxHeightFraction: Float = DEFAULT_MAX_HEIGHT_FRACTION,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    BottomSheet(
-        state = state.sheetState,
-        onDismissRequest = onDismissRequest,
-        modifier = modifier,
-        gesturesEnabled = state.dismissible,
-        backHandlerEnabled = state.dismissible,
-        dragHandle = if (state.dismissible) {
-            { BottomSheetDefaults.DragHandle() }
-        } else {
-            null
-        },
-        shape = RoundedCornerShape(
-            topStart = MaterialTheme.cornerRadius.large,
-            topEnd = MaterialTheme.cornerRadius.large,
-        ),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-        content = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = MaterialTheme.spacing.normal, vertical = MaterialTheme.spacing.normal),
-                content = content,
-            )
-        },
-    )
+    BoxWithConstraints {
+        val cappedHeight = maxHeight * maxHeightFraction
+        BottomSheet(
+            state = state.sheetState,
+            onDismissRequest = onDismissRequest,
+            modifier = modifier,
+            gesturesEnabled = state.dismissible,
+            backHandlerEnabled = state.dismissible,
+            dragHandle = if (state.dismissible) {
+                { BottomSheetDefaults.DragHandle() }
+            } else {
+                null
+            },
+            shape = RoundedCornerShape(
+                topStart = MaterialTheme.cornerRadius.large,
+                topEnd = MaterialTheme.cornerRadius.large,
+            ),
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+            content = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = cappedHeight)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = MaterialTheme.spacing.normal, vertical = MaterialTheme.spacing.normal),
+                    content = content,
+                )
+            },
+        )
+    }
 }
+
+/** Default [FlashcardsBottomSheet] `maxHeightFraction` — see that parameter's own doc. */
+private const val DEFAULT_MAX_HEIGHT_FRACTION = 0.8f
 
 /**
  * [FlashcardsBottomSheet]'s single source of truth for dismissibility — a transparent wrapper

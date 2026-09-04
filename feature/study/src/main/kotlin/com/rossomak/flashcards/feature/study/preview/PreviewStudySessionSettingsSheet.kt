@@ -41,10 +41,12 @@ import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceSettings
  * the top bar's settings button opens it (ticket 07). [sheetState] is owned by the caller — this
  * composable only renders what's inside.
  *
- * Deliberately not scrollable: every row renders at once, at its own natural height, and the
- * sheet is exactly as tall as that needs — see [FlashcardsBottomSheet]'s own doc for why a capped,
- * internally-scrolling version of this was tried and dropped, and why [FlashcardsBottomSheetState]
- * only ever enables hidden/expanded, never a partial peek.
+ * Every row renders at once — no manual pagination or lazy list here — and
+ * [FlashcardsBottomSheet]'s own default `maxHeightFraction` caps and internally scrolls the whole
+ * thing once a Rated quick session's full row set (mode, voice answering, attempts, voice settings,
+ * length, topics, filters, sort — up to eight rows) runs taller than that cap, e.g. in landscape or
+ * at a large font scale. See [FlashcardsBottomSheet]'s own doc for how that cap and scroll actually
+ * work, and why [FlashcardsBottomSheetState] only ever enables hidden/expanded, never a partial peek.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

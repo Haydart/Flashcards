@@ -59,3 +59,28 @@ a panel that composes alongside its screen's own content.
 - Showkase entry is public (`@ShowkaseComposable`); previews cover both shapes in both themes.
 - Every M3 `BottomSheet`/`SheetState` call site needs `@OptIn(ExperimentalMaterial3Api::class)`
   until the API graduates.
+
+## Addendum: content now caps and scrolls instead of clipping
+
+The original decision ("Height is the caller's problem... a caller with variable-length content
+makes its own column scrollable") turned out to be harder to execute than it reads. A first attempt
+simply added `Modifier.verticalScroll` to a sheet's content column and it crashed — Compose's
+"vertically scrollable component was measured with an infinity maximum height constraints"
+exception — the moment content grew past the viewport. That attempt was reverted and
+`FlashcardsBottomSheet`'s own doc was (wrongly, in hindsight) tightened to say content should just
+be kept short instead.
+
+Root cause: `BottomSheet`'s own internal `draggableAnchors` modifier measures its content at
+unbounded height on purpose, to learn the content's true natural size for its `Expanded` anchor math
+(`fullHeight - sheetHeight`). Any `verticalScroll` placed on content *inside* that measurement — which
+is where a caller's `content` slot lives — inherits that unbounded constraint and throws.
+
+Fix: `FlashcardsBottomSheet` now wraps its entire body (including the `BottomSheet` call) in a
+`BoxWithConstraints`, positioned *above* that internal relaxation point, where the incoming height
+constraint is still the real, bounded one the caller's own outer `Box(Modifier.fillMaxSize())`
+provides. `maxHeightFraction` (default `0.8f`) is multiplied against that bound to produce a concrete
+`Dp` cap, applied via `Modifier.heightIn(max = ...)` on the content column *before* `verticalScroll`.
+`heightIn` intersects constraints rather than scaling a fraction of them, so it clamps correctly even
+where the constraint it's intersected against is later relaxed to infinity downstream — the piece the
+first attempt was missing. `content` shorter than the cap is unaffected; `verticalScroll` only
+engages once actual content exceeds it.
