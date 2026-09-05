@@ -70,7 +70,11 @@ flowchart TD
 
 > Study Mode selection happens on the Preview Study Session Screen; Fast mode is manual tap-to-reveal/advance by default, with read-aloud as an opt-in toggle (Voice row) that auto-starts voice playback (ADR-0004).
 >
-> **Mastery Defense (Rated only) — NYI:** design only (see [docs/design/persistent-card-mastery.md](../design/persistent-card-mastery.md)), not in SYSTEMDESIGN.md's current Card Selection Algorithm or Firestore Schema. Planned: at Preview Study Session card selection time, up to 10% of the resolved pool is silently filled with previously mastered cards from the same scope, shown with a small shield icon, no user interaction required.
+> Fast and Rated are **separate screens and routes** (ADR-0045) — the Preview screen picks one, and a session can never switch.
+>
+> **Mastery Defense (Rated only) — NYI:** design only (see [docs/design/persistent-card-mastery.md](../design/persistent-card-mastery.md)). Planned: at Preview Study Session card selection time, up to 10% of the configured Length is given over to previously mastered cards from the same scope — out of the budget, not on top of it — shown with a small shield icon, no user interaction required.
+>
+> **Nothing is written to Firestore during a session.** Both modes hand a result to the Session Summary screen, which computes XP and commits everything in one atomic batch (ADR-0014).
 
 ```mermaid
 flowchart TD
@@ -84,17 +88,21 @@ flowchart TD
     ModeChoice -->|Fast| FastSession
 
     %% ── Rated Session ─────────────────────────────────────────────
-    RatedSession(STUDY SESSION — RATED\nX/N mastered)
+    RatedSession(STUDY SESSION — RATED\nX/N mastered · X counts distinct cards)
     RatedSession --> ShowAnswer[/Tap 'Show Answer' or swipe up/]
     ShowAnswer --> AnswerRevealed(Answer state)
     AnswerRevealed --> Rate[/Rate: Failed · Partial · Correct/]
-    Rate --> TerminalAny[Terminal State written · any rating\nauto-advance\ncurrent code: no re-insertion or Attempt tracking]
-    TerminalAny -.-> AttemptsNYI{{Attempt X of N · re-insertion on\nPartial/Failed below Attempts limit\nMastery Defense shield icon on defended cards\nNYI}}
+    Rate --> RecordAttempt[Attempt consumed · card marked Studied\nbest-rating-so-far updated]
+    RecordAttempt --> Resolve{Correct, attempts exhausted,\nor Partial-ends-card?}
+    Resolve -->|yes| Terminal[Terminal State = best rating achieved\nMastered · Partial · Failed\nheld in the session ledger]
+    Resolve -->|no| Requeue[Re-insert at currentIndex + random gap\nFailed 2-4 · Partial 5-9 · seeded]
+    Requeue --> RatedSession
+    Terminal -.-> AttemptsNYI{{Attempt X of N label\nMastery Defense shield icon on defended cards\nNYI}}
 
-    TerminalAny --> QueueCheck{Queue empty?}
+    Terminal --> QueueCheck{Queue empty?}
     QueueCheck -->|no| RatedSession
-    QueueCheck -->|yes| WriteFull[Write to Firestore:\nTerminal States + session record\nisPartial = false]
-    WriteFull --> Summary
+    QueueCheck -->|yes| HandOffFull[Seal ledger · stamp duration\nisPartial = false\nno Firestore write yet]
+    HandOffFull --> Summary
 
     %% Extended context (Rated)
     AnswerRevealed -->|extendedContext present| TapMore[/Tap 'See more'/]
@@ -112,22 +120,23 @@ flowchart TD
     RatedSession --> TapX1[/Tap X — top-left/]
     TapX1 --> ExitConfirm1{Confirm exit?\nProgress will be lost}
     ExitConfirm1 -->|Cancel| RatedSession
-    ExitConfirm1 -->|Confirm| WritePartial1[Write to Firestore:\nTerminal States so far + session record\nisPartial = true]
-    WritePartial1 --> Summary
+    ExitConfirm1 -->|Confirm| HandOffPartial1[Seal ledger with outcomes so far\nisPartial = true\nqueued cards never recorded]
+    HandOffPartial1 --> Summary
 
     %% ── Fast Session ──────────────────────────────────────────────
     FastSession(STUDY SESSION — FAST\nmanual tap-to-reveal/advance by default\nread-aloud opt-in · no ratings · no mastery)
     FastSession --> ManualAdvance[/Tap to reveal answer\ntap to advance/]
-    ManualAdvance --> FastQueueCheck{Queue empty?}
+    ManualAdvance --> MarkSeen[Answer shown — card marked Studied\nskipping past a question marks nothing]
+    MarkSeen --> FastQueueCheck{Queue empty?}
     %% Controls available when read-aloud is on — no navigation change:
     %% pause/play · skip-next · skip-previous · speed slider 0.5×–2×
     %% Show Answer: interrupts Q utterance, reads A immediately
     %% Playback survives screen-off/app-background via foreground MediaSession service
     FastSession -->|read-aloud on| TtsLoop[TTS: Q → 1.5s pause → A → 2.5s pause → auto-advance]
-    TtsLoop --> FastQueueCheck
+    TtsLoop --> MarkSeen
     FastQueueCheck -->|no| FastSession
-    FastQueueCheck -->|yes| WriteFast[Write to Firestore:\nsession record · isPartial = false\nno card mastery written]
-    WriteFast --> Summary
+    FastQueueCheck -->|yes| HandOffFast[Seal ledger · stamp duration\nisPartial = false\nStudied cards only, no mastery]
+    HandOffFast --> Summary
 
     %% Extended context (Fast — voice-aware)
     FastSession -->|extendedContext present| TapMoreFast[/Tap 'See more'/]
@@ -145,15 +154,16 @@ flowchart TD
     FastSession --> TapX2[/Tap X — top-left/]
     TapX2 --> ExitConfirm2{Confirm exit?}
     ExitConfirm2 -->|Cancel| FastSession
-    ExitConfirm2 -->|Confirm| WritePartial2[Write to Firestore:\nsession record · isPartial = true]
-    WritePartial2 --> Summary
+    ExitConfirm2 -->|Confirm| HandOffPartial2[Seal ledger with cards seen so far\nisPartial = true]
+    HandOffPartial2 --> Summary
 
     %% ── Session Summary ───────────────────────────────────────────
-    Summary(SESSION SUMMARY SCREEN\nXP breakdown — animated line by line\nLevel-up celebration if applicable\n'Session Completed' +500 XP omitted on partial sessions)
+    Summary(SESSION SUMMARY SCREEN\ntakes sessionId · result via retained holder\nXP breakdown — animated line by line\nLevel-up celebration if applicable\n'Session Completed' +500 XP omitted on partial sessions)
+    Summary --> Commit[ONE atomic batch:\nsessions doc + outcomes subcollection\ncardProgress + subcategoryProgress deltas\nuser xp/level/streak]
 
-    Summary --> StudyAgainAll[/Study Again — All/]
-    Summary --> StudyAgainFailed[/Study Again — Failed\nshown only if ≥1 Terminal Failed\nRated sessions only/]
-    Summary --> GoBack[/Tap 'Back to Home' · or system back/]
+    Commit --> StudyAgainAll[/Study Again — All/]
+    Commit --> StudyAgainFailed[/Study Again — Failed\nshown only if ≥1 Terminal Failed\nRated sessions only/]
+    Commit --> GoBack[/Tap 'Back to Home' · or system back/]
 
     StudyAgainAll -->|"same categoryId + subcategoryIds\npopUpTo Main · card re-selection runs fresh"| PreviewStudySession
     StudyAgainFailed -->|"cardIds = failed cards only\nbypasses PreviewStudySession · popUpTo Main"| RatedSession
