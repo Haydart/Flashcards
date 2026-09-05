@@ -69,8 +69,9 @@ Client displays sanitized_transcript the moment step 5 arrives, then grade/feedb
 once step 7 arrives — two on-screen (and, screen-off, two spoken) updates, one connection
         │
         ▼
-Client persists {sanitized_transcript, grade, feedback} to Firestore
-(never the raw audio, never an un-sanitized transcript)
+Client displays sanitized_transcript and grade/feedback transiently, on screen, during the session
+Only the resulting Terminal State/outcome — never the transcript itself — is persisted, at the
+Summary commit (ADR-0014)
 ```
 
 **Sanitize now runs in phase 1 (transcribe stage), not bundled into the grade LLM call as originally designed** — the text shown to the user must already be PII-stripped and disfluency-normalized, so sanitize can't wait for grading to finish (ADR-0028, decision 3).
@@ -212,16 +213,16 @@ This feature has several hard external dependencies an implementing agent won't 
 - Raw, unobfuscated voice audio never leaves the device.
 - Obfuscated audio is never persisted anywhere, client or server.
 - Premium entitlement is checked server-side per request, not trusted from the client.
-- Only sanitized (PII-stripped) transcripts and grades are ever written to Firestore.
+- Transcripts and grades are never written to Firestore — only shown transiently on screen during the session. Only the resulting outcome (Terminal State) is persisted, at the Summary commit.
 
 ## Open decisions carried forward
 
-0. ~~Whether voice-graded Attempts count toward Terminal-State/Mastery/XP~~ — resolved by ADR-0026: they unify with manual Rating once that system (ADR-0016) is built. See also ADR-0026 for the on-screen reveal-timing and grade-display decisions made alongside it.
+0. ~~Whether voice-graded Attempts count toward Terminal-State/Mastery/XP~~ — resolved by ADR-0026: they unify with manual Rating. That system is designed by ADR-0044/0046/0016/0014 and not yet built. See also ADR-0026 for the on-screen reveal-timing and grade-display decisions made alongside it.
 1. Grading LLM vendor (or OpenRouter multi-model setup) — see above.
 2. ElevenLabs premium TTS track — separate design pass.
 3. Play Billing entitlement sync mechanics (RTDN → Firestore) — separate design pass; required before ship, not before implementation of the capture mechanism itself.
 4. Exact obfuscation DSP implementation (which library/algorithm implements the pitch/formant shift on Android) — implementation detail, not yet chosen.
-5. Firestore schema for storing sanitized transcript + grade history per card/session — not yet designed. ADR-0028 guarantees the sanitized transcript exists and reaches the client promptly per-card, which the eventual Rating/Attempt/Terminal-State system (ADR-0016, still unbuilt) needs in order to support read-only revisit of already-answered cards in Rated sessions — but that system's schema, session-state tracking, and revisit UI are not designed here.
+5. ~~Firestore schema for storing sanitized transcript + grade history per card/session~~ — resolved by ADR-0014, and reversed from earlier revisions of this document: **no transcript is persisted at all.** The sanitized transcript is shown transiently, on screen, during the session, to display grading feedback — then discarded. Only the resulting outcome (Terminal State, Attempts used, previously-mastered flag) is written to the session document's embedded `outcomes` map. Nothing today needs the transcript back after the session ends; a future read-only revisit UI, if ever built, would need its own design and its own decision about persisting transcripts, not an assumption carried from here. Session-state tracking and any such revisit UI remain undesigned.
 6. ~~Whether the grading response can be split into a fast transcript-first phase and a separate grade phase without a second client round-trip~~ — resolved by ADR-0028: yes, via Firebase's native streaming callable functions (`onCall` + `sendChunk()`), not raw HTTP streaming.
 7. ~~`checkEntitlement()` and other non-audio `VoiceGradingApi` members: migrate to callable functions for consistency with the now-`onCall`-based grading endpoint, or leave as plain REST since they don't need streaming~~ — **re-resolved by ADR-0029**: they migrate; the entire REST/Retrofit stack is deleted. `entitlement` becomes an `onCall` callable; `transcribe`/`sanitizeAndGrade` are deleted, their debug capability folded into a payload-inferred mode of `transcribeAndGradeSpokenAnswer`. (The earlier "leave as plain REST" resolution stood only until the maintenance cost of two transports + a Retrofit stack for two paid debug-only endpoints outweighed it.)
 8. ~~`VoiceGradingApi`/`VoiceAnswerGradingRepository`/`GradeSpokenAnswerUseCase`/`VoiceAnswerController`/`FakeVoiceGradingApi` file-level changes needed to actually carry the two-phase result through the app~~ — implemented (ADR-0028) then renamed whole-vertical (ADR-0029): `transcribeAndGradeSpokenAnswer` returns `Flow<VoiceGradingStreamEventDto>` (data) / `Flow<VoiceAnswerGradingEvent>` (domain), collected in `VoiceAnswerController.gradeUtterance()` and written into `VoiceAnswerState.sanitizedTranscript` ahead of `lastGrade`. `RealVoiceGradingApi` is now callable-only (no Retrofit). `FakeVoiceGradingApi` (test-only double) emits a `TranscriptChunk` after a simulated upload+STT+sanitize delay, then a `Graded` after a second simulated grading-LLM delay, matching the real streamed call's two-window latency shape.

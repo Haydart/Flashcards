@@ -6,7 +6,7 @@
 
 The Study tab search box (search categories/topics) needs to feel "smart" — searching "compose" should surface both the `Compose` Subcategory and the `Android` Category (because one of its children matched); searching "testing" should surface every matching Subcategory across every Category, plus each of those parent Categories. All of this must run on a debounced live Firestore query, never a full local cache of `subcategories` (that collection is expected to keep growing; loading it in full to answer a "handful of subcategories" search is wasteful).
 
-This doc covers matching rules, result layout, the two Firestore schema fields it depends on, the read-cost budget for both the default Browse state and live search, and where the logic lives in the module structure. Related: [Category icon+color](category-icon-color.md) (sibling denormalized-field design), [Persistent Card Mastery](persistent-card-mastery.md) (the `subcategoryProgress` rollup that will eventually supply the progress rings shown alongside matched Subcategories — see "Progress rings" below for what ships in the meantime).
+This doc covers matching rules, result layout, the two Firestore schema fields it depends on, the read-cost budget for both the default Browse state and live search, and where the logic lives in the module structure. Related: [Category icon+color](category-icon-color.md) (sibling denormalized-field design), [Persistent Card Mastery](persistent-card-mastery.md) (the progress summary that will eventually supply the progress rings shown alongside matched Subcategories — see "Progress rings" below for what ships in the meantime).
 
 ## Matching rule: prefix-only, uniform
 
@@ -16,7 +16,7 @@ Category-name matching happens entirely client-side against an always-cached lis
 
 Case-insensitivity: comparisons are done against a lowercased field (`nameLower` — see below), since Firestore range comparisons are case-sensitive.
 
-**Query floor and ceiling.** A query shorter than **2 characters** is treated as no query at all — the screen stays in its default state and no Firestore read is issued. A single character matches a large and growing slice of the collection, which is exactly the bulk load this design exists to avoid. The live query is also capped at **`.limit(20)`**. The cap must stay at or below **30**, because the future progress-ring lookup (below) feeds the matched ids into a Firestore `whereIn`, which Firestore caps at 30 values.
+**Query floor and ceiling.** A query shorter than **2 characters** is treated as no query at all — the screen stays in its default state and no Firestore read is issued. A single character matches a large and growing slice of the collection, which is exactly the bulk load this design exists to avoid. The live query is also capped at **`.limit(20)`** — a read-cost choice for a query issued as the user types, not a hard limit. It used to be constrained to 30 or fewer by the progress-ring lookup, which fed the matched ids into a Firestore `whereIn`; that lookup is now a single document read (ADR-0016), so no external ceiling applies.
 
 Out of scope for v1: synonym/fuzzy matching (e.g. "async" → Coroutines). Additive later via a `searchTerms: List<String>` field on Subcategory if needed — doesn't conflict with this design.
 
@@ -121,9 +121,9 @@ Note that for some queries the reordered line is indistinguishable from the defa
 
 ## Progress rings on matched Subcategories
 
-Subcategory rows in search results carry a mastery-percentage ring. The data behind it comes from the `subcategoryProgress` rollup in [Persistent Card Mastery](persistent-card-mastery.md), read as `where subcategoryId in [matchedIds]` (Firestore `in` caps at 30 — hence the `.limit(20)` ceiling on the search query above) against `users/{uid}/subcategoryProgress`, scoped to exactly the Subcategories the search already matched. No new read pattern: it composes directly with the live-query result set this design already produces.
+Subcategory rows in search results carry a mastery-percentage ring. The data behind it comes from the per-user progress summary in [Card Progress and Persistent Mastery](persistent-card-mastery.md) — **one document read**, whatever the search matched, from which the matched Subcategories' counts are picked out in memory. The ring's denominator is `Subcategory.cardCount`, which the matched rows already carry. Search issues no additional per-Subcategory read at all.
 
-**That rollup does not exist yet** — no mastery, session-summary, or `subcategoryProgress` code is in the repo. Search does not block on it. The ring ships rendering a **0% placeholder** so the row's layout and leading slot are final from day one; wiring the real value is a one-call-site change once the mastery feature lands.
+The ring shipped rendering a **0% placeholder** so the row's layout and leading slot were final from day one. Wiring the real value is tracked as its own ticket alongside the Category Details rings, and is a one-call-site change: the summary is a single document for the whole user, so one read serves any result set.
 
 ## Explicitly deferred (not v1)
 

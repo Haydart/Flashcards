@@ -2,7 +2,7 @@
 
 ## Decision
 
-Once the Rating/Attempt/Terminal-State pipeline exists (not yet designed — ADR-0016 covers only Rated-vs-Fast mastery *scoping*, not this pipeline's shape), a Voice Answering grade writes a **Rating** exactly like a manual self-rating tap — same Attempt/Terminal-State/Mastery/XP effects, using the grade-band mapping already fixed by ADR-0031 (Failed < 40, Partial 40-79, Correct ≥ 80). This resolves ADR-0031's deferred follow-up #1: voice-graded and manually-rated Attempts are the same kind of Attempt, not two parallel tracks.
+Within the Rating/Attempt/Terminal-State pipeline (ADR-0044 fixes Terminal State resolution, ADR-0046 the queue placement, ADR-0016 the persisted per-card record), a Voice Answering grade writes a **Rating** exactly like a manual self-rating tap — same Attempt/Terminal-State/Mastery/XP effects, using the grade-band mapping already fixed by ADR-0031 (Failed < 40, Partial 40-79, Correct ≥ 80). This resolves ADR-0031's deferred follow-up #1: voice-graded and manually-rated Attempts are the same kind of Attempt, not two parallel tracks.
 
 Answer-reveal in voice-on Rated is tied to the **end of the user's spoken answer** (the `LISTENING`/`SPEECH_DETECTED` → `GRADING` transition), not to the end of question-TTS. The user only sees the answer text once their own answer is already locked in.
 
@@ -26,5 +26,5 @@ Separately, cross-referencing the shipped `feat/voice-answering` code against th
 
 - `StudySessionViewModel` needs an additional `isAnswerRevealed` branch for `state.studyMode == RATED && isVoiceAnswerEnabled`, revealing when `voiceAnswerPhase` reaches `GRADING` — mirroring the existing `voice.isActive` branch (line 130) but keyed off `VoiceAnswerPhase` instead of Fast mode's `VoicePhase`.
 - The bottom sheet's phase-label row needs to grow from a label string into a small content block once `SPEAKING_NOTICE` begins: grade-band styling + feedback text (graded case) or a distinct skip treatment (`lastGrade == null` case).
-- This ADR does not itself build the Rating/Attempt/Terminal-State system (ADR-0016) — it only fixes voice answering's shape for when that system lands, so the two aren't built to disagree.
+- This ADR does not itself build the Rating/Attempt/Terminal-State system (ADR-0044, ADR-0046, ADR-0016) — it only fixes voice answering's shape within it, so the two aren't built to disagree. A silence timeout consumes no Attempt and records no outcome.
 - `docs/design` mockup coverage for the voice-on Rated branch needs 8 states: question+waiting, listening (idle), listening (speech detected), grading (answer revealed), feedback (graded), feedback (skipped), consent dialog, and exit dialog over a voice-active background.

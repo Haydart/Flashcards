@@ -24,7 +24,7 @@ Splash → Login → Onboarding (8 screens) → Main
 - **Onboarding-seen flag**: stored in local DataStore, not Firestore. Device-scoped, not uid-scoped.
   - Consequence (accepted): same device + new account login → onboarding skipped. New device + same account → onboarding shown again.
 - **Future guest mode**: build on Firebase Anonymous Auth, not a separate local-only mode. Anonymous sign-in still returns a non-null uid, so it satisfies `SplashViewModel`'s existing `getCurrentAuthUser() != null` check, ADR-0002's sign-out `popUpTo<AuthedGraph>` logic, and Firestore rules (`request.auth != null`, no provider check) without any rework. This keeps Login-before-Onboarding valid even after guest mode ships — a future anonymous user still has a uid by the time onboarding's Favorites screen runs.
-  - Side finding (unrelated to onboarding, flagged for separate follow-up): `firestore.rules` only has explicit rules for `users/{uid}/voiceAnswers` and `users/{uid}/curationRequests`. `favorites`, `recentSessions`, `progress`, `privateCards` have no explicit rule → default-deny. Needs its own investigation.
+  - Side finding (unrelated to onboarding, flagged for separate follow-up): `firestore.rules` only has explicit rules for `users/{uid}/voiceAnswers` and `users/{uid}/curationRequests`. `favorites`, `sessions`, `progress`, `state`, `privateCards` have no explicit rule → default-deny. Needs its own investigation.
 
 ## Screens
 
@@ -42,7 +42,7 @@ Splash → Login → Onboarding (8 screens) → Main
 
 ### 3. Flashcard mastery — moved up from Screen 4, now precedes Session modes
 - **Reordering**: swapped with Session modes. Two reasons: (1) this screen is pure presentation — no decision, no input, just teaches a concept — and cover-to-decision screens generally read better than decision-to-concept; (2) mastery is the natural setup for the Rated-vs-Fast choice — Rated is defined by rating cards toward mastery, so explaining mastery first makes the next screen's Rated card land immediately instead of introducing an unexplained term.
-- Explains Attempts → Rating → Terminal State (Mastered) mechanic. Presentation-only, no user decision — CTA is just "Continue."
+- Explains Attempts → Rating → Terminal State mechanic. Terminal State is three-valued — Mastered, Partial, Failed — decided by the best Rating the card achieved; copy should not imply a card either masters or fails. Presentation-only, no user decision — CTA is just "Continue."
 - **Attempts limit is becoming Settings-customizable** (default 3, max 5 — see `CONTEXT.md` Attempt/Terminal State entries and `SYSTEMDESIGN.md` Settings Screen, both updated). Copy must not hardcode a specific attempt number (e.g. "the third") since it's no longer a fixed constant.
 - **Headline**: shipped as **"Master cards and level up"** (eyebrow: GAMIFIED PROGRESS TRACKING), per the latest mockup. Supersedes the earlier "Get it right, cards graduate" round recorded here.
 - **XP figure corrected**: the mockup drew "+150 XP"; `docs/design/xp-leveling-system.md` says **100 XP** per mastered card, and the illustration ships that number.
