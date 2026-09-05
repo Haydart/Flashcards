@@ -329,7 +329,7 @@ users/{uid}/sessions/{sessionId}                      → { sessionId, startTime
                                                           cardsDefended, cardsDemastered,
                                                           newCardsStudied }
     ... plus embedded  outcomes: { <cardId>: { subcategoryId, state, attemptsUsed,
-                                                          wasPreviouslyMastered, transcript? } }
+                                                          wasPreviouslyMastered } }  // no transcript, ever
 users/{uid}/progress/{subcategoryId}                  → { categoryId,
                                                           cards: { <cardId>: {
                                                             state: Seen|Failed|Partial|Mastered,

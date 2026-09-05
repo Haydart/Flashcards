@@ -34,7 +34,6 @@ outcomes: {                     // keyed by cardId
     state: Mastered | Partial | Failed | Seen
     attemptsUsed: Int
     wasPreviouslyMastered: Boolean
-    transcript: String?         // voice-answered cards only
   }
 }
 ```
@@ -56,8 +55,16 @@ no read saving at all — it only halves the bytes on the wire, at the cost of d
 every commit and adding a second fetch whenever a past session is opened.
 
 Size is bounded by construction: one entry per distinct card, and a session's length is capped at
-`StudySessionConfig.MAX_LENGTH`. The worst case is a 50-card voice-answered session carrying 50
-transcripts, roughly 13 KB against Firestore's 1 MiB document limit.
+`StudySessionConfig.MAX_LENGTH`. Even a full 50-card session is a handful of scalar fields per entry,
+nowhere near Firestore's 1 MiB document limit.
+
+**No transcript is persisted, anywhere.** A voice-answered card's sanitized transcript is surfaced
+only transiently, on screen during the Rated session itself, to show the user what was heard before
+grading it. Once the card is graded, only the resulting `state` and `attemptsUsed` carry forward into
+the ledger — the spoken content itself is not retained in Firestore, in the session ViewModel's
+result, or on the Summary route. Nothing today reads a transcript back after the session ends; adding
+persistence for a hypothetical future revisit feature is deferred until that feature is actually
+designed (see `docs/design/premium-voice-grading-pipeline.md`).
 
 The one real cost is that the Android client SDK has no field projection, so Recents transfers a
 ledger it never renders. If that ever measures badly, the fix is a separate slim index document —
@@ -86,6 +93,13 @@ Subcategory can both read the same starting state and both apply their increment
 `studiedCount`, mastery deltas and XP. This is an accepted limitation for a single-account project —
 a transactional, idempotency-checked commit is future work if genuine multi-device concurrency ever
 needs to be supported.
+
+**The commit is guarded against being applied twice for the same session.** Unlike the
+cross-session race above, a duplicate commit of the *same* `sessionId` — a retried write after a
+dropped response, say — is straightforward to prevent: the batch includes a create-only write
+(`create()`, which fails if the document already exists) for `sessions/{sessionId}` itself. If that
+document already exists, the whole batch fails and nothing is double-applied. This needs no
+transaction, only that the session document's write in the batch uses `create` rather than `set`.
 
 ### Per-User singletons live in a `state` collection
 
@@ -124,8 +138,9 @@ The Summary route carries the whole session result as route arguments, flattened
 and lists of primitives the same way `StudySessionRoute` already flattens `VoiceSettings` and
 `IntRange` — `androidx.navigation`'s typesafe routes only derive a `NavType` for primitives, enums
 and lists of those. The per-card ledger becomes one parallel list per field (`cardIds`,
-`subcategoryIds`, `states`, `attemptsUsed`, `wasPreviouslyMastered`, `transcripts`), all indexed
-together. A **past** session's detail view instead carries only `sessionId`, and the Summary reads
+`subcategoryIds`, `states`, `attemptsUsed`, `wasPreviouslyMastered`), all indexed together — no
+transcript field, since none is persisted (see above). A **past** session's detail view instead
+carries only `sessionId`, and the Summary reads
 `sessions/{sessionId}` back from Firestore — one document, everything included — rather than
 receiving a ledger through the route.
 
@@ -221,4 +236,6 @@ the same data.
   Firestore — and must not commit on the second.
 - The route arguments carry the whole fresh-result payload, so the Summary needs nothing beyond what
   navigation already hands it, and a process death that survives via `SavedStateHandle` restores the
-  same arguments rather than losing the result.
+  same arguments rather than losing the result. Nothing sensitive rides in that payload: no transcript
+  is ever part of the result, so `SavedStateHandle`'s disk-backed persistence carries only card ids,
+  states and counts.

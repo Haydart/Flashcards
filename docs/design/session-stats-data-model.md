@@ -71,9 +71,9 @@ Backgrounded time accrues **only while voice playback is active**. A backgrounde
 | `subcategoryIds` | List\<String\> | One or more |
 | `subcategoryNames` | List\<String\> | Denormalized, same reason |
 | `cardCount` | Int | Distinct Flashcards the session put in front of the user |
-| `cardsMastered` | Int | Rated only; 0 for Fast |
+| `cardsMastered` | Int | Rated only; 0 for Fast — cards entering mastery **this session**, not cards that were already mastered |
 | `cardsPartial` | Int | Rated only; 0 for Fast |
-| `cardsDefended` | Int | Rated only; mastery held under Mastery Defense |
+| `cardsDefended` | Int | Rated only; mastery held under Mastery Defense — **disjoint from** `cardsMastered`: a card that was already mastered and stays mastered counts here, not there |
 | `cardsDemastered` | Int | Rated only; mastery lost |
 | `newCardsStudied` | Int | Both modes; Flashcards entering **Studied** for the first time |
 | `xpBreakdown` | Map | Computed XP per category — see below |
@@ -107,9 +107,12 @@ A map on the session document, keyed by card id, holding one entry per card the 
 | `state` | Enum | `Mastered` \| `Partial` \| `Failed` \| `Seen` (`Seen` for Fast) |
 | `attemptsUsed` | Int | Rated only; 0 for Fast |
 | `wasPreviouslyMastered` | Boolean | Whether this was a Mastery Defense card |
-| `transcript` | String? | Voice-answered cards only |
 
-It is embedded rather than held in a subcollection because Firestore bills per document read: Recents pays the same read count either way, so splitting bought no read saving while costing a write per card. Size is bounded — one entry per distinct card, capped by the maximum session length — at roughly 13 KB in the worst case. See [ADR-0014](../adr/0014-session-stats-written-at-summary-screen.md).
+No transcript field exists here. A voice-answered card's sanitized transcript is shown on screen
+transiently, during the Rated session, to display the grading feedback — it is never persisted, on
+this document or anywhere else. See [ADR-0014](../adr/0014-session-stats-written-at-summary-screen.md).
+
+It is embedded rather than held in a subcollection because Firestore bills per document read: Recents pays the same read count either way, so splitting bought no read saving while costing a write per card. Size is bounded — one entry per distinct card, capped by the maximum session length — to a handful of scalar fields each. See ADR-0014.
 
 Recents transfers this map without rendering it, since the Android client SDK has no field projection. Revisit only if measured.
 
@@ -169,3 +172,5 @@ On fresh install or reinstall:
 5. Show Progress screen
 
 XP, level and streak are stored as computed scalars precisely so they never have to be re-derived by replaying the XP formula over session history — which would also give the wrong answer if the XP config had changed in the interim.
+
+**Accepted future edge case:** step 2 fetches the *entire* `sessions` collection, even though only the `today`/`week` windows need raw records — `totalMinutes` and `totalSessionsCompleted` could be bounded, running counters instead. For a single-account academic project this is not worth building now; flagged here so it isn't mistaken for an oversight if it ever needs revisiting — a user with years of history reinstalling would pay a read per historical session, which racks up Firestore read-operation cost with account age.
