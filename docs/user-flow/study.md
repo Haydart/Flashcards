@@ -72,7 +72,7 @@ flowchart TD
 >
 > Fast and Rated are **separate screens and routes** (ADR-0045) — the Preview screen picks one, and a session can never switch.
 >
-> **Mastery Defense (Rated only) — NYI:** design only (see [docs/design/persistent-card-mastery.md](../design/persistent-card-mastery.md)). Planned: at Preview Study Session card selection time, up to 10% of the configured Length is given over to previously mastered cards from the same scope — out of the budget, not on top of it — shown with a small shield icon, no user interaction required.
+> **Mastery Defense (Rated only) — NYI:** design only (see [docs/design/persistent-card-mastery.md](../design/persistent-card-mastery.md)). Planned: mastered cards are never excluded from the pool, and at Preview Study Session card selection time a floor of 10% of the configured Length is topped up with mastered cards when a natural draw falls short. Every mastered card in the session is a defence card, shown with a small shield icon, no user interaction required. The session is always exactly its configured Length.
 >
 > **Nothing is written to Firestore during a session.** Both modes hand a result to the Session Summary screen, which computes XP and commits everything in one atomic batch (ADR-0014).
 

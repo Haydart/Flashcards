@@ -172,17 +172,25 @@ usage will not cause drift; a manual console edit, a future migration or a bug c
 reconciliation for v1. If drift is suspected, self-heal by reading the User's progress documents,
 counting each map, and overwriting the summary in one write.
 
-## Mastery Defense insertion
+## Mastery Defense selection
 
-Previously mastered Flashcards are re-inserted into the session's pool at Preview Study Session Screen time (Preview owns all card selection — ADR-0004).
+Mastered Flashcards are **never removed from the session pool**. They remain as eligible as anything else, and a session draw may contain them by chance. What Mastery Defense adds is a **floor**: the selection always tries to include some, so mastery is periodically re-tested rather than assumed.
+
+Selection happens at Preview Study Session Screen time (Preview owns all card selection — ADR-0004).
 
 Rules:
 - Only Flashcards within the session's Category/Subcategory scope are eligible
-- Only global Flashcards — Private Flashcards are never defense candidates
-- Up to **10% of the session's configured Length** is given over to mastered Flashcards (rounded; minimum 0)
-- Defense Flashcards come **out of** the Length budget, not on top of it: a session sized at 20 is 20 Flashcards, 18 new plus 2 defense. The card count and estimated duration on the Preview screen therefore stay truthful
-- The combined pool is then randomized
-- The count of defense Flashcards is **not shown** on the Preview screen — internal mechanic, transparent to the user
+- Only global Flashcards — Private Flashcards are never defense candidates and hold no progress record anyway
+- The floor is **10% of the session's configured Length**, rounded, minimum 0. If a natural draw already contains that many mastered Flashcards or more, nothing is added
+- If it contains fewer, mastered Flashcards are swapped in for unmastered ones until the floor is met or the eligible mastered Flashcards run out
+- **Every mastered Flashcard in the final selection is a Defense Flashcard** — not only those swapped in. Two identical mastered Flashcards in one session must not behave differently depending on how they were drawn
+- The session is always exactly its configured Length, so the card count and estimated duration on the Preview screen stay truthful without any special accounting
+- The combined selection is then ordered as normal
+- The count of Defense Flashcards is **not shown** on the Preview screen — internal mechanic, transparent to the user
+
+Because there is no exclusion, a User who has mastered most of a Subcategory still gets a full-length session; it is simply mostly re-testing. The degenerate "nothing left to study" case cannot arise.
+
+**A future per-card progress filter** — the planned Mastered / Studied / Unseen chips — is the only thing that removes mastered Flashcards from the pool. When a User filters them out, the Defense floor is necessarily 0. That is a normal outcome, not an error, and the selection API is shaped to express it.
 
 ## Visual distinction in session
 

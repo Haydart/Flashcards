@@ -19,8 +19,16 @@ clamped to the end of the queue.
 Worse recall returns sooner. If the remaining queue is shorter than the drawn gap, the card is
 appended at the end.
 
-The random draw is derived from `StudySessionConfig.seed`, the same seed the Preview screen already
-uses for card selection, so a session's entire card order is reproducible from its configuration.
+The draw uses the standard library's random generator. There is no session seed anywhere in the app:
+card selection and queue evolution both randomize freely, and neither is reproducible from a session's
+configuration. A predictable re-ask rhythm is something a user can learn to anticipate, which defeats
+the point of asking again.
+
+The state machine takes a `kotlin.random.Random` as a constructor parameter defaulting to
+`Random.Default`. Production passes nothing. The one test that needs to assert a full queue sequence
+passes a fixed `Random`; every other placement test asserts the invariant — the gap is always within
+range, never 0 or 1 — over many repetitions, which is a stronger claim than pinning one sample. This
+is the same pattern every randomizing unit in the app uses.
 
 A card whose Attempts are exhausted is not re-inserted; it resolves to a Terminal State
 ([ADR-0044](0044-three-valued-terminal-state.md)). With the "Partial ends the card" setting on, a
@@ -62,8 +70,12 @@ time to recover before re-testing something they got badly wrong — but it inve
 spaced-repetition gradient, spending the session's remaining attention on material the user already
 half-knows.
 
-**An unseeded random source** — rejected. It makes the queue's behaviour untestable and a reported
-session order irreproducible.
+**Seeding the draw from a session-wide seed** — rejected, and the seed that once existed on
+`StudySessionConfig` was removed with it. A session seed makes queue evolution reproducible from a
+configuration, which is attractive for reproducing a report, but it also makes the re-ask rhythm
+deterministic for a given session, and it threads a selection-time concern through the state machine
+for a benefit only tests consume. A `Random` parameter with a stdlib default gives the tests
+everything they need without putting a seed on a route, a config or session state.
 
 ## Consequences
 
@@ -72,8 +84,11 @@ session order irreproducible.
   reading is distinct cards, not queue entries.
 - The gap constants are tunable and belong with the rest of the session's tunables rather than
   scattered in the state machine.
-- Because placement is seeded, the queue's whole evolution is reproducible in tests from a
-  configuration alone, without stubbing a random source.
+- Placement tests assert invariants over many repetitions rather than one sampled order; a fixed
+  `Random` is available for the single test that needs a full sequence.
+- Neither a reported session's queue order nor its card selection is reproducible from a
+  configuration. Reproducing a report exactly is not a capability the app has, and buying it back
+  would mean persisting a seed per session for a debugging use case that has never arisen.
 - A card can be re-inserted past the end of the queue when few cards remain, so late-session
   failures naturally cluster toward the end regardless of the gap. This is unavoidable and
   acceptable.
