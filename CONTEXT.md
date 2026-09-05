@@ -144,7 +144,7 @@ A User's progression milestone derived from total XP accumulated. Early levels a
 _Avoid_: Rank, Tier, Grade
 
 **Streak**:
-The count of consecutive calendar days on which a User started at least one Study Session (partial or full). Day boundary is midnight in the device's local timezone. A Streak breaks when a full calendar day passes without a session. Best Streak is the historical peak; it never decrements.
+The count of consecutive calendar days on which a User reached the Session Summary screen for at least one Study Session (partial or full) — the same deferred-commit boundary every other session write uses, so a session that never reaches Summary never counts. Day boundary is midnight in the device's local timezone. A Streak breaks when a full calendar day passes without a counted session. Best Streak is the historical peak; it never decrements.
 _Avoid_: Combo, Daily count
 
 **Daily Goal**:
@@ -173,6 +173,6 @@ _Avoid_: Sessions finished, Sessions done
 - A **Private Flashcard** has no **Card Progress**, is never **Studied**, and never earns card-level **XP**
 - A **Flashcard** in **Persistent Mastery** is eligible to appear as a **Mastery Defense** card in future Rated Study Sessions
 - A **User** accumulates **XP** through study activity; XP determines **Level**
-- A **Streak** belongs to a **User** and increments once per calendar day a Study Session is started
+- A **Streak** belongs to a **User** and increments once per calendar day a Study Session reaches the Session Summary screen
 - A **Daily Goal** belongs to a **User** and is compared against today's total studied minutes
 

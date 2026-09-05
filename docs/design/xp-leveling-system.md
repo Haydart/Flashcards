@@ -51,21 +51,23 @@ Formula: `ceil(base × level^exponent / 1000) × 1000`, where `base` and `expone
 
 ## Session Summary XP presentation
 
-XP is calculated **on the Session Summary screen**, from the session result and the `XpConfig` snapshot the session carried, and written to Firestore there as part of the single session-commit batch ([ADR-0014](../adr/0014-session-stats-written-at-summary-screen.md)). The screen shows an itemized breakdown as a sequential "pour" animation in the dark header zone (after the mastery ring sweep for Rated sessions).
+XP is calculated **on the Session Summary screen**, from the session result and the `XpConfig` snapshot the session carried, and written to Firestore there as the `xpBreakdown` map on the session document ([Session Stats & Data Model](session-stats-data-model.md)), as part of the single session-commit batch ([ADR-0014](../adr/0014-session-stats-written-at-summary-screen.md)). The screen shows an itemized breakdown as a sequential "pour" animation in the dark header zone (after the mastery ring sweep for Rated sessions).
+
+**The animation renders `xpBreakdown`'s stored values, never a recomputation.** For a freshly-finished session this is the config in force right now; for a past session reopened later it is whatever was actually awarded, even if `XpConfig` has since changed. The `{N} × {rate}` notation below is illustrative — it shows the count and the rate that produced the figure — but the figure itself always comes from the stored field, so a later config change can never make an old Summary's total drift from what was actually committed.
 
 ### Animation sequence
 
-1. **Total XP counter** appears prominently at top, starting at 0.
-2. First **item tile** slides up from below into view, showing a math equation:
-   - `{N} new cards × 10 = {XP}` (New Cards)
-   - `{N} cards × 100 = {XP}` (Card Mastery)
-   - `{N} cards × 25 = {XP}` (Partial)
-   - `{N} cards × 50 = {XP}` (Mastery Defense)
-   - `{N} cards × 80 = -{XP}` (De-mastery)
-   - `{N} min × 10 = {XP}` (Time Studied)
-   - `{N} day streak × 250 = {XP}` (Streak, capped display)
-   - `Session completed = +500` (flat, no multiplier)
-   - `Daily goal met = +1000` (flat, no multiplier)
+1. **Total XP counter** appears prominently at top, starting at 0, counting up to the stored `xpTotal`.
+2. First **item tile** slides up from below into view, showing a math equation built from the stored `xpBreakdown` fields:
+   - `{N} new cards × 10 = {xpBreakdown.newCards}` (New Cards)
+   - `{N} cards × 100 = {xpBreakdown.mastered}` (Card Mastery)
+   - `{N} cards × 25 = {xpBreakdown.partial}` (Partial)
+   - `{N} cards × 50 = {xpBreakdown.masteryDefenseBonus}` (Mastery Defense)
+   - `{N} cards × 80 = -{xpBreakdown.demastered}` (De-mastery)
+   - `{N} min × 10 = {xpBreakdown.timeStudied}` (Time Studied)
+   - `{N} day streak × 250 = {xpBreakdown.streakBonus}` (Streak, capped display)
+   - `Session completed = +{xpBreakdown.sessionCompletionBonus}` (flat, no multiplier)
+   - `Daily goal met = +{xpBreakdown.dailyGoalBonus}` (flat, no multiplier)
 3. The XP value after the `=` sign counts **down to 0** while the total counter counts **up** by the same amount simultaneously ("pouring" the number into the total).
 4. Item disappears once its value reaches 0. Next item slides up.
 5. After all items are consumed: session total animates into the user's overall XP progress.
@@ -90,7 +92,7 @@ Stored on a client-owned per-user singleton, `users/{uid}/state/progression`:
 - `lastStudyDate`: `yyyy-MM-dd` local calendar date of the most recent session counted toward the streak
 - `goalMetDate`: `yyyy-MM-dd` local calendar date on which the daily goal was most recently met
 
-**Not on `users/{uid}` itself.** That document holds `entitlement`, which only the Admin SDK writes and the premium Cloud Function reads server-side; opening it to client writes would let a user grant themselves premium. See [ADR-0014](../adr/0014-session-stats-written-at-summary-screen.md).
+**Not on `users/{uid}` itself.** Entitlement is not a field on that document — it is the separate subcollection `users/{uid}/entitlement/premium` (`functions/src/lib/entitlement.ts`), written only by the Admin SDK and read server-side by the premium Cloud Function; that subcollection stays default-denied regardless of any rule on the parent document. Scoring state lives under `state/` instead simply to keep `users/{uid}` reserved for identity and admin-managed data. See [ADR-0014](../adr/0014-session-stats-written-at-summary-screen.md).
 
 The daily goal itself is **not** stored here — it is device-scoped local state, already written by Settings.
 

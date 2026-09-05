@@ -53,7 +53,7 @@ Home empty state CTA ("Start your first session") triggers a tab switch to Study
 ## Home Screen
 
 - Greeting with user's display name
-- **Recents** carousel — past Study Sessions, read `users/{uid}/sessions orderBy(startTimestamp) limit(n)`, two card variants (**designed, not yet built**: no `sessions` write, no query, no carousel code exists in `feature/home` today — see Session Termination):
+- **Recents** carousel — past Study Sessions, read `users/{uid}/sessions orderBy(startTimestamp, DESCENDING) limit(n)`, two card variants (**designed, not yet built**: no `sessions` write, no query, no carousel code exists in `feature/home` today — see Session Termination):
   - *Single-subcategory*: shows Subcategory + Category name; taps into Subcategory Details
   - *Composite*: shows Category name only; taps into Category Details
 - **Favorites** carousel — bookmarked Subcategories; each card shows Subcategory + Category name; taps into Subcategory Details
@@ -176,7 +176,7 @@ Fast and Rated are **two separate screens, ViewModels and routes** — Study Mod
 Designed. Both Study Modes terminate the same way: the session seals its ledger, stamps `durationSeconds`, hands the result to the Summary screen, and writes nothing itself.
 
 - **Natural end**: Rated — the queue empties (every Flashcard reached a Terminal State). Fast — the last card's answer has been shown. Both navigate to the Session Summary screen
-- **Premature exit** (X button → confirm dialog): the result carries everything accumulated so far, flagged `isPartial`; Flashcards still in the queue are simply never recorded. Also navigates to Summary
+- **Premature exit** (X button → confirm dialog): the result carries everything accumulated so far, flagged `isPartial`. A queued Flashcard the user never reached is simply absent from the ledger, but a queued Flashcard that already completed at least one Attempt is force-resolved into the ledger using its best rating so far (the same best-rating rule natural resolution uses) rather than discarded — it already satisfies **Studied**, so losing it at exit would contradict that definition. Also navigates to Summary
 - The exit-confirmation dialog **is already built** (`StudySessionDialog.ExitSession`); it currently pops the back stack instead of routing to Summary
 - App kill during session: session is lost, no data saved, no resumption
 
@@ -192,13 +192,15 @@ The batch contains:
 - `users/{uid}/state/progressSummary` — nested-key `masteredCount` / `studiedCount` increments
 - `users/{uid}/state/progression` — `xp`, `level`, `xpIntoCurrentLevel`, `currentStreak`, `bestStreak`, `lastStudyDate`, `goalMetDate`
 
-A single-Subcategory session is **four writes**, whatever its length. Firestore bills per operation, so the write count is what the schema is shaped around.
+A single-Subcategory session is **four writes**; a composite session adds one further packed-progress write per additional Subcategory touched (three fixed writes — session, `progressSummary`, `progression` — plus one `progress` write per touched Subcategory). Firestore bills per operation, so the write count is what the schema is shaped around.
+
+**Concurrency is not addressed.** The batch is atomic but not transactional against concurrently-read state: two sessions racing on the same Subcategory (two devices, or two tabs) can both read the same pre-session `progress` document and both apply their `FieldValue.increment` deltas, double-counting `studiedCount`/`masteredCount` and XP. This is an accepted limitation for a single-account academic project, not a designed-around case — a future multi-device-concurrent design would need a transaction that re-reads `progress` and `state/progression` at commit time.
 
 ### Session Summary Screen
 
 **Not yet implemented.** `StudySummaryRoute` exists as a route type but is never registered in the nav graph and no screen composable exists for it. Today, session end (natural or premature) just calls `onNavigateBack()` straight to whichever tab was active.
 
-It is the **mandatory exit path for every session**, partial included, and the only place XP is computed and persisted. It takes `sessionId` and nothing else: a freshly finished session's result arrives through an `@ActivityRetainedScoped` holder, while a past session's is read back from `sessions/{sessionId}` — one document, ledger included — one route, one screen, two load paths.
+It is the **mandatory exit path for every session**, partial included, and the only place XP is computed and persisted. A freshly-finished session's result arrives as route arguments — the per-card ledger flattened into parallel lists of primitives (`androidx.navigation`'s typesafe routes only derive a `NavType` for primitives, enums and lists of those, the same constraint `StudySessionRoute` already works around for its voice settings). A past session instead carries only `sessionId` and is read back from `sessions/{sessionId}` — one document, ledger included. Session length is capped at `StudySessionConfig.MAX_LENGTH` (50 cards), so the flattened ledger stays well within the platform's navigation argument size ceiling.
 
 Both Study Modes terminate here. Fast renders a reduced variant: time, streak, new cards and XP, with no mastered/failed counts, no mastery ring sweep and no "Study Again (Failed)".
 
@@ -365,7 +367,7 @@ users/{uid}/curationRequests/{cardId}                       → { subcategoryId:
 - **`curationRequests/{cardId}` is a flat collection** keyed by globally-unique cardId. Stores structured content-fix directives raised by any user via the in-session "Report a problem" dialog, consumed by admin sync scripts — not surfaced back to users anywhere in the app. Actions are a map of `CurationAction` string → `{ flaggedAt }`. Doc is deleted when all actions are removed. See [ADR-0017](docs/adr/0017-curation-report-system.md).
 - Offline: Firestore Android SDK built-in persistence. No Room needed.
 - **`state` holds the User's singleton documents** — the progress summary and the scoring state. Firestore paths alternate collection and document, so each per-User singleton needs a fixed document id inside a collection; one security rule covers them all.
-- **Scoring state is deliberately NOT on `users/{uid}`.** That document carries `entitlement`, written only by the Admin SDK and read server-side by the premium Cloud Function, and it has no client rule in either direction. Making it client-writable so the Summary could save XP would let a User grant themselves premium. `dailyGoalMinutes` is likewise absent — it is device-scoped local state that Settings already owns.
+- **Scoring state is deliberately NOT on `users/{uid}`.** Entitlement is a separate document, `users/{uid}/entitlement/premium` (`functions/src/lib/entitlement.ts`), written only by the Admin SDK and read server-side by the premium Cloud Function; that subcollection is default-denied regardless of any rule on the parent `users/{uid}` document. The real reason scoring state lives under `state/` instead is separation of concerns, not privilege escalation: `users/{uid}` is reserved for identity/admin-managed data, while `state/progression` is the one document a session commit needs to touch and nothing else. `dailyGoalMinutes` is likewise absent — it is device-scoped local state that Settings already owns.
 - **Partial is a Terminal State**, written to Firestore as a card's progress `state` and counted on the session record — not an in-session mechanic only.
 
 ## Flashcard Selection Algorithm
@@ -377,7 +379,7 @@ users/{uid}/curationRequests/{cardId}                       → { subcategoryId:
 3. Shuffle with a seeded `Random(config.seed)`, then take the configured length
 4. Apply the configured sort order to that drawn subset only — Default keeps shuffle order, Easiest/Hardest sort by difficulty. Sorting never changes which cards were drawn (see Preview Study Session Screen above, Sort row).
 
-**Mastery Defense (Rated only, designed — not built):** mastered Flashcards are never excluded from the session pool. Mastery Defense sets a **floor** of 10% of the configured Length, topping a natural draw up with mastered Flashcards only when it falls short. Every mastered Flashcard in the final selection is a defence card, however it was drawn. The session is always exactly its configured Length, so the card count and estimated duration on the Preview screen stay truthful. Global Flashcards only; a future per-card progress filter is the only thing that removes mastered Flashcards from the pool, and when it does the floor is 0.
+**Mastery Defense (Rated only, designed — not built):** mastered Flashcards are never excluded from the session pool. Mastery Defense sets a **floor** of 10% of the session's **resolved length** — `min(configured Length, eligible pool size)`, the same shrink-on-small-pool rule Card Selection already applies above — topping a natural draw up with mastered Flashcards only when it falls short. Every mastered Flashcard in the final selection is a defence card, however it was drawn. The session is always exactly its resolved length, so the card count and estimated duration on the Preview screen stay truthful; it only equals the configured Length when the eligible pool is at least that large. Global Flashcards only; a future per-card progress filter is the only thing that removes mastered Flashcards from the pool, and when it does the floor is 0.
 
 Session Flashcard count: user-configurable (Length row on Preview, default 20), persisted as `StudySessionPreferences.sessionLength`. The Settings-screen row that would also edit it is unbuilt.
 

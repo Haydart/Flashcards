@@ -10,15 +10,15 @@ The batch contains, in one commit:
 - one packed `progress/{subcategoryId}` document per Subcategory the session touched
 - `users/{uid}/state/progressSummary` counter increments
 - `users/{uid}/state/progression` — the scoring state
-- the user document's XP, level and streak fields
 
-A single-Subcategory session is therefore **four writes**, whatever its length.
+A single-Subcategory session is therefore **four writes**; a composite session adds one further
+`progress` write per additional Subcategory touched — three fixed writes plus one per Subcategory.
 
 ## Session completion vs partial sessions
 
 **Full session:** User reaches deck end. Session Summary is shown automatically.
 
-**Partial session:** User presses back or taps the X button mid-session. A confirmation dialog is shown. On confirmation the user is taken to the Session Summary screen, which triggers the write with everything accumulated up to that point. Cards still in the queue at exit are simply never recorded.
+**Partial session:** User presses back or taps the X button mid-session. A confirmation dialog is shown. On confirmation the user is taken to the Session Summary screen, which triggers the write with everything accumulated up to that point. A queued card the user never reached is absent from the ledger; a queued card that already completed at least one Attempt is force-resolved into the ledger using its best rating so far, the same rule natural resolution uses — it already satisfies Studied, so exit does not discard it.
 
 Partial sessions:
 - Count toward streak (the session reached the Summary screen)
@@ -57,7 +57,7 @@ Backgrounded time accrues **only while voice playback is active**. A backgrounde
 
 ### Session record: `users/{uid}/sessions/{sessionId}`
 
-**One session is one document.** Aggregates, denormalized names, and the per-card ledger embedded as a map. Home's Recents carousel is this collection's highest-traffic reader, and reads it with `orderBy(startTimestamp).limit(n)`, whose cost is the limit rather than the collection size.
+**One session is one document.** Aggregates, denormalized names, and the per-card ledger embedded as a map. Home's Recents carousel is this collection's highest-traffic reader, and reads it with `orderBy(startTimestamp, DESCENDING).limit(n)`, whose cost is the limit rather than the collection size.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -76,8 +76,26 @@ Backgrounded time accrues **only while voice playback is active**. A backgrounde
 | `cardsDefended` | Int | Rated only; mastery held under Mastery Defense |
 | `cardsDemastered` | Int | Rated only; mastery lost |
 | `newCardsStudied` | Int | Both modes; Flashcards entering **Studied** for the first time |
+| `xpBreakdown` | Map | Computed XP per category — see below |
+| `xpTotal` | Long | Sum of every entry in `xpBreakdown`; what the Summary's XP pour animates to |
 
-The four per-outcome counts exist so the Summary's XP breakdown is reproducible from the stored record, rather than only from the transient in-memory result.
+The four per-outcome counts exist so `xpBreakdown` is auditable against them, not so the breakdown has to be recomputed from them.
+
+#### `xpBreakdown`: the computed award, not the config that produced it
+
+| Field | Type | Notes |
+|---|---|---|
+| `newCards` | Long | `newCardsStudied × XpConfig.newCardXp` at the time of this session |
+| `mastered` | Long | `cardsMastered × XpConfig.cardMasteredXp` |
+| `partial` | Long | `cardsPartial × XpConfig.cardPartialXp` |
+| `masteryDefenseBonus` | Long | `cardsDefended × XpConfig.cardDefendedXp` |
+| `demastered` | Long | `cardsDemastered × XpConfig.cardDemasteredXp` (negative) |
+| `timeStudied` | Long | Minutes studied × `XpConfig.xpPerMinute` |
+| `dailyGoalBonus` | Long | 0 unless this session is the one that met the calendar day's goal |
+| `sessionCompletionBonus` | Long | 0 for partial sessions |
+| `streakBonus` | Long | 0 unless this session extended the streak |
+
+Each field is the **already-computed XP amount**, not a multiplier or a config reference. This is what makes a past Summary reproducible after `XpConfig` changes: the Summary screen renders `xpBreakdown` directly rather than re-deriving it from the outcome counts and the *current* config, so a later config change can never alter what an old session displays. `XpConfig`/`XpConfigRepository` are local and hardcoded today ([ADR-0047](../adr/0047-xp-values-behind-a-config-repository.md)); nothing here depends on that seam existing yet.
 
 #### The embedded ledger: `outcomes`
 
@@ -111,7 +129,7 @@ The two dates are strings rather than Timestamps: they are calendar days in the 
 
 **`dailyGoalMinutes` is not here.** It lives in local preferences alongside the other device-scoped settings, where Settings already writes it. A Firestore copy would be a second writable source with no sync story. The cost is that the goal does not follow a user to a new device — the same trade-off `hasSeenOnboarding` already makes explicitly.
 
-**Scoring state is not on `users/{uid}` itself.** That document carries `entitlement`, which only the Admin SDK writes and the premium Cloud Function reads server-side, and it has no client rule in either direction. Making it client-writable so the Summary could save XP would let a user grant themselves premium. See [ADR-0014](../adr/0014-session-stats-written-at-summary-screen.md).
+**Scoring state is not on `users/{uid}` itself.** Entitlement is not a field on that document — it is the separate subcollection `users/{uid}/entitlement/premium` (`functions/src/lib/entitlement.ts`), written only by the Admin SDK and read server-side by the premium Cloud Function; that subcollection stays default-denied regardless of any rule on the parent document. Scoring state lives under `state/` instead simply to keep `users/{uid}` reserved for identity and admin-managed data. See [ADR-0014](../adr/0014-session-stats-written-at-summary-screen.md).
 
 ### Card progress: `users/{uid}/progress/{subcategoryId}` and `users/{uid}/state/progressSummary`
 

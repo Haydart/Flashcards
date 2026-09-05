@@ -72,9 +72,9 @@ flowchart TD
 >
 > Fast and Rated are **separate screens and routes** (ADR-0045) — the Preview screen picks one, and a session can never switch.
 >
-> **Mastery Defense (Rated only) — NYI:** design only (see [docs/design/persistent-card-mastery.md](../design/persistent-card-mastery.md)). Planned: mastered cards are never excluded from the pool, and at Preview Study Session card selection time a floor of 10% of the configured Length is topped up with mastered cards when a natural draw falls short. Every mastered card in the session is a defence card, shown with a small shield icon, no user interaction required. The session is always exactly its configured Length.
+> **Mastery Defense (Rated only) — NYI:** design only (see [docs/design/persistent-card-mastery.md](../design/persistent-card-mastery.md)). Planned: mastered cards are never excluded from the pool, and at Preview Study Session card selection time a floor of 10% of the session's resolved length (`min(configured Length, eligible pool size)`) is topped up with mastered cards when a natural draw falls short. Every mastered card in the session is a defence card, shown with a small shield icon, no user interaction required. The session is always exactly its resolved length — that equals the configured Length only when the eligible pool is at least that large.
 >
-> **Nothing is written to Firestore during a session.** Both modes hand a result to the Session Summary screen, which computes XP and commits everything in one atomic batch (ADR-0014).
+> **No session/progress/stats writes occur during a session.** Both modes hand a result to the Session Summary screen, which computes XP and commits everything in one atomic batch (ADR-0014). The one exception is Curation: "Report a problem" submissions upsert to Firestore immediately, mid-session (see below).
 
 ```mermaid
 flowchart TD
@@ -118,9 +118,9 @@ flowchart TD
 
     %% Premature exit (Rated)
     RatedSession --> TapX1[/Tap X — top-left/]
-    TapX1 --> ExitConfirm1{Confirm exit?\nProgress will be lost}
+    TapX1 --> ExitConfirm1{Confirm exit?\nProgress so far will be saved}
     ExitConfirm1 -->|Cancel| RatedSession
-    ExitConfirm1 -->|Confirm| HandOffPartial1[Seal ledger with outcomes so far\nisPartial = true\nqueued cards never recorded]
+    ExitConfirm1 -->|Confirm| HandOffPartial1[Seal ledger with outcomes so far\nisPartial = true\na queued card with a completed Attempt is\nforce-resolved using its best rating so far\nunreached queued cards are absent]
     HandOffPartial1 --> Summary
 
     %% ── Fast Session ──────────────────────────────────────────────
@@ -158,8 +158,8 @@ flowchart TD
     HandOffPartial2 --> Summary
 
     %% ── Session Summary ───────────────────────────────────────────
-    Summary(SESSION SUMMARY SCREEN\ntakes sessionId · result via retained holder\nXP breakdown — animated line by line\nLevel-up celebration if applicable\n'Session Completed' +500 XP omitted on partial sessions)
-    Summary --> Commit[ONE atomic batch — 4 writes:\nsession doc with embedded outcomes map\npacked progress doc per subcategory\nstate/progressSummary increments\nstate/progression xp/level/streak]
+    Summary(SESSION SUMMARY SCREEN\nfresh result: full payload via route args · past session: sessionId only, read from Firestore\nXP breakdown — animated line by line\nLevel-up celebration if applicable\n'Session Completed' +500 XP omitted on partial sessions)
+    Summary --> Commit[ONE atomic batch — 3 fixed writes + 1 per touched subcategory:\nsession doc with embedded outcomes map\npacked progress doc per subcategory\nstate/progressSummary increments\nstate/progression xp/level/streak]
 
     Commit --> StudyAgainAll[/Study Again — All/]
     Commit --> StudyAgainFailed[/Study Again — Failed\nshown only if ≥1 Terminal Failed\nRated sessions only/]

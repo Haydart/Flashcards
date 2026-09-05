@@ -58,7 +58,7 @@ Four figures displayed in a horizontal row:
 - Set during onboarding (skippable flow)
 - Default if skipped: **20 minutes/day**
 - Editable at any time via the tap-to-edit interaction on the Progress screen (section 2 above)
-- Stored in DataStore locally and in Firestore on the user document for cross-device sync
+- Stored in DataStore only — device-scoped, same trade-off `hasSeenOnboarding` already makes; no Firestore copy, so it does not follow the user to a new device
 
 ## Data sources
 
@@ -70,4 +70,4 @@ Four figures displayed in a horizontal row:
 | History chart data (7/30 days) | Recomputed from Firestore session records |
 | Per-category breakdown | Recomputed from Firestore session records |
 
-On fresh install / reinstall: XP, level and streak are read straight off `users/{uid}/state/progression`; the daily goal comes from local preferences, which are device-scoped and reset on reinstall; time-windowed aggregates are recomputed from Firestore session history; the two card counts come from the `state/progressSummary` document. DataStore is repopulated before the Progress screen is shown.
+On fresh install / reinstall: `xp`, `level`, `xpIntoCurrentLevel`, `currentStreak`, `bestStreak`, `lastStudyDate` and `goalMetDate` are read straight off `users/{uid}/state/progression` — the full field set that document stores, not just XP/level/streak; the daily goal comes from local preferences, which are device-scoped and reset to the default on reinstall; time-windowed aggregates are recomputed from Firestore session history; the two card counts come from the `state/progressSummary` document. DataStore is repopulated before the Progress screen is shown.

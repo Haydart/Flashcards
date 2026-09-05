@@ -142,6 +142,11 @@ To compute `studiedDelta` and to know which cards were previously mastered, the 
 progress document for each Subcategory in scope first. That is one read per Subcategory, and it is
 the same document the session already read at start.
 
+**This read is not transactional.** A concurrent session on the same Subcategory (another device, or
+another tab) can read the same starting document and apply its own deltas from it, so both sessions'
+increments land rather than one being computed against the other's result — an accepted limitation
+for a single-account project, same as noted in [ADR-0014](../adr/0014-session-stats-written-at-summary-screen.md).
+
 ## Reading progress
 
 - **Category Details** (all topics in one Category, rings for each): `state/progressSummary` — **one
@@ -181,10 +186,10 @@ Selection happens at Preview Study Session Screen time (Preview owns all card se
 Rules:
 - Only Flashcards within the session's Category/Subcategory scope are eligible
 - Only global Flashcards — Private Flashcards are never defense candidates and hold no progress record anyway
-- The floor is **10% of the session's configured Length**, rounded, minimum 0. If a natural draw already contains that many mastered Flashcards or more, nothing is added
+- The floor is **10% of the session's resolved length** — `min(configured Length, eligible pool size)`, the same shrink-on-small-pool rule Card Selection already applies when the pool can't fill the configured Length — rounded to the nearest whole card (half rounds up), minimum 0. If a natural draw already contains that many mastered Flashcards or more, nothing is added
 - If it contains fewer, mastered Flashcards are swapped in for unmastered ones until the floor is met or the eligible mastered Flashcards run out
 - **Every mastered Flashcard in the final selection is a Defense Flashcard** — not only those swapped in. Two identical mastered Flashcards in one session must not behave differently depending on how they were drawn
-- The session is always exactly its configured Length, so the card count and estimated duration on the Preview screen stay truthful without any special accounting
+- The session is always exactly its resolved length, so the card count and estimated duration on the Preview screen stay truthful without any special accounting; it only equals the configured Length when the eligible pool is at least that large
 - The combined selection is then ordered as normal
 - The count of Defense Flashcards is **not shown** on the Preview screen — internal mechanic, transparent to the user
 

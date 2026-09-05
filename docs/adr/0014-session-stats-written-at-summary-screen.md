@@ -41,9 +41,9 @@ outcomes: {                     // keyed by cardId
 
 **One session is one document.** The per-card ledger is embedded, not held in a subcollection.
 
-The names are denormalized so a Recents card renders from a single `orderBy(startTimestamp)
-.limit(n)` query with no joins. That query's cost is the limit, not the collection size, so the
-collection may grow without bound.
+The names are denormalized so a Recents card renders from a single `orderBy(startTimestamp,
+DESCENDING).limit(n)` query with no joins. That query's cost is the limit, not the collection size,
+so the collection may grow without bound.
 
 The per-outcome counts are stored alongside the ledger rather than derived from it on read, so a
 session's scoring breakdown is reproducible from the record without walking every entry.
@@ -77,7 +77,15 @@ batched write**:
   `bestStreak`, `lastStudyDate`, `goalMetDate`
 
 **A single-Subcategory session therefore commits four writes**, whatever its length: session,
-progress, summary, progression.
+progress, summary, progression. A composite session commits one further `progress` write per
+additional Subcategory touched — three fixed writes plus one per Subcategory.
+
+**This batch is atomic but not transactional.** It commits or fails as a unit, but it does not
+re-read `progress` or `state/progression` at commit time, so two sessions racing on the same
+Subcategory can both read the same starting state and both apply their increments, double-counting
+`studiedCount`, mastery deltas and XP. This is an accepted limitation for a single-account project —
+a transactional, idempotency-checked commit is future work if genuine multi-device concurrency ever
+needs to be supported.
 
 ### Per-User singletons live in a `state` collection
 
@@ -91,13 +99,15 @@ users/{uid}/state/progression
 
 One security rule covers the collection, and a future singleton needs no new rule.
 
-**Scoring state must not live on `users/{uid}` itself.** That document carries `entitlement`, which
-only the Admin SDK may write and which the premium Cloud Function reads server-side; it has no client
-rule at all, in either direction. Allowing the client to write it so the Summary can save XP is a
-privilege escalation — a user writes their own entitlement and the Function reads the doctored field.
-A field-level rule excluding `entitlement` would work, but it puts one subtle expression between a
-user and free premium, and every future admin-only field has to be remembered into it. A separate
-client-owned document has no such failure mode and costs the same single write.
+**Scoring state does not live on `users/{uid}` itself.** Entitlement is not a field on that
+document — it is the separate subcollection `users/{uid}/entitlement/premium`
+(`functions/src/lib/entitlement.ts`), written only by the Admin SDK and read server-side by the
+premium Cloud Function; that subcollection stays default-denied regardless of any rule granted on
+the parent document, so making `users/{uid}` client-writable would not by itself expose it. The real
+reason is simpler separation of concerns: `users/{uid}` is reserved for identity and admin-managed
+data, and a session commit should touch exactly the documents scoring needs and nothing that isn't
+scoring. A separate client-owned document under `state/` keeps that boundary clean and costs the
+same single write.
 
 The summary and the scoring state stay **two** documents rather than one. The summary is a maintained
 rollup that may need self-healing by recounting the packed progress documents and overwriting; the
@@ -110,23 +120,25 @@ exit-confirmation both route to it.
 
 ### How the result reaches the Summary screen
 
-`StudySummaryRoute` carries **`sessionId: String` and nothing else**. The session result itself is
-handed over through an `@ActivityRetainedScoped` holder, written by the session ViewModel as it
-terminates and read once by the Summary ViewModel.
+The Summary route carries the whole session result as route arguments, flattened into primitives
+and lists of primitives the same way `StudySessionRoute` already flattens `VoiceSettings` and
+`IntRange` — `androidx.navigation`'s typesafe routes only derive a `NavType` for primitives, enums
+and lists of those. The per-card ledger becomes one parallel list per field (`cardIds`,
+`subcategoryIds`, `states`, `attemptsUsed`, `wasPreviouslyMastered`, `transcripts`), all indexed
+together. A **past** session's detail view instead carries only `sessionId`, and the Summary reads
+`sessions/{sessionId}` back from Firestore — one document, everything included — rather than
+receiving a ledger through the route.
 
-The session ViewModel therefore does not commit. It seals its ledger, stamps `durationSeconds`,
-writes the result to the holder, and emits a navigation event.
-
-When the user opens a **past** session's detail view, the same route and screen serve it: the id is
-present, the holder is empty, and the Summary reads `sessions/{sessionId}` — one document,
-everything included.
+The session ViewModel therefore does not commit. It seals its ledger, stamps `durationSeconds`, and
+navigates to the Summary with the flattened result as route arguments.
 
 ## Context
 
-A 150-card Rated session writing each outcome as it happens is up to 150 Firestore writes, which
-does not scale across users. Worse, it has no clean boundary: a user exiting mid-session leaves half
-their progress in Firestore with nothing recording that the session was cut short. The session
-ViewModel already holds every outcome in memory, so deferring costs nothing.
+A full-length Rated session writing each outcome as it happens is up to `StudySessionConfig.MAX_LENGTH`
+(50) Firestore writes, which does not scale across users. Worse, it has no clean boundary: a user
+exiting mid-session leaves half their progress in Firestore with nothing recording that the session
+was cut short. The session ViewModel already holds every outcome in memory, so deferring costs
+nothing.
 
 Deferring raises the question of *how far*. Two candidates: commit when the session terminates, then
 show a Summary that reads back what was written; or carry the result to the Summary and commit
@@ -143,10 +155,10 @@ card progress into one document per Subcategory.
 The result-handoff question is separate, and constrained by the navigation library.
 `androidx.navigation` derives a `NavType` only for primitives, enums and lists of primitives, which
 this codebase already discovered and worked around by flattening `VoiceSettings` and `IntRange` into
-primitive route fields. Carrying a per-card ledger as a route argument would need this repo's first
-hand-written `CollectionNavType`, JSON-encoding roughly 9–35 KB into a string that also serves as
-the back-stack identity key and the deep-link regex match target. Size is not the problem — that is
-orders of magnitude below the Binder ceiling — the route string's other jobs are.
+primitive route fields. The per-card ledger follows the same convention: one parallel list per
+field, all indexed together, rather than one JSON blob. A session is capped at
+`StudySessionConfig.MAX_LENGTH` (50 cards), so the flattened lists stay small — nowhere near the
+route string's practical size limits — and the route needs no custom `NavType`.
 
 ## Alternatives considered
 
@@ -170,13 +182,22 @@ are already cached.
 for stats — rejected. Two documents per session that must agree, written from the same batch,
 differing only in which fields they carry.
 
-**Custom `CollectionNavType` carrying the full ledger in the route** — rejected. It works and it
-sizes fine, but it breaks the flattening convention this codebase already settled on, and it makes a
-35 KB back-stack key.
+**An `@ActivityRetainedScoped` holder, written by the session ViewModel and read once by the Summary
+ViewModel** — rejected. It keeps the route to a bare `sessionId`, but it makes the Summary
+ViewModel's state depend on a side channel outside the navigation contract, and its retained scope
+outlives what the Summary screen actually needs (it survives configuration change for as long as the
+hosting Activity does, not just for the Summary's lifetime). Passing the result as route arguments
+keeps state visible in the one place — the back stack — that already has to represent it.
 
-**A bare `data object StudySummaryRoute` with the result taken entirely from the holder** — rejected.
-It leaves no way to address a *past* session, so the future detailed-review screen would need a
-second route and a second screen for what is the same view over the same data.
+**Custom `CollectionNavType` carrying the full ledger as one JSON blob in the route** — rejected in
+favor of flattening. It works and sizes fine, but it breaks the flattening convention this codebase
+already settled on for `VoiceSettings` and `IntRange`, trading one custom serializer for what
+parallel primitive lists already do natively.
+
+**A bare `data object StudySummaryRoute` with the fresh result read from some other source** —
+rejected. It leaves no way to address a *past* session with the same route, so the future
+detailed-review screen would need a second route and a second screen for what is the same view over
+the same data.
 
 ## Consequences
 
@@ -196,7 +217,8 @@ second route and a second screen for what is the same view over the same data.
 - `users/{uid}` stays admin-only, unreadable and unwritable by the client, exactly as it is today.
 - Day attribution uses the session's **start** timestamp, not the commit time, so a session that
   crosses midnight counts toward the day it began.
-- The Summary ViewModel has two load paths — fresh result from the holder, past session from
+- The Summary ViewModel has two load paths — fresh result from route arguments, past session from
   Firestore — and must not commit on the second.
-- The holder is `@ActivityRetainedScoped`: it survives configuration change and dies with the nav
-  graph. It is cleared once read.
+- The route arguments carry the whole fresh-result payload, so the Summary needs nothing beyond what
+  navigation already hands it, and a process death that survives via `SavedStateHandle` restores the
+  same arguments rather than losing the result.
