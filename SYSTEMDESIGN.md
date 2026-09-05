@@ -26,8 +26,9 @@ Root NavHost
     ├── CategoryDetails(categoryId, categoryName)                    ← full-screen, no bottom nav; shared by Home + Study
     ├── SubcategoryDetails(categoryId, categoryName, subcategoryId, subcategoryName)  ← full-screen, no bottom nav; shared by Home + Study
     ├── PreviewStudySession(categoryId, categoryName, subcategoryIds, subcategoryNames, filterTagIds, isQuickSession)
-    ├── StudySession(categoryId, sessionTitle, subcategoryIds, cardIds, studyMode, voiceAnsweringEnabled)
-    ├── SessionSummary  ← route type exists (`StudySummaryRoute`), never registered in the nav graph — see Session Summary Screen
+    ├── RatedStudySession(categoryId, sessionTitle, subcategoryIds, cardIds, voiceAnsweringEnabled, attemptsPerCard, partialEndsCard)
+    ├── FastStudySession(categoryId, sessionTitle, subcategoryIds, cardIds, readAloudEnabled, speechRate, voiceId)
+    ├── SessionSummary(sessionId)  ← both Study Modes terminate here; also serves a past session's detailed review
     └── CreatePrivateFlashcard(subcategoryId)
 ```
 
@@ -42,7 +43,7 @@ Accessible from both Home and Study tabs. Registered at the root NavHost level (
 All session entry points navigate to `PreviewStudySessionScreen`, which owns card selection from the given scope. See [ADR-0004](docs/adr/0004-preview-study-session-screen-owns-card-selection.md).
 
 - **Study Again (All)**: → `PreviewStudySessionScreen` with same params, `popUpTo<Main>()`.
-- **Study Again (Failed)**: → `StudySession` directly with `cardIds = [failedCardIds]`, `popUpTo<Main>()`.
+- **Study Again (Failed)**: → `RatedStudySession` directly with `cardIds = [failedCardIds]`, `popUpTo<Main>()`. Unambiguous by construction — a failed-card replay is always Rated.
 - **Back to Home / system back from SessionSummary**: `popUpTo<Main>(inclusive = false)` — returns to whatever tab was active.
 
 ### Cross-tab navigation
@@ -52,7 +53,7 @@ Home empty state CTA ("Start your first session") triggers a tab switch to Study
 ## Home Screen
 
 - Greeting with user's display name
-- **Recents** carousel — past Study Sessions, two card variants (**designed, not yet built**: no `recentSessions` write, no query, no carousel code exists in `feature/home` today — see Session Termination):
+- **Recents** carousel — past Study Sessions, read `users/{uid}/sessions orderBy(startTimestamp) limit(n)`, two card variants (**designed, not yet built**: no `sessions` write, no query, no carousel code exists in `feature/home` today — see Session Termination):
   - *Single-subcategory*: shows Subcategory + Category name; taps into Subcategory Details
   - *Composite*: shows Category name only; taps into Category Details
 - **Favorites** carousel — bookmarked Subcategories; each card shows Subcategory + Category name; taps into Subcategory Details
@@ -107,7 +108,7 @@ Full-screen modal that precedes every Study Session. Receives `categoryId`, `cat
 
 **Not yet built (ADR-0030 designs both):** a persistent no-scrim bottom-sheet chrome wrapping these rows, and a separate **Voice** row (TTS voice + speed, shown for Fast or Rated+voice-answering-on) — today that setting is reachable only from the session cog and the Settings screen.
 
-Each edit popup carries a "keep as default" checkbox (persists a global default; unchecked is session-scoped), except the Filters popup (tags + difficulty always session-scoped) — though note the persistence write itself is a `TODO`, see Settings Screen below. "Start session" launches the session with the chosen settings; a "Re-randomize" button (multi-topic and Quick sessions only) re-samples Subcategories with a new seed for Quick Sessions, and re-runs card selection over the current pool with a new seed for other multi-subcategory sessions. See [ADR-0030](docs/adr/0030-preview-session-settings-sheet.md) and [docs/design/study-session-preview-sheet.md](docs/design/study-session-preview-sheet.md).
+Each edit popup carries a "keep as default" checkbox (persists a global default; unchecked is session-scoped), except the Filters popup (tags + difficulty always session-scoped) — though note the persistence write itself is a `TODO`, see Settings Screen below. "Start session" launches the session with the chosen settings; a "Re-randomize" button (multi-topic and Quick sessions only) re-samples Subcategories for Quick Sessions and re-runs card selection over the current pool for other multi-subcategory sessions. There is no session seed: every randomizing unit takes an injected `kotlin.random.Random` defaulting to `Random.Default`, and a Quick Session's sampled Subcategories are held as screen state so that adjusting a filter, length or sort does not silently re-roll which topics are being studied — only Re-randomize does. See [ADR-0030](docs/adr/0030-preview-session-settings-sheet.md) and [docs/design/study-session-preview-sheet.md](docs/design/study-session-preview-sheet.md).
 
 This is the only place Study Mode (and, up front, Voice answering) is chosen for a concrete session — onboarding and the Settings screen only set the persisted default preference, neither starts a session. The "keep as default" checkbox on each Preview popup (see above) is what lets this screen also update that persisted default, without leaving session scope.
 
@@ -124,11 +125,17 @@ This is the only place Study Mode (and, up front, Voice answering) is chosen for
 
 A session is scoped to one Category and one or more Subcategories. Card selection and Study Mode are determined on the Preview Study Session Screen before the session begins. If the available Flashcard pool is smaller than the configured session size N, the session starts with however many Flashcards exist — no warning shown.
 
-**Study Modes:**
-- **Rated**: user reveals each answer manually, then self-rates (Failed / Partial / Correct). Terminal State cards written to Firestore.
-- **Fast**: cards advance question → reveal answer → next, manually (tap to reveal, tap to advance) by default, or with read-aloud enabled: system TTS reads the question (`questionSpoken` if present, else `question`), pauses 1 500 ms, reads the answer (`answerSpoken` if present, else `answer`), pauses 2 500 ms, then auto-advances. When read-aloud is on, user controls: pause/play, skip-next, skip-previous, speech-rate slider (0.5×–2×), Show Answer (interrupts question, reads answer immediately). Playback persists with screen off or app backgrounded via `StudySessionVoiceService` (foreground `mediaPlayback` service). Persistent `MediaStyle` notification + lock-screen controls via `MediaSessionCompat`. No Ratings, no Attempts, no Terminal States. Firestore session metadata write deferred. See [ADR-0012](docs/adr/0012-tts-mediasession-stack-for-fast-mode.md).
+Fast and Rated are **two separate screens, ViewModels and routes** — Study Mode cannot change mid-session, and the two share a card deck, a top bar and a set of dialogs but not an interaction model. See [ADR-0045](docs/adr/0045-separate-fast-and-rated-session-screens.md).
 
-**Fast mode entry point:** Study Mode is chosen exclusively on the Preview Study Session Screen (ADR-0004). Read-aloud is an opt-in toggle on that screen (Voice row); when on, a session routed with `studyMode = FAST` auto-starts voice playback once its cards are loaded (requesting the notification permission first on Android 13+), otherwise the session is manual tap-to-reveal/advance. Voice is tied to the session screen lifetime; navigating away stops playback. A confirmation dialog on session exit is planned.
+**Study Modes:**
+- **Rated**: user reveals each answer manually, then self-rates (Failed / Partial / Correct). Each Flashcard accumulates Attempts until it reaches a Terminal State — **Mastered**, **Partial** or **Failed**, decided by the best Rating it achieved ([ADR-0044](docs/adr/0044-three-valued-terminal-state.md)).
+- **Fast**: cards advance question → reveal answer → next, manually (tap to reveal, tap to advance) by default, or with read-aloud enabled: system TTS reads the question (`questionSpoken` if present, else `question`), pauses 1 500 ms, reads the answer (`answerSpoken` if present, else `answer`), pauses 2 500 ms, then auto-advances. When read-aloud is on, user controls: pause/play, skip-next, skip-previous, speech-rate slider (0.5×–2×), Show Answer (interrupts question, reads answer immediately). Playback persists with screen off or app backgrounded via `StudySessionVoiceService` (foreground `mediaPlayback` service). Persistent `MediaStyle` notification + lock-screen controls via `MediaSessionCompat`. No Ratings, no Attempts, no Terminal States — a Fast session's only per-card record is that a Flashcard became **Studied**, written once its answer has been shown ([ADR-0016](docs/adr/0016-card-progress-model.md)). See [ADR-0012](docs/adr/0012-tts-mediasession-stack-for-fast-mode.md).
+
+**Fast mode entry point:** Study Mode is chosen exclusively on the Preview Study Session Screen (ADR-0004), which routes to `FastStudySession` or `RatedStudySession` accordingly. Read-aloud is an opt-in toggle on that screen (Voice row); when on, the session auto-starts voice playback once its cards are loaded (requesting the notification permission first on Android 13+), otherwise the session is manual tap-to-reveal/advance. Voice is tied to the session screen lifetime; navigating away stops playback.
+
+> **Known bug:** auto-start is currently gated on Study Mode alone, never on `readAloudEnabled` (`StudySessionViewModel.kt:121-127`), so every Fast session attempts TTS and requests the notification permission regardless of the toggle. The route field is carried but unread.
+
+> **Known bug:** with voice inactive, the sheet renders the Failed / Partial / Correct rating buttons unconditionally (`StudySessionScreen.kt:610-619`), so a Fast-manual session shows Rating controls for a mode that has no Ratings. The screen split above removes this class of bug structurally.
 
 ### Flashcard Mechanics
 
@@ -144,9 +151,9 @@ A session is scoped to one Category and one or more Subcategories. Card selectio
 - QUESTION / ANSWER labels change color on reveal
 - Overflowing content (long text, code blocks) scrolls inside the card; bottom sheet stays pinned
 
-**Attempt label:** "Attempt X of N" visible in both question and answer states (N = user's configured Attempts limit, Settings — default 3, max 5) — planned, not yet implemented
+**Attempt label:** "Attempt X of N" visible in both question and answer states (N = user's configured Attempts limit, Settings — default 3, max 5) — planned, not yet implemented. Rated only.
 
-**Progress indicator:** designed as **"X/N mastered"** (X incrementing on "Correct" tap) — **not implemented**; the top app bar today shows a plain "current / total" card-index counter (e.g. "3 / 18"), unrelated to Rating outcome
+**Progress indicator:** designed as **"X/N mastered"** (X incrementing on "Correct" tap) — **not implemented**; the top app bar today shows a plain "current / total" card-index counter (e.g. "3 / 18"), unrelated to Rating outcome. Because re-insertion grows the Rated queue, N must count **distinct Flashcards**, not queue entries.
 
 **After rating:** auto-advances immediately to next card — no "Next" button. Transition: current card slides left + scales down + fades out; next card slides in from right + scales up + fades in. Sheet fades back to "Show answer" state for the new card.
 
@@ -154,34 +161,46 @@ A session is scoped to one Category and one or more Subcategories. Card selectio
 
 **Flag icon:** flag `IconButton` in the study session **top app bar**, left of the "3/18" card counter (not on the card itself — the bottom sheet is already crowded with mic, cog and transport controls). Shown only while a card is displayed. Tapping opens the **"Report a problem"** dialog (`FlashcardsDecisionDialog`): all 7 Curation Actions as toggleable checkboxes — Raise the difficulty, Lower the difficulty, Wrong tags, Needs a code example, Formatting looks broken, Needs a full rewrite, Duplicate or low quality — plus Cancel/Submit. Raise/Lower the difficulty are mutually exclusive: checking one clears the other; the other five toggle independently. The draft always starts empty (never seeds from the card's existing report); Submit upserts the checked Curation Actions to `users/{uid}/curationRequests/{cardId}` in one write. **No withdrawal path exists** — unchecking a row no longer removes anything from a previous submission, it only affects the current draft; Cancel discards the draft. The card continues in the session queue — no suppression. See [ADR-0017](docs/adr/0017-curation-report-system.md).
 
-### Re-insertion Rules (planned, not yet implemented — current code advances to next card on any Rating, no re-insertion or Attempt tracking)
+### Re-insertion Rules (Rated only; planned, not yet implemented — current code advances to next card on any Rating and discards the Rating value entirely)
 
-- **Correct** (any Attempt): Flashcard exits queue → Mastered, X increments
-- **Partial** or **Failed**: Flashcard re-inserted with Attempt count incremented
-- Each Flashcard has a maximum of N Attempts (user-configurable in Settings, default 3, max 5)
-- On the Nth (final) Attempt: Correct → Mastered; Partial or Failed → Terminal State = Failed
+- **Correct** (any Attempt): Flashcard exits queue → Terminal State Mastered
+- **Partial** or **Failed**: Flashcard re-inserted with Attempt count incremented, at `currentIndex + random(gap)` — gap **2–4** for Failed, **5–9** for Partial, so weaker recall returns sooner. Clamped to the queue end; appended if fewer cards remain than the drawn gap. The draw uses an injected `kotlin.random.Random` defaulting to `Random.Default`, not a session seed — a predictable re-ask rhythm is something a user could learn to anticipate. See [ADR-0046](docs/adr/0046-failed-and-partial-re-insertion-placement.md)
+- Each Flashcard has a maximum of N Attempts (user-configurable in Settings, default 3, max 5). A Voice Answering silence timeout consumes no Attempt
+- The Flashcard's **Terminal State is the best Rating it ever achieved**: Correct → Mastered, else Partial → Partial, else Failed. Reaching the Attempts limit resolves the accumulated Ratings; it does not force Failed
+- **"Partial ends the card"** setting (default off): when on, a Partial Rating resolves the Flashcard to Terminal Partial immediately instead of re-inserting it
 
 ### Session Termination
 
-**Not yet implemented — this whole section is target design.** Today `onRating()` does nothing but advance to the next card (no re-insertion, no Attempt tracking — see Flashcard Mechanics above), and both natural end and premature exit resolve to the same `onNavigateBack()` call with **no Firestore write of any kind**. `isSessionComplete` just triggers that pop; nothing downstream of it exists yet.
+**Not yet implemented — this whole section is target design.** Today `onRating()` does nothing but advance to the next card and discards the Rating (no re-insertion, no Attempt tracking — see Flashcard Mechanics above), and both natural end and premature exit resolve to the same `onNavigateBack()` call with **no Firestore write of any kind**.
 
-Designed:
-- **Natural end**: queue empties (all Flashcards Mastered or exhausted their Attempts limit) — Terminal State Flashcards written to Firestore, session written to Recents
-- **Premature exit** (X button → confirm dialog): Terminal State Flashcards reached so far are written to Firestore, session written to Recents; Flashcards still in the queue are treated as unseen
+Designed. Both Study Modes terminate the same way: the session seals its ledger, stamps `durationSeconds`, hands the result to the Summary screen, and writes nothing itself.
+
+- **Natural end**: Rated — the queue empties (every Flashcard reached a Terminal State). Fast — the last card's answer has been shown. Both navigate to the Session Summary screen
+- **Premature exit** (X button → confirm dialog): the result carries everything accumulated so far, flagged `isPartial`; Flashcards still in the queue are simply never recorded. Also navigates to Summary
+- The exit-confirmation dialog **is already built** (`StudySessionDialog.ExitSession`); it currently pops the back stack instead of routing to Summary
 - App kill during session: session is lost, no data saved, no resumption
 
 ### Data Saving
 
 **Not yet implemented** — none of these writes exist in code today; kept here as target design once Re-insertion Rules and Session Termination land.
 
-- Only Terminal State Flashcards are written to `progress/{cardId}`
-- Each write includes a timestamp (required for future spaced-repetition scheduling)
-- Individual review events written to `progress/{cardId}/reviews/` subcollection
-- Session metadata written to `recentSessions/{sessionId}`
+Everything is written **once, at the Session Summary screen, in a single atomic batch** ([ADR-0014](docs/adr/0014-session-stats-written-at-summary-screen.md)). Nothing is written while a session runs.
+
+The batch contains:
+- `users/{uid}/sessions/{sessionId}` — the session record, with its per-card ledger embedded as an `outcomes` map
+- `users/{uid}/progress/{subcategoryId}` — one packed progress document per Subcategory touched ([ADR-0016](docs/adr/0016-card-progress-model.md))
+- `users/{uid}/state/progressSummary` — nested-key `masteredCount` / `studiedCount` increments
+- `users/{uid}/state/progression` — `xp`, `level`, `xpIntoCurrentLevel`, `currentStreak`, `bestStreak`, `lastStudyDate`, `goalMetDate`
+
+A single-Subcategory session is **four writes**, whatever its length. Firestore bills per operation, so the write count is what the schema is shaped around.
 
 ### Session Summary Screen
 
-**Not yet implemented.** `StudySummaryRoute` exists as a route type but is never registered in the nav graph and no screen composable exists for it. Today, session end (natural or premature) just calls `onNavigateBack()` straight to whichever tab was active — no summary screen in between, so none of the bullets below happen yet.
+**Not yet implemented.** `StudySummaryRoute` exists as a route type but is never registered in the nav graph and no screen composable exists for it. Today, session end (natural or premature) just calls `onNavigateBack()` straight to whichever tab was active.
+
+It is the **mandatory exit path for every session**, partial included, and the only place XP is computed and persisted. It takes `sessionId` and nothing else: a freshly finished session's result arrives through an `@ActivityRetainedScoped` holder, while a past session's is read back from `sessions/{sessionId}` — one document, ledger included — one route, one screen, two load paths.
+
+Both Study Modes terminate here. Fast renders a reduced variant: time, streak, new cards and XP, with no mastered/failed counts, no mastery ring sweep and no "Study Again (Failed)".
 
 Designed:
 - **Study Again (All)** — navigates to Preview Study Session Screen with same `categoryId` + `subcategoryIds`, clearing the session stack (`popUpTo<Main>()`); card re-selection happens fresh on the Preview Study Session Screen
@@ -194,17 +213,18 @@ Designed:
 
 **Study Sessions**
 - Session Flashcard count (default 20)
-- Attempts per card (default 3, max 5, user-configurable — planned, not yet implemented)
+- Attempts per card (default 3, max 5) — persisted as `StudySessionPreferences.ratedAttempts`; the Settings *screen* row is unbuilt, but the preference itself is live and editable from the Preview screen's Attempts popup
+- Partial ends the card (default off) — when on, a Partial Rating resolves the Flashcard to Terminal Partial immediately instead of re-inserting it ([ADR-0044](docs/adr/0044-three-valued-terminal-state.md)). **Not yet added** to `StudySessionPreferences`
 - Default study mode (Rated | Fast) — same persisted preference the "keep as default" checkbox on the Preview Study Session Screen's Mode popup writes to (ADR-0030); also set during onboarding
 - Default sort order (Default | Easiest | Hardest) — mirrors the Preview screen's Sort "keep as default" checkbox
 
-**None of the three "keep as default" checkboxes above have anywhere to write to yet** (dialog-system Gap 1): no `StudyPreferences` model, no repository, no `SetDefault*` use cases, no DataStore file exist. The checkboxes render and travel into each dialog's draft, but committing them is a `TODO(dialog-system Gap 1)` in `PreviewStudySessionViewModel.onDialogConfirm`.
+**The "keep as default" checkboxes are fully wired** — dialog-system Gap 1 is closed. `StudySessionPreferences` (`core:domain`), `StudySessionPreferencesRepository` and `DataStoreStudySessionPreferencesLocalDataSource` all exist, and `PreviewStudySessionViewModel.onDialogConfirm` commits every checked default through `SaveStudySessionPreferenceUseCase`. All eight preferences persist: `defaultStudyMode`, `voiceAnsweringEnabled`, `ratedAttempts`, `readAloudEnabled`, `sessionLength`, `sortOrder`, `voiceSettings`, `subcategoryCountRange`. What is still missing is the Settings *screen* that would offer a second edit point.
 
 **Voice**
 - Voice settings (voice selection + playback speed — implemented, `VoiceSettingsDialog`, persisted via `DataStoreVoiceSettingsLocalDataSource`)
 - Voice answering **consent** (has the user accepted the mic-permission disclosure) — implemented and persisted, `VoiceAnswerConsentRepository`/`SetVoiceAnswerConsentUseCase`. Premium-gated with real server-side entitlement enforcement (ADR-0024/0029).
-- Voice answering **default-enabled** — not persisted; also part of the missing `StudyPreferences` (Gap 1) alongside Mode/Length/Sort above, despite living in a different section here
-- Read-aloud/auto-play default (Fast) — likewise not persisted, same Gap 1
+- Voice answering **default-enabled** — persisted as `StudySessionPreferences.voiceAnsweringEnabled`, editable from the Preview screen's Voice answering popup
+- Read-aloud/auto-play default (Fast) — persisted as `StudySessionPreferences.readAloudEnabled`. Note the session screen does not yet *act* on it — see the Fast mode entry point bug above
 
 **Notifications**
 - Daily reminder toggle (row exists; backend — FCM + WorkManager — not yet scoped/built)
@@ -295,15 +315,30 @@ subcategories/{categoryId-subSlug}/shards/{n}         → { flashcards: { "<card
 meta/seed                                             → { value: Int }  // monotonic, bumped by seed_firestore.py
 
 // Per-user
+users/{uid}                                           → { xp, level, xpIntoCurrentLevel,
+                                                          currentStreak, bestStreak,
+                                                          dailyGoalMinutes,
+                                                          lastStudyDate, goalMetDate }
 users/{uid}/favorites/{subcategoryId}                 → { createdAt }
 // Not yet written anywhere in code — see Session Termination / Data Saving above.
-users/{uid}/recentSessions/{sessionId}                → { categoryId, categoryName,
+users/{uid}/sessions/{sessionId}                      → { sessionId, startTimestamp, durationSeconds,
+                                                          studyMode: "rated"|"fast", isPartial,
+                                                          categoryId, categoryName,
                                                           subcategoryIds[], subcategoryNames[],
-                                                          completedAt, cardCount, masteredCount?,
-                                                          studyMode: "rated"|"fast" }
-// Not yet written anywhere in code — see Session Termination / Data Saving above.
-users/{uid}/progress/{cardId}                         → { failedCount, correctCount, lastReviewedAt, nextReviewAt }
-users/{uid}/progress/{cardId}/reviews/{id}            → { rating, reviewedAt }
+                                                          cardCount, cardsMastered, cardsPartial,
+                                                          cardsDefended, cardsDemastered,
+                                                          newCardsStudied }
+    ... plus embedded  outcomes: { <cardId>: { subcategoryId, state, attemptsUsed,
+                                                          wasPreviouslyMastered, transcript? } }
+users/{uid}/progress/{subcategoryId}                  → { categoryId,
+                                                          cards: { <cardId>: {
+                                                            state: Seen|Failed|Partial|Mastered,
+                                                            firstStudiedAt, masteredAt? } } }
+users/{uid}/state/progressSummary                     → { subcategories: { <subcategoryId>: {
+                                                            masteredCount, studiedCount } } }
+users/{uid}/state/progression                         → { xp, level, xpIntoCurrentLevel,
+                                                          currentStreak, bestStreak,
+                                                          lastStudyDate, goalMetDate }
 users/{uid}/privateCards/{subcategoryId}/flashcards/{cardId} → { question, answer, tags[], difficulty, status, createdAt }
 
 // Report a problem (in-session flag icon)
@@ -323,11 +358,15 @@ users/{uid}/curationRequests/{cardId}                       → { subcategoryId:
 - **`extendedContext` is nullable** on global Flashcard documents. Omitted on simple cards (difficulty 1–3) where the Q&A is fully self-explanatory. Present and progressively richer as difficulty rises: mid cards (4–6) carry a concrete example or short snippet; hard/expert cards (7–10) carry fuller context — edge cases, cross-concept relationships, pitfalls. Never duplicates the `answer` field.
 - **Tags are flat untyped strings** in `tags[]` on each Flashcard. No `tags/` collection. See [ADR-0006](docs/adr/0006-flat-denormalized-tags.md).
 - **Category `iconUrl`**: absolute HTTPS URL. No Firebase Storage SDK dependency in UI layer.
-- **`recentSessions` denormalizes names and stats** at write time — `categoryName`, `subcategoryNames[]`, `cardCount`, `masteredCount` — so the Home screen renders Recent cards from a single read per session. `masteredCount` omitted for Fast Study Sessions. **Not yet written** — see Session Termination.
+- **`sessions` is the single session collection** for both Study Modes, and **one session is one document**: aggregates, denormalized names (`categoryName`, `subcategoryNames[]`, `cardCount`) and the per-card ledger embedded as an `outcomes` map. Home's Recents carousel renders from one `orderBy(startTimestamp).limit(n)` query with no joins. The ledger is embedded rather than split into a subcollection because Firestore bills per document read — splitting saved Recents no reads while costing a write per card. Rated-only counters are 0 for Fast. **Not yet written** — see Session Termination.
+- **`progress` is one packed document per Subcategory per User**, holding a `cards` map keyed by card id, and carries both progress sets: a key exists iff the Flashcard is **Studied**, and its `state == Mastered` iff it is in **Persistent Mastery**. De-mastery moves `state` down rather than removing the key, so coverage never regresses. Written by **both** Study Modes — Rated writes the Terminal State, Fast writes `Seen` only where no entry exists. **Private Flashcards never receive one.** Packing makes a session's progress cost one write per Subcategory instead of one per card, and makes any screen's progress read a single document. See [ADR-0016](docs/adr/0016-card-progress-model.md).
+- **`state/progressSummary` is a single document per User** holding every Subcategory's `masteredCount` and `studiedCount`, so Category Details draws every ring on the screen from **one read**. The denominator is `Subcategory.cardCount` from the taxonomy, already loaded by the screens that draw rings, so it is duplicated nowhere. The denominator excludes Private Flashcards, so the card count printed beside a ring must exclude them too.
 - Private Flashcard `status`: `"private" | "submitted" | "approved"` — promotion pipeline to global pool.
 - **`curationRequests/{cardId}` is a flat collection** keyed by globally-unique cardId. Stores structured content-fix directives raised by any user via the in-session "Report a problem" dialog, consumed by admin sync scripts — not surfaced back to users anywhere in the app. Actions are a map of `CurationAction` string → `{ flaggedAt }`. Doc is deleted when all actions are removed. See [ADR-0017](docs/adr/0017-curation-report-system.md).
 - Offline: Firestore Android SDK built-in persistence. No Room needed.
-- Partial Rating is an in-session mechanic only; never written to Firestore as a standalone status.
+- **`state` holds the User's singleton documents** — the progress summary and the scoring state. Firestore paths alternate collection and document, so each per-User singleton needs a fixed document id inside a collection; one security rule covers them all.
+- **Scoring state is deliberately NOT on `users/{uid}`.** That document carries `entitlement`, written only by the Admin SDK and read server-side by the premium Cloud Function, and it has no client rule in either direction. Making it client-writable so the Summary could save XP would let a User grant themselves premium. `dailyGoalMinutes` is likewise absent — it is device-scoped local state that Settings already owns.
+- **Partial is a Terminal State**, written to Firestore as a card's progress `state` and counted on the session record — not an in-session mechanic only.
 
 ## Flashcard Selection Algorithm
 
@@ -338,9 +377,11 @@ users/{uid}/curationRequests/{cardId}                       → { subcategoryId:
 3. Shuffle with a seeded `Random(config.seed)`, then take the configured length
 4. Apply the configured sort order to that drawn subset only — Default keeps shuffle order, Easiest/Hardest sort by difficulty. Sorting never changes which cards were drawn (see Preview Study Session Screen above, Sort row).
 
-Session Flashcard count: user-configurable (Length row on Preview, default 20; a Settings-screen default exists in design only — not yet persisted, see Settings Screen / Gap 1).
+**Mastery Defense (Rated only, designed — not built):** mastered Flashcards are never excluded from the session pool. Mastery Defense sets a **floor** of 10% of the configured Length, topping a natural draw up with mastered Flashcards only when it falls short. Every mastered Flashcard in the final selection is a defence card, however it was drawn. The session is always exactly its configured Length, so the card count and estimated duration on the Preview screen stay truthful. Global Flashcards only; a future per-card progress filter is the only thing that removes mastered Flashcards from the pool, and when it does the floor is 0.
 
-**Previously documented here, never built, now dead:** a `progress/{cardId}`-scored spaced-repetition selector — `(failedCount / (failedCount + correctCount)) * recencyWeight`, excluding cards where `nextReviewAt > now`. No such scoring exists anywhere in the codebase, and `progress/{cardId}` itself is never written (see Data Saving above). "Not in MVP" below already lists a future performance-weighted selector as the intended successor to today's random draw — this section previously described that unbuilt selector as shipped, which it never was.
+Session Flashcard count: user-configurable (Length row on Preview, default 20), persisted as `StudySessionPreferences.sessionLength`. The Settings-screen row that would also edit it is unbuilt.
+
+**Previously documented here, never built, now dead:** a per-card-scored spaced-repetition selector — `(failedCount / (failedCount + correctCount)) * recencyWeight`, excluding cards where `nextReviewAt > now`. No such scoring exists anywhere in the codebase. "Not in MVP" below lists a future performance-weighted selector as the intended successor to today's random draw; the packed `progress` documents are what such a selector would read.
 
 ## Private Flashcards
 

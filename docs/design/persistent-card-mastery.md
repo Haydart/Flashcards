@@ -1,112 +1,210 @@
-# Persistent Card Mastery
+# Card Progress and Persistent Mastery
 
-**Status:** Design only — not yet implemented. No `masteredCards`/`subcategoryProgress` writes, Session Summary screen, or session-stats persistence exist in code yet (checked `feature/study/.../session/` and repo-wide for `masteredCards`/`sessions` writes, 2026-08-20). This doc is written at implementation-ready detail so it can be built directly from.
+**Status:** Design only — not yet implemented. No progress writes, Session Summary screen, or
+session-stats persistence exist in code yet. This doc is written at implementation-ready detail so it
+can be built directly from.
 
 ## Overview
 
-A cross-session record of which Flashcards a User has ever mastered. Enables Mastery Defense mechanics in Rated Study Sessions. Mastery mechanics are **Rated sessions only** — Fast sessions are entirely excluded.
+A cross-session record of what a User has done with each Flashcard. It carries two derived sets:
 
-Two Firestore collections work together: `masteredCards` (per-card truth) and `subcategoryProgress` (per-subcategory rollup counter, denormalized from `masteredCards` for cheap reads — see [Progress rollup](#progress-rollup-subcategoryprogress) below).
+- **Studied** — every Flashcard the User has ever had in front of them. Monotonic.
+- **Persistent Mastery** — the Flashcards they currently hold mastery on. Mutable.
+
+Mastered is a subset of Studied by construction. Both are read from one place, and both drive the
+progress rings on Category Details and Subcategory Details.
+
+**Both Study Modes contribute to Studied.** A Rated Study Session records a Flashcard's Terminal
+State; a Fast Study Session records only that the Flashcard was seen. Mastery itself — gaining it,
+defending it, losing it — remains Rated-only. See [ADR-0016](../adr/0016-card-progress-model.md).
+
+Two documents work together: a **packed progress document per Subcategory** (per-card truth) and a
+single **progress summary** document per User (rollup counts, for cheap ring reads).
 
 ## Firestore structure
 
-```
-users/{uid}/masteredCards/{cardId}
-```
-
-Document fields:
-- `cardId`: matches the Flashcard document ID
-- `subcategoryId`: denormalized for efficient scope queries
-- `categoryId`: denormalized for efficient scope queries
-- `masteredAt`: timestamp of most recent mastery
-
-A card exists in this collection iff the User currently holds mastery of it. De-mastery removes the document.
-
-## Lifecycle
-
-**Mastery gained:** A Flashcard reaches a Correct Rating in any Attempt within a Rated Study Session (Terminal State: Mastered). On session end (Session Summary write), the card is added to `masteredCards` if not already present. `masteredAt` is updated if already present. `subcategoryProgress.masteredCount` is incremented by 1 for that card's subcategory, in the same batch.
-
-**Mastery lost (de-mastery):** A previously mastered card reaches a Failed Terminal State in a Rated Study Session (3 Attempts, no Correct Rating). On session end, the card document is deleted from `masteredCards`. `subcategoryProgress.masteredCount` is decremented by 1 for that card's subcategory, in the same batch.
-
-**Mastery defended:** A previously mastered card receives a Correct Rating on any of its 3 Attempts in a Rated session. Mastery is retained in `masteredCards`; bonus XP awarded (see [XP & Leveling System](xp-leveling-system.md)). No `masteredCards` or `subcategoryProgress` write occurs — state doesn't change, only XP does.
-
-## Progress rollup: `subcategoryProgress`
-
-`masteredCards` is per-card truth, but the Study tab search results and Category Details screen need a **per-subcategory mastery percentage** for a User (e.g. "58%" on the Compose topic row). Deriving that from `masteredCards` on every screen visit — either reading every doc and counting client-side, or running a `count()` aggregation query per subcategory shown — means N Firestore operations per screen visit, multiplied by every User, every time they browse. Instead, maintain a running counter that's updated only at the one write point that already exists (Session Summary), so reads become a single query.
+### Packed progress, one document per Subcategory
 
 ```
-users/{uid}/subcategoryProgress/{subcategoryId}
-```
+users/{uid}/progress/{subcategoryId}
 
-Document fields:
-- `subcategoryId`: matches the Subcategory document ID
-- `categoryId`: denormalized, so all topics in one Category can be fetched in a single query
-- `masteredCount`: Int, running count of this User's currently-mastered cards in this Subcategory
-
-Percentage shown in the UI = `masteredCount / subcategory.cardCount`. `cardCount` is already denormalized on the `subcategories` doc (ADR-0007) and cached client-side from the Study tab's live listener (see [Reading progress](#reading-progress)), so no extra read is needed for the denominator.
-
-### Write mechanics
-
-Updated in the **same batch/transaction** as the `masteredCards` add/delete at Session Summary time — never as a separate write, so it can't drift out of sync with the source of truth it's derived from. While the Session Summary write logic iterates each card's mastery transition (gained/lost/defended/unchanged) to decide the `masteredCards` change, it also accumulates a `delta` per `subcategoryId` touched in the session (+1 per newly-mastered card, -1 per de-mastered card, 0 for defended/unchanged). One `subcategoryProgress` write per touched subcategory is then added to the batch — in practice almost always 1, since a session is normally scoped to one Subcategory:
-
-```kotlin
-val deltasBySubcategory: Map<String, Int> = /* accumulated while walking mastery transitions */
-
-deltasBySubcategory.forEach { (subcategoryId, delta) ->
-    if (delta == 0) return@forEach
-    batch.set(
-        db.collection("users").document(uid)
-            .collection("subcategoryProgress").document(subcategoryId),
-        mapOf(
-            "subcategoryId" to subcategoryId,
-            "categoryId" to categoryId, // known from session scope
-            "masteredCount" to FieldValue.increment(delta.toLong()),
-        ),
-        SetOptions.merge(),
-    )
+categoryId: String
+cards: {                       // keyed by cardId; only studied cards appear
+  <cardId>: {
+    state: Seen | Failed | Partial | Mastered
+    firstStudiedAt: Timestamp  // write-once
+    masteredAt: Timestamp?     // most recent mastery, null if never, retained after de-mastery
+  }
 }
 ```
 
-`FieldValue.increment()` on a missing field/doc starts from 0 and creates the doc via `merge` — no separate init step needed for a User's first mastered card in a Subcategory.
+A Flashcard is **Studied** iff its key is present in `cards`. It is in **Persistent Mastery** iff its
+entry's `state` is `Mastered`. De-mastery moves `state` down; it never removes the key, so coverage
+never regresses.
 
-### Reading progress
+This is the same packing idiom [ADR-0037](../adr/0037-flashcard-content-sharded-by-byte-budget.md)
+applies to flashcard content, and it is chosen for the same reason: Firestore bills per operation. A
+50-card session commits **one** progress write per Subcategory it touched rather than one per card,
+and any screen wanting a Subcategory's progress reads **one** document rather than issuing a query
+whose cost grows with study history.
 
-- **Category Details screen** (all topics in one Category): `users/{uid}/subcategoryProgress where categoryId == "android"` — one query, ≤ topic-count reads (13 for Android), one round trip regardless of how many cards were ever mastered.
-- **Search results** (topics matched across Categories): `where subcategoryId in [matchedIds]` (Firestore `in` caps at 30 values) — one query for the small set of matched topics.
-- **Study tab default list**: no progress read — that screen only shows a topic *count* per Category ("13 topics"), not per-topic percentages.
+Size is comfortable. An entry is roughly 100 bytes, so 500 studied cards in a Subcategory is about
+50 KB against Firestore's 1 MiB document limit.
 
-`shards` subcollections (ADR-0037) are never touched by any progress read — the count lives entirely in `subcategoryProgress`, derived once at write time.
+Writes use `set` with merge on nested keys. Firestore merges nested maps entry by entry, so two
+devices touching different cards in the same Subcategory merge cleanly; two devices touching the
+same card is last-write-wins, exactly as a document-per-card model would be.
 
-### Consistency
+**Private Flashcards are excluded entirely** — they never receive an entry, never count toward either
+set, and never earn card-level XP. New-card XP on a user-authored Flashcard would otherwise be
+trivially farmable.
 
-Because the counter is written atomically with `masteredCards` in the same batch, it can only drift if that batch partially fails in a way Firestore's batched-write semantics don't already guard against (batches are all-or-nothing) — so in practice it shouldn't drift from normal app usage. Drift is still possible from out-of-band causes: a manual Firestore console edit to either collection, or a future migration/bug. No proactive reconciliation is planned for v1; if drift is ever suspected, self-heal by recomputing `masteredCount` via a `count()` aggregation on `masteredCards where subcategoryId == X` and overwriting the rollup doc — cheap to run occasionally (e.g. lazily on Progress screen load) since it's the same aggregation this design avoids running on every screen visit.
+### Progress summary, one document per User
 
-## Mastery Defense insertion
+```
+users/{uid}/state/progressSummary
 
-Previously mastered cards are re-inserted into the session's Flashcard pool at Preview Study Session Screen time (Preview Study Session Screen owns all card selection — ADR-0004).
+subcategories: {               // keyed by subcategoryId
+  <subcategoryId>: { masteredCount: Int, studiedCount: Int }
+}
+```
+
+Category Details draws a ring for every Subcategory in a Category — thirteen for Android — on a
+screen Users open constantly. This document answers all of them in **one read**, whatever the
+Category, and the Home screen's progress displays read the same document.
+
+There is no per-Subcategory counter document. Under packing it would save nothing: Category Details
+would read thirteen documents either way. A single summary is the only shape that actually reduces
+the read count.
+
+### The ring denominator
+
+Both ring percentages are `count / Subcategory.cardCount`.
+
+`Subcategory.cardCount` already exists on the taxonomy, is maintained by the seed tooling, and is
+already loaded by every screen that lists Subcategories — so the denominator costs no read and is
+duplicated nowhere.
+
+**The denominator excludes Private Flashcards, so the card count printed beside a ring must be the
+same figure.** A label counting Private Flashcards next to a ring that does not produces a percentage
+the user cannot reconcile against the number next to it.
+
+## Lifecycle
+
+**First studied (either mode).** A Flashcard with no entry gets one created, with `firstStudiedAt`
+set and `state` set to the session's outcome — the Terminal State in a Rated session, `Seen` in a
+Fast session. New-card XP is awarded once, here, for either mode.
+
+A Rated Flashcard counts as studied once it has completed at least one Attempt. A Fast Flashcard
+counts once its **answer has been shown** — `VoicePhase.Answer` entered under read-aloud,
+`isAnswerRevealed` set under manual advance. Skipping past a question marks nothing.
+
+**Mastery gained.** A Flashcard reaches a Correct Rating on any Attempt in a Rated Study Session
+(Terminal State: Mastered). On session commit, `state` becomes `Mastered` and `masteredAt` is set.
+The summary's `masteredCount` for that Subcategory increments by 1 in the same batch.
+
+**Mastery lost (de-mastery).** A previously mastered Flashcard reaches a **Failed** Terminal State in
+a Rated Study Session. On session commit, `state` moves to `Failed` and `masteredCount` decrements by
+1 in the same batch. The entry survives, so `studiedCount` is unaffected.
+
+**Mastery defended.** A previously mastered Flashcard receives a Correct Rating on any Attempt.
+Mastery is retained; bonus XP awarded (see [XP & Leveling System](xp-leveling-system.md)). No counter
+write occurs — state does not change, only XP does.
+
+**Partial is mastery-neutral.** A previously mastered Flashcard ending on a **Partial** Terminal State
+keeps `state == Mastered`. It earns neither the defense bonus nor the de-mastery penalty, and writes
+no counter delta. Only an outright Failed de-masters.
+
+**Fast never downgrades.** A Fast session writes `Seen` **only when no entry exists**. Re-listening to
+a mastered Flashcard cannot move it backwards.
+
+## Write mechanics
+
+Everything below happens in the **same batch** as the session document
+([ADR-0014](../adr/0014-session-stats-written-at-summary-screen.md)), never separately, so the
+summary cannot drift from the progress it summarises.
+
+While the commit walks the session's ledger it groups entries by Subcategory. Per Subcategory it
+builds one nested-key merge — touching only the cards this session studied, leaving every other entry
+in the document untouched — and accumulates two deltas:
+
+- `masteredDelta`: +1 per newly mastered, −1 per de-mastered, 0 for defended / Partial / unchanged
+- `studiedDelta`: +1 per Flashcard that had no entry before, 0 otherwise
+
+One `progress/{subcategoryId}` write joins the batch per touched Subcategory — in practice one, since
+a session is usually scoped to a single Subcategory — plus one `state/progressSummary` write carrying every
+Subcategory's increments as nested-key `FieldValue.increment`s.
+
+`FieldValue.increment()` on a missing field or document starts from 0 and creates it via merge, so
+there is no initialisation step for a User's first studied Flashcard.
+
+To compute `studiedDelta` and to know which cards were previously mastered, the commit reads the
+progress document for each Subcategory in scope first. That is one read per Subcategory, and it is
+the same document the session already read at start.
+
+## Reading progress
+
+- **Category Details** (all topics in one Category, rings for each): `state/progressSummary` — **one
+  document**, regardless of how many Subcategories are shown. Both ring perspectives render from it.
+- **Home progress displays**: the same single document.
+- **Subcategory Details** (per-card filtering by Mastered / Studied / Unseen): the packed
+  `progress/{subcategoryId}` document — one read.
+- **Preview Study Session Screen**: the same document, to pick Mastery Defense candidates.
+- **Study Session**: the same document for each Subcategory in scope, to know which Flashcards are new
+  (for new-card XP) and which were previously mastered (for defense accounting). **The Firestore
+  `whereIn` 30-id cap no longer applies to any progress read** — session length is irrelevant to the
+  read count.
+- **Search results** (topics matched across Categories): `state/progressSummary` — one document, from which
+  the matched Subcategories' counts are picked out in memory.
+- **Browse default list**: no progress read — it shows a topic *count* per Category, not per-topic
+  percentages.
+
+`shards` subcollections (ADR-0037) are never touched by any progress read.
+
+## Consistency
+
+Within a Subcategory, a card's state and the Studied/Mastered sets cannot disagree: both derive from
+the same map.
+
+The summary can still drift from the packed documents, since it is a maintained count rather than a
+derived one. It is written atomically with the progress documents in the same batch, so normal app
+usage will not cause drift; a manual console edit, a future migration or a bug could. No proactive
+reconciliation for v1. If drift is suspected, self-heal by reading the User's progress documents,
+counting each map, and overwriting the summary in one write.
+
+## Mastery Defense selection
+
+Mastered Flashcards are **never removed from the session pool**. They remain as eligible as anything else, and a session draw may contain them by chance. What Mastery Defense adds is a **floor**: the selection always tries to include some, so mastery is periodically re-tested rather than assumed.
+
+Selection happens at Preview Study Session Screen time (Preview owns all card selection — ADR-0004).
 
 Rules:
-- Only cards within the session's Category/Subcategory scope are eligible
-- Up to **10% of the selected card pool** is filled with mastered cards (rounded; minimum 0)
-- Mastered cards are inserted in addition to the normal pool, then the combined pool is randomized
-- The count of mastery defense cards is **not shown** on the Preview Study Session Screen — internal mechanic, transparent to the user
+- Only Flashcards within the session's Category/Subcategory scope are eligible
+- Only global Flashcards — Private Flashcards are never defense candidates and hold no progress record anyway
+- The floor is **10% of the session's configured Length**, rounded, minimum 0. If a natural draw already contains that many mastered Flashcards or more, nothing is added
+- If it contains fewer, mastered Flashcards are swapped in for unmastered ones until the floor is met or the eligible mastered Flashcards run out
+- **Every mastered Flashcard in the final selection is a Defense Flashcard** — not only those swapped in. Two identical mastered Flashcards in one session must not behave differently depending on how they were drawn
+- The session is always exactly its configured Length, so the card count and estimated duration on the Preview screen stay truthful without any special accounting
+- The combined selection is then ordered as normal
+- The count of Defense Flashcards is **not shown** on the Preview screen — internal mechanic, transparent to the user
+
+Because there is no exclusion, a User who has mastered most of a Subcategory still gets a full-length session; it is simply mostly re-testing. The degenerate "nothing left to study" case cannot arise.
+
+**A future per-card progress filter** — the planned Mastered / Studied / Unseen chips — is the only thing that removes mastered Flashcards from the pool. When a User filters them out, the Defense floor is necessarily 0. That is a normal outcome, not an error, and the selection API is shaped to express it.
 
 ## Visual distinction in session
 
-During a Rated Study Session, mastery defense cards are visually marked with a **small shield icon** displayed alongside the question. Final visual treatment (color, placement, size) determined at UI implementation time.
+During a Rated Study Session, defense Flashcards are marked with a **small shield icon** alongside the question. Final visual treatment determined at UI implementation time.
 
-The shield is the only signal — no label, no count, no explanation surfaced in the session UI. The XP breakdown on the Session Summary screen implicitly confirms that mastery defense was in play.
+The shield is the only signal — no label, no count, no explanation in the session UI. The XP breakdown on the Session Summary screen implicitly confirms defense was in play.
 
-## Fast mode exclusion
+## Fast mode scope
 
 Fast Study Sessions:
-- Do not insert mastered cards as mastery defense candidates
-- Do not display any mastery visual distinction
-- Do not write to or read from `masteredCards`
+- Write progress entries with `state = Seen`, and only where none exists
+- Contribute to **Studied** and to the summary's `studiedCount`
+- Award new-card XP for Flashcards seen for the first time
+- Do **not** insert defense candidates, display any mastery distinction, or change `state` on an existing entry
 - Cannot gain or lose mastery
 
-Mastery state is fully frozen during Fast sessions.
-
-## Private Flashcards
-
-Private Flashcards are excluded from mastery tracking. `masteredCards` only contains global admin-curated Flashcard IDs.
+Mastery state is frozen during Fast sessions; coverage is not.

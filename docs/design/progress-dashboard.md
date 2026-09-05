@@ -35,10 +35,11 @@ Tab is backed by a `ProgressGraph` nested graph inside `Main`, following the sam
 - Single stat line, no breakdown
 
 ### 5. Stats row (summary figures)
-Three figures displayed in a horizontal row:
+Four figures displayed in a horizontal row:
 - Total study time (all-time, in hours/minutes)
 - Sessions completed (all-time, deck-end sessions only — see [Session Stats & Data Model](session-stats-data-model.md))
-- Total cards Mastered (all-time, Rated sessions only)
+- Cards Studied (both Study Modes; monotonic — a card never leaves the Studied set)
+- Cards Mastered (currently held, Rated sessions only — **decreases on de-mastery**, mirroring the live Persistent Mastery set rather than a lifetime "ever mastered" tally)
 
 ### 6. History chart
 - Stacked bar chart; each bar = one calendar day; bar height = total minutes studied
@@ -65,8 +66,8 @@ Three figures displayed in a horizontal row:
 |---|---|
 | Level, XP, streak, best streak, daily goal | DataStore cache (written on session end) |
 | Today's minutes, weekly minutes | DataStore cache (written on session end) |
-| Total time, sessions completed, cards Mastered | DataStore cache (written on session end) |
+| Total time, sessions completed, cards Studied, cards Mastered | DataStore cache (written on session end) |
 | History chart data (7/30 days) | Recomputed from Firestore session records |
 | Per-category breakdown | Recomputed from Firestore session records |
 
-On fresh install / reinstall: recompute all aggregates from Firestore session history and repopulate DataStore before showing the Progress screen.
+On fresh install / reinstall: XP, level and streak are read straight off `users/{uid}/state/progression`; the daily goal comes from local preferences, which are device-scoped and reset on reinstall; time-windowed aggregates are recomputed from Firestore session history; the two card counts come from the `state/progressSummary` document. DataStore is repopulated before the Progress screen is shown.

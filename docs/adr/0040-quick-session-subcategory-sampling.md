@@ -96,8 +96,13 @@ clutter/read-count problem.
 
 ## Consequences
 
-- `SampleQuickSessionSubcategoriesUseCase` is new: pure, seeded off the same `StudySessionConfig.seed`
-  the card draw already uses, so one seed reproduces an entire Quick Session plan end to end.
+- `SampleQuickSessionSubcategoriesUseCase` is new and pure. It takes a `kotlin.random.Random`
+  defaulting to `Random.Default`; production passes nothing and tests pass a fixed one. There is no
+  session seed.
+- **The sampled Subcategory ids are screen state, not a function re-derived on every selection.**
+  Sampling runs on load and on Re-randomize only. This is what keeps the sample stable while the user
+  adjusts filters, length or sort — re-sampling on every selection would let a difficulty-slider nudge
+  silently change which Subcategories the session draws from.
 - `StudySessionConfig`, `StudySessionPreferences`, and `StudySessionPreference` each gain a
   `subcategoryCountRange` field/variant. `PreviewDialog` and `SettingsDialog` each gain a matching
   case, reusing `SessionLengthDialog`'s scaffold with a `RangeSlider` swapped in for the stepper.
