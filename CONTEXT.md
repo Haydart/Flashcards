@@ -55,21 +55,21 @@ An authenticated person using the app. Represented in code as `AuthUser` with `u
 _Avoid_: Account, Player, Learner
 
 **Study Session**:
-A focused learning instance scoped to one or more Subcategories within a single Category. Has exactly one **Study Mode**. Fast Study Sessions write only session metadata to Firestore (no card progress). Rated Study Sessions write Terminal State cards to Firestore. A session with exactly one Subcategory is a **single-subcategory session**; a session spanning multiple Subcategories is a **composite session** — the umbrella term, true of a Quick Session and a Custom Session alike. Composite is not itself an entry point: every Composite session is either Quick (system-selected) or Custom (user-selected) — see **Study Creation**.
+A focused learning instance scoped to one or more Subcategories within a single Category. Has exactly one **Study Mode**. Every Study Session records **Card Progress** for the Flashcards it actually puts in front of the User; only a Rated Study Session records Ratings, Attempts and Terminal States. A session with exactly one Subcategory is a **single-subcategory session**; a session spanning multiple Subcategories is a **composite session** — the umbrella term, true of a Quick Session and a Custom Session alike. Composite is not itself an entry point: every Composite session is either Quick (system-selected) or Custom (user-selected) — see **Study Creation**.
 _Avoid_: Quiz, Session alone (ambiguous with auth session)
 
 **Study Mode**:
 The interaction mechanic of a Study Session. Two values:
-- **Rated**: user reveals each answer manually, then self-rates (Failed / Partial / Correct) — or enables **Voice Answering** in-session for hands-free listen-and-grade instead. Flashcards reaching a Terminal State are written to Firestore.
-- **Fast**: cards advance question → reveal answer → next, either manually (tap to reveal, tap to advance) or with read-aloud enabled — system TTS reads the question aloud, pauses, reads the answer aloud, then auto-advances hands-free. User controls playback via transport controls (pause / play / skip / speed slider) when read-aloud is on. Playback continues with the screen off or app backgrounded. No Ratings, no Attempts, no Terminal States.
+- **Rated**: user reveals each answer manually, then self-rates (Failed / Partial / Correct) — or enables **Voice Answering** in-session for hands-free listen-and-grade instead. Each Flashcard accumulates Attempts until it reaches a **Terminal State**.
+- **Fast**: cards advance question → reveal answer → next, either manually (tap to reveal, tap to advance) or with read-aloud enabled — system TTS reads the question aloud, pauses, reads the answer aloud, then auto-advances hands-free. User controls playback via transport controls (pause / play / skip / speed slider) when read-aloud is on. Playback continues with the screen off or app backgrounded. No Ratings, no Attempts, no Terminal States — a Fast Study Session's only per-card record is that a Flashcard became **Studied**.
 _Avoid_: Automatic mode, Passive mode, Browse mode, Voice mode (voice is the delivery mechanism, not the mode name)
 
 **Attempt**:
-A single presentation of a Flashcard to the user within a **Rated** Study Session. Each Flashcard has a maximum number of Attempts per session, user-configurable in Settings (default 3, max 5). Does not apply to Fast Study Sessions.
+A single presentation of a Flashcard to the user within a **Rated** Study Session, completed when the user submits a **Rating**. Each Flashcard has a maximum number of Attempts per session, user-configurable in Settings (default 3, max 5). A Voice Answering silence timeout consumes no Attempt. Does not apply to Fast Study Sessions.
 _Avoid_: Turn, Round, Try
 
 **Rating**:
-The user's self-assessment after viewing an answer in a **Rated** Study Session. Values: **Failed**, **Partial**, **Correct**. Produced either by a manual self-rating tap or by **Voice Answering**'s automatic grade — both write identically. A Partial or Failed Rating triggers re-insertion of the Flashcard into the session queue; Correct ends the Flashcard's Attempts. Does not apply to Fast Study Sessions.
+The user's self-assessment after viewing an answer in a **Rated** Study Session. Values: **Failed**, **Partial**, **Correct**. Produced either by a manual self-rating tap or by **Voice Answering**'s automatic grade — both write identically. A Correct Rating ends the Flashcard's Attempts immediately. A Failed or Partial Rating re-inserts the Flashcard into the session queue at a bounded random distance ahead — 2–4 cards for Failed, 5–9 for Partial, so weaker recall returns sooner ([ADR-0046](docs/adr/0046-failed-and-partial-re-insertion-placement.md)) — unless its Attempts are exhausted, or unless the user has turned on the setting that makes a Partial Rating end the Flashcard on the spot. Ratings accumulate: a Flashcard's **Terminal State** is decided by the best Rating it ever achieved, not the last one. Does not apply to Fast Study Sessions.
 _Avoid_: Score, Grade, Answer, Response
 
 **Voice Answering**:
@@ -77,12 +77,24 @@ A Rated-Study-Sessions-only mechanic that replaces manual reveal-and-self-rate w
 _Avoid_: Voice mode (voice is the delivery mechanism, not a Study Mode — see Study Mode's avoid list), Voice grading (grading is the mechanism inside the feature, not the feature's name)
 
 **Terminal State**:
-A Flashcard's final outcome in a **Rated** Study Session. A Flashcard reaches a Terminal State when it receives a Correct Rating (any Attempt) or exhausts its configured Attempts limit without a Correct Rating. Terminal states written to Firestore: **Mastered** (Correct) or **Failed** (not Correct within the limit). Partial on the final Attempt resolves to Failed. Does not apply to Fast Study Sessions.
+A Flashcard's final outcome in a **Rated** Study Session, decided by the best **Rating** it achieved across all its Attempts. Three values: **Mastered** (Correct on any Attempt), **Partial** (never Correct, but Partial at least once), **Failed** (never better than Failed). A Flashcard reaches a Terminal State when it is rated Correct, when it exhausts its Attempts limit, or when a Partial Rating ends it under the user's re-queueing setting. Does not apply to Fast Study Sessions. See [ADR-0044](docs/adr/0044-three-valued-terminal-state.md).
 _Avoid_: Final state, End state, Result
 
 **Mastered**:
-The Terminal State of a Flashcard that received a Correct Rating within a **Rated** Study Session.
+The Terminal State of a Flashcard that received a Correct Rating within a **Rated** Study Session. Also the **Card Progress** state that Terminal State writes, and the only state that counts toward **Persistent Mastery**.
 _Avoid_: Completed, Passed, Correct (Correct is the Rating that causes Mastered, not a synonym)
+
+**Partial**:
+The Terminal State of a Flashcard that was never rated Correct but was rated Partial at least once within a **Rated** Study Session. Earns a small positive **XP** award and is mastery-neutral: it never grants Persistent Mastery, and a **Mastery Defense** card ending Partial keeps the mastery it was defending rather than losing it.
+_Avoid_: Half-mastered, Partially correct (that is the Rating, not the outcome), Incomplete
+
+**Card Progress**:
+A User's per-Flashcard record of everything they have ever done with that Flashcard, held as one document per Flashcard. Carries a single **state** — `Seen`, `Failed`, `Partial` or `Mastered` — plus when the Flashcard was first studied and when it was last mastered. Written by both Study Modes: a Rated Study Session writes the Flashcard's **Terminal State**, a Fast Study Session writes `Seen` and only when no record exists yet, so re-listening can never downgrade a Mastered Flashcard. **Private Flashcards never receive a Card Progress record.** See [ADR-0016](docs/adr/0016-card-progress-model.md).
+_Avoid_: Card state, Review record, Progress entry
+
+**Studied**:
+The set of Flashcards a User holds any **Card Progress** for — that is, every Flashcard they have ever completed an Attempt on in a Rated Study Session, or seen the answer to in a Fast Study Session. Being drawn into a Study Session is not enough; the Flashcard must have actually reached the User. Monotonic: a Flashcard never leaves the Studied set. **Mastered** is always a subset of Studied, which is why the two can be shown as alternate perspectives on the same progress ring — a coverage measure and an ownership measure over the same denominator.
+_Avoid_: Seen (that is one Card Progress state, not the set), Attempted, Reviewed, Touched
 
 **Curation Request**:
 A user-submitted signal that a global Flashcard needs a specific content fix, raised via the in-session flag icon's **"Report a problem"** dialog (Rated and Fast alike). Stored at `users/{uid}/curationRequests/{cardId}`. The dialog's draft always starts empty — it never seeds from the card's existing report — so Submit is purely additive: it upserts whichever Curation Actions are checked into the stored map, one write, in a single call. No suppression — a flagged Flashcard still appears in Study Sessions. **No in-app withdrawal path exists**: there is no management screen, and unchecking a row no longer removes it from a previous submission (the draft that row belonged to is gone) — withdrawal is admin/sync-tooling-only. Consumed by admin sync scripts. See [ADR-0017](docs/adr/0017-curation-report-system.md).
@@ -116,15 +128,15 @@ A full-screen preview shown before every Study Session begins. A read-only hero 
 _Avoid_: Pre-start Screen (retired name), Pre-session screen, Session config, Mode picker
 
 **Persistent Mastery**:
-A cross-session record of Flashcards a User has ever reached a Mastered Terminal State on within a Rated Study Session. Stored in Firestore as `users/{uid}/masteredCards/{cardId}`. A Flashcard is in the Persistent Mastery set iff the User currently holds mastery — mastery is removed (de-mastered) when the card reaches a Failed Terminal State in a subsequent Rated session. Applies to global Flashcards only; Private Flashcards are excluded.
+The set of Flashcards a User currently holds mastery on: those whose **Card Progress** state is `Mastered`. Mastery is removed (de-mastered) when a Flashcard reaches a **Failed** Terminal State in a subsequent Rated Study Session — a **Partial** Terminal State leaves it intact. De-mastery moves the Card Progress state down; it never deletes the record, so the Flashcard stays **Studied**. Applies to global Flashcards only; Private Flashcards are excluded.
 _Avoid_: Permanent mastery, Long-term mastery, Mastered set
 
 **Mastery Defense**:
-The mechanic by which previously mastered Flashcards are re-inserted into a Rated Study Session's card pool (up to 10% of the pool). A Mastery Defense card is visually marked with a shield icon during the session. Successfully answering a Mastery Defense card (Correct on any Attempt) retains Persistent Mastery and earns bonus XP. Failing (Failed Terminal State) removes the card from Persistent Mastery (de-mastery) and costs XP. Mastery Defense applies to Rated sessions only.
+The mechanic by which previously mastered Flashcards are re-inserted into a Rated Study Session's card pool, up to 10% of it. Defense cards come **out of** the session's configured Length rather than on top of it — a session sized at 20 Flashcards is 20 Flashcards — so the card count and estimated duration shown on the Preview Study Session Screen stay truthful. A Mastery Defense card is visually marked with a shield icon during the session. Successfully answering one (Correct on any Attempt) retains Persistent Mastery and earns bonus XP. A **Failed** Terminal State removes the card from Persistent Mastery (de-mastery) and costs XP; a **Partial** Terminal State is neutral — mastery is retained, and neither the bonus nor the penalty applies. Mastery Defense applies to Rated sessions only, and to global Flashcards only.
 _Avoid_: Review card, Recall challenge
 
 **XP (Experience Points)**:
-Points earned by a User through study activities (card mastery, time studied, session completion, daily goal, streak). Accumulate toward the next Level. XP can decrease when a previously mastered Flashcard is de-mastered (XP loss), but Level never decreases — XP loss is clamped to the current Level's floor.
+Points earned by a User through study activities: studying a Flashcard for the first time, card mastery, a Partial Terminal State, defending mastery, time studied, session completion, daily goal and streak. Accumulate toward the next Level. XP can decrease when a previously mastered Flashcard is de-mastered (XP loss), but Level never decreases — XP loss is clamped to the current Level's floor. Card-level XP is never earned from **Private Flashcards**. Every XP amount is configuration rather than a fixed rule of the domain ([ADR-0047](docs/adr/0047-xp-values-behind-a-config-repository.md)), and a Study Session is scored against the configuration in force when it began.
 _Avoid_: Score, Points, Credits
 
 **Level**:
@@ -154,8 +166,11 @@ _Avoid_: Sessions finished, Sessions done
 - A **Favorite** is a bookmarked **Subcategory**
 - An **Attempt** produces exactly one **Rating** *(Rated sessions only)*
 - **Voice Answering** is a toggle available only within a **Rated** Study Session; its automatic grade produces a **Rating** the same way a manual tap does
-- A **Flashcard** in a **Rated** Study Session has at most 3 **Attempts**
-- A **Terminal State** of Mastered means the Flashcard received a Correct **Rating**; Failed means 3 Attempts passed without Correct *(Rated sessions only)*
+- A **Flashcard** in a **Rated** Study Session has at most as many **Attempts** as the User's configured limit (default 3, max 5)
+- A **Terminal State** is decided by the best **Rating** a Flashcard achieved: Correct → Mastered, else Partial → Partial, else Failed *(Rated sessions only)*
+- A **Flashcard** the User has any **Card Progress** for is **Studied**; a Flashcard whose Card Progress state is `Mastered` is in **Persistent Mastery** — so Persistent Mastery is a subset of Studied
+- A **Study Session** of either Study Mode adds Flashcards to the **Studied** set; only a **Rated** one changes **Persistent Mastery**
+- A **Private Flashcard** has no **Card Progress**, is never **Studied**, and never earns card-level **XP**
 - A **Flashcard** in **Persistent Mastery** is eligible to appear as a **Mastery Defense** card in future Rated Study Sessions
 - A **User** accumulates **XP** through study activity; XP determines **Level**
 - A **Streak** belongs to a **User** and increments once per calendar day a Study Session is started
