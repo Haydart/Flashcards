@@ -114,7 +114,6 @@ class PreviewStudySessionViewModel @Inject constructor(
             _state.update { state ->
                 state.copy(
                     config = state.config.copy(
-                        mode = defaults.defaultStudyMode,
                         voiceAnsweringEnabled = defaults.voiceAnsweringEnabled,
                         ratedAttempts = defaults.ratedAttempts,
                         readAloudEnabled = defaults.readAloudEnabled,
@@ -124,7 +123,7 @@ class PreviewStudySessionViewModel @Inject constructor(
                         sortOrder = route.sortOrder ?: defaults.sortOrder,
                         voiceSettings = defaults.voiceSettings,
                         subcategoryCountRange = defaults.subcategoryCountRange,
-                    ),
+                    ).withMode(defaults.defaultStudyMode),
                 )
             }
             selectCards()
