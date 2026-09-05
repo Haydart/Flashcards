@@ -76,7 +76,7 @@ so there is no such outcome needing a home.
 - The session's per-card state retains the **best Rating so far**, one enum field per card. That is
   the only Rating history the state machine needs — a full per-Attempt log is not required to
   resolve a Terminal State.
-- `cardProgress.state` ([ADR-0016](0016-card-progress-model.md)) is four-valued — the three Terminal
+- The stored card progress state ([ADR-0016](0016-card-progress-model.md)) is four-valued — the three Terminal
   States plus `Seen` — not a boolean.
 - The Session Summary's XP breakdown gains a Partial line.
 - De-mastery narrows to Terminal Failed only, rather than "anything that is not Mastered".

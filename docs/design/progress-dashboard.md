@@ -70,4 +70,4 @@ Four figures displayed in a horizontal row:
 | History chart data (7/30 days) | Recomputed from Firestore session records |
 | Per-category breakdown | Recomputed from Firestore session records |
 
-On fresh install / reinstall: XP, level and streak are read straight off `users/{uid}`; time-windowed aggregates are recomputed from Firestore session history; the two card counts come from the `subcategoryProgress` counters. DataStore is repopulated before the Progress screen is shown.
+On fresh install / reinstall: XP, level and streak are read straight off `users/{uid}/state/progression`; the daily goal comes from local preferences, which are device-scoped and reset on reinstall; time-windowed aggregates are recomputed from Firestore session history; the two card counts come from the `state/progressSummary` document. DataStore is repopulated before the Progress screen is shown.

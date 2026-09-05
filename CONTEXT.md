@@ -89,7 +89,7 @@ The Terminal State of a Flashcard that was never rated Correct but was rated Par
 _Avoid_: Half-mastered, Partially correct (that is the Rating, not the outcome), Incomplete
 
 **Card Progress**:
-A User's per-Flashcard record of everything they have ever done with that Flashcard, held as one document per Flashcard. Carries a single **state** — `Seen`, `Failed`, `Partial` or `Mastered` — plus when the Flashcard was first studied and when it was last mastered. Written by both Study Modes: a Rated Study Session writes the Flashcard's **Terminal State**, a Fast Study Session writes `Seen` and only when no record exists yet, so re-listening can never downgrade a Mastered Flashcard. **Private Flashcards never receive a Card Progress record.** See [ADR-0016](docs/adr/0016-card-progress-model.md).
+A User's per-Flashcard record of everything they have ever done with that Flashcard, held as one entry in a packed per-Subcategory progress document. Carries a single **state** — `Seen`, `Failed`, `Partial` or `Mastered` — plus when the Flashcard was first studied and when it was last mastered. Written by both Study Modes: a Rated Study Session writes the Flashcard's **Terminal State**, a Fast Study Session writes `Seen` and only when no record exists yet, so re-listening can never downgrade a Mastered Flashcard. **Private Flashcards never receive a Card Progress record.** See [ADR-0016](docs/adr/0016-card-progress-model.md).
 _Avoid_: Card state, Review record, Progress entry
 
 **Studied**:

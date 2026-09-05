@@ -159,7 +159,7 @@ flowchart TD
 
     %% ── Session Summary ───────────────────────────────────────────
     Summary(SESSION SUMMARY SCREEN\ntakes sessionId · result via retained holder\nXP breakdown — animated line by line\nLevel-up celebration if applicable\n'Session Completed' +500 XP omitted on partial sessions)
-    Summary --> Commit[ONE atomic batch:\nsessions doc + outcomes subcollection\ncardProgress + subcategoryProgress deltas\nuser xp/level/streak]
+    Summary --> Commit[ONE atomic batch — 4 writes:\nsession doc with embedded outcomes map\npacked progress doc per subcategory\nstate/progressSummary increments\nstate/progression xp/level/streak]
 
     Commit --> StudyAgainAll[/Study Again — All/]
     Commit --> StudyAgainFailed[/Study Again — Failed\nshown only if ≥1 Terminal Failed\nRated sessions only/]

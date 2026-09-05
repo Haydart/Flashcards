@@ -81,15 +81,20 @@ XP is calculated **on the Session Summary screen**, from the session result and 
 
 ## Firestore storage
 
-Stored on the user document, `users/{uid}`:
+Stored on a client-owned per-user singleton, `users/{uid}/state/progression`:
 
 - `xp`: total XP currently held
 - `level`: current level (denormalized for fast reads)
 - `xpIntoCurrentLevel`: XP accumulated within the current level
-- `lastStudyDate`: local calendar date of the most recent session counted toward the streak
-- `goalMetDate`: local calendar date on which the daily goal was most recently met
+- `currentStreak` / `bestStreak`: consecutive study days, and the historical peak
+- `lastStudyDate`: `yyyy-MM-dd` local calendar date of the most recent session counted toward the streak
+- `goalMetDate`: `yyyy-MM-dd` local calendar date on which the daily goal was most recently met
 
-`lastStudyDate` and `goalMetDate` are load-bearing, not conveniences: streak continuation needs to know whether a session today has already been counted, and the daily-goal award needs to know whether today's goal was already met. Neither is derivable from the other stored fields without replaying session history.
+**Not on `users/{uid}` itself.** That document holds `entitlement`, which only the Admin SDK writes and the premium Cloud Function reads server-side; opening it to client writes would let a user grant themselves premium. See [ADR-0014](../adr/0014-session-stats-written-at-summary-screen.md).
+
+The daily goal itself is **not** stored here — it is device-scoped local state, already written by Settings.
+
+`lastStudyDate` and `goalMetDate` are load-bearing, not conveniences: streak continuation needs to know whether a session today has already been counted, and the daily-goal award needs to know whether today's goal was already met. Neither is derivable from the other stored fields without replaying session history. Both are stored as strings because they are calendar days, not instants.
 
 De-mastery reduces both `xp` and `xpIntoCurrentLevel`. **Level never decreases** — if a loss would push `xpIntoCurrentLevel` below 0, it clamps to 0 at the current level's floor, and `xp` clamps by the same amount so the two stay consistent.
 

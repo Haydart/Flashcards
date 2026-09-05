@@ -187,17 +187,18 @@ Designed. Both Study Modes terminate the same way: the session seals its ledger,
 Everything is written **once, at the Session Summary screen, in a single atomic batch** ([ADR-0014](docs/adr/0014-session-stats-written-at-summary-screen.md)). Nothing is written while a session runs.
 
 The batch contains:
-- `users/{uid}/sessions/{sessionId}` — the slim session record
-- `users/{uid}/sessions/{sessionId}/outcomes/{cardId}` — per-card outcomes, read only by a later detailed review
-- `users/{uid}/cardProgress/{cardId}` — creates and updates ([ADR-0016](docs/adr/0016-card-progress-model.md))
-- `users/{uid}/subcategoryProgress/{subcategoryId}` — `masteredCount` / `studiedCount` increments
-- `users/{uid}` — `xp`, `level`, `xpIntoCurrentLevel`, `currentStreak`, `bestStreak`, `lastStudyDate`, `goalMetDate`
+- `users/{uid}/sessions/{sessionId}` — the session record, with its per-card ledger embedded as an `outcomes` map
+- `users/{uid}/progress/{subcategoryId}` — one packed progress document per Subcategory touched ([ADR-0016](docs/adr/0016-card-progress-model.md))
+- `users/{uid}/state/progressSummary` — nested-key `masteredCount` / `studiedCount` increments
+- `users/{uid}/state/progression` — `xp`, `level`, `xpIntoCurrentLevel`, `currentStreak`, `bestStreak`, `lastStudyDate`, `goalMetDate`
+
+A single-Subcategory session is **four writes**, whatever its length. Firestore bills per operation, so the write count is what the schema is shaped around.
 
 ### Session Summary Screen
 
 **Not yet implemented.** `StudySummaryRoute` exists as a route type but is never registered in the nav graph and no screen composable exists for it. Today, session end (natural or premature) just calls `onNavigateBack()` straight to whichever tab was active.
 
-It is the **mandatory exit path for every session**, partial included, and the only place XP is computed and persisted. It takes `sessionId` and nothing else: a freshly finished session's result arrives through an `@ActivityRetainedScoped` holder, while a past session's is read back from `sessions/{sessionId}` and its `outcomes` subcollection — one route, one screen, two load paths.
+It is the **mandatory exit path for every session**, partial included, and the only place XP is computed and persisted. It takes `sessionId` and nothing else: a freshly finished session's result arrives through an `@ActivityRetainedScoped` holder, while a past session's is read back from `sessions/{sessionId}` — one document, ledger included — one route, one screen, two load paths.
 
 Both Study Modes terminate here. Fast renders a reduced variant: time, streak, new cards and XP, with no mastered/failed counts, no mastery ring sweep and no "Study Again (Failed)".
 
@@ -327,14 +328,17 @@ users/{uid}/sessions/{sessionId}                      → { sessionId, startTime
                                                           cardCount, cardsMastered, cardsPartial,
                                                           cardsDefended, cardsDemastered,
                                                           newCardsStudied }
-users/{uid}/sessions/{sessionId}/outcomes/{cardId}    → { cardId, terminalState, attemptsUsed,
-                                                          wasPreviouslyMastered, transcript? }
-users/{uid}/cardProgress/{cardId}                     → { cardId, subcategoryId, categoryId,
-                                                          state: Seen|Failed|Partial|Mastered,
-                                                          firstStudiedAt, masteredAt? }
-users/{uid}/subcategoryProgress/{subcategoryId}       → { subcategoryId, categoryId,
-                                                          masteredCount, studiedCount,
-                                                          globalCardCount }
+    ... plus embedded  outcomes: { <cardId>: { subcategoryId, state, attemptsUsed,
+                                                          wasPreviouslyMastered, transcript? } }
+users/{uid}/progress/{subcategoryId}                  → { categoryId,
+                                                          cards: { <cardId>: {
+                                                            state: Seen|Failed|Partial|Mastered,
+                                                            firstStudiedAt, masteredAt? } } }
+users/{uid}/state/progressSummary                     → { subcategories: { <subcategoryId>: {
+                                                            masteredCount, studiedCount } } }
+users/{uid}/state/progression                         → { xp, level, xpIntoCurrentLevel,
+                                                          currentStreak, bestStreak,
+                                                          lastStudyDate, goalMetDate }
 users/{uid}/privateCards/{subcategoryId}/flashcards/{cardId} → { question, answer, tags[], difficulty, status, createdAt }
 
 // Report a problem (in-session flag icon)
@@ -354,13 +358,15 @@ users/{uid}/curationRequests/{cardId}                       → { subcategoryId:
 - **`extendedContext` is nullable** on global Flashcard documents. Omitted on simple cards (difficulty 1–3) where the Q&A is fully self-explanatory. Present and progressively richer as difficulty rises: mid cards (4–6) carry a concrete example or short snippet; hard/expert cards (7–10) carry fuller context — edge cases, cross-concept relationships, pitfalls. Never duplicates the `answer` field.
 - **Tags are flat untyped strings** in `tags[]` on each Flashcard. No `tags/` collection. See [ADR-0006](docs/adr/0006-flat-denormalized-tags.md).
 - **Category `iconUrl`**: absolute HTTPS URL. No Firebase Storage SDK dependency in UI layer.
-- **`sessions` is the single session collection** for both Study Modes, and is deliberately **slim** — aggregates and denormalized names (`categoryName`, `subcategoryNames[]`, `cardCount`) only, so Home's Recents carousel renders from one `orderBy(startTimestamp).limit(n)` query with no joins. Per-card outcomes live in the `outcomes` subcollection, read only when the user opens a detailed review of a past session. Rated-only counters are 0 for Fast. **Not yet written** — see Session Termination.
-- **`cardProgress` is one document per Flashcard per User**, and carries both progress sets: a document exists iff the Flashcard is **Studied**, and `state == Mastered` iff it is in **Persistent Mastery**. De-mastery moves `state` down rather than deleting, so coverage never regresses. Written by **both** Study Modes — Rated writes the Terminal State, Fast writes `Seen` only where no document exists. **Private Flashcards never receive one.** See [ADR-0016](docs/adr/0016-card-progress-model.md).
-- **`subcategoryProgress` carries `globalCardCount`** alongside the two counters, so Category Details draws a ring per Subcategory from one query with no second read for the denominator. The denominator excludes Private Flashcards, so the card count printed beside a ring must exclude them too.
+- **`sessions` is the single session collection** for both Study Modes, and **one session is one document**: aggregates, denormalized names (`categoryName`, `subcategoryNames[]`, `cardCount`) and the per-card ledger embedded as an `outcomes` map. Home's Recents carousel renders from one `orderBy(startTimestamp).limit(n)` query with no joins. The ledger is embedded rather than split into a subcollection because Firestore bills per document read — splitting saved Recents no reads while costing a write per card. Rated-only counters are 0 for Fast. **Not yet written** — see Session Termination.
+- **`progress` is one packed document per Subcategory per User**, holding a `cards` map keyed by card id, and carries both progress sets: a key exists iff the Flashcard is **Studied**, and its `state == Mastered` iff it is in **Persistent Mastery**. De-mastery moves `state` down rather than removing the key, so coverage never regresses. Written by **both** Study Modes — Rated writes the Terminal State, Fast writes `Seen` only where no entry exists. **Private Flashcards never receive one.** Packing makes a session's progress cost one write per Subcategory instead of one per card, and makes any screen's progress read a single document. See [ADR-0016](docs/adr/0016-card-progress-model.md).
+- **`state/progressSummary` is a single document per User** holding every Subcategory's `masteredCount` and `studiedCount`, so Category Details draws every ring on the screen from **one read**. The denominator is `Subcategory.cardCount` from the taxonomy, already loaded by the screens that draw rings, so it is duplicated nowhere. The denominator excludes Private Flashcards, so the card count printed beside a ring must exclude them too.
 - Private Flashcard `status`: `"private" | "submitted" | "approved"` — promotion pipeline to global pool.
 - **`curationRequests/{cardId}` is a flat collection** keyed by globally-unique cardId. Stores structured content-fix directives raised by any user via the in-session "Report a problem" dialog, consumed by admin sync scripts — not surfaced back to users anywhere in the app. Actions are a map of `CurationAction` string → `{ flaggedAt }`. Doc is deleted when all actions are removed. See [ADR-0017](docs/adr/0017-curation-report-system.md).
 - Offline: Firestore Android SDK built-in persistence. No Room needed.
-- **Partial is a Terminal State**, written to Firestore as `cardProgress.state` and counted on the session record — not an in-session mechanic only.
+- **`state` holds the User's singleton documents** — the progress summary and the scoring state. Firestore paths alternate collection and document, so each per-User singleton needs a fixed document id inside a collection; one security rule covers them all.
+- **Scoring state is deliberately NOT on `users/{uid}`.** That document carries `entitlement`, written only by the Admin SDK and read server-side by the premium Cloud Function, and it has no client rule in either direction. Making it client-writable so the Summary could save XP would let a User grant themselves premium. `dailyGoalMinutes` is likewise absent — it is device-scoped local state that Settings already owns.
+- **Partial is a Terminal State**, written to Firestore as a card's progress `state` and counted on the session record — not an in-session mechanic only.
 
 ## Flashcard Selection Algorithm
 
@@ -375,7 +381,7 @@ users/{uid}/curationRequests/{cardId}                       → { subcategoryId:
 
 Session Flashcard count: user-configurable (Length row on Preview, default 20), persisted as `StudySessionPreferences.sessionLength`. The Settings-screen row that would also edit it is unbuilt.
 
-**Previously documented here, never built, now dead:** a per-card-scored spaced-repetition selector — `(failedCount / (failedCount + correctCount)) * recencyWeight`, excluding cards where `nextReviewAt > now`. No such scoring exists anywhere in the codebase. "Not in MVP" below lists a future performance-weighted selector as the intended successor to today's random draw; `cardProgress` is the collection such a selector would read.
+**Previously documented here, never built, now dead:** a per-card-scored spaced-repetition selector — `(failedCount / (failedCount + correctCount)) * recencyWeight`, excluding cards where `nextReviewAt > now`. No such scoring exists anywhere in the codebase. "Not in MVP" below lists a future performance-weighted selector as the intended successor to today's random draw; the packed `progress` documents are what such a selector would read.
 
 ## Private Flashcards
 
