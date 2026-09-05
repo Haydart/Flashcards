@@ -100,7 +100,7 @@ destination.
 - The chevron becomes load-bearing rather than decorative. Removing it from a topic row would make
   the row look like a non-navigating container holding a single button, so it stays even where
   space is tight.
-- Per-subcategory progress has no data source yet — there is no `masteredCards` read anywhere in
+- Per-subcategory progress has no data source yet — there is no `subcategoryProgress` read anywhere in
   the code, only the `CONTEXT.md` definition. The ring is fed a **deliberately fake**,
   `id`-derived value so it is stable across recomposition and scroll, documented as fake at its
   source in the same way `SubcategoryDetailsViewModel.onFavoriteToggle` is. Real mastery
