@@ -102,7 +102,11 @@ clutter/read-count problem.
 - **The sampled Subcategory ids are screen state, not a function re-derived on every selection.**
   Sampling runs on load and on Re-randomize only. This is what keeps the sample stable while the user
   adjusts filters, length or sort — re-sampling on every selection would let a difficulty-slider nudge
-  silently change which Subcategories the session draws from.
+  silently change which Subcategories the session draws from. This applies to `subcategoryCountRange`
+  too: it is a Preview screen setting, edited before the session starts, never mid-session. Changing it
+  does not itself re-sample — the retained ids can momentarily sit outside the new range — the new
+  range only takes effect on the next Re-randomize or the next time the screen loads, the same rule
+  every other Preview setting follows.
 - `StudySessionConfig`, `StudySessionPreferences`, and `StudySessionPreference` each gain a
   `subcategoryCountRange` field/variant. `PreviewDialog` and `SettingsDialog` each gain a matching
   case, reusing `SessionLengthDialog`'s scaffold with a `RangeSlider` swapped in for the stepper.
