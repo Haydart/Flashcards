@@ -12,7 +12,7 @@ grade. The session accumulates its outcome in memory and hands it forward.
 One collection holds every Study Session, Rated and Fast alike:
 `users/{uid}/sessions/{sessionId}`.
 
-```
+```text
 sessionId: String
 startTimestamp: Timestamp
 durationSeconds: Int
@@ -92,7 +92,7 @@ needs to be supported.
 Both the progress summary and the scoring state are one document per User. Firestore paths alternate
 collection and document, so each needs a fixed document id inside a collection:
 
-```
+```text
 users/{uid}/state/progressSummary
 users/{uid}/state/progression
 ```

@@ -5,7 +5,7 @@
 A Rated Study Session's queue is a mutable list. When a card is rated Failed or Partial and has
 Attempts remaining, it is re-inserted at
 
-```
+```text
 currentIndex + random(MIN_GAP..MAX_GAP)
 ```
 

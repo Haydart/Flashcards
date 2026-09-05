@@ -316,11 +316,9 @@ subcategories/{categoryId-subSlug}/shards/{n}         → { flashcards: { "<card
 // Cache freshness signal (ADR-0039)
 meta/seed                                             → { value: Int }  // monotonic, bumped by seed_firestore.py
 
-// Per-user
-users/{uid}                                           → { xp, level, xpIntoCurrentLevel,
-                                                          currentStreak, bestStreak,
-                                                          dailyGoalMinutes,
-                                                          lastStudyDate, goalMetDate }
+// Per-user — admin-managed identity data only; scoring state lives under state/, not here
+users/{uid}                                           → {}  // no client-writable fields today
+users/{uid}/entitlement/premium                       → { isPremium }  // Admin SDK only, functions/src/lib/entitlement.ts
 users/{uid}/favorites/{subcategoryId}                 → { createdAt }
 // Not yet written anywhere in code — see Session Termination / Data Saving above.
 users/{uid}/sessions/{sessionId}                      → { sessionId, startTimestamp, durationSeconds,
