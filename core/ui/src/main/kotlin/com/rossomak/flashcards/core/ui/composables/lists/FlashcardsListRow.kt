@@ -102,7 +102,7 @@ fun FlashcardsListRow(
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -118,6 +118,14 @@ fun FlashcardsListRow(
             }
         }
         if (trailing != null) {
+            // Unweighted and sized to its own content: every call site's trailing is a chevron,
+            // switch, stepper, or icon button — always small and fixed-size, never long text (a
+            // settings row's current *value* lives in secondaryText, not trailing). Giving trailing
+            // a weight(1f) here — matching the title column's own weight(1f) — split the row 50/50
+            // by allocation regardless of content, forcing the title into exactly half the row even
+            // when short and leaving trailing stranded at that midpoint instead of flush against the
+            // row's right edge. Title's weight(1f) below already claims all space trailing doesn't
+            // use, which is what actually keeps trailing pinned to the end.
             trailing()
         }
     }

@@ -80,7 +80,7 @@ fun VoiceSettingsDialog(
                 onExpandedChange = { dropdownExpanded = it },
             ) {
                 OutlinedTextField(
-                    value = selectedVoice?.displayName ?: stringResource(R.string.voice_settings_voice_hint),
+                    value = selectedVoice?.label() ?: stringResource(R.string.voice_settings_voice_hint),
                     onValueChange = {},
                     readOnly = true,
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded) },
@@ -95,7 +95,7 @@ fun VoiceSettingsDialog(
                 ) {
                     availableVoices.forEach { voice ->
                         DropdownMenuItem(
-                            text = { Text(voice.displayName) },
+                            text = { Text(voice.label()) },
                             onClick = {
                                 dropdownExpanded = false
                                 onDraftVoiceChange(voice.id)
@@ -164,8 +164,8 @@ private fun SpeechRateSection(
 private fun VoiceSettingsDialogSessionPreview() {
     VoiceSettingsDialog(
         availableVoices = listOf(
-            VoiceOption(id = "en-us-x-1", displayName = "Google en-US · Female"),
-            VoiceOption(id = "en-gb-x-1", displayName = "Google en-GB · Male"),
+            VoiceOption(id = "en-us-x-1", countryCode = "US", variantIndex = 1),
+            VoiceOption(id = "en-gb-x-1", countryCode = "GB", variantIndex = 1),
         ),
         draftVoiceId = "en-us-x-1",
         draftSpeechRate = 1.25f,

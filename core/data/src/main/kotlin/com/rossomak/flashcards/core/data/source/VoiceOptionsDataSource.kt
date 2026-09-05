@@ -17,15 +17,19 @@ class VoiceOptionsDataSource @Inject constructor(
         continuation.invokeOnCancellation { tts?.shutdown() }
         tts = TextToSpeech(context) { status ->
             val voices = if (status == TextToSpeech.SUCCESS) {
-                VoiceCuration.curate(tts?.voices.orEmpty()).map { voice ->
-                    val countryLabel = voice.locale.displayCountry.takeIf { it.isNotBlank() }
-                        ?: voice.locale.displayLanguage
-                    val shortName = voice.name.substringAfterLast(":")
-                    VoiceOption(
-                        id = voice.name,
-                        displayName = "English ($countryLabel) · $shortName",
-                    )
-                }
+                // Grouped by ISO country code (VoiceCuration guarantees one of US/GB/AU, never
+                // blank) purely to number each group's voices 1-based — Voice.name is Android's
+                // own unique id, but its format is engine-opaque (not documented as delimited in
+                // any particular way), so parsing it for a display label risks collisions between
+                // unrelated voices; a friendly, collision-free label is built in core:ui instead,
+                // from countryCode + this index alone (see VoiceOption's own doc).
+                VoiceCuration.curate(tts?.voices.orEmpty())
+                    .groupBy { it.locale.country }
+                    .flatMap { (countryCode, countryVoices) ->
+                        countryVoices.mapIndexed { index, voice ->
+                            VoiceOption(id = voice.name, countryCode = countryCode, variantIndex = index + 1)
+                        }
+                    }
             } else {
                 emptyList()
             }

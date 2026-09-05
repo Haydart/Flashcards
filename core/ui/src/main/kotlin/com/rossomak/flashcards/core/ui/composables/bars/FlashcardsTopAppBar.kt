@@ -1,6 +1,8 @@
 package com.rossomak.flashcards.core.ui.composables.bars
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -53,7 +55,7 @@ import com.rossomak.flashcards.core.ui.theme.brandColors
  * Settings, Debug and other plain screens deliberately keep the stock M3 app bars — this component
  * exists for the gradient treatment alone, so it has no on-surface variant.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun FlashcardsTopAppBar(
     title: String,
@@ -68,10 +70,10 @@ fun FlashcardsTopAppBar(
     LargeFlexibleTopAppBar(
         modifier = modifier.background(MaterialTheme.brandColors.topBarGradient),
         title = {
-            Text(text = title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(text = title, modifier = Modifier.basicMarquee(), maxLines = 1, overflow = TextOverflow.Ellipsis)
         },
         subtitle = subtitle?.let {
-            { Text(text = it, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            { Text(text = it, modifier = Modifier.basicMarquee(), maxLines = 1, overflow = TextOverflow.Ellipsis) }
         },
         navigationIcon = {
             if (onNavigateBack != null) {

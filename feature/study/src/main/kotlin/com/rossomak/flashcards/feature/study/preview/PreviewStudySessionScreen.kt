@@ -1,6 +1,6 @@
 package com.rossomak.flashcards.feature.study.preview
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,67 +11,76 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Style
+import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.ui.R as CoreUiR
 import com.rossomak.flashcards.core.ui.composables.FlashcardsEmptyState
+import com.rossomak.flashcards.core.ui.composables.FlashcardsIconCircle
+import com.rossomak.flashcards.core.ui.composables.FlashcardsMetadataBadge
+import com.rossomak.flashcards.core.ui.composables.bars.FlashcardsGradientTopBar
 import com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsFilledButton
-import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardFilters
+import com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsIconButton
+import com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsOutlinedButton
+import com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsTonalButton
+import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle.OnGradient
 import com.rossomak.flashcards.core.ui.composables.dialogs.label
-import com.rossomak.flashcards.core.ui.composables.dialogs.readAloudLabel
-import com.rossomak.flashcards.core.ui.composables.dialogs.speechRateLabel
-import com.rossomak.flashcards.core.ui.composables.dialogs.voiceAnsweringLabel
+import com.rossomak.flashcards.core.ui.composables.rememberFlashcardsBottomSheetState
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
+import com.rossomak.flashcards.core.ui.theme.brandColors
+import com.rossomak.flashcards.core.ui.theme.spacing
 import com.rossomak.flashcards.feature.study.R
 import com.rossomak.flashcards.feature.study.StudySessionRoute
-import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Attempts
-import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Filters
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Length
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Mode
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.ReadAloud
-import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Sort
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.SubcategoryCountRange
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceAnswering
-import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceSettings
+import kotlinx.coroutines.delay
 
 @Composable
 fun PreviewStudySessionScreen(
@@ -93,70 +102,171 @@ fun PreviewStudySessionScreen(
         state = state,
         onNavigateBack = onNavigateBack,
         onRetry = viewModel::onRetry,
-        onRerandomize = viewModel::onRerandomize,
+        onReshuffleSubcategories = viewModel::onReshuffleSubcategories,
         onDialogEvent = viewModel::onDialogEvent,
         onResetFilters = viewModel::onResetFilters,
         onStartSession = viewModel::onStartSession,
     )
 }
 
+/**
+ * The screen's brand identity: [MaterialTheme.brandColors.screenGradient] painted full-bleed behind
+ * a transparent [Scaffold], with [FlashcardsGradientTopBar] bleeding it up behind the status bar for
+ * free. Deliberately the brand's fixed gradient, not category-tinted — per-category colour arrives
+ * with the unbuilt category icon-and-colour feature, and no route change is needed here to prepare
+ * for it.
+ *
+ * Settings live behind a sheet hidden until asked for (ticket 07). Its open/closed value
+ * ([settingsSheetOpen]) is screen-local view state, owned flat in this function rather than in
+ * [ReadyContent] or a separate hoisted controller — see this function's own `@Suppress` for why a
+ * prior extraction was dropped — because [SessionSettingsSheet] renders as a **plain, unaligned
+ * sibling of [Scaffold]** in the outer [Box] below, not nested inside [ReadyContent] or Scaffold's
+ * content slot at all. See that [Box]'s own comment for why. A settings badge (ticket 09) opens the
+ * sheet *and* the dialog for the value it names — but staggered, not together: the sheet slides up
+ * first, the dialog fades in a beat later, since the reveal is how a user discovers the sheet
+ * exists at all. `onOpenSettingsDialog` below sets the sheet open immediately and only delays the
+ * dialog's own open event, via [pendingBadgeDialog] + its own `LaunchedEffect` — a plain `remember`ed
+ * `Job` was tried first and rejected: nothing cancelled it on dismiss or a rapid second badge tap,
+ * so a sheet swiped away mid-delay could still pop its dialog open afterward on a closed sheet.
+ * Keying a `LaunchedEffect` on [pendingBadgeDialog] instead gets cancellation for free — Compose
+ * cancels the previous coroutine whenever the key changes (a new badge tap) or the composable leaves
+ * composition, and setting it back to `null` on dismiss/toggle-close changes the key immediately,
+ * cancelling any in-flight delay the same way. [initiallySettingsSheetOpen] exists solely so a
+ * `@Preview` can render the sheet-open state; every real caller leaves it at its default.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
+// This function's job is to own every top-level piece of screen state exactly once (the settings
+// sheet's open value, its FlashcardsBottomSheetState, and the badge-dialog stagger) so nothing
+// downstream duplicates it — splitting that ownership into a separate hoisted controller class was
+// tried and dropped: it added an indirection layer (a class plus its own remember-function) for a
+// detekt threshold alone, with no state actually shared outside this function.
+@Suppress("LongMethod")
 @Composable
 fun PreviewStudySessionContent(
     modifier: Modifier = Modifier,
     state: PreviewStudySessionScreenState,
     onNavigateBack: () -> Unit,
     onRetry: () -> Unit,
-    onRerandomize: () -> Unit,
+    onReshuffleSubcategories: () -> Unit,
     onDialogEvent: (PreviewDialogEvent) -> Unit,
     onResetFilters: () -> Unit,
     onStartSession: () -> Unit,
+    initiallySettingsSheetOpen: Boolean = false,
 ) {
     PreviewDialogHost(
         activeDialog = state.activeDialog,
         onDialogEvent = onDialogEvent,
     )
-    Scaffold(
-        modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text(text = screenTitle(state)) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close session preview",
-                        )
-                    }
-                },
-            )
-        },
-    ) { innerPadding ->
-        when {
-            state.isLoading -> Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentAlignment = Alignment.Center,
-            ) {
-                CircularProgressIndicator()
+
+    var settingsSheetOpen by rememberSaveable { mutableStateOf(initiallySettingsSheetOpen) }
+    val settingsSheetState = rememberFlashcardsBottomSheetState(initiallyExpanded = initiallySettingsSheetOpen)
+    LaunchedEffect(settingsSheetOpen) {
+        if (settingsSheetOpen) settingsSheetState.sheetState.show() else settingsSheetState.sheetState.hide()
+    }
+
+    // The badge-tap-to-dialog stagger (ticket 09) — see this function's own doc for why a
+    // LaunchedEffect keyed on this, not a manually-tracked Job, is what makes it cancellable.
+    var pendingBadgeDialog by remember { mutableStateOf<PreviewDialog?>(null) }
+    LaunchedEffect(pendingBadgeDialog) {
+        val dialog = pendingBadgeDialog ?: return@LaunchedEffect
+        delay(BADGE_DIALOG_STAGGER_DELAY_MS)
+        onDialogEvent(Open(dialog))
+        pendingBadgeDialog = null
+    }
+    val onDismissSettingsSheet = {
+        settingsSheetOpen = false
+        pendingBadgeDialog = null
+    }
+    val onToggleSettings = {
+        settingsSheetOpen = !settingsSheetOpen
+        if (!settingsSheetOpen) pendingBadgeDialog = null
+    }
+    val onOpenSettingsDialog: (PreviewDialog) -> Unit = { dialog ->
+        settingsSheetOpen = true
+        pendingBadgeDialog = dialog
+    }
+
+    // A plain, unaligned sibling of Scaffold — deliberately *not* docked inside its content slot,
+    // unlike an earlier version of this screen. Scaffold's default contentWindowInsets reserve the
+    // bottom safe-drawing (gesture nav) inset into innerPadding, shrinking whatever sits inside its
+    // content lambda short of the true screen bottom by that inset's height. FlashcardsBottomSheet
+    // wants the opposite: it already handles the bottom system-bar inset internally (see its own
+    // doc) and expects to own the real screen bottom itself. Nesting it inside Scaffold's
+    // inset-shrunk content double-counted that inset — the sheet's hidden position landed short of
+    // the true bottom (a gesture-bar-height sliver stayed visible, "peeking") and its expanded
+    // position gapped, showing this screen's gradient background beneath the sheet. Docking the
+    // sheet out here instead, outside Scaffold entirely, lets it reach the true screen bottom
+    // uncontested. [ReadyContent] (below, inside Scaffold's own content) still wants that inset —
+    // its Start button must stay clear of the gesture bar — so Scaffold itself is untouched.
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.brandColors.screenGradient),
+    ) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            containerColor = Color.Transparent,
+            topBar = {
+                FlashcardsGradientTopBar(
+                    title = screenTitle(state),
+                    navigationIcon = {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = stringResource(R.string.preview_session_close_cd),
+                            )
+                        }
+                    },
+                )
+            },
+        ) { innerPadding ->
+            when {
+                state.isLoading -> Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(color = MaterialTheme.brandColors.onGradientContent)
+                }
+                state.error != null -> ErrorContent(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    error = state.error,
+                    onRetry = onRetry,
+                )
+                else -> ReadyContent(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    state = state,
+                    settingsSheetOpen = settingsSheetOpen,
+                    onOpenSettings = { settingsSheetOpen = true },
+                    onToggleSettings = onToggleSettings,
+                    onOpenSettingsDialog = onOpenSettingsDialog,
+                    onReshuffleSubcategories = onReshuffleSubcategories,
+                    onResetFilters = onResetFilters,
+                    onStartSession = onStartSession,
+                )
             }
-            state.error != null -> ErrorContent(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                error = state.error,
-                onRetry = onRetry,
-            )
-            else -> ReadyContent(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
+        }
+        // Gated to error only, deliberately NOT to state.isLoading: a settings edit re-triggers
+        // selectCards(), which flips isLoading true for the reselect and false again once it lands
+        // (see PreviewStudySessionViewModel.selectCards's own doc) — a sheet already open at that
+        // point must ride through untouched, or it unmounts and remounts on every edit, snapping
+        // shut and sliding back open as a visible flicker. Loading is surfaced elsewhere (the
+        // Scaffold content below); the sheet's own open/closed value (settingsSheetOpen) has no
+        // dependency on it. state.config is always populated (a real default, never null) even
+        // before the first load lands, so nothing here is meaningless during that window either —
+        // and the sheet cannot be open yet at that point regardless, since ReadyContent's own
+        // settings toggle is what's absent until the first load lands.
+        if (state.error == null) {
+            SessionSettingsSheet(
                 state = state,
-                onRerandomize = onRerandomize,
+                sheetState = settingsSheetState,
+                onDismissRequest = onDismissSettingsSheet,
                 onDialogEvent = onDialogEvent,
-                onResetFilters = onResetFilters,
-                onStartSession = onStartSession,
             )
         }
     }
@@ -173,299 +283,400 @@ private fun ErrorContent(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(text = error, style = MaterialTheme.typography.bodyLarge)
-        Spacer(modifier = Modifier.height(16.dp))
-        OutlinedButton(onClick = onRetry) {
-            Text(text = "Retry")
-        }
+        Text(
+            text = error,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.brandColors.onGradientContent,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(MaterialTheme.spacing.normal))
+        FlashcardsOutlinedButton(
+            text = stringResource(CoreUiR.string.common_retry_button),
+            onClick = onRetry,
+            style = OnGradient,
+        )
     }
 }
 
+/**
+ * The ready-state body: the hero (play circle, title, scope sentence and badges — or, once the
+ * pool is empty, [FlashcardsEmptyState] in its place), top-anchored, with [HeroActions] pinned to
+ * the screen's true bottom edge below a flexible [Spacer] — the same bottom edge
+ * [SessionSettingsSheet][com.rossomak.flashcards.feature.study.preview.SessionSettingsSheet] docks
+ * up from (see [PreviewStudySessionContent]'s doc), so an expanded sheet — comfortably taller than
+ * this row on any real device, being every setting row stacked — fully covers it rather than
+ * leaving it floating above the sheet's top edge with daylight in between. [HeroActions] stays put
+ * whether the pool is empty or not, so Reshuffle topics remains reachable even from the empty
+ * state — a fresh sample can turn an empty result into a match. Otherwise plain top-down [Column]
+ * flow — no adaptive collapsing, no measuring against the sheet's actual height; see
+ * [PreviewStudySessionContent]'s doc for why that was dropped.
+ */
+// Four of these params (settingsSheetOpen, onOpenSettings, onToggleSettings, onOpenSettingsDialog)
+// used to arrive bundled in a single SettingsSheetController — dropped in favor of plain, flat
+// state in the caller (see PreviewStudySessionContent's own doc), which pushes this function over
+// detekt's LongParameterList threshold by one. Not worth re-introducing a bundling type for.
+@Suppress("LongParameterList")
 @Composable
 private fun ReadyContent(
     modifier: Modifier = Modifier,
     state: PreviewStudySessionScreenState,
-    onRerandomize: () -> Unit,
-    onDialogEvent: (PreviewDialogEvent) -> Unit,
+    settingsSheetOpen: Boolean,
+    onOpenSettings: () -> Unit,
+    onToggleSettings: () -> Unit,
+    onOpenSettingsDialog: (PreviewDialog) -> Unit,
+    onReshuffleSubcategories: () -> Unit,
     onResetFilters: () -> Unit,
     onStartSession: () -> Unit,
 ) {
+    val isEmpty = state.selectedCardCount == 0
+
     Column(
-        modifier = modifier
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 16.dp),
+        modifier = modifier.padding(
+            start = MaterialTheme.spacing.medium,
+            end = MaterialTheme.spacing.medium,
+            top = MaterialTheme.spacing.xxlarge,
+            bottom = MaterialTheme.spacing.medium,
+        ),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Spacer(modifier = Modifier.height(24.dp))
-
-        if (state.selectedCardCount == 0) {
-            FlashcardsEmptyState(
-                icon = Icons.Default.SearchOff,
-                title = stringResource(R.string.preview_session_empty_state_title),
-                supportingText = stringResource(R.string.preview_session_empty_state_message),
-                button = {
-                    FlashcardsFilledButton(
-                        text = stringResource(R.string.preview_session_empty_state_reset_button),
-                        onClick = onResetFilters,
-                        icon = Icons.Default.Refresh,
-                    )
-                },
-            )
+        if (!isEmpty) {
+            HeroTop()
+            Spacer(modifier = Modifier.height(MaterialTheme.spacing.normal))
+        }
+        if (isEmpty) {
+            EmptyHeroBody(onResetFilters = onResetFilters)
         } else {
-            Text(
-                text = "Ready to start?",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = scopeDescription(state),
-                style = MaterialTheme.typography.bodyLarge,
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                AssistChip(onClick = {}, label = { Text(text = "~ ${state.estimatedMinutes} min") })
-                if (!state.isSingleTopic) {
-                    AssistChip(onClick = {}, label = { Text(text = "${state.topicCount} topics") })
-                }
-                AssistChip(onClick = {}, label = { Text(text = "${state.selectedCardCount} cards") })
-            }
+            ScopeHeroBody(state = state, onOpenSettings = onOpenSettings, onOpenSettingsDialog = onOpenSettingsDialog)
         }
+        Spacer(modifier = Modifier.weight(1f))
+        HeroActions(
+            state = state,
+            settingsSheetOpen = settingsSheetOpen,
+            onToggleSettings = onToggleSettings,
+            onReshuffleSubcategories = onReshuffleSubcategories,
+            onStartSession = onStartSession,
+        )
+    }
+}
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        SessionSettingRows(state = state, onDialogEvent = onDialogEvent)
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (state.canRerandomize) {
-                // Enabled independent of canStart: a new Subcategory sample or a loosened filter
-                // might turn an empty result into a match, so re-randomizing must stay reachable
-                // through the empty state, not just once cards are already selected.
-                FilledTonalButton(
-                    onClick = onRerandomize,
-                    enabled = !state.isLoading,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Icon(imageVector = Icons.Default.Shuffle, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.size(8.dp))
-                    Text(text = "Re-randomize")
-                }
-            }
-            Button(
-                onClick = onStartSession,
-                enabled = state.canStart,
-                modifier = Modifier.weight(1f),
-            ) {
-                Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.size(8.dp))
-                Text(text = "Start session")
-            }
-        }
+/** The play circle and "Ready to start?" title — the one part of the hero [AdaptiveHero] can drop. */
+@Composable
+private fun HeroTop(modifier: Modifier = Modifier) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        FlashcardsIconCircle(
+            icon = Icons.Default.PlayArrow,
+            // Decorative: "Ready to start?" right below already names what this circle means.
+            contentDescription = null,
+            style = OnGradient,
+        )
+        Spacer(modifier = Modifier.height(MaterialTheme.spacing.normal))
+        Text(
+            // titleMedium, not a headline style: matches FlashcardsEmptyState's own title size —
+            // this hero is that empty state's populated counterpart in the very same layout slot
+            // (see ReadyContent), so the two should read as the same weight of "state title".
+            text = stringResource(R.string.preview_session_ready_title),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.brandColors.onGradientContent,
+        )
     }
 }
 
 /**
- * One row per adjustable setting, each opening its own dialog (ADR-0030). The rows are a plain
- * column for now — the persistent bottom-sheet chrome the ADR describes is a later pass, and the
- * rows and their dialogs are what carry the behavior.
- *
- * Voice answering and attempts are Rated-only: Fast mode has no rating step for either to drive
- * (ADR-0025). Read-aloud is the Fast-only counterpart — voice *output* plus hands-free advance,
- * where voice answering is voice *input*. Each is not offered outside its mode rather than being
- * offered and ignored, so the two branches are exclusive.
+ * The scope sentence and its read-only badges — minutes, cards, then topics for a multi-subcategory
+ * or Quick session (today's code emitted topics before cards; the design calls for this order) —
+ * plus [SettingsBadgeRow] on its own line beneath them. This half of the hero always survives
+ * [AdaptiveHero]'s adaptation.
  */
 @Composable
-private fun SessionSettingRows(
+private fun ScopeHeroBody(
     modifier: Modifier = Modifier,
     state: PreviewStudySessionScreenState,
-    onDialogEvent: (PreviewDialogEvent) -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenSettingsDialog: (PreviewDialog) -> Unit,
 ) {
-    Column(modifier = modifier.fillMaxWidth()) {
-        SessionSettingRow(
-            label = stringResource(R.string.preview_session_mode_label),
-            value = state.config.mode.label(),
-            onClick = { onDialogEvent(Open(Mode(draft = state.config.mode))) },
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            // bodyMedium, matching FlashcardsEmptyState's own supportingText size (see HeroTop).
+            text = scopeDescription(state),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.brandColors.onGradientContent,
+            textAlign = TextAlign.Center,
         )
-        if (state.config.mode == StudyMode.Rated) {
-            SessionSettingRow(
-                label = stringResource(R.string.preview_session_voice_answering_label),
-                value = voiceAnsweringLabel(state.config.voiceAnsweringEnabled),
-                onClick = {
-                    onDialogEvent(
-                        Open(VoiceAnswering(draft = state.config.voiceAnsweringEnabled))
-                    )
-                },
+        Spacer(modifier = Modifier.height(MaterialTheme.spacing.normal))
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall),
+        ) {
+            FlashcardsMetadataBadge(
+                label = stringResource(R.string.preview_session_estimated_minutes_badge_label, state.estimatedMinutes),
+                icon = Icons.Default.Schedule,
+                style = OnGradient,
             )
-            SessionSettingRow(
-                label = stringResource(R.string.preview_session_attempts_label),
-                value = pluralStringResource(
-                    CoreUiR.plurals.rated_attempts_label,
-                    state.config.ratedAttempts,
-                    state.config.ratedAttempts,
+            FlashcardsMetadataBadge(
+                label = pluralStringResource(
+                    CoreUiR.plurals.session_length_cards_label,
+                    state.selectedCardCount,
+                    state.selectedCardCount,
                 ),
-                onClick = { onDialogEvent(Open(Attempts(draft = state.config.ratedAttempts))) },
+                icon = Icons.Default.Style,
+                style = OnGradient,
+                onClick = { onOpenSettingsDialog(Length(draft = state.config.length)) },
             )
-        } else {
-            SessionSettingRow(
-                label = stringResource(R.string.preview_session_read_aloud_label),
-                value = readAloudLabel(state.config.readAloudEnabled),
-                onClick = { onDialogEvent(Open(ReadAloud(draft = state.config.readAloudEnabled))) },
-            )
+            if (!state.isSingleSubcategory) {
+                FlashcardsMetadataBadge(
+                    label = pluralStringResource(
+                        R.plurals.preview_session_topics_badge_label,
+                        state.subcategoryCount,
+                        state.subcategoryCount,
+                    ),
+                    icon = Icons.Default.List,
+                    style = OnGradient,
+                    onClick = {
+                        // Quick's topics count is the SubcategoryCountRange setting; Custom's
+                        // subcategories are hand-picked outside this screen, so no dialog matches
+                        // them — the badge falls back to just revealing the sheet (ticket per grill).
+                        if (state.isQuickSession) {
+                            onOpenSettingsDialog(SubcategoryCountRange(draft = state.config.subcategoryCountRange))
+                        } else {
+                            onOpenSettings()
+                        }
+                    },
+                )
+            }
         }
-        // Fast mode always plays cards aloud; Rated only when voice answering is on — the same
-        // gate the row itself opens into (ADR-0030).
-        if (state.config.mode == StudyMode.Fast || state.config.voiceAnsweringEnabled) {
-            SessionSettingRow(
-                label = stringResource(R.string.preview_session_voice_settings_label),
-                value = voicePlaybackSummary(state),
-                onClick = { onDialogEvent(Open(VoiceSettings())) },
-            )
-        }
-        SessionSettingRow(
-            label = stringResource(R.string.preview_session_length_label),
-            value = pluralStringResource(
-                CoreUiR.plurals.session_length_cards_label,
-                state.config.length,
-                state.config.length,
-            ),
-            onClick = { onDialogEvent(Open(Length(draft = state.config.length))) },
+        Spacer(modifier = Modifier.height(MaterialTheme.spacing.xsmall))
+        SettingsBadgeRow(state = state, onOpenSettingsDialog = onOpenSettingsDialog)
+    }
+}
+
+/**
+ * Mode and interaction, tappable — a new user's only on-screen evidence that either is a choice at
+ * all, now that the settings sheet defaults to hidden (ticket 07). Kept off the read-only scope
+ * badges' own row: a tappable pill sitting among read-only ones is poor affordance and worse
+ * accessibility (ticket 09). Each [FlashcardsMetadataBadge] gets a non-null `onClick`, which is what
+ * makes it announce itself as a button rather than static text — the scope badges above pass none.
+ *
+ * The second badge always names a behaviour, never its absence — "Manual", not "Off" — a deliberate
+ * reversal of the usual rule against badging negatives (ticket 09).
+ */
+@Composable
+private fun SettingsBadgeRow(
+    modifier: Modifier = Modifier,
+    state: PreviewStudySessionScreenState,
+    onOpenSettingsDialog: (PreviewDialog) -> Unit,
+) {
+    val isRated = state.config.mode == StudyMode.Rated
+    val interactionEnabled = if (isRated) state.config.voiceAnsweringEnabled else state.config.readAloudEnabled
+
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xsmall),
+    ) {
+        FlashcardsMetadataBadge(
+            label = state.config.mode.label(),
+            icon = if (isRated) Icons.Default.Star else Icons.Default.Bolt,
+            style = OnGradient,
+            onClick = { onOpenSettingsDialog(Mode(draft = state.config.mode)) },
         )
-        if (state.isQuickSession) {
-            SubcategoryCountRangeSettingRow(state = state, onDialogEvent = onDialogEvent)
-        }
-        SessionSettingRow(
-            label = stringResource(R.string.preview_session_filters_label),
-            value = filtersLabel(state),
+        val interactionBadge = interactionBadgeContent(isRated = isRated, enabled = interactionEnabled)
+        FlashcardsMetadataBadge(
+            label = interactionBadge.label,
+            icon = interactionBadge.icon,
+            style = OnGradient,
             onClick = {
-                onDialogEvent(
-                    Open(
-                        Filters(
-                            draft = FlashcardFilters(
-                                selectedTags = state.config.tagIds,
-                                difficultyRange = state.config.difficultyRange,
-                            ),
-                            availableTags = state.availableTags,
-                        )
-                    )
+                onOpenSettingsDialog(
+                    if (isRated) {
+                        VoiceAnswering(draft = state.config.voiceAnsweringEnabled)
+                    } else {
+                        ReadAloud(draft = state.config.readAloudEnabled)
+                    },
                 )
             },
         )
-        SessionSettingRow(
-            label = stringResource(R.string.preview_session_sort_label),
-            value = state.config.sortOrder.label(),
-            onClick = { onDialogEvent(Open(Sort(draft = state.config.sortOrder))) },
-        )
     }
 }
 
+/** [SettingsBadgeRow]'s second badge: label plus a leading icon, together since both are picked by the same three-way classification. */
+private data class InteractionBadgeContent(val label: String, val icon: ImageVector)
+
 /**
- * Lifted out of [SessionSettingRows] purely to keep that function under detekt's `LongMethod` — a
- * single-Subcategory or Custom session has nothing to sample and never shows this row (ADR-0040).
+ * "Voice" (Rated) or "Auto" (Fast) when [enabled], "Manual" either way when not — never "Off". The
+ * icon mirrors what each value already carries in
+ * [VoiceAnsweringDialog][com.rossomak.flashcards.core.ui.composables.dialogs.VoiceAnsweringDialog]/
+ * [ReadAloudDialog][com.rossomak.flashcards.core.ui.composables.dialogs.ReadAloudDialog].
  */
 @Composable
-private fun SubcategoryCountRangeSettingRow(
-    state: PreviewStudySessionScreenState,
-    onDialogEvent: (PreviewDialogEvent) -> Unit,
-) {
-    SessionSettingRow(
-        label = stringResource(R.string.preview_session_subcategory_count_range_label),
-        value = stringResource(
-            CoreUiR.string.subcategory_count_range_value_label,
-            state.config.subcategoryCountRange.first,
-            state.config.subcategoryCountRange.last,
-        ),
-        onClick = { onDialogEvent(Open(SubcategoryCountRange(draft = state.config.subcategoryCountRange))) },
+private fun interactionBadgeContent(isRated: Boolean, enabled: Boolean): InteractionBadgeContent = when {
+    !enabled -> InteractionBadgeContent(
+        label = stringResource(R.string.preview_session_interaction_manual_label),
+        icon = Icons.Default.TouchApp,
+    )
+    isRated -> InteractionBadgeContent(
+        label = stringResource(R.string.preview_session_interaction_voice_label),
+        icon = Icons.Default.Mic,
+    )
+    else -> InteractionBadgeContent(
+        label = stringResource(R.string.preview_session_interaction_auto_label),
+        icon = Icons.AutoMirrored.Filled.VolumeUp,
     )
 }
 
-@Composable
-private fun SessionSettingRow(
-    modifier: Modifier = Modifier,
-    label: String,
-    value: String,
-    onClick: () -> Unit,
-) {
-    Column(modifier = modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(
-                    onClick = onClick,
-                    onClickLabel = stringResource(R.string.preview_session_edit_setting_cd, label),
-                )
-                .padding(vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = label,
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.bodyLarge,
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.size(4.dp))
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-    }
-}
-
 /**
- * Name and rate, or the rate alone while the platform voice list has not arrived yet or no longer
- * contains the saved id (an engine can be uninstalled between runs).
+ * Ticket 10's nothing-matches state: [FlashcardsEmptyState] replaces the *whole* hero above it (no
+ * play circle, no title, no scope sentence, no badges — [AdaptiveHero] never even composes
+ * [HeroTop] when [ReadyContent] finds the pool empty), with a single Reset filters action that
+ * restores what the screen was originally handed. Settings remains reachable from an empty pool via
+ * [HeroActions]' own settings toggle, which stays put either way below this body (with Start
+ * session visible but disabled) so it's never out of reach. Reshuffle is deliberately absent too —
+ * [HeroActions] itself keeps it off in the empty state.
  */
 @Composable
-private fun voicePlaybackSummary(state: PreviewStudySessionScreenState): String {
-    val rateLabel = speechRateLabel(state.config.voiceSettings.speechRate)
-    val voiceName = state.availableVoices
-        .firstOrNull { it.id == state.config.voiceSettings.voiceId }
-        ?.displayName
-        ?: return rateLabel
-    return stringResource(R.string.preview_session_setting_value_separator_label, voiceName, rateLabel)
+private fun EmptyHeroBody(modifier: Modifier = Modifier, onResetFilters: () -> Unit) {
+    FlashcardsEmptyState(
+        modifier = modifier,
+        icon = Icons.Default.SearchOff,
+        title = stringResource(R.string.preview_session_empty_state_title),
+        supportingText = stringResource(R.string.preview_session_empty_state_message),
+        style = OnGradient,
+        button = {
+            FlashcardsFilledButton(
+                text = stringResource(R.string.preview_session_empty_state_reset_button),
+                onClick = onResetFilters,
+                icon = Icons.Default.Refresh,
+                style = OnGradient,
+            )
+        },
+    )
 }
 
 /**
- * Difficulty always reads; the tag count only joins it when tags are actually narrowing the pool.
+ * **Start session** plus the unlabelled settings toggle, with **Reshuffle topics** for Quick
+ * sessions only — except when nothing matches (ticket 10): reshuffling there is offered nowhere,
+ * not just left off the empty state's own two actions, since a stale sample and a fresh one look
+ * identical until reshuffled. Custom never offers it, single- or multi-subcategory alike: its
+ * subcategories are hand-picked by the user, not sampled, so there is nothing to reshuffle
+ * ([PreviewStudySessionScreenState.canReshuffleSubcategories]). Reshuffle stays enabled independent
+ * of [PreviewStudySessionScreenState.canStart] otherwise: a fresh sample can turn an empty result
+ * into a match, which is exactly when reshuffling is needed. Start's label never changes with the
+ * sheet's open/closed value — the primary action's text must not shift under the user — and it stays
+ * visible but disabled whenever nothing is selected, rather than disappearing.
  *
- * `config.tagIds` is materialized to every available tag by default (mirroring SubcategoryDetails,
- * ADR-0038), so "narrowing" means it is a *proper* subset of [PreviewStudySessionScreenState.availableTags]
- * — comparing against emptiness alone would show a tag count even when nothing was narrowed.
+ * Two shapes, picked by the same condition that gates Reshuffle itself: when it's offered, Start
+ * gets its own full-width row on top (the settings toggle isn't reachable in that row anyway once
+ * Reshuffle joins it — two weighted buttons plus an icon overflow a phone's width), with the
+ * toggle sharing Reshuffle's row beneath. Everywhere else (single-subcategory, Custom, or an empty
+ * pool) the toggle stays paired with Start, as before.
  */
 @Composable
-private fun filtersLabel(state: PreviewStudySessionScreenState): String {
-    val config = state.config
-    val difficultyLabel = stringResource(
-        R.string.preview_session_filters_difficulty_value_label,
-        config.difficultyRange.first,
-        config.difficultyRange.last,
-    )
-    if (config.tagIds.isEmpty() || config.tagIds == state.availableTags.toSet()) return difficultyLabel
-    val tagsLabel = pluralStringResource(
-        R.plurals.preview_session_filters_tags_value_label,
-        config.tagIds.size,
-        config.tagIds.size,
-    )
-    return stringResource(R.string.preview_session_setting_value_separator_label, tagsLabel, difficultyLabel)
+private fun HeroActions(
+    modifier: Modifier = Modifier,
+    state: PreviewStudySessionScreenState,
+    settingsSheetOpen: Boolean,
+    onToggleSettings: () -> Unit,
+    onReshuffleSubcategories: () -> Unit,
+    onStartSession: () -> Unit,
+) {
+    val showReshuffle = state.canReshuffleSubcategories && state.selectedCardCount > 0
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
+    ) {
+        if (showReshuffle) {
+            StartSessionButton(
+                state = state,
+                onStartSession = onStartSession,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SettingsToggleButton(settingsSheetOpen = settingsSheetOpen, onToggleSettings = onToggleSettings)
+                FlashcardsTonalButton(
+                    text = stringResource(R.string.preview_session_reshuffle_button),
+                    onClick = onReshuffleSubcategories,
+                    enabled = !state.isLoading,
+                    icon = Icons.Default.Shuffle,
+                    style = OnGradient,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        } else {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SettingsToggleButton(settingsSheetOpen = settingsSheetOpen, onToggleSettings = onToggleSettings)
+                StartSessionButton(
+                    state = state,
+                    onStartSession = onStartSession,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    }
 }
 
-// isQuickSession is checked before isSingleTopic so a quick session that happens to land on one
-// topic still reads as "Quick session" rather than misreporting as a plain single-topic preview.
+/** [HeroActions]' primary action, lifted out purely so both of its row shapes can share it. */
+@Composable
+private fun StartSessionButton(
+    modifier: Modifier = Modifier,
+    state: PreviewStudySessionScreenState,
+    onStartSession: () -> Unit,
+) {
+    FlashcardsFilledButton(
+        text = stringResource(CoreUiR.string.common_start_session_button),
+        onClick = onStartSession,
+        enabled = state.canStart,
+        icon = Icons.Default.PlayArrow,
+        style = OnGradient,
+        modifier = modifier,
+    )
+}
+
+/**
+ * The sliders icon: toggles [settingsSheetOpen] rather than only ever opening it, so it can also
+ * close a sheet the user opened from here — ticket per grill. [Icons.Default.Tune], not a gear —
+ * this button opens *session* settings (mode, length, filters…), not the app's Settings screen, so
+ * a gear risks reading as a navigation shortcut to the wrong destination. Purely behavioural: no
+ * visual "active" state exists on [FlashcardsIconButton] to reflect open/closed, only the announced
+ * content description changes. A badge- or empty-state-triggered open never routes through this
+ * button, so those stay force-open (never toggled shut) regardless of this value.
+ */
+@Composable
+private fun SettingsToggleButton(settingsSheetOpen: Boolean, onToggleSettings: () -> Unit) {
+    FlashcardsIconButton(
+        icon = Icons.Default.Tune,
+        contentDescription = stringResource(
+            if (settingsSheetOpen) {
+                R.string.preview_session_close_settings_cd
+            } else {
+                R.string.preview_session_open_settings_cd
+            },
+        ),
+        onClick = onToggleSettings,
+        style = OnGradient,
+    )
+}
+
+/**
+ * How long a settings badge tap waits after opening the sheet before opening its dialog (ticket
+ * 09) — long enough that the sheet's own slide-up reads as a distinct event before the dialog (and
+ * its ticket 04 background blur) covers it, short enough that the tap still feels like one action.
+ * `BottomSheet`'s expand animation is spring-driven (see M3's `BottomSheet.kt`), not a fixed-duration
+ * tween, so there is no single number to sync exactly against — this is tuned with headroom above a
+ * typical settle, not measured from one.
+ */
+private const val BADGE_DIALOG_STAGGER_DELAY_MS = 300L
+
+// isQuickSession is checked before isSingleSubcategory so a quick session that happens to land on
+// one subcategory still reads as "Quick session" rather than misreporting as a plain single-subcategory
+// preview.
 private fun screenTitle(state: PreviewStudySessionScreenState): String = when {
     state.isQuickSession -> "${state.categoryName} · Quick session"
-    state.isSingleTopic -> "${state.categoryName} · ${state.subcategoryNames.first()}"
+    state.isSingleSubcategory -> "${state.categoryName} · ${state.subcategoryNames.first()}"
     else -> "${state.categoryName} · Custom session"
 }
 
@@ -479,10 +690,10 @@ private fun scopeDescription(state: PreviewStudySessionScreenState): AnnotatedSt
     // Resolved here, not inside appendSubcategoryList, so that function can stay a plain (non-
     // @Composable) builder step — matching appendOxfordList — instead of tripping detekt/lint's
     // ComposableNaming rule for a lowercase Unit-returning @Composable.
-    val otherTopicsText = (state.subcategoryNames.size - SUBCATEGORY_LIST_VISIBLE_COUNT)
+    val otherSubcategoriesText = (state.subcategoryNames.size - SUBCATEGORY_LIST_VISIBLE_COUNT)
         .takeIf { state.subcategoryNames.size > SUBCATEGORY_LIST_TRUNCATION_THRESHOLD }
         ?.let { otherCount ->
-            pluralStringResource(R.plurals.preview_session_scope_other_topics_count, otherCount, otherCount)
+            pluralStringResource(R.plurals.preview_session_scope_other_subcategories_count, otherCount, otherCount)
         }
     return buildAnnotatedString {
         fun appendBold(text: String) {
@@ -493,40 +704,45 @@ private fun scopeDescription(state: PreviewStudySessionScreenState): AnnotatedSt
             state.isQuickSession -> {
                 appendBold(cardsText)
                 append(stringResource(R.string.preview_session_scope_quick_session_message))
-                appendSubcategoryList(state.subcategoryNames, ::appendBold, otherTopicsText)
+                appendSubcategoryList(state.subcategoryNames, ::appendBold, otherSubcategoriesText)
                 append(".")
             }
-            state.isSingleTopic -> {
+            state.isSingleSubcategory -> {
                 appendBold(cardsText)
-                append(stringResource(R.string.preview_session_scope_single_topic_prefix_message))
-                append(state.subcategoryNames.first())
-                append(stringResource(R.string.preview_session_scope_single_topic_suffix_message))
+                append(stringResource(R.string.preview_session_scope_single_subcategory_prefix_message))
+                appendBold(state.subcategoryNames.first())
+                append(stringResource(R.string.preview_session_scope_single_subcategory_suffix_message))
             }
             else -> {
                 appendBold(cardsText)
-                append(stringResource(R.string.preview_session_scope_multi_topic_message))
-                appendSubcategoryList(state.subcategoryNames, ::appendBold, otherTopicsText)
+                append(stringResource(R.string.preview_session_scope_multi_subcategory_message))
+                appendSubcategoryList(state.subcategoryNames, ::appendBold, otherSubcategoriesText)
                 append(".")
             }
         }
     }
 }
 
-/** Names past this count stop being useful to read at a glance and collapse into a count instead. */
-private const val SUBCATEGORY_LIST_TRUNCATION_THRESHOLD = 4
+/**
+ * Names past this count stop being useful to read at a glance and collapse into a count instead.
+ * Pinned to [StudySessionConfig.MAX_SUBCATEGORY_COUNT] — Quick's subcategory-count cap — so a
+ * Quick session, whose topics the user did not choose, making naming them the whole point of a
+ * preview, never truncates. Custom sessions, unbounded, still collapse once they cross it.
+ */
+private val SUBCATEGORY_LIST_TRUNCATION_THRESHOLD = StudySessionConfig.MAX_SUBCATEGORY_COUNT
 private const val SUBCATEGORY_LIST_VISIBLE_COUNT = 3
 
 /**
- * Lists every Subcategory name in full when [otherTopicsText] is `null` (fits within
+ * Lists every Subcategory name in full when [otherSubcategoriesText] is `null` (fits within
  * [SUBCATEGORY_LIST_TRUNCATION_THRESHOLD]); otherwise the first [SUBCATEGORY_LIST_VISIBLE_COUNT]
  * plus that pre-resolved "and N other topics" summary of the rest.
  */
 private fun AnnotatedString.Builder.appendSubcategoryList(
     names: List<String>,
     appendBold: (String) -> Unit,
-    otherTopicsText: String?,
+    otherSubcategoriesText: String?,
 ) {
-    if (otherTopicsText == null) {
+    if (otherSubcategoriesText == null) {
         appendOxfordList(names, appendBold)
         return
     }
@@ -534,7 +750,7 @@ private fun AnnotatedString.Builder.appendSubcategoryList(
         if (index > 0) append(", ")
         appendBold(name)
     }
-    append(otherTopicsText)
+    append(otherSubcategoriesText)
 }
 
 // Joins names as "A and B" (2 items) or "A, B, and C" (3+ items), bolding each name.
@@ -547,135 +763,4 @@ private fun AnnotatedString.Builder.appendOxfordList(names: List<String>, append
         }
         appendBold(name)
     }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun PreviewStudySessionLoadingPreview() {
-    PreviewStudySessionContent(
-        state = PreviewStudySessionScreenState(
-            categoryName = "Android",
-            subcategoryNames = listOf("Compose"),
-            isLoading = true,
-        ),
-        onNavigateBack = {},
-        onRetry = {},
-        onRerandomize = {},
-        onDialogEvent = {},
-        onResetFilters = {},
-        onStartSession = {},
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun PreviewStudySessionErrorPreview() {
-    PreviewStudySessionContent(
-        state = PreviewStudySessionScreenState(
-            categoryName = "Android",
-            subcategoryNames = listOf("Compose"),
-            isLoading = false,
-            error = "Could not load flashcards",
-        ),
-        onNavigateBack = {},
-        onRetry = {},
-        onRerandomize = {},
-        onDialogEvent = {},
-        onResetFilters = {},
-        onStartSession = {},
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun PreviewStudySessionEmptyStatePreview() {
-    PreviewStudySessionContent(
-        state = PreviewStudySessionScreenState(
-            categoryName = "Android",
-            subcategoryNames = listOf("Compose"),
-            isLoading = false,
-            config = StudySessionConfig(
-                subcategoryIds = listOf("compose"),
-                tagIds = setOf("state"),
-                difficultyRange = 9..10,
-            ),
-            selectedCardCount = 0,
-            estimatedMinutes = 0,
-            availableTags = listOf("state", "modifiers", "recomposition"),
-        ),
-        onNavigateBack = {},
-        onRetry = {},
-        onRerandomize = {},
-        onDialogEvent = {},
-        onResetFilters = {},
-        onStartSession = {},
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun PreviewStudySessionSingleTopicPreview() {
-    PreviewStudySessionContent(
-        state = PreviewStudySessionScreenState(
-            categoryName = "Android",
-            subcategoryNames = listOf("Compose"),
-            isLoading = false,
-            config = StudySessionConfig(
-                subcategoryIds = listOf("compose"),
-                tagIds = setOf("state", "modifiers"),
-                difficultyRange = 2..8,
-            ),
-            selectedCardCount = 18,
-            estimatedMinutes = 12,
-            availableTags = listOf("state", "modifiers", "recomposition"),
-        ),
-        onNavigateBack = {},
-        onRetry = {},
-        onRerandomize = {},
-        onDialogEvent = {},
-        onResetFilters = {},
-        onStartSession = {},
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun PreviewStudySessionQuickSessionPreview() {
-    PreviewStudySessionContent(
-        state = PreviewStudySessionScreenState(
-            categoryName = "Android",
-            subcategoryNames = listOf("Compose", "Coroutines", "Architecture", "Testing", "Navigation"),
-            isQuickSession = true,
-            isLoading = false,
-            selectedCardCount = 20,
-            estimatedMinutes = 13,
-        ),
-        onNavigateBack = {},
-        onRetry = {},
-        onRerandomize = {},
-        onDialogEvent = {},
-        onResetFilters = {},
-        onStartSession = {},
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun PreviewStudySessionCustomSessionPreview() {
-    PreviewStudySessionContent(
-        state = PreviewStudySessionScreenState(
-            categoryName = "Android",
-            subcategoryNames = listOf("Compose", "Coroutines", "Architecture"),
-            isLoading = false,
-            config = StudySessionConfig(subcategoryIds = listOf("a", "b", "c"), mode = StudyMode.Fast),
-            selectedCardCount = 12,
-            estimatedMinutes = 8,
-        ),
-        onNavigateBack = {},
-        onRetry = {},
-        onRerandomize = {},
-        onDialogEvent = {},
-        onResetFilters = {},
-        onStartSession = {},
-    )
 }

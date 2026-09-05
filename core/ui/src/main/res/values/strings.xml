@@ -12,6 +12,8 @@
     <string name="common_navigate_back_cd">Back</string>
     <string name="common_close_cd">Close</string>
     <string name="common_edit_button">Edit</string>
+    <string name="common_retry_button">Retry</string>
+    <string name="common_start_session_button">Start session</string>
     <string name="common_search_clear_cd">Clear search</string>
     <string name="common_search_dismiss_cd">Close search</string>
     <string name="common_mastery_progress_cd">%1$d%% mastered</string>
@@ -31,6 +33,7 @@
     <string name="voice_settings_voice_hint">Select voice</string>
     <string name="voice_settings_speed_label">SPEED</string>
     <string name="voice_settings_speed_value_label">%1$s\u00D7</string>
+    <string name="voice_option_label">English (%1$s) Voice %2$d</string>
 
     <string name="flashcard_filters_dialog_title">Filters</string>
     <string name="flashcard_filters_tags_label">TAGS</string>

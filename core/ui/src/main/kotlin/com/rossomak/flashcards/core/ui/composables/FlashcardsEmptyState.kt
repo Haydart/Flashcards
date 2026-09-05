@@ -29,7 +29,6 @@ import com.airbnb.android.showkase.annotation.ShowkaseComposable
 import com.rossomak.flashcards.core.ui.composables.FlashcardsEmptyStateTone.Error
 import com.rossomak.flashcards.core.ui.composables.FlashcardsEmptyStateTone.Info
 import com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsFilledButton
-import com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsOutlinedButton
 import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle
 import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle.OnGradient
 import com.rossomak.flashcards.core.ui.composables.common.FlashcardsComponentStyle.OnSurface
@@ -47,7 +46,7 @@ private const val ON_GRADIENT_ERROR_BORDER_ALPHA = 0.5f
 
 /**
  * The shared layout for "nothing to show" and "something went wrong" screens: a tinted, color-coded
- * icon circle, a title, up to two lines of supporting copy, and up to two CTA slots. Used for empty
+ * icon circle, a title, up to two lines of supporting copy, and one CTA slot. Used for empty
  * search results, empty lists, cleared filters, and load errors alike — [tone] is the only thing
  * that shifts between "empty" and "error".
  *
@@ -59,14 +58,10 @@ private const val ON_GRADIENT_ERROR_BORDER_ALPHA = 0.5f
  * whatever alignment the call site needs), same as every other `core:ui` composable that doesn't
  * own its own layout slot.
  *
- * [button] and [secondaryButton] are slots, not label/icon/click params: this component only
- * positions a CTA, it does not construct one. Pass a lambda that calls a button composable directly
- * (typically [FlashcardsFilledButton] for [button], [FlashcardsOutlinedButton] for
- * [secondaryButton], each with `style = style` so it matches the rest of the empty state), or `null` to
- * omit the slot. [secondaryButton] renders beneath [button] when both are present — an empty state
- * offering "Reset filters" alongside "Session settings" (or "Clear query" alongside "Browse all")
- * reads as one primary exit and one subordinate one, not two equally-weighted asks; which button
- * type conveys that is the caller's choice to make when building the slot.
+ * [button] is a slot, not label/icon/click params: this component only positions a CTA, it does not
+ * construct one. Pass a lambda that calls a button composable directly (typically
+ * [FlashcardsFilledButton], with `style = style` so it matches the rest of the empty state), or
+ * `null` to omit it.
  *
  * [style] follows the shared on-surface/on-gradient axis every `Flashcards*` component family uses
  * (ADR-0034). [OnGradient]'s [FlashcardsEmptyStateTone.Error] circle mirrors
@@ -154,7 +149,6 @@ fun FlashcardsEmptyState(
     tone: FlashcardsEmptyStateTone = Info,
     style: FlashcardsComponentStyle = OnSurface,
     button: (@Composable () -> Unit)? = null,
-    secondaryButton: (@Composable () -> Unit)? = null,
 ) {
     val colors = emptyStateColors(tone, style)
 
@@ -203,16 +197,6 @@ fun FlashcardsEmptyState(
                         button()
                     }
                 }
-
-                if (secondaryButton != null) {
-                    Box(
-                        modifier = Modifier.padding(
-                            top = if (button != null) MaterialTheme.spacing.xsmall else MaterialTheme.spacing.normal,
-                        ),
-                    ) {
-                        secondaryButton()
-                    }
-                }
             }
         }
     }
@@ -248,29 +232,6 @@ private fun FlashcardsEmptyStateWithCtaShowcase() {
                     supportingText = "Run your first session — recents and favorites will appear here.",
                     button = {
                         FlashcardsFilledButton(text = "Start", onClick = {}, icon = Icons.Filled.School)
-                    },
-                )
-            }
-        }
-    }
-}
-
-@ShowkaseComposable(name = "Empty state — two CTAs", group = "Empty states")
-@PreviewLightDark
-@Composable
-private fun FlashcardsEmptyStateTwoCtasShowcase() {
-    FlashcardsTheme {
-        Surface {
-            Box(modifier = Modifier.padding(MaterialTheme.spacing.normal)) {
-                FlashcardsEmptyState(
-                    icon = Icons.Filled.SearchOff,
-                    title = "No matches",
-                    supportingText = "Nothing matches the current filters.",
-                    button = {
-                        FlashcardsFilledButton(text = "Reset filters", onClick = {})
-                    },
-                    secondaryButton = {
-                        FlashcardsOutlinedButton(text = "Session settings", onClick = {})
                     },
                 )
             }
@@ -317,34 +278,6 @@ private fun FlashcardsEmptyStateOnGradientInfoShowcase() {
                     style = OnGradient,
                     button = {
                         FlashcardsFilledButton(text = "Reset filters", onClick = {}, style = OnGradient)
-                    },
-                )
-            }
-        }
-    }
-}
-
-@ShowkaseComposable(name = "Empty state — on gradient, two CTAs", group = "Empty states")
-@Preview
-@Composable
-private fun FlashcardsEmptyStateOnGradientTwoCtasShowcase() {
-    FlashcardsTheme {
-        Surface(color = MaterialTheme.brandColors.screenGradientBase) {
-            Box(
-                modifier = Modifier
-                    .background(MaterialTheme.brandColors.screenGradient)
-                    .padding(MaterialTheme.spacing.normal),
-            ) {
-                FlashcardsEmptyState(
-                    icon = Icons.Filled.SearchOff,
-                    title = "No matches",
-                    supportingText = "Nothing matches the current filters.",
-                    style = OnGradient,
-                    button = {
-                        FlashcardsFilledButton(text = "Reset filters", onClick = {}, style = OnGradient)
-                    },
-                    secondaryButton = {
-                        FlashcardsOutlinedButton(text = "Session settings", onClick = {}, style = OnGradient)
                     },
                 )
             }

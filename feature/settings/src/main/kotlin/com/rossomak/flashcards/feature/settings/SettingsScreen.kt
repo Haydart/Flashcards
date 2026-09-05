@@ -288,7 +288,7 @@ private fun voiceRows(
 @Composable
 private fun voicePlaybackSummary(state: SettingsScreenState): String {
     val rateLabel = speechRateLabel(state.speechRate)
-    val voiceName = state.voiceName ?: return rateLabel
+    val voiceName = state.selectedVoice?.label() ?: return rateLabel
     return stringResource(R.string.settings_voice_playback_summary_label, rateLabel, voiceName)
 }
 

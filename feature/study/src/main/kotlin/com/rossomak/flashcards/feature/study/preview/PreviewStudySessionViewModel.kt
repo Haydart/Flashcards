@@ -3,6 +3,7 @@ package com.rossomak.flashcards.feature.study.preview
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.DefaultStudyMode
@@ -113,7 +114,6 @@ class PreviewStudySessionViewModel @Inject constructor(
             _state.update { state ->
                 state.copy(
                     config = state.config.copy(
-                        mode = defaults.defaultStudyMode,
                         voiceAnsweringEnabled = defaults.voiceAnsweringEnabled,
                         ratedAttempts = defaults.ratedAttempts,
                         readAloudEnabled = defaults.readAloudEnabled,
@@ -123,7 +123,7 @@ class PreviewStudySessionViewModel @Inject constructor(
                         sortOrder = route.sortOrder ?: defaults.sortOrder,
                         voiceSettings = defaults.voiceSettings,
                         subcategoryCountRange = defaults.subcategoryCountRange,
-                    ),
+                    ).withMode(defaults.defaultStudyMode),
                 )
             }
             selectCards()
@@ -138,7 +138,7 @@ class PreviewStudySessionViewModel @Inject constructor(
     }
 
     /** A different draw from the same pool — selection is a pure function of the config's seed. */
-    fun onRerandomize() {
+    fun onReshuffleSubcategories() {
         _state.update { it.copy(config = it.config.copy(seed = Random.nextLong())) }
         selectCards()
     }
@@ -230,7 +230,7 @@ class PreviewStudySessionViewModel @Inject constructor(
         val dialog = _state.value.activeDialog ?: return
         val updatedConfig = with(_state.value.config) {
             when (dialog) {
-                is Mode -> copy(mode = dialog.draft)
+                is Mode -> withMode(dialog.draft)
                 is VoiceAnswering -> copy(voiceAnsweringEnabled = dialog.draft)
                 is Attempts -> copy(ratedAttempts = dialog.draft)
                 is ReadAloud -> copy(readAloudEnabled = dialog.draft)
@@ -253,6 +253,17 @@ class PreviewStudySessionViewModel @Inject constructor(
         _state.update { it.copy(config = updatedConfig, activeDialog = null) }
         selectCards()
     }
+
+    /**
+     * `voiceAnsweringEnabled` is Rated-only (ADR-0025) — reset it switching away from Rated, not
+     * just gate its *display* at the read sites, since the stale value would otherwise also leak
+     * into [onStartSession]'s `StudySessionRoute` payload unchanged. Its own function purely to keep
+     * [onDialogConfirm]'s cyclomatic complexity under detekt's threshold.
+     */
+    private fun StudySessionConfig.withMode(mode: StudyMode): StudySessionConfig = copy(
+        mode = mode,
+        voiceAnsweringEnabled = voiceAnsweringEnabled && mode == StudyMode.Rated,
+    )
 
     /**
      * `null` when the dialog didn't check "keep as my default" — or, for [Filters], can never
@@ -336,14 +347,14 @@ class PreviewStudySessionViewModel @Inject constructor(
                     ),
                 )
             }
-            val selectionConfig = _state.value.config.forSelection(isSingleTopic = _state.value.isSingleTopic)
+            val selectionConfig = _state.value.config.forSelection(isSingleSubcategory = _state.value.isSingleSubcategory)
             selectSessionFlashcards(selectionConfig)
                 .onSuccess { plan ->
                     selectedCardIds = plan.cards.map { it.id }
                     _state.update { state ->
-                        // Tags belong to one subcategory, so a multi-topic session has no
+                        // Tags belong to one subcategory, so a multi-subcategory session has no
                         // coherent tag vocabulary to offer (ADR-0030).
-                        val availableTags = if (state.isSingleTopic) plan.poolTags else emptyList()
+                        val availableTags = if (state.isSingleSubcategory) plan.poolTags else emptyList()
                         state.copy(
                             isLoading = false,
                             error = null,
@@ -379,7 +390,7 @@ class PreviewStudySessionViewModel @Inject constructor(
      * change between resolutions: it resamples a bounded subset via
      * [SampleQuickSessionSubcategoriesUseCase], seeded off the same
      * [StudySessionConfig.seed][com.rossomak.flashcards.core.domain.model.StudySessionConfig.seed]
-     * the card draw uses, so re-randomizing re-rolls the sample itself, not just the draw within it
+     * the card draw uses, so reshuffling re-rolls the sample itself, not just the draw within it
      * (ADR-0040). Sampled ids are mapped back to names through [candidateSubcategoryNamesById] —
      * the pool this resolution is allowed to draw its sample from.
      */
@@ -399,13 +410,13 @@ class PreviewStudySessionViewModel @Inject constructor(
     }
 
     private fun sessionTitle(): String =
-        if (_state.value.isSingleTopic) _state.value.subcategoryNames.first() else route.categoryName
+        if (_state.value.isSingleSubcategory) _state.value.subcategoryNames.first() else route.categoryName
 
     /**
      * Tags belong to one subcategory, so a multi-Subcategory pool has no coherent tag vocabulary
      * to filter by at all — asserted here rather than relied on staying empty by omission
      * elsewhere (ADR-0030).
      */
-    private fun StudySessionConfig.forSelection(isSingleTopic: Boolean): StudySessionConfig =
-        if (isSingleTopic) this else copy(tagIds = emptySet())
+    private fun StudySessionConfig.forSelection(isSingleSubcategory: Boolean): StudySessionConfig =
+        if (isSingleSubcategory) this else copy(tagIds = emptySet())
 }

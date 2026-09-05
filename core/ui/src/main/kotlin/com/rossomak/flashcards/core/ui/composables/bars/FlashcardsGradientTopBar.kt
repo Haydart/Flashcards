@@ -1,6 +1,8 @@
 package com.rossomak.flashcards.core.ui.composables.bars
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material.icons.Icons
@@ -16,6 +18,7 @@ import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import com.airbnb.android.showkase.annotation.ShowkaseComposable
@@ -37,7 +40,7 @@ import com.rossomak.flashcards.core.ui.theme.brandColors
  * [FlashcardsTopAppBar] is untouched by this — it exists for the large gradient-*painting* treatment
  * and keeps its own users; this component is for screens that paint the gradient themselves.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun FlashcardsGradientTopBar(
     title: String,
@@ -50,7 +53,19 @@ fun FlashcardsGradientTopBar(
 
     CenterAlignedTopAppBar(
         title = {
-            Text(text = title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            // titleSmall, not the default titleLarge: this screen's title is a long "Category ·
+            // Subcategory" string (see PreviewStudySessionScreen.screenTitle) and reads as an app
+            // bar label, not a headline — titleLarge dwarfed the hero content beneath it.
+            // basicMarquee no-ops when the text fits, and scrolls it only when it would otherwise
+            // be ellipsized, so long "Category · Subcategory" titles stay fully readable.
+            Text(
+                text = title,
+                modifier = Modifier.basicMarquee(),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         },
         modifier = modifier,
         navigationIcon = navigationIcon,

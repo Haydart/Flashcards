@@ -21,8 +21,8 @@ class DefaultVoiceOptionsRepositoryTest {
     @Test
     fun `getAvailableVoices returns voices from data source unchanged`() = runTest {
         val voices = listOf(
-            VoiceOption(id = "en-us-x-1", displayName = "English (US) · 1"),
-            VoiceOption(id = "en-gb-x-2", displayName = "English (UK) · 2"),
+            VoiceOption(id = "en-us-x-1", countryCode = "US", variantIndex = 1),
+            VoiceOption(id = "en-gb-x-2", countryCode = "GB", variantIndex = 1),
         )
         coEvery { dataSource.getAvailableVoices() } returns voices
 

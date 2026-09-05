@@ -118,15 +118,31 @@ internal fun FlashcardsDialog(
 private val DIALOG_BLUR_RADIUS = 32.dp
 
 /**
+ * Scrim dim used instead of blur when cross-window blur isn't available at runtime. This is not
+ * a rare edge case: [WindowManager.isCrossWindowBlurEnabled] is false on any device whose
+ * compositor never declared blur support (the OEM-set system property
+ * `ro.surface_flinger.supports_background_blur`), independent of API level or battery saver —
+ * confirmed on a Realme (ColorOS) device at API 34, which reports the property unset. On such
+ * devices this is the permanent look, not a transient one, so it's boosted from the platform's
+ * default dim rather than left matching the blurred case.
+ */
+private const val BLUR_UNAVAILABLE_DIM_AMOUNT = 0.75f
+
+/**
  * Blurs whatever is behind the dialog's own window, on top of the unchanged scrim dim — never
  * instead of it. Two gates guard this, both live for the dialog's lifetime:
  *
  * - **API 31+** ([Build.VERSION.SDK_INT]): cross-window blur is a platform capability introduced
  *   in Android 12; below that this is a no-op.
  * - **Runtime availability** ([WindowManager.isCrossWindowBlurEnabled]): even on 31+, the system
- *   can disable cross-window blur (battery saver, low-RAM devices, a developer option), and it can
- *   flip mid-session — [WindowManager.addCrossWindowBlurEnabledListener] is how a dialog already on
- *   screen reacts to that.
+ *   can disable cross-window blur (battery saver, low-RAM devices, a developer option, or simply
+ *   no compositor support declared by the OEM — see [BLUR_UNAVAILABLE_DIM_AMOUNT]), and it can
+ *   flip mid-session — [WindowManager.addCrossWindowBlurEnabledListener] is how a dialog already
+ *   on screen reacts to that.
+ *
+ * When blur can't render, the scrim dim is bumped to [BLUR_UNAVAILABLE_DIM_AMOUNT] so the dialog
+ * still reads as deliberate rather than a silently missing effect; the platform's own default dim
+ * (read once, before the first mutation) is restored whenever blur *is* available.
  *
  * This is not [androidx.compose.ui.draw.blur] — a Compose dialog is its own window, so blurring
  * what's *behind* it means reaching that window (via [DialogWindowProvider], the same seam M3's own
@@ -146,26 +162,39 @@ private fun DialogBlurBehindEffect() {
         val windowManager = context.getSystemService(WindowManager::class.java)
         if (window == null || windowManager == null) return@DisposableEffect onDispose {}
 
-        val listener = Consumer<Boolean> { enabled -> window.applyBlurBehind(enabled, blurRadiusPx) }
+        val defaultDimAmount = window.attributes.dimAmount
+        val listener = Consumer<Boolean> { enabled ->
+            window.applyBlurBehind(enabled, blurRadiusPx, defaultDimAmount)
+        }
         with(windowManager) {
-            window.applyBlurBehind(isCrossWindowBlurEnabled, blurRadiusPx)
+            window.applyBlurBehind(isCrossWindowBlurEnabled, blurRadiusPx, defaultDimAmount)
             addCrossWindowBlurEnabledListener(context.mainExecutor, listener)
         }
 
         onDispose {
             windowManager.removeCrossWindowBlurEnabledListener(listener)
-            window.applyBlurBehind(enabled = false, blurRadiusPx = blurRadiusPx)
+            window.clearFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+            window.setDimAmount(defaultDimAmount)
         }
     }
 }
 
+/**
+ * `Window.setBackgroundBlurRadius` blurs *within* this window's own bounds — the wrong API here,
+ * since [FLAG_BLUR_BEHIND][WindowManager.LayoutParams.FLAG_BLUR_BEHIND] asks the compositor to blur
+ * whatever's *behind* the window instead. That radius is a [WindowManager.LayoutParams] field
+ * ([WindowManager.LayoutParams.blurBehindRadius]), set through [attributes] and re-applied via
+ * [setAttributes] — there is no direct `Window` setter for it.
+ */
 @RequiresApi(Build.VERSION_CODES.S)
-private fun Window.applyBlurBehind(enabled: Boolean, blurRadiusPx: Int) {
+private fun Window.applyBlurBehind(enabled: Boolean, blurRadiusPx: Int, defaultDimAmount: Float) {
     if (enabled) {
         addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
-        attributes = attributes.also { it.blurBehindRadius = blurRadiusPx }
+        setAttributes(attributes.apply { blurBehindRadius = blurRadiusPx })
+        setDimAmount(defaultDimAmount)
     } else {
         clearFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+        setDimAmount(BLUR_UNAVAILABLE_DIM_AMOUNT)
     }
 }
 

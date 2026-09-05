@@ -48,24 +48,39 @@
     <string name="preview_session_subcategory_count_range_label">Topics</string>
     <string name="preview_session_filters_label">Filters</string>
     <string name="preview_session_sort_label">Sort</string>
-    <string name="preview_session_edit_setting_cd">Edit %1$s</string>
-    <string name="preview_session_filters_difficulty_value_label">Difficulty %1$d\u2013%2$d</string>
     <string name="preview_session_setting_value_separator_label">%1$s \u00B7 %2$s</string>
     <string name="preview_session_empty_state_title">No cards match</string>
     <string name="preview_session_empty_state_message">Nothing meets the current filters. Reset them to try again.</string>
     <string name="preview_session_empty_state_reset_button">Reset filters</string>
     <string name="preview_session_scope_quick_session_message">" auto-selected across "</string>
-    <string name="preview_session_scope_single_topic_prefix_message">" from your "</string>
-    <string name="preview_session_scope_single_topic_suffix_message">" deck."</string>
-    <string name="preview_session_scope_multi_topic_message">" from "</string>
+    <string name="preview_session_scope_single_subcategory_prefix_message">" from your "</string>
+    <string name="preview_session_scope_single_subcategory_suffix_message">" deck."</string>
+    <string name="preview_session_scope_multi_subcategory_message">" from "</string>
+    <string name="preview_session_open_settings_cd">Open session settings</string>
+    <string name="preview_session_close_settings_cd">Close session settings</string>
+    <string name="preview_session_close_cd">Close session preview</string>
+    <string name="preview_session_ready_title">Ready to start?</string>
+    <string name="preview_session_reshuffle_button">Reshuffle topics</string>
+    <string name="preview_session_estimated_minutes_badge_label">~ %1$d min</string>
+    <!-- The settings badge row (ticket 09): a behaviour is always named, never its absence. -->
+    <string name="preview_session_interaction_manual_label">Manual</string>
+    <string name="preview_session_interaction_voice_label">Voice</string>
+    <string name="preview_session_interaction_auto_label">Auto</string>
+
+    <string name="preview_session_filters_all_tags_value_label">All tags</string>
 
     <plurals name="preview_session_filters_tags_value_label">
         <item quantity="one">%1$d tag</item>
         <item quantity="other">%1$d tags</item>
     </plurals>
 
-    <plurals name="preview_session_scope_other_topics_count">
+    <plurals name="preview_session_scope_other_subcategories_count">
         <item quantity="one">" and %1$d other topic"</item>
         <item quantity="other">" and %1$d other topics"</item>
+    </plurals>
+
+    <plurals name="preview_session_topics_badge_label">
+        <item quantity="one">%1$d topic</item>
+        <item quantity="other">%1$d topics</item>
     </plurals>
 </resources>

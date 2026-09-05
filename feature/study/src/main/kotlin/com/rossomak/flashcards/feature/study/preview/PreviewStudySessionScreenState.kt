@@ -17,12 +17,16 @@ data class PreviewStudySessionScreenState(
      * sessions, which filter by difficulty only (ADR-0030).
      */
     val availableTags: List<String> = emptyList(),
-    /** Resolves `config.voiceSettings.voiceId` to a display name for the voice row's summary. */
+    /** Resolves `config.voiceSettings.voiceId` to a [VoiceOption] for the voice row's summary. */
     val availableVoices: List<VoiceOption> = emptyList(),
     val activeDialog: PreviewDialog? = null,
 ) {
-    val isSingleTopic: Boolean get() = subcategoryNames.size == 1
-    val topicCount: Int get() = subcategoryNames.size
-    val canRerandomize: Boolean get() = !isSingleTopic || isQuickSession
+    val isSingleSubcategory: Boolean get() = subcategoryNames.size == 1
+    val subcategoryCount: Int get() = subcategoryNames.size
+
+    // Quick only: its subcategories were auto-sampled, so a fresh draw is meaningful. Custom's are
+    // hand-picked by the user — nothing to reshuffle, so Custom never offers it, single-subcategory
+    // or not.
+    val canReshuffleSubcategories: Boolean get() = isQuickSession
     val canStart: Boolean get() = !isLoading && error == null && selectedCardCount > 0
 }

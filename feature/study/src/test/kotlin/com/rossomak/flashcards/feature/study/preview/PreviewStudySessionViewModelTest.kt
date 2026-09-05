@@ -77,20 +77,20 @@ class PreviewStudySessionViewModelTest {
     private val subcategoryId = "android-compose"
     private val subcategoryName = "Compose"
 
-    private val singleTopicRoute = PreviewStudySessionRoute(
+    private val singleSubcategoryRoute = PreviewStudySessionRoute(
         categoryId = categoryId,
         categoryName = categoryName,
         subcategoryIds = listOf(subcategoryId),
         subcategoryNames = listOf(subcategoryName),
     )
 
-    private val multiTopicRoute = singleTopicRoute.copy(
+    private val multiSubcategoryRoute = singleSubcategoryRoute.copy(
         subcategoryIds = listOf("android-compose", "android-coroutines"),
         subcategoryNames = listOf("Compose", "Coroutines"),
     )
 
     /** More candidates than [StudySessionConfig.DEFAULT_SUBCATEGORY_COUNT_RANGE]'s maximum. */
-    private val quickSessionRoute = singleTopicRoute.copy(
+    private val quickSessionRoute = singleSubcategoryRoute.copy(
         subcategoryIds = (1..8).map { index -> "android-sub-$index" },
         subcategoryNames = (1..8).map { index -> "Sub $index" },
         isQuickSession = true,
@@ -143,7 +143,7 @@ class PreviewStudySessionViewModelTest {
 
     @Test
     fun `selection caps card count at session size`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
+        stubRoute(singleSubcategoryRoute)
         flashcardRepository.flashcardsToReturn =
             Result.success((1..30).map { index -> flashcard(id = "card-$index") })
 
@@ -156,7 +156,7 @@ class PreviewStudySessionViewModelTest {
 
     @Test
     fun `selection uses whole pool when smaller than session size`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
+        stubRoute(singleSubcategoryRoute)
         flashcardRepository.flashcardsToReturn =
             Result.success((1..5).map { index -> flashcard(id = "card-$index") })
 
@@ -169,7 +169,7 @@ class PreviewStudySessionViewModelTest {
     @Test
     fun `routed tag filter seeds the config and keeps only cards carrying an active tag`() =
         runTest(mainDispatcherRule.testDispatcher) {
-            stubRoute(singleTopicRoute.copy(filterTagIds = listOf("State")))
+            stubRoute(singleSubcategoryRoute.copy(filterTagIds = listOf("State")))
             flashcardRepository.flashcardsToReturn = Result.success(
                 listOf(
                     flashcard(id = "card-1", tags = listOf("State")),
@@ -187,7 +187,7 @@ class PreviewStudySessionViewModelTest {
 
     @Test
     fun `multi subcategory route pools cards across subcategories`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(multiTopicRoute)
+        stubRoute(multiSubcategoryRoute)
         flashcardRepository.flashcardsBySubcategory["android-compose"] =
             Result.success(listOf(flashcard(id = "card-1")))
         flashcardRepository.flashcardsBySubcategory["android-coroutines"] =
@@ -201,7 +201,7 @@ class PreviewStudySessionViewModelTest {
 
     @Test
     fun `failed fetch surfaces error`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
+        stubRoute(singleSubcategoryRoute)
         flashcardRepository.flashcardsToReturn = Result.failure(IllegalStateException("boom"))
 
         val viewModel = createViewModel()
@@ -212,13 +212,13 @@ class PreviewStudySessionViewModelTest {
     }
 
     /**
-     * Also covers the tag-seeding side of the same load: a single-topic session with no routed
-     * filter materializes `config.tagIds` to every available tag, while a multi-topic session has
+     * Also covers the tag-seeding side of the same load: a single-subcategory session with no routed
+     * filter materializes `config.tagIds` to every available tag, while a multi-subcategory session has
      * no tag vocabulary to seed from at all (ADR-0030), so it stays empty.
      */
     @Test
-    fun `available tags come from the pool for single topic sessions only`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
+    fun `available tags come from the pool for single subcategory sessions only`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleSubcategoryRoute)
         flashcardRepository.flashcardsToReturn = Result.success(
             listOf(
                 flashcard(id = "card-1", tags = listOf("State")),
@@ -232,22 +232,22 @@ class PreviewStudySessionViewModelTest {
         viewModel.state.value.availableTags shouldBe listOf("Modifiers", "State")
         viewModel.state.value.config.tagIds shouldBe setOf("Modifiers", "State")
 
-        stubRoute(multiTopicRoute)
+        stubRoute(multiSubcategoryRoute)
         flashcardRepository.flashcardsBySubcategory["android-compose"] =
             Result.success(listOf(flashcard(id = "card-1", tags = listOf("State"))))
         flashcardRepository.flashcardsBySubcategory["android-coroutines"] =
             Result.success(listOf(flashcard(id = "card-2", subcategoryId = "android-coroutines")))
 
-        val multiTopicViewModel = createViewModel()
+        val multiSubcategoryViewModel = createViewModel()
         advanceUntilIdle()
 
-        multiTopicViewModel.state.value.availableTags shouldBe emptyList()
-        multiTopicViewModel.state.value.config.tagIds shouldBe emptySet()
+        multiSubcategoryViewModel.state.value.availableTags shouldBe emptyList()
+        multiSubcategoryViewModel.state.value.config.tagIds shouldBe emptySet()
     }
 
     @Test
     fun `a draft change leaves the committed config untouched until confirm`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
+        stubRoute(singleSubcategoryRoute)
         flashcardRepository.flashcardsToReturn = Result.success(listOf(flashcard(id = "card-1")))
 
         val viewModel = createViewModel()
@@ -263,7 +263,7 @@ class PreviewStudySessionViewModelTest {
 
     @Test
     fun `dismissing discards the draft`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
+        stubRoute(singleSubcategoryRoute)
         flashcardRepository.flashcardsToReturn = Result.success(listOf(flashcard(id = "card-1")))
 
         val viewModel = createViewModel()
@@ -280,7 +280,7 @@ class PreviewStudySessionViewModelTest {
 
     @Test
     fun `confirming the mode dialog commits the draft`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
+        stubRoute(singleSubcategoryRoute)
         flashcardRepository.flashcardsToReturn = Result.success(listOf(flashcard(id = "card-1")))
 
         val viewModel = createViewModel()
@@ -298,7 +298,7 @@ class PreviewStudySessionViewModelTest {
 
     @Test
     fun `confirming the length dialog reselects at the new count`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
+        stubRoute(singleSubcategoryRoute)
         flashcardRepository.flashcardsToReturn =
             Result.success((1..30).map { index -> flashcard(id = "card-$index") })
 
@@ -315,7 +315,7 @@ class PreviewStudySessionViewModelTest {
 
     @Test
     fun `confirming the attempts dialog commits the draft`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
+        stubRoute(singleSubcategoryRoute)
 
         val viewModel = createViewModel()
         advanceUntilIdle()
@@ -330,7 +330,7 @@ class PreviewStudySessionViewModelTest {
 
     @Test
     fun `dismissing the attempts dialog discards the draft`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
+        stubRoute(singleSubcategoryRoute)
 
         val viewModel = createViewModel()
         advanceUntilIdle()
@@ -346,7 +346,7 @@ class PreviewStudySessionViewModelTest {
 
     @Test
     fun `confirming the read-aloud dialog commits the draft`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
+        stubRoute(singleSubcategoryRoute)
 
         val viewModel = createViewModel()
         advanceUntilIdle()
@@ -361,7 +361,7 @@ class PreviewStudySessionViewModelTest {
 
     @Test
     fun `confirming the filters dialog narrows the pool by difficulty and tags`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
+        stubRoute(singleSubcategoryRoute)
         flashcardRepository.flashcardsToReturn = Result.success(
             listOf(
                 flashcard(id = "card-1", tags = listOf("State"), difficulty = 2),
@@ -397,7 +397,7 @@ class PreviewStudySessionViewModelTest {
 
     @Test
     fun `confirming the sort dialog orders session cards easiest first`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
+        stubRoute(singleSubcategoryRoute)
         flashcardRepository.flashcardsToReturn = Result.success(
             listOf(
                 flashcard(id = "card-1", difficulty = 8),
@@ -425,7 +425,7 @@ class PreviewStudySessionViewModelTest {
 
     @Test
     fun `confirming the sort dialog orders session cards hardest first`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
+        stubRoute(singleSubcategoryRoute)
         flashcardRepository.flashcardsToReturn = Result.success(
             listOf(
                 flashcard(id = "card-1", difficulty = 8),
@@ -453,7 +453,7 @@ class PreviewStudySessionViewModelTest {
     @Test
     fun `seeded study session preferences reach the config before the first card selection`() =
         runTest(mainDispatcherRule.testDispatcher) {
-            stubRoute(singleTopicRoute)
+            stubRoute(singleSubcategoryRoute)
             studySessionPreferencesRepository.preferences.value = StudySessionPreferences(
                 defaultStudyMode = StudyMode.Fast,
                 sessionLength = seededLength,
@@ -473,7 +473,7 @@ class PreviewStudySessionViewModelTest {
 
     @Test
     fun `confirming with keepAsDefault true writes the preference`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
+        stubRoute(singleSubcategoryRoute)
         flashcardRepository.flashcardsToReturn = Result.success(listOf(flashcard(id = "card-1")))
 
         val viewModel = createViewModel()
@@ -490,7 +490,7 @@ class PreviewStudySessionViewModelTest {
     @Test
     fun `confirming with keepAsDefault false applies the draft but writes nothing`() =
         runTest(mainDispatcherRule.testDispatcher) {
-            stubRoute(singleTopicRoute)
+            stubRoute(singleSubcategoryRoute)
             flashcardRepository.flashcardsToReturn = Result.success(listOf(flashcard(id = "card-1")))
 
             val viewModel = createViewModel()
@@ -556,7 +556,7 @@ class PreviewStudySessionViewModelTest {
 
     @Test
     fun `confirming filters never writes a default`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
+        stubRoute(singleSubcategoryRoute)
         flashcardRepository.flashcardsToReturn = Result.success(
             listOf(flashcard(id = "card-1", tags = listOf("State"))),
         )
@@ -595,7 +595,7 @@ class PreviewStudySessionViewModelTest {
     @Test
     fun `confirming the voice dialog with keepAsDefault true writes the preference`() =
         runTest(mainDispatcherRule.testDispatcher) {
-            stubRoute(singleTopicRoute)
+            stubRoute(singleSubcategoryRoute)
             flashcardRepository.flashcardsToReturn = Result.success(listOf(flashcard(id = "card-1")))
             val voiceSettings = SavedVoiceSettings(speechRate = 1.5f, voiceId = "voice-1")
             every { voiceSettingsController.seedDraft(any()) } returns VoiceSettingsDraftState()
@@ -616,7 +616,7 @@ class PreviewStudySessionViewModelTest {
     @Test
     fun `confirming the voice dialog with keepAsDefault false applies the draft but writes nothing`() =
         runTest(mainDispatcherRule.testDispatcher) {
-            stubRoute(singleTopicRoute)
+            stubRoute(singleSubcategoryRoute)
             flashcardRepository.flashcardsToReturn = Result.success(listOf(flashcard(id = "card-1")))
             val voiceSettings = SavedVoiceSettings(speechRate = 1.5f, voiceId = "voice-1")
             every { voiceSettingsController.seedDraft(any()) } returns VoiceSettingsDraftState()
@@ -638,7 +638,7 @@ class PreviewStudySessionViewModelTest {
     @Test
     fun `onStartSession emits StudySession route with selected cards, mode, voice answering, attempts and read-aloud`() =
         runTest(mainDispatcherRule.testDispatcher) {
-            stubRoute(singleTopicRoute)
+            stubRoute(singleSubcategoryRoute)
             flashcardRepository.flashcardsToReturn = Result.success(
                 listOf(flashcard(id = "card-1"), flashcard(id = "card-2"))
             )
@@ -674,7 +674,7 @@ class PreviewStudySessionViewModelTest {
 
     @Test
     fun `onStartSession carries the confirmed voice settings on the route`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
+        stubRoute(singleSubcategoryRoute)
         flashcardRepository.flashcardsToReturn = Result.success(listOf(flashcard(id = "card-1")))
         val voiceSettings = SavedVoiceSettings(speechRate = 1.5f, voiceId = "voice-1")
         every { voiceSettingsController.seedDraft(any()) } returns VoiceSettingsDraftState()
@@ -697,7 +697,7 @@ class PreviewStudySessionViewModelTest {
 
     @Test
     fun `confirming the voice settings dialog stops preview playback`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
+        stubRoute(singleSubcategoryRoute)
         every { voiceSettingsController.seedDraft(any()) } returns VoiceSettingsDraftState()
 
         val viewModel = createViewModel()
@@ -711,7 +711,7 @@ class PreviewStudySessionViewModelTest {
 
     @Test
     fun `confirming a non-voice dialog never touches preview playback`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
+        stubRoute(singleSubcategoryRoute)
 
         val viewModel = createViewModel()
         advanceUntilIdle()
@@ -724,7 +724,7 @@ class PreviewStudySessionViewModelTest {
 
     @Test
     fun `onStartSession with empty pool emits nothing`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
+        stubRoute(singleSubcategoryRoute)
 
         val viewModel = createViewModel()
         advanceUntilIdle()
@@ -737,7 +737,7 @@ class PreviewStudySessionViewModelTest {
 
     @Test
     fun `onStartSession ignores re-entrant calls while a session is already pending`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
+        stubRoute(singleSubcategoryRoute)
         flashcardRepository.flashcardsToReturn = Result.success(listOf(flashcard(id = "card-1")))
 
         val viewModel = createViewModel()
@@ -753,7 +753,7 @@ class PreviewStudySessionViewModelTest {
 
     @Test
     fun `onRetry recovers from a previous failure and loads the pool`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
+        stubRoute(singleSubcategoryRoute)
         flashcardRepository.flashcardsToReturn = Result.failure(IllegalStateException("boom"))
 
         val viewModel = createViewModel()
@@ -769,8 +769,8 @@ class PreviewStudySessionViewModelTest {
     }
 
     @Test
-    fun `sessionTitle uses category name for multi topic sessions`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(multiTopicRoute)
+    fun `sessionTitle uses category name for multi subcategory sessions`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(multiSubcategoryRoute)
         flashcardRepository.flashcardsBySubcategory["android-compose"] =
             Result.success(listOf(flashcard(id = "card-1")))
         flashcardRepository.flashcardsBySubcategory["android-coroutines"] =
@@ -788,7 +788,7 @@ class PreviewStudySessionViewModelTest {
 
     @Test
     fun `estimatedMinutes rounds up to the nearest minute`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
+        stubRoute(singleSubcategoryRoute)
         flashcardRepository.flashcardsToReturn =
             Result.success((1..5).map { index -> flashcard(id = "card-$index") })
 
@@ -800,18 +800,18 @@ class PreviewStudySessionViewModelTest {
     }
 
     @Test
-    fun `quick session on a single subcategory can still rerandomize`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute.copy(isQuickSession = true))
+    fun `quick session on a single subcategory can still reshuffle subcategories`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleSubcategoryRoute.copy(isQuickSession = true))
 
         val viewModel = createViewModel()
         advanceUntilIdle()
 
-        viewModel.state.value.canRerandomize.shouldBeTrue()
+        viewModel.state.value.canReshuffleSubcategories.shouldBeTrue()
     }
 
     @Test
-    fun `onRerandomize redraws with a new seed, keeping session size`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(multiTopicRoute)
+    fun `onReshuffleSubcategories redraws with a new seed, keeping session size`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(multiSubcategoryRoute)
         flashcardRepository.flashcardsBySubcategory["android-compose"] =
             Result.success((1..30).map { index -> flashcard(id = "compose-$index") })
         flashcardRepository.flashcardsBySubcategory["android-coroutines"] =
@@ -819,24 +819,26 @@ class PreviewStudySessionViewModelTest {
 
         val viewModel = createViewModel()
         advanceUntilIdle()
-        val cardIdsBeforeRerandomize = viewModel.selectedCardIds
-        val seedBeforeRerandomize = viewModel.state.value.config.seed
+        val cardIdsBeforeReshuffle = viewModel.selectedCardIds
+        val seedBeforeReshuffle = viewModel.state.value.config.seed
 
-        viewModel.onRerandomize()
+        viewModel.onReshuffleSubcategories()
         advanceUntilIdle()
 
-        viewModel.state.value.config.seed shouldNotBe seedBeforeRerandomize
+        viewModel.state.value.config.seed shouldNotBe seedBeforeReshuffle
         viewModel.state.value.selectedCardCount shouldBe 20
-        viewModel.selectedCardIds shouldNotBe cardIdsBeforeRerandomize
+        viewModel.selectedCardIds shouldNotBe cardIdsBeforeReshuffle
     }
 
     @Test
-    fun `single topic route cannot rerandomize, multi topic can`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(singleTopicRoute)
-        createViewModel().state.value.canRerandomize shouldBe false
+    fun `a Custom session cannot reshuffle subcategories, single or multi`() = runTest(mainDispatcherRule.testDispatcher) {
+        // Custom's subcategories are hand-picked by the user, not sampled — nothing to reshuffle,
+        // unlike Quick (see `quick session on a single subcategory can still reshuffle subcategories`).
+        stubRoute(singleSubcategoryRoute)
+        createViewModel().state.value.canReshuffleSubcategories shouldBe false
 
-        stubRoute(multiTopicRoute)
-        createViewModel().state.value.canRerandomize.shouldBeTrue()
+        stubRoute(multiSubcategoryRoute)
+        createViewModel().state.value.canReshuffleSubcategories shouldBe false
     }
 
     @Test
@@ -853,7 +855,7 @@ class PreviewStudySessionViewModelTest {
 
             val sampledIds = viewModel.state.value.config.subcategoryIds
             (sampledIds.size in StudySessionConfig.DEFAULT_SUBCATEGORY_COUNT_RANGE) shouldBe true
-            viewModel.state.value.topicCount shouldBe sampledIds.size
+            viewModel.state.value.subcategoryCount shouldBe sampledIds.size
             sampledIds.forEach { id -> (id in quickSessionRoute.subcategoryIds) shouldBe true }
         }
 
@@ -877,7 +879,7 @@ class PreviewStudySessionViewModelTest {
         }
 
     @Test
-    fun `re-randomizing a quick session changes the subcategory sample, not just the draw`() =
+    fun `reshuffling subcategories on a quick session changes the subcategory sample, not just the draw`() =
         runTest(mainDispatcherRule.testDispatcher) {
             stubRoute(quickSessionRoute)
             quickSessionRoute.subcategoryIds.forEach { id ->
@@ -887,30 +889,30 @@ class PreviewStudySessionViewModelTest {
 
             val viewModel = createViewModel()
             advanceUntilIdle()
-            val sampleBeforeRerandomize = viewModel.state.value.config.subcategoryIds
+            val sampleBeforeReshuffle = viewModel.state.value.config.subcategoryIds
 
-            viewModel.onRerandomize()
+            viewModel.onReshuffleSubcategories()
             advanceUntilIdle()
 
-            viewModel.state.value.config.subcategoryIds shouldNotBe sampleBeforeRerandomize
+            viewModel.state.value.config.subcategoryIds shouldNotBe sampleBeforeReshuffle
         }
 
     @Test
     fun `a single subcategory quick session samples the same one subcategory`() =
         runTest(mainDispatcherRule.testDispatcher) {
-            stubRoute(singleTopicRoute.copy(isQuickSession = true))
+            stubRoute(singleSubcategoryRoute.copy(isQuickSession = true))
 
             val viewModel = createViewModel()
             advanceUntilIdle()
 
             viewModel.state.value.config.subcategoryIds shouldBe listOf(subcategoryId)
-            viewModel.state.value.topicCount shouldBe 1
+            viewModel.state.value.subcategoryCount shouldBe 1
         }
 
     @Test
-    fun `multi topic sessions ignore any routed tag filter, filtering by difficulty only`() =
+    fun `multi subcategory sessions ignore any routed tag filter, filtering by difficulty only`() =
         runTest(mainDispatcherRule.testDispatcher) {
-            stubRoute(multiTopicRoute.copy(filterTagIds = listOf("State")))
+            stubRoute(multiSubcategoryRoute.copy(filterTagIds = listOf("State")))
             flashcardRepository.flashcardsBySubcategory["android-compose"] =
                 Result.success(listOf(flashcard(id = "card-1", tags = listOf("State"))))
             flashcardRepository.flashcardsBySubcategory["android-coroutines"] = Result.success(
@@ -928,7 +930,7 @@ class PreviewStudySessionViewModelTest {
     @Test
     fun `onResetFilters restores the routed filters exactly and reselects`() =
         runTest(mainDispatcherRule.testDispatcher) {
-            stubRoute(singleTopicRoute.copy(filterTagIds = listOf("State"), difficultyMin = 3, difficultyMax = 7))
+            stubRoute(singleSubcategoryRoute.copy(filterTagIds = listOf("State"), difficultyMin = 3, difficultyMax = 7))
             flashcardRepository.flashcardsToReturn = Result.success(
                 listOf(
                     flashcard(id = "card-1", tags = listOf("State"), difficulty = 5),

@@ -1,14 +1,18 @@
 package com.rossomak.flashcards.core.ui.composables
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.BottomSheet
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,16 +43,37 @@ import com.rossomak.flashcards.core.ui.theme.spacing
  *
  * Deliberately not a scaffold and deliberately thin: it owns no `topBar`, no header slot and no
  * pinned-actions region — most sheets built on this will not need pinned actions at all, and the
- * caller is better placed to lay out its own [content]. Dock it the same way the old panel was
- * docked: `Box(Modifier.fillMaxSize()) { ScreenContent(); FlashcardsBottomSheet(state = ...,
- * modifier = Modifier.align(Alignment.BottomCenter)) { ... } }`.
+ * caller is better placed to lay out its own [content]. This wrapper adds nothing but the app's own
+ * design tokens on top of a bare `BottomSheet` call; every gesture, animation and predictive-back
+ * behaviour is M3's, unmodified.
+ *
+ * **Placement is load-bearing — read this before wiring a call site.** `BottomSheet` positions
+ * itself: its `draggableAnchors` modifier reads the *incoming* `constraints.maxHeight` (i.e. its
+ * parent's bounded height) as the sheet's "full height", and internally translates its content down
+ * by `fullHeight - sheetHeight` to land at the bottom — but the layout node it reports back to that
+ * same parent is only the *content's own* natural size, not `fullHeight`. So:
+ * - **Dock it as a plain, unaligned sibling** of the screen content in a `Box(Modifier.fillMaxSize())`
+ *   — `Box(Modifier.fillMaxSize()) { ScreenContent(); FlashcardsBottomSheet(state = ...) { ... } }`.
+ *   `Box`'s default alignment (`TopStart`, i.e. no `Modifier.align` at all) is correct: the sheet
+ *   already puts itself at the bottom internally.
+ * - **Never wrap it in `Modifier.align(Alignment.BottomCenter)`.** Confirmed by reading
+ *   `androidx.compose.material3.internal.DraggableAnchors` (M3 1.5.0-alpha23): doing so bottom-aligns
+ *   the small *reported* size on top of the sheet's own internal bottom offset — a double offset that
+ *   pushes the real content roughly `2×(fullHeight - sheetHeight)` down, off-screen or clipped
+ *   depending on content height. This was a real, reproduced bug in this codebase (not an M3 bug) —
+ *   every sheet built on this component had it from the first commit, and no amount of tuning the
+ *   *content*'s size ever could have fixed a bug at the call site.
+ * - The `Box`'s own height must actually be bounded (e.g. `fillMaxSize()` inside a bounded parent,
+ *   not `wrapContentHeight()`) — `fullHeight` above comes from that constraint, not the sheet's
+ *   content.
  *
  * **Two shapes, one flag.** [state] is built with [rememberFlashcardsBottomSheetState], whose
  * `dismissible` parameter drives everything at once — [FlashcardsBottomSheetState.dismissible] is
  * read here to set `gesturesEnabled`, `backHandlerEnabled`, and whether the default drag handle
  * even renders:
- * - **Dismissible** (the default): fully interactive — swipeable, back-dismissible, with M3's
- *   default drag handle. This is the settings-sheet shape (Preview study session screen).
+ * - **Dismissible** (the default): fully interactive — swipeable, back-dismissible (including
+ *   predictive back), with M3's default drag handle. This is the settings-sheet shape (Preview
+ *   study session screen).
  * - **Non-dismissible**: no gestures, no back-dismiss, and no drag handle at all — a handle that
  *   can't do anything is worse than none. This is the permanently-docked-panel shape
  *   (`StudySessionScreen`'s card/rating panel is a named future consumer).
@@ -72,15 +97,33 @@ import com.rossomak.flashcards.core.ui.theme.spacing
  * handle's expand/collapse/dismiss accessibility actions all come from `BottomSheet` itself,
  * unmodified.
  *
- * **Height is the caller's problem.** The expanded anchor is derived from [content]'s measured
- * height: content taller than the screen pins at the top and *clips* rather than scrolling. A
- * caller with variable-length content is expected to make its own content column scrollable — no
- * percentage ceiling is imposed here.
+ * **[content] is capped at [maxHeightFraction] of the available height, scrolling past that —
+ * never clipped.** [rememberFlashcardsBottomSheetState] only ever enables `Hidden`/`Expanded` —
+ * never `PartiallyExpanded` — so "expanded" always means [content] measured up to that cap, not an
+ * unbounded natural height. The cap is read from a [BoxWithConstraints] wrapping this entire
+ * composable, deliberately *outside* the `BottomSheet` call it wraps: `BottomSheet`'s own internal
+ * `draggableAnchors` modifier (see the placement note above) relaxes the height constraint it hands
+ * its content down to effectively unbounded, so it can measure that content's true natural height
+ * for its anchor math — measuring *inside* that point (as an earlier, reverted attempt did, with a
+ * bare `verticalScroll` and no cap) crashes with Compose's "measured with infinity maximum height"
+ * exception the moment content exceeds the viewport. Reading [BoxWithConstraints.maxHeight] here
+ * instead, above that relaxation point, sees the real bounded height the caller's own outer
+ * `Box(Modifier.fillMaxSize())` provides (see the placement note above) — `Modifier.heightIn(max = ...)`
+ * against that concrete value clamps correctly even where the inner measurement is later relaxed to
+ * infinity, since an upper bound intersected with infinity is still that bound. See docs/adr/0043's
+ * addendum for the fuller account of why the naive attempt broke and what fixed it.
  *
  * @param state Owns the sheet's hidden/expanded value and its dismissibility. Build it with
  *   [rememberFlashcardsBottomSheetState].
- * @param onDismissRequest Invoked when the sheet is swiped or predictive-backed to hidden. Never
- *   called for a non-dismissible [state], since neither path can reach hidden in that case.
+ * @param onDismissRequest Invoked when the sheet is swiped, predictive-backed, or drag-handle-tapped
+ *   to hidden. Never called for a non-dismissible [state], since none of those paths can reach
+ *   hidden in that case.
+ * @param maxHeightFraction [content]'s height cap, as a fraction (`0f..1f`) of the screen height the
+ *   caller's outer `Box` provides. Past this, [content] scrolls internally rather than clipping.
+ *   Defaults to [DEFAULT_MAX_HEIGHT_FRACTION] — generous enough for every sheet built on this
+ *   component so far, while still leaving a visible sliver of whatever's behind the sheet, since a
+ *   non-modal sheet (no scrim) reading as a full-screen takeover would misrepresent that it's
+ *   non-modal at all.
  * @param content The sheet's body. One slot, no header, no pinned-actions region.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -89,34 +132,43 @@ fun FlashcardsBottomSheet(
     state: FlashcardsBottomSheetState,
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
+    maxHeightFraction: Float = DEFAULT_MAX_HEIGHT_FRACTION,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    BottomSheet(
-        state = state.sheetState,
-        onDismissRequest = onDismissRequest,
-        modifier = modifier,
-        gesturesEnabled = state.dismissible,
-        backHandlerEnabled = state.dismissible,
-        dragHandle = if (state.dismissible) {
-            { BottomSheetDefaults.DragHandle() }
-        } else {
-            null
-        },
-        shape = RoundedCornerShape(
-            topStart = MaterialTheme.cornerRadius.large,
-            topEnd = MaterialTheme.cornerRadius.large,
-        ),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-        content = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = MaterialTheme.spacing.normal, vertical = MaterialTheme.spacing.normal),
-                content = content,
-            )
-        },
-    )
+    BoxWithConstraints {
+        val cappedHeight = maxHeight * maxHeightFraction
+        BottomSheet(
+            state = state.sheetState,
+            onDismissRequest = onDismissRequest,
+            modifier = modifier,
+            gesturesEnabled = state.dismissible,
+            backHandlerEnabled = state.dismissible,
+            dragHandle = if (state.dismissible) {
+                { BottomSheetDefaults.DragHandle() }
+            } else {
+                null
+            },
+            shape = RoundedCornerShape(
+                topStart = MaterialTheme.cornerRadius.large,
+                topEnd = MaterialTheme.cornerRadius.large,
+            ),
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+            content = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = cappedHeight)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = MaterialTheme.spacing.normal, vertical = MaterialTheme.spacing.normal),
+                    content = content,
+                )
+            },
+        )
+    }
 }
+
+/** Default [FlashcardsBottomSheet] `maxHeightFraction` — see that parameter's own doc. */
+private const val DEFAULT_MAX_HEIGHT_FRACTION = 0.8f
 
 /**
  * [FlashcardsBottomSheet]'s single source of truth for dismissibility — a transparent wrapper
@@ -233,7 +285,9 @@ private fun MockSheetContent() {
  * Placed as an unaligned sibling of [MockScreenContent] in the full-size [Box] — not
  * `Modifier.align(Alignment.BottomCenter)`. `BottomSheet` already derives its own expanded-anchor
  * offset from the incoming container height; aligning the whole child to the bottom on top of that
- * double-offsets it, leaving the expanded sheet mostly below the viewport.
+ * double-offsets it, leaving the expanded sheet mostly below the viewport. See this file's own doc
+ * for the full explanation — this is the one placement bug that actually broke every sheet built on
+ * this component before it was found.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @ShowkaseComposable(name = "Bottom sheet", group = "Sheets")
