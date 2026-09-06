@@ -158,7 +158,7 @@ flowchart TD
     HandOffPartial2 --> Summary
 
     %% ── Session Summary ───────────────────────────────────────────
-    Summary(SESSION SUMMARY SCREEN\nfresh result: full payload via route args · past session: sessionId only, read from Firestore\nXP breakdown — animated line by line\nLevel-up celebration if applicable\n'Session Completed' +500 XP omitted on partial sessions)
+    Summary(STUDY SESSION SUMMARY SCREEN\nmandatory egress for every session, natural end or premature exit — never used to view a past session\nfresh result: full payload via route args\nXP breakdown — animated line by line\nLevel-up celebration if applicable\n'Session Completed' +500 XP omitted on partial sessions)
     Summary --> Commit[ONE atomic batch — 3 fixed writes + 1 per touched subcategory:\nsession doc with embedded outcomes map\npacked progress doc per subcategory\nstate/progressSummary increments\nstate/progression xp/level/streak]
 
     Commit --> StudyAgainAll[/Study Again — All/]
