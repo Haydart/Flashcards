@@ -72,7 +72,7 @@ internal fun SessionSettingsSheet(
  * One row per adjustable setting, each opening its own dialog (ADR-0030), through the shared
  * [FlashcardsSettingRow].
  *
- * Voice answering, attempts and Partial re-ask are Rated-only: Fast mode has no rating step for any
+ * Voice answering, attempts and requeueing Partials are Rated-only: Fast mode has no rating step for any
  * of them to drive (ADR-0025). Read-aloud is the Fast-only counterpart — voice *output* plus
  * hands-free advance, where voice answering is voice *input*. Each is not offered outside its mode
  * rather than being offered and ignored, so the two branches are exclusive. The Voice row itself
