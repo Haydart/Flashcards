@@ -139,6 +139,18 @@ class RatedStudySessionViewModelTest {
         )
     }
 
+    /**
+     * A pool small enough to keep this file's tests cheap, but with a remaining-queue size (3)
+     * bigger than [StudySessionConfig.FAILED_REQUEUE_MIN_GAP] — unlike a 3-card pool, whose
+     * remaining size (2) forces every re-insertion to clamp to the same tail position, making 3
+     * rotations trivially cyclic back to the original order regardless of the actual gap drawn.
+     */
+    private fun loadFourCards() {
+        val cardIds = (1..4).map { "card-$it" }
+        flashcardRepository.flashcardsBySubcategory[subcategoryId] = Result.success(cardIds.map { flashcard(it) })
+        stubRoute(route.copy(cardIds = cardIds))
+    }
+
     /** A pool large enough that a re-insertion gap lands mid-queue instead of clamping to the end. */
     private fun loadTenCards() {
         val cardIds = (1..10).map { "card-$it" }
@@ -951,13 +963,28 @@ class RatedStudySessionViewModelTest {
     @Test
     fun `pausing after three silences stops playback, exposes the resume affordance, and records no outcome`() =
         runTest(mainDispatcherRule.testDispatcher) {
-            loadThreeCards()
-            val viewModel = createViewModel()
+            loadFourCards()
+            val viewModel = createViewModel().apply { random = Random(FIXED_SEED) }
             advanceUntilIdle()
             voiceGateway.stateFlow.value = VoicePlaybackState(isActive = true, isPlaying = true)
             advanceUntilIdle()
             val masteredBefore = viewModel.state.value.masteredCount
             val flashcardsBefore = viewModel.state.value.flashcards.map { it.id }
+
+            // Independently reproduces requeueAfterSilence's exact draw order/range with an
+            // unrelated Random instance seeded identically — a 4-card pool's remaining-queue size
+            // (3) exceeds the Failed gap's minimum (2), so unlike a 3-card pool this genuinely
+            // exercises re-insertion position rather than clamping to a fixed spot every time.
+            val referenceRandom = Random(FIXED_SEED)
+            val expectedQueue = flashcardsBefore.toMutableList()
+            repeat(3) {
+                val head = expectedQueue.removeAt(0)
+                val gap = referenceRandom.nextInt(
+                    StudySessionConfig.FAILED_REQUEUE_MIN_GAP,
+                    StudySessionConfig.FAILED_REQUEUE_MAX_GAP + 1,
+                )
+                expectedQueue.add(gap.coerceAtMost(expectedQueue.size), head)
+            }
 
             viewModel.events.test {
                 repeat(3) { emitSilenceTimeout() }
@@ -968,7 +995,7 @@ class RatedStudySessionViewModelTest {
             voiceGateway.togglePlayPauseCalls shouldBe 1
             voiceGateway.lastVoiceAnswering shouldBe false
             viewModel.state.value.masteredCount shouldBe masteredBefore
-            viewModel.state.value.flashcards.map { it.id } shouldBe flashcardsBefore
+            viewModel.state.value.flashcards.map { it.id } shouldBe expectedQueue
         }
 
     @Test
