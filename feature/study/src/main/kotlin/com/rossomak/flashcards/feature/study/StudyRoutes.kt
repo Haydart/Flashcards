@@ -9,7 +9,7 @@ import kotlinx.serialization.Serializable
 /**
  * @param difficultyMin lower bound of the difficulty filter, flattened out of an `IntRange` because
  * androidx.navigation only derives a NavType for primitives and enums — the same reason
- * [StudySessionRoute] flattens its voice settings.
+ * [FastStudySessionRoute] and [StudySessionRoute] flatten their voice settings.
  * @param difficultyMax upper bound, paired with [difficultyMin].
  * @param sortOrder **null means "nothing upstream chose an order, use my saved default"**. The
  * nullability is load-bearing: a non-null field could not tell a deliberate
@@ -29,6 +29,34 @@ data class PreviewStudySessionRoute(
     val isQuickSession: Boolean = false,
 ) {
     val difficultyRange: IntRange get() = difficultyMin..difficultyMax
+}
+
+/**
+ * Everything a Fast Study Session consumes, and nothing else (ticket 02 of
+ * [ADR-0045](../../../docs/adr/0045-separate-fast-and-rated-session-screens.md)). Rated concepts —
+ * attempts, voice answering — do not appear; Fast has no path to either.
+ *
+ * @param readAloudEnabled the Preview screen's confirmed choice. Auto-start is conditional on this
+ * flag as well as on having cards, so a session with it off never requests notification permission
+ * and never starts text-to-speech.
+ * @param speechRate the Preview screen's confirmed `VoiceSettings.speechRate`, flattened onto the
+ * route for the same reason as [StudySessionRoute.speechRate] — androidx.navigation's typesafe
+ * routes only derive a NavType for primitives and enums.
+ * @param voiceId the Preview screen's confirmed `VoiceSettings.voiceId`, flattened for the same
+ * reason as [speechRate].
+ */
+@Serializable
+data class FastStudySessionRoute(
+    val categoryId: String,
+    val sessionTitle: String,
+    val subcategoryIds: List<String>,
+    val cardIds: List<String>,
+    val readAloudEnabled: Boolean = false,
+    val speechRate: Float = VoiceSettings().speechRate,
+    val voiceId: String? = VoiceSettings().voiceId,
+) {
+    val voiceSettings: VoiceSettings
+        get() = VoiceSettings(speechRate = speechRate, voiceId = voiceId)
 }
 
 /**
