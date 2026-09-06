@@ -28,7 +28,7 @@ import com.rossomak.flashcards.core.ui.voice.VoiceSettingsController
 import com.rossomak.flashcards.core.ui.voice.toVoiceSettings
 import com.rossomak.flashcards.feature.study.FastStudySessionRoute
 import com.rossomak.flashcards.feature.study.PreviewStudySessionRoute
-import com.rossomak.flashcards.feature.study.StudySessionRoute
+import com.rossomak.flashcards.feature.study.RatedStudySessionRoute
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Attempts
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Filters
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Length
@@ -258,8 +258,8 @@ class PreviewStudySessionViewModel @Inject constructor(
     /**
      * `voiceAnsweringEnabled` is Rated-only (ADR-0025) — reset it switching away from Rated, not
      * just gate its *display* at the read sites, since the stale value would otherwise also leak
-     * into [onStartSession]'s `StudySessionRoute` payload unchanged. Its own function purely to keep
-     * [onDialogConfirm]'s cyclomatic complexity under detekt's threshold.
+     * into [onStartSession]'s `RatedStudySessionRoute` payload unchanged. Its own function purely
+     * to keep [onDialogConfirm]'s cyclomatic complexity under detekt's threshold.
      */
     private fun StudySessionConfig.withMode(mode: StudyMode): StudySessionConfig = copy(
         mode = mode,
@@ -320,16 +320,14 @@ class PreviewStudySessionViewModel @Inject constructor(
                     )
                 )
             } else {
-                PreviewStudySessionDestination.StudySession(
-                    StudySessionRoute(
+                PreviewStudySessionDestination.RatedStudySession(
+                    RatedStudySessionRoute(
                         categoryId = route.categoryId,
                         sessionTitle = sessionTitle(),
                         subcategoryIds = _state.value.config.subcategoryIds,
                         cardIds = selectedCardIds,
-                        studyMode = _state.value.config.mode,
                         voiceAnsweringEnabled = _state.value.config.voiceAnsweringEnabled,
                         ratedAttempts = _state.value.config.ratedAttempts,
-                        readAloudEnabled = _state.value.config.readAloudEnabled,
                         speechRate = _state.value.config.voiceSettings.speechRate,
                         voiceId = _state.value.config.voiceSettings.voiceId,
                     )

@@ -75,7 +75,7 @@ import com.rossomak.flashcards.core.ui.theme.brandColors
 import com.rossomak.flashcards.core.ui.theme.spacing
 import com.rossomak.flashcards.feature.study.FastStudySessionRoute
 import com.rossomak.flashcards.feature.study.R
-import com.rossomak.flashcards.feature.study.StudySessionRoute
+import com.rossomak.flashcards.feature.study.RatedStudySessionRoute
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Length
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Mode
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.ReadAloud
@@ -88,16 +88,17 @@ fun PreviewStudySessionScreen(
     modifier: Modifier = Modifier,
     viewModel: PreviewStudySessionViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
-    onNavigateToStudySession: (StudySessionRoute) -> Unit,
     onNavigateToFastStudySession: (FastStudySessionRoute) -> Unit,
+    onNavigateToRatedStudySession: (RatedStudySessionRoute) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     observeAsEvents(viewModel.events) { destination ->
         when (destination) {
-            is PreviewStudySessionDestination.StudySession -> onNavigateToStudySession(destination.route)
             is PreviewStudySessionDestination.FastStudySession ->
                 onNavigateToFastStudySession(destination.route)
+            is PreviewStudySessionDestination.RatedStudySession ->
+                onNavigateToRatedStudySession(destination.route)
         }
     }
 
