@@ -10,6 +10,7 @@ import android.os.Looper
 import android.os.SystemClock
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.util.Log
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
@@ -39,6 +40,14 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 @UnstableApi
 class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
+
+    // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge): plain android.util.Log
+    // is unmocked in this module's JVM unit tests (no Robolectric), so every call site below routes
+    // through this instead of Log.d directly — swallows the "not mocked" RuntimeException there,
+    // logs for real on device.
+    private fun logCr(message: String) {
+        runCatching { Log.d(TEST_LOG_TAG, message) }
+    }
 
     private val _voiceState = MutableStateFlow(VoicePlaybackState())
     val voiceState: StateFlow<VoicePlaybackState> = _voiceState.asStateFlow()
@@ -197,6 +206,9 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
      * currently speaking, so this always resets [index] to 0.
      */
     fun updateQueue(cards: List<VoiceFlashcard>) {
+        // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge): confirms the
+        // player's internal list/index actually gets re-seeded, and never mid-utterance.
+        logCr("updateQueue: ${cards.map { it.cardId }}, isPlaying=$isPlaying, phase=$phase")
         this.cards = cards
         this.index = 0
         publishState()
@@ -226,6 +238,9 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
     // before the SpeakingNotice utterance finishes speaking (ADR-0046). So cards[0] is already the
     // next-up card; unlike Fast's fixed-list advance, this never increments index.
     private fun doAdvanceToNextCardAfterVoiceAnswer() {
+        // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge): confirms
+        // playback keeps going past the original deck's last index when retries remain.
+        logCr("advanceAfterVoiceAnswer: cards=${cards.map { it.cardId }}")
         if (cards.isNotEmpty()) {
             index = 0
             cardStartedAtMs = SystemClock.elapsedRealtime()
@@ -534,6 +549,9 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
     }
 
     private companion object {
+        // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge).
+        const val TEST_LOG_TAG = "RatedCR"
+
         const val ERROR_TTS_UNAVAILABLE = "tts_unavailable"
         const val DEFAULT_TITLE = "Study session"
 
