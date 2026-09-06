@@ -48,8 +48,8 @@ private const val MAX_SPEECH_RATE = 2f
 fun VoiceSettingsDialog(
     availableVoices: List<VoiceOption>,
     draftVoiceId: String?,
-    draftSpeechRate: Float,
     onDraftVoiceChange: (String?) -> Unit,
+    draftSpeechRate: Float,
     onDraftSpeechRateChange: (Float) -> Unit,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
