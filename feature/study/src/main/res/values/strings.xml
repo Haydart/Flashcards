@@ -21,6 +21,8 @@
     <string name="study_session_no_cards_message">No cards available</string>
     <string name="study_session_curate_flashcard_cd">Curate flashcard</string>
 
+    <string name="fast_study_session_next_button">Next</string>
+
     <string name="extended_context_dialog_title">More info</string>
     <string name="extended_context_acknowledge_button">Got it</string>
 
