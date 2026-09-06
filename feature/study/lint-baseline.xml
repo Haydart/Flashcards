@@ -13,6 +13,17 @@
     </issue>
 
     <issue
+        id="EmptySuperCall"
+        message="No need to call `super.onCleared`; the super method is defined to be empty"
+        errorLine1="        super.onCleared()"
+        errorLine2="              ~~~~~~~~~">
+        <location
+            file="src/main/kotlin/com/rossomak/flashcards/feature/study/fast/FastStudySessionViewModel.kt"
+            line="456"
+            column="15"/>
+    </issue>
+
+    <issue
         id="MissingPermission"
         message="Call requires permission which may be rejected by user: code should explicitly check to see if permission is available (with `checkPermission`) or explicitly handle a potential `SecurityException`"
         errorLine1="            voiceCaptureEngine.startListening()"
