@@ -7,17 +7,6 @@
         errorLine1="        super.onCleared()"
         errorLine2="              ~~~~~~~~~">
         <location
-            file="src/main/kotlin/com/rossomak/flashcards/feature/study/fast/FastStudySessionViewModel.kt"
-            line="456"
-            column="15"/>
-    </issue>
-
-    <issue
-        id="EmptySuperCall"
-        message="No need to call `super.onCleared`; the super method is defined to be empty"
-        errorLine1="        super.onCleared()"
-        errorLine2="              ~~~~~~~~~">
-        <location
             file="src/main/kotlin/com/rossomak/flashcards/feature/study/rated/RatedStudySessionViewModel.kt"
             line="566"
             column="15"/>

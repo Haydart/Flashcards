@@ -144,13 +144,13 @@ private fun QuestionSection(card: Flashcard, syntaxEngine: SyntaxTokenizer) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = "Question",
+            text = stringResource(R.string.study_session_question_label),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.weight(1f),
         )
         Text(
-            text = "Difficulty ${card.difficulty}",
+            text = stringResource(R.string.study_session_difficulty_label, card.difficulty),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.outline
         )
@@ -181,7 +181,7 @@ private fun AnswerSection(
         HorizontalDivider()
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Answer",
+            text = stringResource(R.string.study_session_answer_label),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.secondary
         )
@@ -205,7 +205,7 @@ private fun AnswerSection(
             Spacer(modifier = Modifier.height(8.dp))
             SuggestionChip(
                 onClick = { onExtendedContextClick(extendedContext) },
-                label = { Text("Extended context") },
+                label = { Text(stringResource(R.string.study_session_extended_context_button)) },
                 icon = {
                     Icon(
                         imageVector = Icons.Default.Info,

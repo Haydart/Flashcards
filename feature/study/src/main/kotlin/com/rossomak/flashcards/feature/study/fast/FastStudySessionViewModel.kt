@@ -15,6 +15,7 @@ import com.rossomak.flashcards.core.ui.navigation.decodeRoute
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsController
 import com.rossomak.flashcards.core.ui.voice.toVoiceSettings
 import com.rossomak.flashcards.feature.study.FastStudySessionRoute
+import com.rossomak.flashcards.feature.study.R
 import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog
 import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.ExitSession
 import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.ExtendedContext
@@ -107,7 +108,7 @@ class FastStudySessionViewModel @Inject constructor(
                     .awaitAll()
             }
             if (results.any { it.isFailure }) {
-                _state.update { it.copy(isLoading = false, error = "Could not load flashcards") }
+                _state.update { it.copy(isLoading = false, error = R.string.study_session_load_error_message) }
                 return@launch
             }
             val cardsById = results.flatMap { it.getOrThrow() }.associateBy { it.id }
@@ -437,7 +438,7 @@ class FastStudySessionViewModel @Inject constructor(
                     actions = dialog.selectedActions,
                 )
             ).onFailure {
-                _state.update { it.copy(curationError = "Failed to submit report") }
+                _state.update { it.copy(curationError = R.string.fast_study_session_report_failure_message) }
             }
         }
     }
@@ -453,7 +454,6 @@ class FastStudySessionViewModel @Inject constructor(
 
     public override fun onCleared() {
         voiceGateway.stop()
-        super.onCleared()
     }
 
     private companion object {
