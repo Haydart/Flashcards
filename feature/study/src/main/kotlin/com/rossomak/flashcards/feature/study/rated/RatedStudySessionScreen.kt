@@ -130,20 +130,24 @@ fun RatedStudySessionScreen(
         )
     }
 
+    val voicePlaybackUnavailableMessage = stringResource(R.string.study_session_voice_playback_unavailable_message)
+    val openTtsSettingsAction = stringResource(R.string.study_session_open_tts_settings_action)
+
     LaunchedEffect(state.voiceError) {
-        val error = state.voiceError ?: return@LaunchedEffect
+        if (state.voiceError == null) return@LaunchedEffect
         launch {
             val result = snackbarHostState.showSnackbar(
-                message = "Voice playback unavailable on this device",
-                actionLabel = "Open Settings",
+                message = voicePlaybackUnavailableMessage,
+                actionLabel = openTtsSettingsAction,
                 duration = SnackbarDuration.Long,
             )
             if (result == SnackbarResult.ActionPerformed) {
-                context.startActivity(
-                    Intent("com.android.settings.TTS_SETTINGS").apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                )
+                val ttsSettingsIntent = Intent("com.android.settings.TTS_SETTINGS").apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                if (ttsSettingsIntent.resolveActivity(context.packageManager) != null) {
+                    context.startActivity(ttsSettingsIntent)
+                }
             }
             viewModel.onVoiceErrorDismissed()
         }
@@ -292,7 +296,7 @@ private fun RatedStudySessionSheetContent(
                     onClick = onShowAnswer,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("Show Answer")
+                    Text(stringResource(R.string.study_session_show_answer_button))
                 }
             } else {
                 RatingButtons(onRating = onRating)
@@ -350,7 +354,7 @@ private fun RatedVoiceAnswerHeader(
         IconButton(onClick = onVoiceSettingsCogClick) {
             Icon(
                 imageVector = Icons.Default.Settings,
-                contentDescription = "Voice settings",
+                contentDescription = stringResource(R.string.study_session_voice_settings_cd),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -420,7 +424,7 @@ private fun RatedVoiceTransportRow(
             ) {
                 Icon(
                     imageVector = Icons.Default.SkipPrevious,
-                    contentDescription = "Previous card",
+                    contentDescription = stringResource(R.string.study_session_previous_card_cd),
                 )
             }
             Spacer(modifier = Modifier.size(16.dp))
@@ -431,7 +435,13 @@ private fun RatedVoiceTransportRow(
             ) {
                 Icon(
                     imageVector = if (state.isVoicePlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = if (state.isVoicePlaying) "Pause" else "Play",
+                    contentDescription = stringResource(
+                        if (state.isVoicePlaying) {
+                            R.string.study_session_voice_pause_cd
+                        } else {
+                            R.string.study_session_voice_play_cd
+                        }
+                    ),
                 )
             }
             Spacer(modifier = Modifier.size(16.dp))
