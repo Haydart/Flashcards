@@ -58,6 +58,11 @@ class StudySessionVoiceService : MediaSessionService() {
             player.loadAndStartSession(cards, startIndex, subcategoryName)
         }
 
+        fun updateQueue(cards: List<VoiceFlashcard>) {
+            sessionCards = cards
+            player.updateQueue(cards)
+        }
+
         fun togglePlayPause() = player.togglePlayPause()
 
         fun moveToNextCard() = player.moveToNextCard()

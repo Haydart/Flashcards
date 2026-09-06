@@ -172,9 +172,12 @@ class RatedStudySessionViewModel @Inject constructor(
 
     /**
      * Mirrors the machine's queue into screen state. [RatedStudySessionScreenState.currentCardIndex]
-     * always lands on 0 in this path — the current card is always the queue's head — but stays a
-     * mutable field because [observeVoiceState] still drives it from the voice engine's own index
-     * while voice is active (ticket 04's concern, unchanged here).
+     * always lands on 0 in this path — the current card is always the queue's head.
+     *
+     * Also re-seeds the voice engine's queue whenever voice is active: [VoiceGateway.updateQueue]
+     * swaps in [RatedSessionState.remainingCards] without touching the in-flight utterance, keeping
+     * the spoken card, displayed card, and reducer head from diverging once a rating or silence
+     * timeout reorders the queue (ADR-0046).
      */
     private fun syncStateFromRatedSession() {
         val machine = ratedSessionState ?: return
@@ -187,6 +190,7 @@ class RatedStudySessionViewModel @Inject constructor(
                 currentCardRatings = machine.currentCardRatings,
             )
         }
+        if (_state.value.isVoiceActive) voiceGateway.updateQueue(machine.remainingCards)
     }
 
     /**
@@ -273,9 +277,16 @@ class RatedStudySessionViewModel @Inject constructor(
                 }
                 if (!justEnteredSpeakingNotice) return@collect
                 // ADR-0026: lastGrade == null distinguishes a silence-timeout skip from a real
-                // graded result — both share SpeakingNotice, never a dedicated phase value.
+                // graded result — both share SpeakingNotice, never a dedicated phase value. But a
+                // grading/transcription failure also lands in SpeakingNotice with lastGrade == null
+                // (VoiceAnswerController's catch block never sets a grade), so error must be ruled
+                // out first or a backend failure gets silently counted as silence.
                 val grade = voiceAnswer.lastGrade
-                if (grade != null) onVoiceGraded(grade) else onVoiceSilenceTimeout()
+                when {
+                    grade != null -> onVoiceGraded(grade)
+                    voiceAnswer.error != null -> Unit
+                    else -> onVoiceSilenceTimeout()
+                }
             }
         }
     }
@@ -399,6 +410,9 @@ class RatedStudySessionViewModel @Inject constructor(
      */
     fun onRating(rating: FlashcardRating) {
         val machine = ratedSessionState ?: return
+        // A rapid second tap, or a late voice grade/silence timeout racing the terminal navigation
+        // event, can still reach here after the queue has emptied — rate() assumes a head to rate.
+        if (machine.isComplete) return
         val outcome = rate(machine, rating)
         ratedSessionState = outcome.state
         _state.update { it.copy(isAnswerRevealed = false) }

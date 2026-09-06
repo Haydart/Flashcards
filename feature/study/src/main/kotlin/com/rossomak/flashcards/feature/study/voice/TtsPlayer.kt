@@ -191,6 +191,17 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         if (ttsReady) speakQuestion() else startWhenReady = true
     }
 
+    /**
+     * Swaps in a fresh queue order without touching the in-flight utterance, TTS engine, or
+     * `MediaSession` — only [cards]/[index] change. [cards]'s head is always whatever card is
+     * currently speaking, so this always resets [index] to 0.
+     */
+    fun updateQueue(cards: List<VoiceFlashcard>) {
+        this.cards = cards
+        this.index = 0
+        publishState()
+    }
+
     /** Toggles between Fast's continuous auto-advance and Rated voice-answering's stop-after-question shape. */
     fun setVoiceAnsweringMode(enabled: Boolean) {
         isVoiceAnsweringMode = enabled
@@ -210,9 +221,13 @@ class TtsPlayer(context: Context) : SimpleBasePlayer(Looper.getMainLooper()) {
         doAdvanceToNextCardAfterVoiceAnswer()
     }
 
+    // The rated queue's just-answered card is never still at cards[0] by the time this runs —
+    // ViewModel.onRating already called updateQueue with that card removed/reinserted elsewhere
+    // before the SpeakingNotice utterance finishes speaking (ADR-0046). So cards[0] is already the
+    // next-up card; unlike Fast's fixed-list advance, this never increments index.
     private fun doAdvanceToNextCardAfterVoiceAnswer() {
-        if (index < cards.lastIndex) {
-            index++
+        if (cards.isNotEmpty()) {
+            index = 0
             cardStartedAtMs = SystemClock.elapsedRealtime()
             speakQuestion()
         } else {

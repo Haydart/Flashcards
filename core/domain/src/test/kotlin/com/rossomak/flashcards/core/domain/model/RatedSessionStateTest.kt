@@ -183,24 +183,38 @@ class RatedSessionStateTest {
     }
 
     @Test
-    fun `a fixed Random produces an identical queue sequence for an identical rating sequence`() {
+    fun `a fixed Random produces the exact expected queue sequence for a known rating sequence`() {
         val ratingSequence = listOf(Failed, PartiallyCorrect, Failed, Correct, Failed)
 
-        var firstSession = state(cardCount = LARGE_POOL_SIZE, attemptsLimit = 4, random = Random(FIXED_SEED))
-        var secondSession = state(cardCount = LARGE_POOL_SIZE, attemptsLimit = 4, random = Random(FIXED_SEED))
+        // Independently reproduces reinsertAt's exact draw order and gap ranges with an unrelated
+        // Random instance seeded identically to the session's — asserting only that two
+        // identically-seeded runs match each other (as this test previously did) would still pass
+        // if reinsertAt stopped consulting state.random altogether (e.g. a hardcoded gap). Asserting
+        // against this independently-computed expectation catches that regression too.
+        val referenceRandom = Random(FIXED_SEED)
+        val expectedQueue = cards(LARGE_POOL_SIZE).map { it.id }.toMutableList()
+        val expectedHeadIds = ratingSequence.map { rating ->
+            val head = expectedQueue.removeAt(0)
+            if (rating != Correct) {
+                val (minGap, maxGap) = when (rating) {
+                    Failed -> StudySessionConfig.FAILED_REQUEUE_MIN_GAP to StudySessionConfig.FAILED_REQUEUE_MAX_GAP
+                    PartiallyCorrect -> StudySessionConfig.PARTIAL_REQUEUE_MIN_GAP to StudySessionConfig.PARTIAL_REQUEUE_MAX_GAP
+                    Correct -> error("unreachable — filtered out above")
+                }
+                val gap = referenceRandom.nextInt(minGap, maxGap + 1)
+                expectedQueue.add(gap.coerceAtMost(expectedQueue.size), head)
+            }
+            head
+        }
 
-        val firstOrder = ratingSequence.map { rating ->
-            val cardId = firstSession.currentCard?.id
-            firstSession = rate(firstSession, rating).state
+        var session = state(cardCount = LARGE_POOL_SIZE, attemptsLimit = 4, random = Random(FIXED_SEED))
+        val actualHeadIds = ratingSequence.map { rating ->
+            val cardId = session.currentCard?.id
+            session = rate(session, rating).state
             cardId
         }
-        val secondOrder = ratingSequence.map { rating ->
-            val cardId = secondSession.currentCard?.id
-            secondSession = rate(secondSession, rating).state
-            cardId
-        }
 
-        firstOrder shouldBe secondOrder
+        actualHeadIds shouldBe expectedHeadIds
     }
 
     @Test

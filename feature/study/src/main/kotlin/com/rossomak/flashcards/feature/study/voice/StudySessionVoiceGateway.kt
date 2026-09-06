@@ -92,6 +92,12 @@ class StudySessionVoiceGateway @Inject constructor(
         connectMediaController()
     }
 
+    override fun updateQueue(cards: List<Flashcard>) {
+        val voiceCards = cards.toVoiceFlashcards()
+        pendingCards = voiceCards
+        voiceBinder?.updateQueue(voiceCards)
+    }
+
     override fun stop() {
         voiceBinder?.stopPlayback()
         unbind()
