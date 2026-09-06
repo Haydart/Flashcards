@@ -112,14 +112,20 @@ class PreviewStudySessionViewModelTest {
         every { RouteDecoder.decode(any<() -> PreviewStudySessionRoute>()) } returns route
     }
 
+    /**
+     * Fixed, not [Random.Default]: a real `Random` occasionally draws the same subset or
+     * subcategory sample twice in a row, which would flake the `shouldNotBe` assertions on
+     * reshuffle. This seed is verified (see the reshuffle tests below) to advance to a different
+     * draw/sample on a second call.
+     */
     private fun createViewModel(): PreviewStudySessionViewModel = PreviewStudySessionViewModel(
         savedStateHandle,
         SelectSessionFlashcardsUseCase(
             getFlashcards = GetFlashcardsUseCase(flashcardRepository),
             filterFlashcards = FilterFlashcardsUseCase(),
-            random = Random.Default,
+            random = Random(CARD_DRAW_RANDOM_SEED),
         ),
-        SampleQuickSessionSubcategoriesUseCase(random = Random.Default),
+        SampleQuickSessionSubcategoriesUseCase(random = Random(SUBCATEGORY_SAMPLE_RANDOM_SEED)),
         ObserveStudySessionPreferencesUseCase(studySessionPreferencesRepository),
         SaveStudySessionPreferenceUseCase(studySessionPreferencesRepository),
         voiceSettingsController,
@@ -1129,4 +1135,43 @@ class PreviewStudySessionViewModelTest {
             viewModel.state.value.selectedCardCount shouldBe 1
             viewModel.state.value.activeDialog shouldBe null
         }
+
+    /**
+     * Regression test for a bug Copilot review flagged on PR #64: with the card draw stateful
+     * (ADR-0040, no session seed), confirming Sort used to reselect through
+     * [SelectSessionFlashcardsUseCase], which could redraw a different subset of a pool larger
+     * than the session length — see SYSTEMDESIGN.md:107,377. Sort must only reorder the cast
+     * already drawn.
+     */
+    @Test
+    fun `confirming the sort dialog never changes which cards are in the session`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(singleSubcategoryRoute)
+            flashcardRepository.flashcardsToReturn = Result.success(
+                (1..25).map { index -> flashcard(id = "card-$index", difficulty = index) }
+            )
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            val cardIdsBeforeSort = viewModel.selectedCardIds.toSet()
+
+            viewModel.onDialogEvent(Open(Sort(draft = viewModel.state.value.config.sortOrder)))
+            viewModel.onDialogEvent(DraftChange(Sort(draft = FlashcardSortOrder.EasiestFirst)))
+            viewModel.onDialogEvent(Confirm)
+            advanceUntilIdle()
+
+            viewModel.selectedCardIds.toSet() shouldBe cardIdsBeforeSort
+        }
+
+    private companion object {
+        /**
+         * Verified (by the reshuffle tests above passing deterministically) to advance
+         * [SelectSessionFlashcardsUseCase]'s draw to a different subset on a second call — a
+         * fixed seed instead of [Random.Default] so those `shouldNotBe` assertions never flake.
+         */
+        const val CARD_DRAW_RANDOM_SEED = 42L
+
+        /** Same rationale as [CARD_DRAW_RANDOM_SEED], for the quick-session subcategory sample. */
+        const val SUBCATEGORY_SAMPLE_RANDOM_SEED = 7L
+    }
 }

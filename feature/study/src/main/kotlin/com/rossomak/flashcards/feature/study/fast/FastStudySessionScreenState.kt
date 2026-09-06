@@ -1,5 +1,6 @@
 package com.rossomak.flashcards.feature.study.fast
 
+import androidx.annotation.StringRes
 import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog
 import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
@@ -20,13 +21,13 @@ data class FastStudySessionScreenState(
     val flashcards: List<Flashcard> = emptyList(),
     val currentCardIndex: Int = 0,
     val isAnswerRevealed: Boolean = false,
-    val error: String? = null,
+    @StringRes val error: Int? = null,
     val isVoiceActive: Boolean = false,
     val isVoicePlaying: Boolean = false,
     val isVoiceAutoStartPending: Boolean = false,
     val speechRate: Float = VoicePlaybackState.DEFAULT_SPEECH_RATE,
     val voiceError: String? = null,
-    val curationError: String? = null,
+    @StringRes val curationError: Int? = null,
     val activeDialog: StudySessionDialog? = null,
 ) {
     val currentCard: Flashcard? get() = flashcards.getOrNull(currentCardIndex)

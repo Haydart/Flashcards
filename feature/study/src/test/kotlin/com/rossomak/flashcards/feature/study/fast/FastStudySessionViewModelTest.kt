@@ -18,6 +18,7 @@ import com.rossomak.flashcards.core.ui.navigation.RouteDecoder
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsController
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsDraftState
 import com.rossomak.flashcards.feature.study.FastStudySessionRoute
+import com.rossomak.flashcards.feature.study.R
 import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.ExitSession
 import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.ReportProblem
 import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.VoiceSettings as VoiceSettingsDialog
@@ -141,7 +142,7 @@ class FastStudySessionViewModelTest {
         val viewModel = createViewModel()
         advanceUntilIdle()
 
-        viewModel.state.value.error shouldBe "Could not load flashcards"
+        viewModel.state.value.error shouldBe R.string.study_session_load_error_message
         viewModel.state.value.isLoading shouldBe false
     }
 

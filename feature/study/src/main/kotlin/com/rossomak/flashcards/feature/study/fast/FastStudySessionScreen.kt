@@ -110,7 +110,7 @@ fun FastStudySessionScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     val voicePlaybackUnavailableMessage = stringResource(R.string.study_session_voice_playback_unavailable_message)
-    val openTtsSettingsAction = stringResource(R.string.study_session_open_tts_settings_action)
+    val openTtsSettingsAction = stringResource(R.string.study_session_open_tts_settings_button)
 
     LaunchedEffect(state.voiceError) {
         if (state.voiceError == null) return@LaunchedEffect
@@ -132,8 +132,9 @@ fun FastStudySessionScreen(
         }
     }
 
+    val curationErrorMessage = state.curationError?.let { stringResource(it) }
     LaunchedEffect(state.curationError) {
-        val error = state.curationError ?: return@LaunchedEffect
+        val error = curationErrorMessage ?: return@LaunchedEffect
         snackbarHostState.showSnackbar(message = error, duration = SnackbarDuration.Short)
         viewModel.onCurationErrorDismissed()
     }
@@ -142,14 +143,26 @@ fun FastStudySessionScreen(
         modifier = modifier,
         state = state,
         snackbarHostState = snackbarHostState,
-        onShowAnswer = viewModel::onShowAnswer,
-        onNextCard = viewModel::onNextCard,
-        onVoicePlayPause = viewModel::onVoicePlayPause,
-        onVoiceNext = viewModel::onVoiceNext,
-        onVoicePrevious = viewModel::onVoicePrevious,
-        onDialogEvent = viewModel::onDialogEvent,
+        actions = FastStudySessionActions(
+            onShowAnswer = viewModel::onShowAnswer,
+            onNextCard = viewModel::onNextCard,
+            onVoicePlayPause = viewModel::onVoicePlayPause,
+            onVoiceNext = viewModel::onVoiceNext,
+            onVoicePrevious = viewModel::onVoicePrevious,
+            onDialogEvent = viewModel::onDialogEvent,
+        ),
     )
 }
+
+/** Bundles [FastStudySessionContent]'s callbacks so the composable stays under detekt's param cap. */
+data class FastStudySessionActions(
+    val onShowAnswer: () -> Unit,
+    val onNextCard: () -> Unit,
+    val onVoicePlayPause: () -> Unit,
+    val onVoiceNext: () -> Unit,
+    val onVoicePrevious: () -> Unit,
+    val onDialogEvent: (StudySessionDialogEvent) -> Unit,
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -157,12 +170,7 @@ fun FastStudySessionContent(
     modifier: Modifier = Modifier,
     state: FastStudySessionScreenState,
     snackbarHostState: SnackbarHostState,
-    onShowAnswer: () -> Unit,
-    onNextCard: () -> Unit,
-    onVoicePlayPause: () -> Unit,
-    onVoiceNext: () -> Unit,
-    onVoicePrevious: () -> Unit,
-    onDialogEvent: (StudySessionDialogEvent) -> Unit,
+    actions: FastStudySessionActions,
 ) {
     val scaffoldState = rememberBottomSheetScaffoldState(
         bottomSheetState = rememberStandardBottomSheetState(skipHiddenState = true),
@@ -185,37 +193,37 @@ fun FastStudySessionContent(
                 reportableCard = state.currentCard,
                 currentCardIndex = state.currentCardIndex,
                 totalCardCount = state.flashcards.size,
-                onClose = { onDialogEvent(Open(ExitSession)) },
+                onClose = { actions.onDialogEvent(Open(ExitSession)) },
                 onReportProblem = { card ->
-                    onDialogEvent(Open(ReportProblem(cardId = card.id, subcategoryId = card.subcategoryId)))
+                    actions.onDialogEvent(Open(ReportProblem(cardId = card.id, subcategoryId = card.subcategoryId)))
                 },
             )
         },
         sheetContent = {
             FastStudySessionSheetContent(
                 state = state,
-                onShowAnswer = onShowAnswer,
-                onNextCard = onNextCard,
-                onVoicePlayPause = onVoicePlayPause,
-                onVoiceNext = onVoiceNext,
-                onVoicePrevious = onVoicePrevious,
-                onVoiceSettingsCogClick = { onDialogEvent(Open(VoiceSettings())) },
+                onShowAnswer = actions.onShowAnswer,
+                onNextCard = actions.onNextCard,
+                onVoicePlayPause = actions.onVoicePlayPause,
+                onVoiceNext = actions.onVoiceNext,
+                onVoicePrevious = actions.onVoicePrevious,
+                onVoiceSettingsCogClick = { actions.onDialogEvent(Open(VoiceSettings())) },
             )
         },
     ) { innerPadding ->
         StudySessionBody(
             isLoading = state.isLoading,
-            error = state.error,
+            error = state.error?.let { stringResource(it) },
             flashcards = state.flashcards,
             currentCardIndex = state.currentCardIndex,
             isAnswerRevealed = state.isAnswerRevealed,
             innerPadding = innerPadding,
-            onExtendedContextClick = { onDialogEvent(Open(ExtendedContext(it))) },
+            onExtendedContextClick = { actions.onDialogEvent(Open(ExtendedContext(it))) },
         )
 
         StudySessionDialogHost(
             activeDialog = state.activeDialog,
-            onDialogEvent = onDialogEvent,
+            onDialogEvent = actions.onDialogEvent,
         )
     }
 }
@@ -298,7 +306,6 @@ private fun FastVoiceTransportControls(
             ) {
                 IconButton(
                     onClick = onVoicePrevious,
-                    enabled = state.currentCardIndex > 0,
                 ) {
                     Icon(
                         imageVector = Icons.Default.SkipPrevious,
@@ -354,12 +361,14 @@ private fun FastStudySessionVoiceActivePreview() {
             speechRate = 1.25f,
         ),
         snackbarHostState = remember { SnackbarHostState() },
-        onShowAnswer = {},
-        onNextCard = {},
-        onVoicePlayPause = {},
-        onVoiceNext = {},
-        onVoicePrevious = {},
-        onDialogEvent = {},
+        actions = FastStudySessionActions(
+            onShowAnswer = {},
+            onNextCard = {},
+            onVoicePlayPause = {},
+            onVoiceNext = {},
+            onVoicePrevious = {},
+            onDialogEvent = {},
+        ),
     )
 }
 
@@ -389,11 +398,13 @@ private fun FastStudySessionManualRevealedPreview() {
             isAnswerRevealed = true,
         ),
         snackbarHostState = remember { SnackbarHostState() },
-        onShowAnswer = {},
-        onNextCard = {},
-        onVoicePlayPause = {},
-        onVoiceNext = {},
-        onVoicePrevious = {},
-        onDialogEvent = {},
+        actions = FastStudySessionActions(
+            onShowAnswer = {},
+            onNextCard = {},
+            onVoicePlayPause = {},
+            onVoiceNext = {},
+            onVoicePrevious = {},
+            onDialogEvent = {},
+        ),
     )
 }

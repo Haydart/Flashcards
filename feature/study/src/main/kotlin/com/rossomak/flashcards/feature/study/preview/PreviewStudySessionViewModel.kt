@@ -3,6 +3,7 @@ package com.rossomak.flashcards.feature.study.preview
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference
@@ -16,6 +17,7 @@ import com.rossomak.flashcards.core.domain.model.StudySessionPreference.Subcateg
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.VoiceAnsweringEnabled
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.VoicePlayback
 import com.rossomak.flashcards.core.domain.model.VoiceOption
+import com.rossomak.flashcards.core.domain.model.orderedBy
 import com.rossomak.flashcards.core.domain.usecase.ObserveStudySessionPreferencesUseCase
 import com.rossomak.flashcards.core.domain.usecase.SampleQuickSessionSubcategoriesUseCase
 import com.rossomak.flashcards.core.domain.usecase.SaveStudySessionPreferenceUseCase
@@ -96,6 +98,14 @@ class PreviewStudySessionViewModel @Inject constructor(
 
     internal var selectedCardIds: List<String> = emptyList()
         private set
+
+    /**
+     * The last drawn set, held so [onDialogConfirm]'s Sort case can reorder it in place instead of
+     * redrawing through [selectSessionFlashcards] — a fresh draw there would silently swap which
+     * cards are in the session on a sort-only change (SYSTEMDESIGN.md:107,377). Order doesn't
+     * matter here: [resolveSelectedCards] fully re-sorts before use.
+     */
+    private var lastDrawnCards: List<Flashcard> = emptyList()
 
     /**
      * Seeds the config from the user's saved defaults **before** the first [selectCards] — a
@@ -246,7 +256,25 @@ class PreviewStudySessionViewModel @Inject constructor(
             voiceSettingsController.stopPreview()
         }
         _state.update { it.copy(config = updatedConfig, activeDialog = null) }
-        selectCards()
+        resolveSelectedCards(dialog)
+    }
+
+    /**
+     * Sort is the one dialog that never needs a redraw: it reorders the already-drawn set (see
+     * [lastDrawnCards]) instead of going through [selectCards] — a redraw there could silently
+     * swap which cards are in the session on a sort-only change (SYSTEMDESIGN.md:107,377). Cast
+     * size and pool are untouched by a sort change, so the Sort branch never needs to touch
+     * `isLoading`, `selectedCardCount` or `estimatedMinutes`. Its own function purely to keep
+     * [onDialogConfirm]'s cyclomatic complexity under detekt's threshold.
+     */
+    private fun resolveSelectedCards(dialog: PreviewDialog) {
+        if (dialog is Sort) {
+            val reordered = lastDrawnCards.orderedBy(dialog.draft)
+            lastDrawnCards = reordered
+            selectedCardIds = reordered.map { it.id }
+        } else {
+            selectCards()
+        }
     }
 
     /**
@@ -383,6 +411,7 @@ class PreviewStudySessionViewModel @Inject constructor(
             val selectionConfig = _state.value.config.forSelection(isSingleSubcategory = _state.value.isSingleSubcategory)
             selectSessionFlashcards(selectionConfig)
                 .onSuccess { plan ->
+                    lastDrawnCards = plan.cards
                     selectedCardIds = plan.cards.map { it.id }
                     _state.update { state ->
                         // Tags belong to one subcategory, so a multi-subcategory session has no

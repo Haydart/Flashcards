@@ -131,7 +131,7 @@ fun RatedStudySessionScreen(
     }
 
     val voicePlaybackUnavailableMessage = stringResource(R.string.study_session_voice_playback_unavailable_message)
-    val openTtsSettingsAction = stringResource(R.string.study_session_open_tts_settings_action)
+    val openTtsSettingsAction = stringResource(R.string.study_session_open_tts_settings_button)
 
     LaunchedEffect(state.voiceError) {
         if (state.voiceError == null) return@LaunchedEffect
