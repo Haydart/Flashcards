@@ -6,6 +6,7 @@ import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.domain.repository.FakeFlashcardRepository
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import kotlin.random.Random
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
@@ -13,10 +14,11 @@ class SelectSessionFlashcardsUseCaseTest {
 
     private val flashcardRepository = FakeFlashcardRepository()
 
-    private fun createUseCase(): SelectSessionFlashcardsUseCase =
+    private fun createUseCase(random: Random = Random(FIXED_SEED)): SelectSessionFlashcardsUseCase =
         SelectSessionFlashcardsUseCase(
             getFlashcards = GetFlashcardsUseCase(flashcardRepository),
             filterFlashcards = FilterFlashcardsUseCase(),
+            random = random,
         )
 
     private fun config(
@@ -25,14 +27,12 @@ class SelectSessionFlashcardsUseCaseTest {
         sortOrder: FlashcardSortOrder = FlashcardSortOrder.Default,
         difficultyRange: IntRange = StudySessionConfig.MIN_DIFFICULTY..StudySessionConfig.MAX_DIFFICULTY,
         tagIds: Set<String> = emptySet(),
-        seed: Long = FIXED_SEED,
     ): StudySessionConfig = StudySessionConfig(
         subcategoryIds = subcategoryIds,
         length = length,
         sortOrder = sortOrder,
         difficultyRange = difficultyRange,
         tagIds = tagIds,
-        seed = seed,
     )
 
     private fun flashcard(
@@ -55,26 +55,26 @@ class SelectSessionFlashcardsUseCaseTest {
     )
 
     @Test
-    fun `the same seed always draws the same cards in the same order`() = runTest {
+    fun `a fixed random always draws the same cards in the same order`() = runTest {
         flashcardRepository.flashcardsToReturn =
             Result.success((1..30).map { index -> flashcard(id = "card-$index") })
 
-        val firstPlan = createUseCase().invoke(config()).getOrThrow()
-        val secondPlan = createUseCase().invoke(config()).getOrThrow()
+        val firstPlan = createUseCase(random = Random(FIXED_SEED)).invoke(config()).getOrThrow()
+        val secondPlan = createUseCase(random = Random(FIXED_SEED)).invoke(config()).getOrThrow()
 
         firstPlan.cards shouldBe secondPlan.cards
     }
 
     @Test
-    fun `a different seed draws a different order`() = runTest {
+    fun `the default random produces varying draws across repetitions`() = runTest {
         flashcardRepository.flashcardsToReturn =
             Result.success((1..30).map { index -> flashcard(id = "card-$index") })
-        val useCase = createUseCase()
 
-        val firstPlan = useCase(config(seed = FIXED_SEED)).getOrThrow()
-        val secondPlan = useCase(config(seed = FIXED_SEED + 1)).getOrThrow()
+        val draws = (1..10).map {
+            createUseCase(random = Random.Default).invoke(config()).getOrThrow().cards
+        }
 
-        firstPlan.cards shouldNotBe secondPlan.cards
+        draws.distinct().size shouldNotBe 1
     }
 
     @Test

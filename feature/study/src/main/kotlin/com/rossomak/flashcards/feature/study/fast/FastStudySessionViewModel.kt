@@ -1,16 +1,11 @@
-package com.rossomak.flashcards.feature.study.session
+package com.rossomak.flashcards.feature.study.fast
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.rossomak.flashcards.core.domain.model.FlashcardRating
-import com.rossomak.flashcards.core.domain.model.StudyMode
-import com.rossomak.flashcards.core.domain.model.UserPreference.VoiceAnswerConsent as VoiceAnswerConsentPreference
 import com.rossomak.flashcards.core.domain.model.VoiceOption
 import com.rossomak.flashcards.core.domain.model.VoiceSettings as SavedVoiceSettings
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
-import com.rossomak.flashcards.core.domain.usecase.ObserveUserPreferencesUseCase
-import com.rossomak.flashcards.core.domain.usecase.SaveUserPreferenceUseCase
 import com.rossomak.flashcards.core.domain.usecase.SubmitCurationReportUseCase
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Dismiss
@@ -19,13 +14,15 @@ import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.decodeRoute
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsController
 import com.rossomak.flashcards.core.ui.voice.toVoiceSettings
-import com.rossomak.flashcards.feature.study.StudySessionRoute
-import com.rossomak.flashcards.feature.study.session.StudySessionDialog.ExitSession
-import com.rossomak.flashcards.feature.study.session.StudySessionDialog.ExtendedContext
-import com.rossomak.flashcards.feature.study.session.StudySessionDialog.ReportProblem
-import com.rossomak.flashcards.feature.study.session.StudySessionDialog.VoiceAnswerConsent
-import com.rossomak.flashcards.feature.study.session.StudySessionDialog.VoiceSettings
-import com.rossomak.flashcards.feature.study.voice.VoiceAnswerPhase
+import com.rossomak.flashcards.feature.study.FastStudySessionRoute
+import com.rossomak.flashcards.feature.study.R
+import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog
+import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.ExitSession
+import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.ExtendedContext
+import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.ReportProblem
+import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.VoiceAnswerConsent
+import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.VoiceSettings
+import com.rossomak.flashcards.feature.study.chrome.StudySessionDialogEvent
 import com.rossomak.flashcards.feature.study.voice.VoiceGateway
 import com.rossomak.flashcards.feature.study.voice.VoicePhase
 import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
@@ -40,30 +37,32 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/**
+ * Runs a Fast Study Session end to end. Knows nothing about Ratings, Attempts or voice answering —
+ * those are Rated concepts (ticket 02 of
+ * [ADR-0045](../../../../../../../../docs/adr/0045-separate-fast-and-rated-session-screens.md)).
+ *
+ * No user-preferences use cases: their only current purpose is the voice-answering consent flag,
+ * and voice answering is Rated-only (ADR-0025). Fast has no path to it.
+ */
 @HiltViewModel
-class StudySessionViewModel @Inject constructor(
+class FastStudySessionViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val getFlashcards: GetFlashcardsUseCase,
     private val submitCurationReport: SubmitCurationReportUseCase,
-    private val observeUserPreferences: ObserveUserPreferencesUseCase,
-    private val saveUserPreference: SaveUserPreferenceUseCase,
     private val voiceGateway: VoiceGateway,
     private val voiceSettingsController: VoiceSettingsController,
 ) : ViewModel() {
 
-    private val route = savedStateHandle.decodeRoute<StudySessionRoute>()
+    private val route = savedStateHandle.decodeRoute<FastStudySessionRoute>()
     private val sessionTitle: String = route.sessionTitle
 
-    private val _state = MutableStateFlow(
-        StudySessionScreenState(sessionTitle = sessionTitle, studyMode = route.studyMode)
-    )
-    val state: StateFlow<StudySessionScreenState> = _state.asStateFlow()
+    private val _state = MutableStateFlow(FastStudySessionScreenState(sessionTitle = sessionTitle))
+    val state: StateFlow<FastStudySessionScreenState> = _state.asStateFlow()
 
     // Tracks eagerly so rapid toggles don't race against isVoiceActive propagation.
     private var voiceStarted = false
@@ -72,7 +71,7 @@ class StudySessionViewModel @Inject constructor(
 
     private var rewindJob: Job? = null
     private var isPastRewindThreshold = false
-    private val eventChannel = Channel<StudySessionDestination>(Channel.BUFFERED)
+    private val eventChannel = Channel<FastStudySessionDestination>(Channel.BUFFERED)
     val events = eventChannel.receiveAsFlow()
 
     private var lastObservedCardIndex = -1
@@ -88,8 +87,6 @@ class StudySessionViewModel @Inject constructor(
     // True only when opening voice settings paused an in-progress playback; gates resume on close.
     private var pausedForVoiceSettings = false
 
-    private var hasVoiceAnswerConsent = false
-
     // Session-scoped like the rest of the routed config: a mid-session change updates only this
     // running session unless the user checks "keep as my default" (ADR-0030), so it lives in a
     // plain var rather than being re-read from the controller on every playback start.
@@ -98,8 +95,6 @@ class StudySessionViewModel @Inject constructor(
     init {
         loadFlashcards()
         observeVoiceState()
-        observeVoiceAnswerState()
-        observeVoiceAnswerConsentState()
     }
 
     // Card selection happens on the Preview Study Session screen (ADR-0004); the session only
@@ -113,7 +108,7 @@ class StudySessionViewModel @Inject constructor(
                     .awaitAll()
             }
             if (results.any { it.isFailure }) {
-                _state.update { it.copy(isLoading = false, error = "Could not load flashcards") }
+                _state.update { it.copy(isLoading = false, error = R.string.study_session_load_error_message) }
                 return@launch
             }
             val cardsById = results.flatMap { it.getOrThrow() }.associateBy { it.id }
@@ -122,24 +117,13 @@ class StudySessionViewModel @Inject constructor(
                 it.copy(
                     isLoading = false,
                     flashcards = sessionCards,
-                    isVoiceAutoStartPending = route.studyMode == StudyMode.Fast && sessionCards.isNotEmpty(),
+                    // Auto-start honours Read-aloud: with the flag off, this is a manual
+                    // tap-to-reveal/tap-to-advance session and never requests notification
+                    // permission or starts text-to-speech.
+                    isVoiceAutoStartPending = route.readAloudEnabled && sessionCards.isNotEmpty(),
                 )
             }
-            honourRoutedVoiceAnswering(hasCards = sessionCards.isNotEmpty())
         }
-    }
-
-    /**
-     * The Preview screen's voice-answering choice (ADR-0030) takes effect on entry, running the
-     * same consent-then-microphone path the in-session toggle uses. Rated only — Fast mode has no
-     * rating step for voice answering to drive (ADR-0025).
-     *
-     * Consent is read as a one-shot rather than from [hasVoiceAnswerConsent], whose collector may
-     * not have emitted yet by the time the cards land.
-     */
-    private suspend fun honourRoutedVoiceAnswering(hasCards: Boolean) {
-        if (!route.voiceAnsweringEnabled || route.studyMode != StudyMode.Rated || !hasCards) return
-        requestVoiceAnswering(observeUserPreferences().first().voiceAnswerConsentGranted)
     }
 
     private fun observeVoiceState() {
@@ -156,16 +140,7 @@ class StudySessionViewModel @Inject constructor(
                         isVoicePlaying = voice.isPlaying,
                         speechRate = voice.speechRate,
                         currentCardIndex = if (voice.isActive) voice.currentIndex else it.currentCardIndex,
-                        // Grading/feedback also reveals the card (see observeVoiceAnswerState) —
-                        // don't let this collector's phase check stomp that back to false while
-                        // the TTS engine itself is still sitting on QUESTION.
-                        isAnswerRevealed = if (voice.isActive) {
-                            voice.phase == VoicePhase.Answer ||
-                                it.voiceAnswerPhase == VoiceAnswerPhase.Grading ||
-                                it.voiceAnswerPhase == VoiceAnswerPhase.SpeakingNotice
-                        } else {
-                            it.isAnswerRevealed
-                        },
+                        isAnswerRevealed = if (voice.isActive) voice.phase == VoicePhase.Answer else it.isAnswerRevealed,
                     )
                 }
                 if (voice.isActive && voice.currentIndex != lastObservedCardIndex) {
@@ -189,89 +164,6 @@ class StudySessionViewModel @Inject constructor(
         }
     }
 
-    private fun observeVoiceAnswerState() {
-        viewModelScope.launch {
-            voiceGateway.voiceAnswerState.collect { voiceAnswer ->
-                _state.update {
-                    it.copy(
-                        isVoiceAnswerEnabled = voiceAnswer.isEnabled,
-                        voiceAnswerPhase = voiceAnswer.phase,
-                        voiceAnswerSanitizedTranscript = voiceAnswer.sanitizedTranscript,
-                        lastVoiceAnswerGrade = voiceAnswer.lastGrade,
-                        voiceAnswerError = voiceAnswer.error,
-                        // Grading starts as soon as the utterance is captured, before the TTS
-                        // engine's own phase would flip to ANSWER — reveal the card now so the
-                        // user can check what they missed while grading/feedback plays out.
-                        isAnswerRevealed = it.isAnswerRevealed ||
-                            voiceAnswer.phase == VoiceAnswerPhase.Grading,
-                    )
-                }
-            }
-        }
-    }
-
-    private fun observeVoiceAnswerConsentState() {
-        viewModelScope.launch {
-            observeUserPreferences().map { it.voiceAnswerConsentGranted }.collect { hasConsent ->
-                hasVoiceAnswerConsent = hasConsent
-            }
-        }
-    }
-
-    // Voice answering is Rated-only (ADR-0025) — Fast mode has no rating step for it to drive.
-    fun onVoiceAnswerToggle() {
-        if (_state.value.studyMode != StudyMode.Rated) return
-        if (_state.value.isVoiceAnswerEnabled) {
-            // Voice-answering-on drives the shared TTS engine in a stop-after-question shape;
-            // there is no meaningful "keep reading, just stop grading" middle state (ADR-0025),
-            // so disabling it tears down the whole engine back to manual Show Answer/Next.
-            voiceGateway.stop()
-            return
-        }
-        requestVoiceAnswering(hasVoiceAnswerConsent)
-    }
-
-    /** Consent first, then the microphone. Both gates are one-time; neither is skippable. */
-    private fun requestVoiceAnswering(hasConsent: Boolean) {
-        if (hasConsent) {
-            _state.update { it.copy(isMicPermissionRequestPending = true) }
-        } else {
-            _state.update { it.copy(activeDialog = VoiceAnswerConsent) }
-        }
-    }
-
-    private fun onVoiceAnswerConsentAccept() {
-        viewModelScope.launch {
-            saveUserPreference(VoiceAnswerConsentPreference(true))
-                .onSuccess {
-                    _state.update {
-                        it.copy(
-                            activeDialog = null,
-                            isMicPermissionRequestPending = true,
-                        )
-                    }
-                }
-                .onFailure {
-                    // Consent wasn't actually recorded — leave the dialog up rather than starting
-                    // the mic as if it had been, so a retry is a single tap on the same dialog.
-                    _state.update { it.copy(voiceError = "Failed to save voice answering consent") }
-                }
-        }
-    }
-
-    fun onMicPermissionResult(isGranted: Boolean) {
-        _state.update { it.copy(isMicPermissionRequestPending = false) }
-        if (!isGranted) return
-        // Rated sessions never auto-start the gateway (only Fast does, via onVoiceAutoStart);
-        // enabling voice answering is what bootstraps it here (ADR-0025).
-        ensureVoiceGatewayStarted()
-        voiceGateway.setVoiceAnswering(true)
-    }
-
-    fun onVoiceAnswerGradeDismissed() {
-        _state.update { it.copy(lastVoiceAnswerGrade = null) }
-    }
-
     fun onShowAnswer() {
         if (_state.value.isVoiceActive) {
             voiceGateway.showAnswer()
@@ -280,6 +172,7 @@ class StudySessionViewModel @Inject constructor(
         }
     }
 
+    /** The Fast sheet's manual advance affordance — the only way to move on without Read-aloud. */
     fun onNextCard() {
         val currentState = _state.value
         if (currentState.currentCardIndex >= currentState.flashcards.lastIndex) {
@@ -292,10 +185,6 @@ class StudySessionViewModel @Inject constructor(
                 )
             }
         }
-    }
-
-    fun onRating(rating: FlashcardRating) {
-        onNextCard()
     }
 
     fun onVoiceAutoStartDeclined() {
@@ -470,8 +359,9 @@ class StudySessionViewModel @Inject constructor(
 
     /**
      * The caller hands over the dialog it wants shown, already seeded from what it was rendering.
-     * This adds only what the call site could not: the playback side effects, and the voice-settings
-     * draft, which comes from the shared controller rather than screen state.
+     * [VoiceAnswerConsent] is unreachable here — Fast never toggles voice answering (ADR-0025) —
+     * but the `when` still names it: the dialog type is shared with Rated rather than split
+     * (ticket 01), so this screen simply never constructs that case.
      */
     private fun onDialogOpen(dialog: StudySessionDialog) {
         when (dialog) {
@@ -505,14 +395,14 @@ class StudySessionViewModel @Inject constructor(
     private fun onDialogConfirm() {
         when (_state.value.activeDialog) {
             is ReportProblem -> onReportProblemSubmit()
-            VoiceAnswerConsent -> onVoiceAnswerConsentAccept()
             is VoiceSettings -> onVoiceSettingsSave()
             ExitSession -> {
                 onDialogDismiss()
                 navigateBack()
             }
-            // "Got it" and a scrim tap are the same act on a single-action dialog.
-            is ExtendedContext, null -> onDialogDismiss()
+            // Unreachable in Fast (VoiceAnswerConsent is never opened, ADR-0025); "Got it" and a
+            // scrim tap on the single-action Extended Context dialog are the same act.
+            VoiceAnswerConsent, is ExtendedContext, null -> onDialogDismiss()
         }
     }
 
@@ -548,14 +438,14 @@ class StudySessionViewModel @Inject constructor(
                     actions = dialog.selectedActions,
                 )
             ).onFailure {
-                _state.update { it.copy(curationError = "Failed to submit report") }
+                _state.update { it.copy(curationError = R.string.fast_study_session_report_failure_message) }
             }
         }
     }
 
     /** Leaving is a one-time event, never a flag in state (ADR-0019). */
     private fun navigateBack() {
-        viewModelScope.launch { eventChannel.send(StudySessionDestination.Back) }
+        viewModelScope.launch { eventChannel.send(FastStudySessionDestination.Back) }
     }
 
     fun onCurationErrorDismissed() {
@@ -564,7 +454,6 @@ class StudySessionViewModel @Inject constructor(
 
     public override fun onCleared() {
         voiceGateway.stop()
-        super.onCleared()
     }
 
     private companion object {

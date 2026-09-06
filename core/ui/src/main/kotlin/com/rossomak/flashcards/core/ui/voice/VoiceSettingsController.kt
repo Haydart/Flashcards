@@ -35,7 +35,8 @@ fun VoiceSettingsDraftState.toVoiceSettings(): VoiceSettings =
  * it to its own viewModelScope.
  *
  * Voice settings are session-scoped like every other study setting (`mode`, `ratedAttempts`): the
- * saved value lives on `StudySessionConfig`/`StudySessionRoute`, not here. A screen hands the
+ * saved value lives on `StudySessionConfig`/`FastStudySessionRoute`/`RatedStudySessionRoute`, not
+ * here. A screen hands the
  * current value to [seedDraft] itself rather than this controller tracking a subscription of its
  * own — one fewer place a value could disagree with the config the screen already has in state.
  */

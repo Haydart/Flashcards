@@ -3,6 +3,7 @@ package com.rossomak.flashcards.feature.study.preview
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference
@@ -15,6 +16,7 @@ import com.rossomak.flashcards.core.domain.model.StudySessionPreference.Subcateg
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.VoiceAnsweringEnabled
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.VoicePlayback
 import com.rossomak.flashcards.core.domain.model.VoiceOption
+import com.rossomak.flashcards.core.domain.model.orderedBy
 import com.rossomak.flashcards.core.domain.usecase.ObserveStudySessionPreferencesUseCase
 import com.rossomak.flashcards.core.domain.usecase.SampleQuickSessionSubcategoriesUseCase
 import com.rossomak.flashcards.core.domain.usecase.SaveStudySessionPreferenceUseCase
@@ -26,8 +28,9 @@ import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.decodeRoute
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsController
 import com.rossomak.flashcards.core.ui.voice.toVoiceSettings
+import com.rossomak.flashcards.feature.study.FastStudySessionRoute
 import com.rossomak.flashcards.feature.study.PreviewStudySessionRoute
-import com.rossomak.flashcards.feature.study.StudySessionRoute
+import com.rossomak.flashcards.feature.study.RatedStudySessionRoute
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Attempts
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Filters
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Length
@@ -39,7 +42,6 @@ import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceAnswerin
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceSettings
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlin.random.Random
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -75,7 +77,6 @@ class PreviewStudySessionViewModel @Inject constructor(
                 subcategoryIds = route.subcategoryIds,
                 tagIds = route.filterTagIds.toSet(),
                 difficultyRange = route.difficultyRange,
-                seed = Random.nextLong(),
             ),
         )
     )
@@ -97,13 +98,21 @@ class PreviewStudySessionViewModel @Inject constructor(
         private set
 
     /**
+     * The last drawn set, held so [onDialogConfirm]'s Sort case can reorder it in place instead of
+     * redrawing through [selectSessionFlashcards] — a fresh draw there would silently swap which
+     * cards are in the session on a sort-only change (SYSTEMDESIGN.md:107,377). Order doesn't
+     * matter here: [resolveSelectedCards] fully re-sorts before use.
+     */
+    private var lastDrawnCards: List<Flashcard> = emptyList()
+
+    /**
      * Seeds the config from the user's saved defaults **before** the first [selectCards] — a
      * snapshot via [first], not a live collect: [sessionLength][StudySessionConfig.length] and
      * [sortOrder][StudySessionConfig.sortOrder] change the selection, so seeding after would
      * select twice and flash the card count, and a live collect would let a "keep as my default"
      * write from this same screen clobber the session edits the user just made. Route- and
-     * session-scoped fields (subcategoryIds, tagIds, difficultyRange, seed) are left untouched —
-     * filters are exempt from defaults entirely (ADR-0030).
+     * session-scoped fields (subcategoryIds, tagIds, difficultyRange) are left untouched — filters
+     * are exempt from defaults entirely (ADR-0030).
      *
      * Sort is the one seeded field the route can override: arriving from a browsed list, the order
      * the user was just looking at wins over the saved default (ADR-0038).
@@ -126,6 +135,9 @@ class PreviewStudySessionViewModel @Inject constructor(
                     ).withMode(defaults.defaultStudyMode),
                 )
             }
+            if (route.isQuickSession) {
+                resampleSubcategories()
+            }
             selectCards()
         }
         // The voice row shows the voice's name, not its id, so the list is needed before the
@@ -137,10 +149,15 @@ class PreviewStudySessionViewModel @Inject constructor(
         selectCards()
     }
 
-    /** A different draw from the same pool — selection is a pure function of the config's seed. */
+    /**
+     * Re-randomise: rerolls the Quick Session's subcategory sample and then the card draw within
+     * it. Every other selection reuses the held sample instead of re-rolling it (ADR-0040).
+     */
     fun onReshuffleSubcategories() {
-        _state.update { it.copy(config = it.config.copy(seed = Random.nextLong())) }
-        selectCards()
+        viewModelScope.launch {
+            resampleSubcategories()
+            selectCards()
+        }
     }
 
     /**
@@ -251,14 +268,32 @@ class PreviewStudySessionViewModel @Inject constructor(
             voiceSettingsController.stopPreview()
         }
         _state.update { it.copy(config = updatedConfig, activeDialog = null) }
-        selectCards()
+        resolveSelectedCards(dialog)
+    }
+
+    /**
+     * Sort is the one dialog that never needs a redraw: it reorders the already-drawn set (see
+     * [lastDrawnCards]) instead of going through [selectCards] — a redraw there could silently
+     * swap which cards are in the session on a sort-only change (SYSTEMDESIGN.md:107,377). Cast
+     * size and pool are untouched by a sort change, so the Sort branch never needs to touch
+     * `isLoading`, `selectedCardCount` or `estimatedMinutes`. Its own function purely to keep
+     * [onDialogConfirm]'s cyclomatic complexity under detekt's threshold.
+     */
+    private fun resolveSelectedCards(dialog: PreviewDialog) {
+        if (dialog is Sort) {
+            val reordered = lastDrawnCards.orderedBy(dialog.draft)
+            lastDrawnCards = reordered
+            selectedCardIds = reordered.map { it.id }
+        } else {
+            selectCards()
+        }
     }
 
     /**
      * `voiceAnsweringEnabled` is Rated-only (ADR-0025) — reset it switching away from Rated, not
      * just gate its *display* at the read sites, since the stale value would otherwise also leak
-     * into [onStartSession]'s `StudySessionRoute` payload unchanged. Its own function purely to keep
-     * [onDialogConfirm]'s cyclomatic complexity under detekt's threshold.
+     * into [onStartSession]'s `RatedStudySessionRoute` payload unchanged. Its own function purely
+     * to keep [onDialogConfirm]'s cyclomatic complexity under detekt's threshold.
      */
     private fun StudySessionConfig.withMode(mode: StudyMode): StudySessionConfig = copy(
         mode = mode,
@@ -298,26 +333,41 @@ class PreviewStudySessionViewModel @Inject constructor(
         selectCards()
     }
 
+    /**
+     * The confirmed Study Mode picks the destination (ADR-0045): Fast and Rated each open their
+     * own screen, carrying only the settings that mode uses.
+     */
     fun onStartSession() {
         if (selectedCardIds.isEmpty() || sessionStartInFlight) return
         sessionStartInFlight = true
         viewModelScope.launch {
-            eventChannel.send(
-                PreviewStudySessionDestination.StudySession(
-                    StudySessionRoute(
+            val destination = if (_state.value.config.mode == StudyMode.Fast) {
+                PreviewStudySessionDestination.FastStudySession(
+                    FastStudySessionRoute(
                         categoryId = route.categoryId,
                         sessionTitle = sessionTitle(),
                         subcategoryIds = _state.value.config.subcategoryIds,
                         cardIds = selectedCardIds,
-                        studyMode = _state.value.config.mode,
-                        voiceAnsweringEnabled = _state.value.config.voiceAnsweringEnabled,
-                        ratedAttempts = _state.value.config.ratedAttempts,
                         readAloudEnabled = _state.value.config.readAloudEnabled,
                         speechRate = _state.value.config.voiceSettings.speechRate,
                         voiceId = _state.value.config.voiceSettings.voiceId,
                     )
                 )
-            )
+            } else {
+                PreviewStudySessionDestination.RatedStudySession(
+                    RatedStudySessionRoute(
+                        categoryId = route.categoryId,
+                        sessionTitle = sessionTitle(),
+                        subcategoryIds = _state.value.config.subcategoryIds,
+                        cardIds = selectedCardIds,
+                        voiceAnsweringEnabled = _state.value.config.voiceAnsweringEnabled,
+                        ratedAttempts = _state.value.config.ratedAttempts,
+                        speechRate = _state.value.config.voiceSettings.speechRate,
+                        voiceId = _state.value.config.voiceSettings.voiceId,
+                    )
+                )
+            }
+            eventChannel.send(destination)
         }
     }
 
@@ -350,6 +400,7 @@ class PreviewStudySessionViewModel @Inject constructor(
             val selectionConfig = _state.value.config.forSelection(isSingleSubcategory = _state.value.isSingleSubcategory)
             selectSessionFlashcards(selectionConfig)
                 .onSuccess { plan ->
+                    lastDrawnCards = plan.cards
                     selectedCardIds = plan.cards.map { it.id }
                     _state.update { state ->
                         // Tags belong to one subcategory, so a multi-subcategory session has no
@@ -387,26 +438,32 @@ class PreviewStudySessionViewModel @Inject constructor(
     /**
      * Every session type but Quick hands [SelectSessionFlashcardsUseCase] the fixed Subcategory
      * list the route carries. Quick is the only scenario where the Subcategory *set itself* can
-     * change between resolutions: it resamples a bounded subset via
-     * [SampleQuickSessionSubcategoriesUseCase], seeded off the same
-     * [StudySessionConfig.seed][com.rossomak.flashcards.core.domain.model.StudySessionConfig.seed]
-     * the card draw uses, so reshuffling re-rolls the sample itself, not just the draw within it
-     * (ADR-0040). Sampled ids are mapped back to names through [candidateSubcategoryNamesById] —
-     * the pool this resolution is allowed to draw its sample from.
+     * change between resolutions, and it does so from the sample [resampleSubcategories] already
+     * put in state — this never re-samples itself (ADR-0040). Sampled ids are mapped back to names
+     * through [candidateSubcategoryNamesById] — the pool the sample was drawn from.
      */
-    private suspend fun resolveSubcategories(): ResolvedSubcategories {
+    private fun resolveSubcategories(): ResolvedSubcategories {
         if (!route.isQuickSession) {
             return ResolvedSubcategories(route.subcategoryIds, route.subcategoryNames)
         }
+        val sampledIds = _state.value.quickSessionSampledSubcategoryIds.orEmpty()
+        val sampledNames = sampledIds.map { id -> candidateSubcategoryNamesById.getValue(id) }
+        return ResolvedSubcategories(sampledIds, sampledNames)
+    }
+
+    /**
+     * Samples a fresh Quick Session subcategory subset and holds it in state. Called on load and
+     * on Re-randomise only — every other selection reuses what's already there, which is what
+     * keeps the sample stable while the user adjusts a filter, the length or the sort (ADR-0040).
+     */
+    private suspend fun resampleSubcategories() {
         val sampledIds = sampleQuickSessionSubcategories(
             SampleQuickSessionSubcategoriesUseCase.Params(
                 candidateSubcategoryIds = route.subcategoryIds,
                 countRange = _state.value.config.subcategoryCountRange,
-                seed = _state.value.config.seed,
             )
         )
-        val sampledNames = sampledIds.map { id -> candidateSubcategoryNamesById.getValue(id) }
-        return ResolvedSubcategories(sampledIds, sampledNames)
+        _state.update { it.copy(quickSessionSampledSubcategoryIds = sampledIds) }
     }
 
     private fun sessionTitle(): String =

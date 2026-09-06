@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.feature.study.session
+package com.rossomak.flashcards.feature.study.chrome
 
 import com.rossomak.flashcards.core.domain.model.CurationAction
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent
@@ -8,16 +8,19 @@ import com.rossomak.flashcards.core.ui.voice.VoiceSettingsDraftState
 typealias StudySessionDialogEvent = DialogEvent<StudySessionDialog>
 
 /**
- * Which dialog the study session currently has open, and everything that dialog needs.
+ * Which dialog a study session currently has open, and everything that dialog needs.
  *
  * One sealed nullable field replaces the three independent flags this screen used to carry
  * (`isCurationDialogVisible`, `isVoiceAnswerConsentDialogVisible`, and a composable-local
  * `remember` for the extended-context dialog, which duplicated a ViewModel flag of its own). Two
  * dialogs open at once is now unrepresentable, and dismissal discards a draft for free.
  *
- * This is the screen's whole dialog contract: the set below is what it can show, and each case
- * states what that dialog carries. Nothing restates the set — opening one means handing over an
- * instance from here, so there is no parallel hierarchy to keep in sync.
+ * This is shared by both the Fast and the Rated Study Session screens ([ADR-0045]
+ * (../../../../../../../../docs/adr/0045-separate-fast-and-rated-session-screens.md)) rather than
+ * split per mode: Fast simply never constructs [VoiceAnswerConsent], and splitting the type would
+ * cost more than the one unreachable branch is worth. The set below is what a screen can show, and
+ * each case states what that dialog carries. Nothing restates the set — opening one means handing
+ * over an instance from here, so there is no parallel hierarchy to keep in sync.
  *
  * A case carries its draft plus any context needed to render it, so [StudySessionDialogHost] takes
  * no parameter per dialog (ADR-0036).
@@ -58,7 +61,7 @@ sealed interface StudySessionDialog {
      */
     data class ExtendedContext(val text: String) : StudySessionDialog
 
-    /** Raised by the voice-answering flow rather than by a tap, so nothing seeds it. */
+    /** Raised by the voice-answering flow rather than by a tap, so nothing seeds it. Rated only. */
     data object VoiceAnswerConsent : StudySessionDialog
 
     /**

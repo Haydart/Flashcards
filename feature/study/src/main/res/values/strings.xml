@@ -19,7 +19,22 @@
     <string name="study_session_voice_answer_failure_spoken_message">Couldn\'t grade that answer, moving on.</string>
     <string name="study_session_voice_answer_skip_spoken_message">No answer heard, moving on.</string>
     <string name="study_session_no_cards_message">No cards available</string>
+    <string name="study_session_load_error_message">Could not load flashcards</string>
+    <string name="fast_study_session_report_failure_message">Failed to submit report</string>
     <string name="study_session_curate_flashcard_cd">Curate flashcard</string>
+    <string name="study_session_show_answer_button">Show Answer</string>
+    <string name="study_session_voice_playback_unavailable_message">Voice playback unavailable on this device</string>
+    <string name="study_session_open_tts_settings_button">Open Settings</string>
+    <string name="study_session_voice_settings_cd">Voice settings</string>
+    <string name="study_session_previous_card_cd">Previous card</string>
+    <string name="study_session_voice_play_cd">Play</string>
+    <string name="study_session_voice_pause_cd">Pause</string>
+    <string name="study_session_question_label">Question</string>
+    <string name="study_session_difficulty_label">Difficulty %1$d</string>
+    <string name="study_session_answer_label">Answer</string>
+    <string name="study_session_extended_context_button">Extended context</string>
+
+    <string name="fast_study_session_next_button">Next</string>
 
     <string name="extended_context_dialog_title">More info</string>
     <string name="extended_context_acknowledge_button">Got it</string>

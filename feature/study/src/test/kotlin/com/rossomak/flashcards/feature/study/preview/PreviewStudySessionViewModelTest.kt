@@ -44,6 +44,7 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import io.mockk.verify
+import kotlin.random.Random
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -110,13 +111,20 @@ class PreviewStudySessionViewModelTest {
         every { RouteDecoder.decode(any<() -> PreviewStudySessionRoute>()) } returns route
     }
 
+    /**
+     * Fixed, not [Random.Default]: a real `Random` occasionally draws the same subset or
+     * subcategory sample twice in a row, which would flake the `shouldNotBe` assertions on
+     * reshuffle. This seed is verified (see the reshuffle tests below) to advance to a different
+     * draw/sample on a second call.
+     */
     private fun createViewModel(): PreviewStudySessionViewModel = PreviewStudySessionViewModel(
         savedStateHandle,
         SelectSessionFlashcardsUseCase(
             getFlashcards = GetFlashcardsUseCase(flashcardRepository),
             filterFlashcards = FilterFlashcardsUseCase(),
+            random = Random(CARD_DRAW_RANDOM_SEED),
         ),
-        SampleQuickSessionSubcategoriesUseCase(),
+        SampleQuickSessionSubcategoriesUseCase(random = Random(SUBCATEGORY_SAMPLE_RANDOM_SEED)),
         ObserveStudySessionPreferencesUseCase(studySessionPreferencesRepository),
         SaveStudySessionPreferenceUseCase(studySessionPreferencesRepository),
         voiceSettingsController,
@@ -418,7 +426,7 @@ class PreviewStudySessionViewModelTest {
 
         viewModel.state.value.config.sortOrder shouldBe FlashcardSortOrder.EasiestFirst
         viewModel.events.test {
-            val destination = awaitItem() as PreviewStudySessionDestination.StudySession
+            val destination = awaitItem() as PreviewStudySessionDestination.RatedStudySession
             destination.route.cardIds shouldBe listOf("card-2", "card-3", "card-1")
         }
     }
@@ -445,7 +453,7 @@ class PreviewStudySessionViewModelTest {
         viewModel.onStartSession()
 
         viewModel.events.test {
-            val destination = awaitItem() as PreviewStudySessionDestination.StudySession
+            val destination = awaitItem() as PreviewStudySessionDestination.RatedStudySession
             destination.route.cardIds shouldBe listOf("card-1", "card-3", "card-2")
         }
     }
@@ -516,6 +524,7 @@ class PreviewStudySessionViewModelTest {
 
             val viewModel = createViewModel()
             advanceUntilIdle()
+            val sampledIdsBeforeConfirm = viewModel.state.value.config.subcategoryIds
             val draftDialog = SubcategoryCountRange(draft = viewModel.state.value.config.subcategoryCountRange)
             viewModel.onDialogEvent(Open(draftDialog))
             viewModel.onDialogEvent(
@@ -527,6 +536,13 @@ class PreviewStudySessionViewModelTest {
             studySessionPreferencesRepository.preferences.value.subcategoryCountRange shouldBe
                 narrowerSubcategoryCountRange
             viewModel.state.value.config.subcategoryCountRange shouldBe narrowerSubcategoryCountRange
+            // A count-range change edits a setting for the *next* sample — it never itself
+            // re-samples (ADR-0040), so the held sample from the initial load is untouched here.
+            viewModel.state.value.config.subcategoryIds shouldBe sampledIdsBeforeConfirm
+
+            viewModel.onReshuffleSubcategories()
+            advanceUntilIdle()
+
             (viewModel.state.value.config.subcategoryIds.size in narrowerSubcategoryCountRange) shouldBe true
         }
 
@@ -636,7 +652,7 @@ class PreviewStudySessionViewModelTest {
         }
 
     @Test
-    fun `onStartSession emits StudySession route with selected cards, mode, voice answering, attempts and read-aloud`() =
+    fun `onStartSession emits RatedStudySession route with selected cards, voice answering and attempts`() =
         runTest(mainDispatcherRule.testDispatcher) {
             stubRoute(singleSubcategoryRoute)
             flashcardRepository.flashcardsToReturn = Result.success(
@@ -653,24 +669,46 @@ class PreviewStudySessionViewModelTest {
             viewModel.onDialogEvent(Open(Attempts(draft = viewModel.state.value.config.ratedAttempts)))
             viewModel.onDialogEvent(DraftChange(Attempts(draft = 5)))
             viewModel.onDialogEvent(Confirm)
-            viewModel.onDialogEvent(Open(ReadAloud(draft = viewModel.state.value.config.readAloudEnabled)))
-            viewModel.onDialogEvent(DraftChange(ReadAloud(draft = true)))
-            viewModel.onDialogEvent(Confirm)
             advanceUntilIdle()
             viewModel.onStartSession()
 
             viewModel.events.test {
-                val destination = awaitItem() as PreviewStudySessionDestination.StudySession
+                val destination = awaitItem() as PreviewStudySessionDestination.RatedStudySession
                 destination.route.categoryId shouldBe categoryId
                 destination.route.sessionTitle shouldBe subcategoryName
                 destination.route.subcategoryIds shouldBe listOf(subcategoryId)
                 destination.route.cardIds shouldContainAll listOf("card-1", "card-2")
-                destination.route.studyMode shouldBe StudyMode.Rated
                 destination.route.voiceAnsweringEnabled shouldBe true
                 destination.route.ratedAttempts shouldBe 5
-                destination.route.readAloudEnabled shouldBe true
             }
         }
+
+    @Test
+    fun `onStartSession with Fast mode emits FastStudySession route`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleSubcategoryRoute)
+        flashcardRepository.flashcardsToReturn = Result.success(
+            listOf(flashcard(id = "card-1"), flashcard(id = "card-2"))
+        )
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDialogEvent(Open(Mode(draft = StudyMode.Fast)))
+        viewModel.onDialogEvent(Confirm)
+        viewModel.onDialogEvent(Open(ReadAloud(draft = viewModel.state.value.config.readAloudEnabled)))
+        viewModel.onDialogEvent(DraftChange(ReadAloud(draft = true)))
+        viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
+        viewModel.onStartSession()
+
+        viewModel.events.test {
+            val destination = awaitItem() as PreviewStudySessionDestination.FastStudySession
+            destination.route.categoryId shouldBe categoryId
+            destination.route.sessionTitle shouldBe subcategoryName
+            destination.route.subcategoryIds shouldBe listOf(subcategoryId)
+            destination.route.cardIds shouldContainAll listOf("card-1", "card-2")
+            destination.route.readAloudEnabled shouldBe true
+        }
+    }
 
     @Test
     fun `onStartSession carries the confirmed voice settings on the route`() = runTest(mainDispatcherRule.testDispatcher) {
@@ -690,7 +728,7 @@ class PreviewStudySessionViewModelTest {
         viewModel.onStartSession()
 
         viewModel.events.test {
-            val destination = awaitItem() as PreviewStudySessionDestination.StudySession
+            val destination = awaitItem() as PreviewStudySessionDestination.RatedStudySession
             destination.route.voiceSettings shouldBe voiceSettings
         }
     }
@@ -746,7 +784,7 @@ class PreviewStudySessionViewModelTest {
         viewModel.onStartSession()
 
         viewModel.events.test {
-            awaitItem() as PreviewStudySessionDestination.StudySession
+            awaitItem() as PreviewStudySessionDestination.RatedStudySession
             expectNoEvents()
         }
     }
@@ -781,7 +819,7 @@ class PreviewStudySessionViewModelTest {
         viewModel.onStartSession()
 
         viewModel.events.test {
-            val destination = awaitItem() as PreviewStudySessionDestination.StudySession
+            val destination = awaitItem() as PreviewStudySessionDestination.RatedStudySession
             destination.route.sessionTitle shouldBe categoryName
         }
     }
@@ -810,25 +848,26 @@ class PreviewStudySessionViewModelTest {
     }
 
     @Test
-    fun `onReshuffleSubcategories redraws with a new seed, keeping session size`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(multiSubcategoryRoute)
-        flashcardRepository.flashcardsBySubcategory["android-compose"] =
-            Result.success((1..30).map { index -> flashcard(id = "compose-$index") })
-        flashcardRepository.flashcardsBySubcategory["android-coroutines"] =
-            Result.success((1..30).map { index -> flashcard(id = "coroutines-$index", subcategoryId = "android-coroutines") })
+    fun `onReshuffleSubcategories redraws a different set of cards, keeping session size`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(multiSubcategoryRoute)
+            flashcardRepository.flashcardsBySubcategory["android-compose"] =
+                Result.success((1..30).map { index -> flashcard(id = "compose-$index") })
+            flashcardRepository.flashcardsBySubcategory["android-coroutines"] =
+                Result.success(
+                    (1..30).map { index -> flashcard(id = "coroutines-$index", subcategoryId = "android-coroutines") },
+                )
 
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-        val cardIdsBeforeReshuffle = viewModel.selectedCardIds
-        val seedBeforeReshuffle = viewModel.state.value.config.seed
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            val cardIdsBeforeReshuffle = viewModel.selectedCardIds
 
-        viewModel.onReshuffleSubcategories()
-        advanceUntilIdle()
+            viewModel.onReshuffleSubcategories()
+            advanceUntilIdle()
 
-        viewModel.state.value.config.seed shouldNotBe seedBeforeReshuffle
-        viewModel.state.value.selectedCardCount shouldBe 20
-        viewModel.selectedCardIds shouldNotBe cardIdsBeforeReshuffle
-    }
+            viewModel.state.value.selectedCardCount shouldBe 20
+            viewModel.selectedCardIds shouldNotBe cardIdsBeforeReshuffle
+        }
 
     @Test
     fun `a Custom session cannot reshuffle subcategories, single or multi`() = runTest(mainDispatcherRule.testDispatcher) {
@@ -876,6 +915,53 @@ class PreviewStudySessionViewModelTest {
 
             val sampledIds = viewModel.state.value.config.subcategoryIds
             (sampledIds.size in narrowerSubcategoryCountRange) shouldBe true
+        }
+
+    @Test
+    fun `a filter, length or sort change never resamples a quick session's subcategories`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(quickSessionRoute)
+            quickSessionRoute.subcategoryIds.forEach { id ->
+                flashcardRepository.flashcardsBySubcategory[id] =
+                    Result.success((1..30).map { index -> flashcard(id = "$id-card-$index", subcategoryId = id) })
+            }
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            val sampledIds = viewModel.state.value.config.subcategoryIds
+
+            viewModel.onDialogEvent(Open(Length(draft = viewModel.state.value.config.length)))
+            viewModel.onDialogEvent(DraftChange(Length(draft = 10)))
+            viewModel.onDialogEvent(Confirm)
+            advanceUntilIdle()
+            viewModel.state.value.config.subcategoryIds shouldBe sampledIds
+
+            viewModel.onDialogEvent(Open(Sort(draft = viewModel.state.value.config.sortOrder)))
+            viewModel.onDialogEvent(DraftChange(Sort(draft = FlashcardSortOrder.HardestFirst)))
+            viewModel.onDialogEvent(Confirm)
+            advanceUntilIdle()
+            viewModel.state.value.config.subcategoryIds shouldBe sampledIds
+
+            viewModel.onDialogEvent(
+                Open(
+                    Filters(
+                        draft = FlashcardFilters(
+                            selectedTags = viewModel.state.value.config.tagIds,
+                            difficultyRange = viewModel.state.value.config.difficultyRange,
+                        ),
+                        availableTags = viewModel.state.value.availableTags,
+                    ),
+                ),
+            )
+            val filtersDialog = viewModel.state.value.activeDialog as Filters
+            viewModel.onDialogEvent(
+                DraftChange(
+                    filtersDialog.copy(draft = FlashcardFilters(selectedTags = emptySet(), difficultyRange = 1..5)),
+                ),
+            )
+            viewModel.onDialogEvent(Confirm)
+            advanceUntilIdle()
+            viewModel.state.value.config.subcategoryIds shouldBe sampledIds
         }
 
     @Test
@@ -966,4 +1052,43 @@ class PreviewStudySessionViewModelTest {
             viewModel.state.value.selectedCardCount shouldBe 1
             viewModel.state.value.activeDialog shouldBe null
         }
+
+    /**
+     * Regression test for a bug Copilot review flagged on PR #64: with the card draw stateful
+     * (ADR-0040, no session seed), confirming Sort used to reselect through
+     * [SelectSessionFlashcardsUseCase], which could redraw a different subset of a pool larger
+     * than the session length — see SYSTEMDESIGN.md:107,377. Sort must only reorder the cast
+     * already drawn.
+     */
+    @Test
+    fun `confirming the sort dialog never changes which cards are in the session`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(singleSubcategoryRoute)
+            flashcardRepository.flashcardsToReturn = Result.success(
+                (1..25).map { index -> flashcard(id = "card-$index", difficulty = index) }
+            )
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            val cardIdsBeforeSort = viewModel.selectedCardIds.toSet()
+
+            viewModel.onDialogEvent(Open(Sort(draft = viewModel.state.value.config.sortOrder)))
+            viewModel.onDialogEvent(DraftChange(Sort(draft = FlashcardSortOrder.EasiestFirst)))
+            viewModel.onDialogEvent(Confirm)
+            advanceUntilIdle()
+
+            viewModel.selectedCardIds.toSet() shouldBe cardIdsBeforeSort
+        }
+
+    private companion object {
+        /**
+         * Verified (by the reshuffle tests above passing deterministically) to advance
+         * [SelectSessionFlashcardsUseCase]'s draw to a different subset on a second call — a
+         * fixed seed instead of [Random.Default] so those `shouldNotBe` assertions never flake.
+         */
+        const val CARD_DRAW_RANDOM_SEED = 42L
+
+        /** Same rationale as [CARD_DRAW_RANDOM_SEED], for the quick-session subcategory sample. */
+        const val SUBCATEGORY_SAMPLE_RANDOM_SEED = 7L
+    }
 }

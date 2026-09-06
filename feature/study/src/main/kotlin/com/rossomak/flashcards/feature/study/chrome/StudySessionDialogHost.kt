@@ -1,4 +1,4 @@
-package com.rossomak.flashcards.feature.study.session
+package com.rossomak.flashcards.feature.study.chrome
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
@@ -9,16 +9,20 @@ import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Dismiss
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.DraftChange
 import com.rossomak.flashcards.feature.study.R
+import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.ExitSession
+import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.ExtendedContext
+import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.ReportProblem
+import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.VoiceAnswerConsent
+import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.VoiceSettings
 import com.rossomak.flashcards.feature.study.dialogs.ExtendedContextDialog
 import com.rossomak.flashcards.feature.study.dialogs.ReportProblemDialog
-import com.rossomak.flashcards.feature.study.session.StudySessionDialog.ExitSession
-import com.rossomak.flashcards.feature.study.session.StudySessionDialog.ExtendedContext
-import com.rossomak.flashcards.feature.study.session.StudySessionDialog.ReportProblem
-import com.rossomak.flashcards.feature.study.session.StudySessionDialog.VoiceAnswerConsent
-import com.rossomak.flashcards.feature.study.session.StudySessionDialog.VoiceSettings
 
 /**
  * Renders whichever dialog [activeDialog] names, or nothing when it is `null`.
+ *
+ * Shared unchanged by both the Fast and the Rated Study Session screens (ticket 01 of
+ * [ADR-0045](../../../../../../../../docs/adr/0045-separate-fast-and-rated-session-screens.md)) —
+ * neither mode renders its dialogs any differently, only which cases it ever opens differs.
  *
  * Each branch emits a total `copy()` of the case the `when` already narrowed — no branching and no
  * arithmetic, because nothing unit-tests this file (ADR-0036). Everything a dialog needs to draw

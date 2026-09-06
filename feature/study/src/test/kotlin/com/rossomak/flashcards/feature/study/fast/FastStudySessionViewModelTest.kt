@@ -1,20 +1,14 @@
-package com.rossomak.flashcards.feature.study.session
+package com.rossomak.flashcards.feature.study.fast
 
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
 import com.rossomak.flashcards.core.domain.model.CurationAction
 import com.rossomak.flashcards.core.domain.model.Flashcard
-import com.rossomak.flashcards.core.domain.model.FlashcardRating
-import com.rossomak.flashcards.core.domain.model.StudyMode
-import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
 import com.rossomak.flashcards.core.domain.model.VoiceSettings
 import com.rossomak.flashcards.core.domain.repository.CurationRepository
 import com.rossomak.flashcards.core.domain.repository.FakeCurationRepository
 import com.rossomak.flashcards.core.domain.repository.FakeFlashcardRepository
-import com.rossomak.flashcards.core.domain.repository.FakeUserPreferencesRepository
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
-import com.rossomak.flashcards.core.domain.usecase.ObserveUserPreferencesUseCase
-import com.rossomak.flashcards.core.domain.usecase.SaveUserPreferenceUseCase
 import com.rossomak.flashcards.core.domain.usecase.SubmitCurationReportUseCase
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Dismiss
@@ -23,17 +17,17 @@ import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.RouteDecoder
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsController
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsDraftState
-import com.rossomak.flashcards.feature.study.StudySessionRoute
-import com.rossomak.flashcards.feature.study.session.StudySessionDialog.ExitSession
-import com.rossomak.flashcards.feature.study.session.StudySessionDialog.ReportProblem
-import com.rossomak.flashcards.feature.study.session.StudySessionDialog.VoiceAnswerConsent
+import com.rossomak.flashcards.feature.study.FastStudySessionRoute
+import com.rossomak.flashcards.feature.study.R
+import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.ExitSession
+import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.ReportProblem
+import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.VoiceSettings as VoiceSettingsDialog
 import com.rossomak.flashcards.feature.study.voice.VoiceAnswerState
 import com.rossomak.flashcards.feature.study.voice.VoiceGateway
 import com.rossomak.flashcards.feature.study.voice.VoicePhase
 import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 import com.rossomak.flashcards.testutil.MainDispatcherRule
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.types.shouldBeInstanceOf
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
@@ -49,8 +43,13 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
+/**
+ * A Fast Study Session has no Ratings, no Attempts and no voice answering (ADR-0045) — this class
+ * only ever exercises the surface [FastStudySessionViewModel] actually exposes, so a failure here
+ * names Fast, never a Rated concept it does not share.
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
-class StudySessionViewModelTest {
+class FastStudySessionViewModelTest {
 
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
@@ -58,19 +57,17 @@ class StudySessionViewModelTest {
     private val savedStateHandle: SavedStateHandle = mockk()
     private val flashcardRepository = FakeFlashcardRepository()
     private val getFlashcards = GetFlashcardsUseCase(flashcardRepository)
-    private val userPreferencesRepository = FakeUserPreferencesRepository()
     private val voiceGateway = FakeVoiceGateway()
     private val voiceSettingsController: VoiceSettingsController = mockk(relaxed = true)
 
     private val sessionTitle = "Compose"
     private val subcategoryId = "android-compose"
 
-    private val route = StudySessionRoute(
+    private val route = FastStudySessionRoute(
         categoryId = "android",
         sessionTitle = sessionTitle,
         subcategoryIds = listOf(subcategoryId),
         cardIds = listOf("card-1", "card-2", "card-3"),
-        studyMode = StudyMode.Rated,
     )
 
     @Before
@@ -84,26 +81,20 @@ class StudySessionViewModelTest {
         unmockkObject(RouteDecoder)
     }
 
-    private fun stubRoute(route: StudySessionRoute) {
-        every { RouteDecoder.decode(any<() -> StudySessionRoute>()) } returns route
+    private fun stubRoute(route: FastStudySessionRoute) {
+        every { RouteDecoder.decode(any<() -> FastStudySessionRoute>()) } returns route
     }
 
-    private fun createViewModel(curationRepository: CurationRepository = FakeCurationRepository()): StudySessionViewModel =
-        StudySessionViewModel(
+    private fun createViewModel(curationRepository: CurationRepository = FakeCurationRepository()): FastStudySessionViewModel =
+        FastStudySessionViewModel(
             savedStateHandle,
             getFlashcards,
             SubmitCurationReportUseCase(curationRepository),
-            ObserveUserPreferencesUseCase(userPreferencesRepository),
-            SaveUserPreferenceUseCase(userPreferencesRepository),
             voiceGateway,
             voiceSettingsController,
         )
 
-    private fun flashcard(
-        id: String,
-        subcategoryId: String = this.subcategoryId,
-        extendedContext: String? = null,
-    ): Flashcard = Flashcard(
+    private fun flashcard(id: String, subcategoryId: String = this.subcategoryId): Flashcard = Flashcard(
         id = id,
         subcategoryId = subcategoryId,
         tags = listOf("General"),
@@ -114,11 +105,10 @@ class StudySessionViewModelTest {
         answerCode = null,
         questionSpoken = null,
         answerSpoken = null,
-        extendedContext = extendedContext,
+        extendedContext = null,
     )
 
-    /** What the toolbar hands over: the report dialog seeded from the card on screen. */
-    private fun openReportProblem(viewModel: StudySessionViewModel): ReportProblem {
+    private fun openReportProblem(viewModel: FastStudySessionViewModel): ReportProblem {
         val card = requireNotNull(viewModel.state.value.currentCard)
         return ReportProblem(cardId = card.id, subcategoryId = card.subcategoryId)
     }
@@ -128,6 +118,9 @@ class StudySessionViewModelTest {
             listOf(flashcard("card-1"), flashcard("card-2"), flashcard("card-3")),
         )
     }
+
+    private fun reportDraft(viewModel: FastStudySessionViewModel): ReportProblem =
+        viewModel.state.value.activeDialog as ReportProblem
 
     @Test
     fun `loadFlashcards resolves routed card ids preserving order`() = runTest(mainDispatcherRule.testDispatcher) {
@@ -140,18 +133,6 @@ class StudySessionViewModelTest {
 
         viewModel.state.value.flashcards.map { it.id } shouldBe route.cardIds
         viewModel.state.value.isLoading shouldBe false
-        viewModel.state.value.isVoiceAutoStartPending shouldBe false
-    }
-
-    @Test
-    fun `fast study mode marks voice auto start pending once cards load`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(route.copy(studyMode = StudyMode.Fast))
-        loadThreeCards()
-
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-
-        viewModel.state.value.isVoiceAutoStartPending shouldBe true
     }
 
     @Test
@@ -161,8 +142,46 @@ class StudySessionViewModelTest {
         val viewModel = createViewModel()
         advanceUntilIdle()
 
-        viewModel.state.value.error shouldBe "Could not load flashcards"
+        viewModel.state.value.error shouldBe R.string.study_session_load_error_message
         viewModel.state.value.isLoading shouldBe false
+    }
+
+    @Test
+    fun `read-aloud off never marks voice auto start pending`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(route.copy(readAloudEnabled = false))
+        loadThreeCards()
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.state.value.isVoiceAutoStartPending shouldBe false
+    }
+
+    @Test
+    fun `read-aloud on marks voice auto start pending once cards load`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(route.copy(readAloudEnabled = true))
+        loadThreeCards()
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.state.value.isVoiceAutoStartPending shouldBe true
+    }
+
+    @Test
+    fun `read-aloud off with reveal-then-Next advances the deck manually`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(route.copy(readAloudEnabled = false))
+        loadThreeCards()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onShowAnswer()
+        viewModel.onNextCard()
+
+        viewModel.state.value.isVoiceAutoStartPending shouldBe false
+        voiceGateway.startCalls shouldBe 0
+        viewModel.state.value.currentCardIndex shouldBe 1
+        viewModel.state.value.isAnswerRevealed shouldBe false
     }
 
     @Test
@@ -189,32 +208,6 @@ class StudySessionViewModelTest {
     }
 
     @Test
-    fun `onNextCard advances index and hides the answer`() = runTest(mainDispatcherRule.testDispatcher) {
-        loadThreeCards()
-
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-        viewModel.onShowAnswer()
-        viewModel.onNextCard()
-
-        viewModel.state.value.currentCardIndex shouldBe 1
-        viewModel.state.value.isAnswerRevealed shouldBe false
-    }
-
-    @Test
-    fun `onRating advances to next card and hides the answer`() = runTest(mainDispatcherRule.testDispatcher) {
-        loadThreeCards()
-
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-        viewModel.onShowAnswer()
-        viewModel.onRating(FlashcardRating.Correct)
-
-        viewModel.state.value.currentCardIndex shouldBe 1
-        viewModel.state.value.isAnswerRevealed shouldBe false
-    }
-
-    @Test
     fun `onNextCard on the last card navigates back`() = runTest(mainDispatcherRule.testDispatcher) {
         flashcardRepository.flashcardsBySubcategory[subcategoryId] = Result.success(listOf(flashcard("card-1")))
         stubRoute(route.copy(cardIds = listOf("card-1")))
@@ -223,7 +216,7 @@ class StudySessionViewModelTest {
         advanceUntilIdle()
         viewModel.onNextCard()
 
-        viewModel.events.test { awaitItem() shouldBe StudySessionDestination.Back }
+        viewModel.events.test { awaitItem() shouldBe FastStudySessionDestination.Back }
     }
 
     @Test
@@ -236,7 +229,7 @@ class StudySessionViewModelTest {
         viewModel.onDialogEvent(Confirm)
 
         viewModel.state.value.activeDialog shouldBe null
-        viewModel.events.test { awaitItem() shouldBe StudySessionDestination.Back }
+        viewModel.events.test { awaitItem() shouldBe FastStudySessionDestination.Back }
     }
 
     @Test
@@ -254,7 +247,7 @@ class StudySessionViewModelTest {
 
     @Test
     fun `onVoiceAutoStartDeclined clears the pending flag`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(route.copy(studyMode = StudyMode.Fast))
+        stubRoute(route.copy(readAloudEnabled = true))
         loadThreeCards()
 
         val viewModel = createViewModel()
@@ -267,7 +260,7 @@ class StudySessionViewModelTest {
     @Test
     fun `onVoiceAutoStart starts the gateway with loaded cards and applies saved settings`() = runTest(mainDispatcherRule.testDispatcher) {
         val savedSettings = VoiceSettings(speechRate = 1.5f, voiceId = "voice-1")
-        stubRoute(route.copy(speechRate = savedSettings.speechRate, voiceId = savedSettings.voiceId))
+        stubRoute(route.copy(readAloudEnabled = true, speechRate = savedSettings.speechRate, voiceId = savedSettings.voiceId))
         loadThreeCards()
 
         val viewModel = createViewModel()
@@ -447,22 +440,14 @@ class StudySessionViewModelTest {
         val viewModel = createViewModel(curationRepository)
         advanceUntilIdle()
         viewModel.onDialogEvent(Open(openReportProblem(viewModel)))
-        viewModel.onDialogEvent(
-            DraftChange(
-                reportDraft(viewModel).withAction(CurationAction.Delete, isChecked = true)
-            )
-        )
-        viewModel.onDialogEvent(
-            DraftChange(
-                reportDraft(viewModel).withAction(CurationAction.WrongTags, isChecked = true)
-            )
-        )
+        val draft = viewModel.state.value.activeDialog as ReportProblem
+        viewModel.onDialogEvent(DraftChange(draft.withAction(CurationAction.Delete, isChecked = true)))
 
         viewModel.onDialogEvent(Confirm)
         advanceUntilIdle()
 
         curationRepository.submittedReports shouldBe listOf(
-            Triple("card-1", subcategoryId, setOf(CurationAction.Delete, CurationAction.WrongTags))
+            Triple("card-1", subcategoryId, setOf(CurationAction.Delete))
         )
         viewModel.state.value.activeDialog shouldBe null
     }
@@ -494,9 +479,8 @@ class StudySessionViewModelTest {
         val viewModel = createViewModel()
         advanceUntilIdle()
 
-        viewModel.onDialogEvent(Open(StudySessionDialog.VoiceSettings()))
+        viewModel.onDialogEvent(Open(VoiceSettingsDialog()))
 
-        viewModel.state.value.activeDialog.shouldBeInstanceOf<StudySessionDialog.VoiceSettings>()
         verify(exactly = 1) { voiceSettingsController.seedDraft(sessionSettings) }
     }
 
@@ -508,10 +492,10 @@ class StudySessionViewModelTest {
             advanceUntilIdle()
             voiceGateway.stateFlow.value = VoicePlaybackState(isActive = true)
             advanceUntilIdle()
-            viewModel.onDialogEvent(Open(StudySessionDialog.VoiceSettings()))
-            val draft = (viewModel.state.value.activeDialog as StudySessionDialog.VoiceSettings).draft
+            viewModel.onDialogEvent(Open(VoiceSettingsDialog()))
+            val draft = (viewModel.state.value.activeDialog as VoiceSettingsDialog).draft
                 .copy(draftSpeed = 1.5f, draftVoiceId = "voice-1")
-            viewModel.onDialogEvent(DraftChange(StudySessionDialog.VoiceSettings(draft)))
+            viewModel.onDialogEvent(DraftChange(VoiceSettingsDialog(draft)))
 
             viewModel.onDialogEvent(Confirm)
 
@@ -526,8 +510,8 @@ class StudySessionViewModelTest {
     fun `VoiceSettings confirm with keepAsDefault writes the preference`() = runTest(mainDispatcherRule.testDispatcher) {
         val viewModel = createViewModel()
         advanceUntilIdle()
-        viewModel.onDialogEvent(Open(StudySessionDialog.VoiceSettings()))
-        val dialog = viewModel.state.value.activeDialog as StudySessionDialog.VoiceSettings
+        viewModel.onDialogEvent(Open(VoiceSettingsDialog()))
+        val dialog = viewModel.state.value.activeDialog as VoiceSettingsDialog
         viewModel.onDialogEvent(DraftChange(dialog.copy(keepAsDefault = true)))
 
         viewModel.onDialogEvent(Confirm)
@@ -540,7 +524,7 @@ class StudySessionViewModelTest {
     fun `VoiceSettings Dismiss discards the draft through the controller`() = runTest(mainDispatcherRule.testDispatcher) {
         val viewModel = createViewModel()
         advanceUntilIdle()
-        viewModel.onDialogEvent(Open(StudySessionDialog.VoiceSettings()))
+        viewModel.onDialogEvent(Open(VoiceSettingsDialog()))
 
         viewModel.onDialogEvent(Dismiss)
 
@@ -550,58 +534,6 @@ class StudySessionViewModelTest {
     }
 
     @Test
-    fun `ExitSessionOpen shows the confirmation and Dismiss cancels it`() = runTest(mainDispatcherRule.testDispatcher) {
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-
-        viewModel.onDialogEvent(Open(ExitSession))
-        viewModel.state.value.activeDialog shouldBe ExitSession
-
-        viewModel.onDialogEvent(Dismiss)
-        viewModel.state.value.activeDialog shouldBe null
-    }
-
-    @Test
-    fun `a routed voice-answering choice without consent opens the consent dialog on entry`() =
-        runTest(mainDispatcherRule.testDispatcher) {
-            stubRoute(route.copy(voiceAnsweringEnabled = true))
-            loadThreeCards()
-
-            val viewModel = createViewModel()
-            advanceUntilIdle()
-
-            viewModel.state.value.activeDialog shouldBe VoiceAnswerConsent
-        }
-
-    @Test
-    fun `a routed voice-answering choice with consent requests the mic permission on entry`() =
-        runTest(mainDispatcherRule.testDispatcher) {
-            stubRoute(route.copy(voiceAnsweringEnabled = true))
-            userPreferencesRepository.preferences.value = userPreferencesRepository.preferences.value.copy(voiceAnswerConsentGranted = true)
-            loadThreeCards()
-
-            val viewModel = createViewModel()
-            advanceUntilIdle()
-
-            viewModel.state.value.isMicPermissionRequestPending shouldBe true
-        }
-
-    @Test
-    fun `a routed voice-answering choice is ignored in Fast mode`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(route.copy(studyMode = StudyMode.Fast, voiceAnsweringEnabled = true))
-        loadThreeCards()
-
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-
-        viewModel.state.value.activeDialog shouldBe null
-        viewModel.state.value.isMicPermissionRequestPending shouldBe false
-    }
-
-    private fun reportDraft(viewModel: StudySessionViewModel): ReportProblem =
-        viewModel.state.value.activeDialog as ReportProblem
-
-    @Test
     fun `onCleared stops the voice gateway`() = runTest(mainDispatcherRule.testDispatcher) {
         val viewModel = createViewModel()
         advanceUntilIdle()
@@ -609,149 +541,6 @@ class StudySessionViewModelTest {
         viewModel.onCleared()
 
         voiceGateway.stopCalls shouldBe 1
-    }
-
-    @Test
-    fun `onVoiceAnswerToggle without consent shows the consent dialog even before the gateway is active`() =
-        runTest(mainDispatcherRule.testDispatcher) {
-            // Rated sessions never auto-start the gateway (ADR-0025) — the toggle must be reachable
-            // while isVoiceActive is still false.
-            val viewModel = createViewModel()
-            advanceUntilIdle()
-
-            viewModel.onVoiceAnswerToggle()
-
-            viewModel.state.value.activeDialog shouldBe VoiceAnswerConsent
-            voiceGateway.lastVoiceAnswering shouldBe null
-        }
-
-    @Test
-    fun `onVoiceAnswerToggle with consent requests the mic permission even before the gateway is active`() =
-        runTest(mainDispatcherRule.testDispatcher) {
-            userPreferencesRepository.preferences.value = userPreferencesRepository.preferences.value.copy(voiceAnswerConsentGranted = true)
-            val viewModel = createViewModel()
-            advanceUntilIdle()
-
-            viewModel.onVoiceAnswerToggle()
-
-            viewModel.state.value.isMicPermissionRequestPending shouldBe true
-            viewModel.state.value.activeDialog shouldBe null
-        }
-
-    @Test
-    fun `onVoiceAnswerToggle in Fast mode does nothing`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(route.copy(studyMode = StudyMode.Fast))
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-
-        viewModel.onVoiceAnswerToggle()
-
-        viewModel.state.value.activeDialog shouldBe null
-        viewModel.state.value.isMicPermissionRequestPending shouldBe false
-    }
-
-    @Test
-    fun `onVoiceAnswerToggle while enabled stops the gateway`() = runTest(mainDispatcherRule.testDispatcher) {
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-        voiceGateway.voiceAnswerStateFlow.value = VoiceAnswerState(isEnabled = true)
-        advanceUntilIdle()
-
-        viewModel.onVoiceAnswerToggle()
-
-        voiceGateway.stopCalls shouldBe 1
-    }
-
-    @Test
-    fun `accepting voice-answer consent persists it and requests the mic permission`() = runTest(mainDispatcherRule.testDispatcher) {
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-        viewModel.onVoiceAnswerToggle()
-
-        viewModel.onDialogEvent(Confirm)
-        advanceUntilIdle()
-
-        userPreferencesRepository.preferences.value.voiceAnswerConsentGranted shouldBe true
-        viewModel.state.value.activeDialog shouldBe null
-        viewModel.state.value.isMicPermissionRequestPending shouldBe true
-    }
-
-    @Test
-    fun `a failed consent save keeps the dialog open, surfaces an error, and skips the mic request`() =
-        runTest(mainDispatcherRule.testDispatcher) {
-            userPreferencesRepository.saveError = IllegalStateException("disk full")
-            val viewModel = createViewModel()
-            advanceUntilIdle()
-            viewModel.onVoiceAnswerToggle()
-
-            viewModel.onDialogEvent(Confirm)
-            advanceUntilIdle()
-
-            userPreferencesRepository.preferences.value.voiceAnswerConsentGranted shouldBe false
-            viewModel.state.value.activeDialog shouldBe VoiceAnswerConsent
-            viewModel.state.value.isMicPermissionRequestPending shouldBe false
-            viewModel.state.value.voiceError shouldBe "Failed to save voice answering consent"
-        }
-
-    @Test
-    fun `onMicPermissionResult granted enables voice answering on the gateway`() = runTest(mainDispatcherRule.testDispatcher) {
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-
-        viewModel.onMicPermissionResult(true)
-
-        voiceGateway.lastVoiceAnswering shouldBe true
-        viewModel.state.value.isMicPermissionRequestPending shouldBe false
-    }
-
-    @Test
-    fun `onMicPermissionResult granted bootstraps the gateway in Rated mode`() = runTest(mainDispatcherRule.testDispatcher) {
-        loadThreeCards()
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-
-        viewModel.onMicPermissionResult(true)
-
-        voiceGateway.startCalls shouldBe 1
-        voiceGateway.lastStartCards?.map { it.id } shouldBe route.cardIds
-        voiceGateway.lastVoiceAnswering shouldBe true
-    }
-
-    @Test
-    fun `onMicPermissionResult denied leaves voice answering off`() = runTest(mainDispatcherRule.testDispatcher) {
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-
-        viewModel.onMicPermissionResult(false)
-
-        voiceGateway.lastVoiceAnswering shouldBe null
-        viewModel.state.value.isMicPermissionRequestPending shouldBe false
-    }
-
-    @Test
-    fun `voice answer state from the gateway is surfaced in screen state`() = runTest(mainDispatcherRule.testDispatcher) {
-        val grade = VoiceAnswerGrade(sanitizedTranscript = "clean", gradePercent = 82, feedback = "good")
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-
-        voiceGateway.voiceAnswerStateFlow.value = VoiceAnswerState(isEnabled = true, lastGrade = grade)
-        advanceUntilIdle()
-
-        viewModel.state.value.isVoiceAnswerEnabled shouldBe true
-        viewModel.state.value.lastVoiceAnswerGrade shouldBe grade
-    }
-
-    @Test
-    fun `onVoiceAnswerGradeDismissed clears the last grade`() = runTest(mainDispatcherRule.testDispatcher) {
-        val grade = VoiceAnswerGrade(sanitizedTranscript = "clean", gradePercent = 82, feedback = "good")
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-        voiceGateway.voiceAnswerStateFlow.value = VoiceAnswerState(isEnabled = true, lastGrade = grade)
-        advanceUntilIdle()
-
-        viewModel.onVoiceAnswerGradeDismissed()
-
-        viewModel.state.value.lastVoiceAnswerGrade shouldBe null
     }
 }
 

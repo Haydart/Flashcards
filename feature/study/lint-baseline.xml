@@ -7,8 +7,8 @@
         errorLine1="        super.onCleared()"
         errorLine2="              ~~~~~~~~~">
         <location
-            file="src/main/kotlin/com/rossomak/flashcards/feature/study/session/StudySessionViewModel.kt"
-            line="483"
+            file="src/main/kotlin/com/rossomak/flashcards/feature/study/rated/RatedStudySessionViewModel.kt"
+            line="566"
             column="15"/>
     </issue>
 
@@ -19,7 +19,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/rossomak/flashcards/feature/study/voice/VoiceAnswerController.kt"
-            line="158"
+            line="173"
             column="13"/>
     </issue>
 
@@ -30,29 +30,29 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/rossomak/flashcards/feature/study/voice/VoiceAnswerController.kt"
-            line="158"
+            line="173"
             column="13"/>
     </issue>
 
     <issue
         id="LocalContextGetResourceValueCall"
-        message="Querying resource values using LocalContext.current"
+        message="Querying resource values using LocalContext.current is not configuration-aware and may return stale values if the Configuration changes"
         errorLine1="            message = context.getString("
         errorLine2="                      ^">
         <location
-            file="src/main/kotlin/com/rossomak/flashcards/feature/study/session/StudySessionScreen.kt"
-            line="156"
+            file="src/main/kotlin/com/rossomak/flashcards/feature/study/rated/RatedStudySessionScreen.kt"
+            line="115"
             column="23"/>
     </issue>
 
     <issue
         id="LocalContextGetResourceValueCall"
-        message="Querying resource values using LocalContext.current"
+        message="Querying resource values using LocalContext.current is not configuration-aware and may return stale values if the Configuration changes"
         errorLine1="            message = context.getString(R.string.study_session_voice_answer_error_message),"
         errorLine2="                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/kotlin/com/rossomak/flashcards/feature/study/session/StudySessionScreen.kt"
-            line="169"
+            file="src/main/kotlin/com/rossomak/flashcards/feature/study/rated/RatedStudySessionScreen.kt"
+            line="128"
             column="23"/>
     </issue>
 
@@ -74,7 +74,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/rossomak/flashcards/feature/study/voice/TtsPlayer.kt"
-            line="482"
+            line="486"
             column="13"/>
     </issue>
 
@@ -85,19 +85,8 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/rossomak/flashcards/feature/study/voice/TtsPlayer.kt"
-            line="508"
+            line="512"
             column="13"/>
-    </issue>
-
-    <issue
-        id="AutoboxingStateCreation"
-        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
-        errorLine1="    var draftCardCount by remember(cardCount) { mutableStateOf(cardCount.toFloat()) }"
-        errorLine2="                                                ~~~~~~~~~~~~~~">
-        <location
-            file="src/main/kotlin/com/rossomak/flashcards/feature/study/preview/PreviewStudySessionScreen.kt"
-            line="335"
-            column="49"/>
     </issue>
 
 </issues>
