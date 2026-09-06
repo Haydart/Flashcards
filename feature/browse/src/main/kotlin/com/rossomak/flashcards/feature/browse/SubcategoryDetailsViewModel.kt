@@ -167,12 +167,12 @@ class SubcategoryDetailsViewModel @Inject constructor(
             is Sort -> {
                 if (dialog.keepAsDefault) {
                     viewModelScope.launch {
-                        saveStudySessionPreference(StudySessionPreference.SortOrder(dialog.draft))
+                        saveStudySessionPreference(StudySessionPreference.SortOrder(dialog.draftState))
                     }
                 }
-                _state.update { it.copy(sortOrder = dialog.draft, activeDialog = null) }
+                _state.update { it.copy(sortOrder = dialog.draftState, activeDialog = null) }
             }
-            is Filters -> _state.update { it.copy(filters = dialog.draft, activeDialog = null) }
+            is Filters -> _state.update { it.copy(filters = dialog.draftState, activeDialog = null) }
         }
         renderContent()
     }

@@ -26,6 +26,7 @@ data class SettingsScreenState(
     val dailyGoalMinutes: Int = DailyGoal.DEFAULT_MINUTES,
     val sessionLength: Int = StudySessionConfig.DEFAULT_LENGTH,
     val ratedAttempts: Int = StudySessionConfig.DEFAULT_RATED_ATTEMPTS,
+    val partialRatingCardRequeueingEnabled: Boolean = true,
     val defaultStudyMode: StudyMode = StudyMode.Rated,
     val sortOrder: FlashcardSortOrder = FlashcardSortOrder.Default,
     val subcategoryCountRange: IntRange = StudySessionConfig.DEFAULT_SUBCATEGORY_COUNT_RANGE,

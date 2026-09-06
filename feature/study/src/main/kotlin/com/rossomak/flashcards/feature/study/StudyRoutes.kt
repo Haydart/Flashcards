@@ -69,6 +69,12 @@ data class FastStudySessionRoute(
  * @param ratedAttempts the Preview screen's confirmed choice, carried through so it reaches the
  * session rather than being silently dropped. Not yet acted on here — the session has no
  * retry-on-fail behavior to drive it until the next spec in the sequence.
+ * @param partialRatingCardRequeueingEnabled the Preview screen's confirmed choice, carried through
+ * so it reaches the session rather than being silently dropped. Not yet acted on here for the same
+ * reason as [ratedAttempts] — nothing in the session reads it until the state machine that
+ * branches on it lands. `true` (the default) means a Partial rating re-queues the card as before;
+ * `false` means it finishes the card on the spot, recording Terminal Partial rather than Mastered
+ * (ADR-0044).
  * @param speechRate the Preview screen's confirmed `VoiceSettings.speechRate`, session-scoped from
  * here on: a mid-session change updates only this running session (unless the user keeps it as
  * default). Flattened onto the route for the same reason as [FastStudySessionRoute.speechRate] —
@@ -84,6 +90,7 @@ data class RatedStudySessionRoute(
     val cardIds: List<String>,
     val voiceAnsweringEnabled: Boolean = false,
     val ratedAttempts: Int = StudySessionConfig.DEFAULT_RATED_ATTEMPTS,
+    val partialRatingCardRequeueingEnabled: Boolean = true,
     val speechRate: Float = VoiceSettings().speechRate,
     val voiceId: String? = VoiceSettings().voiceId,
 ) {

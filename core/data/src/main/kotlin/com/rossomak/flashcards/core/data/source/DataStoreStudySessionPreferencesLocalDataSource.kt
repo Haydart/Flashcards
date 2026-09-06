@@ -14,6 +14,7 @@ import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.DefaultStudyMode
+import com.rossomak.flashcards.core.domain.model.StudySessionPreference.PartialRatingCardRequeueingEnabled
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.RatedAttempts
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.ReadAloudEnabled
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SessionLength
@@ -43,6 +44,8 @@ class DataStoreStudySessionPreferencesLocalDataSource @Inject constructor(
                 voiceAnsweringEnabled = prefs[VOICE_ANSWERING_ENABLED_KEY] ?: DEFAULT_VOICE_ANSWERING_ENABLED,
                 ratedAttempts = prefs[RATED_ATTEMPTS_KEY] ?: StudySessionConfig.DEFAULT_RATED_ATTEMPTS,
                 readAloudEnabled = prefs[READ_ALOUD_ENABLED_KEY] ?: DEFAULT_READ_ALOUD_ENABLED,
+                partialRatingCardRequeueingEnabled = prefs[PARTIAL_RATING_CARD_REQUEUEING_ENABLED_KEY]
+                    ?: DEFAULT_PARTIAL_RATING_CARD_REQUEUEING_ENABLED,
                 sessionLength = prefs[SESSION_LENGTH_KEY] ?: StudySessionConfig.DEFAULT_LENGTH,
                 sortOrder = prefs[SORT_ORDER_KEY].toSortOrder(),
                 voiceSettings = VoiceSettings(
@@ -60,6 +63,8 @@ class DataStoreStudySessionPreferencesLocalDataSource @Inject constructor(
                 is VoiceAnsweringEnabled -> prefs[VOICE_ANSWERING_ENABLED_KEY] = preference.value
                 is RatedAttempts -> prefs[RATED_ATTEMPTS_KEY] = preference.value
                 is ReadAloudEnabled -> prefs[READ_ALOUD_ENABLED_KEY] = preference.value
+                is PartialRatingCardRequeueingEnabled ->
+                    prefs[PARTIAL_RATING_CARD_REQUEUEING_ENABLED_KEY] = preference.value
                 is SessionLength -> prefs[SESSION_LENGTH_KEY] = preference.value
                 is SortOrder -> prefs[SORT_ORDER_KEY] = preference.value.name
                 is SubcategoryCountRange -> {
@@ -100,6 +105,8 @@ class DataStoreStudySessionPreferencesLocalDataSource @Inject constructor(
         val DEFAULT_STUDY_MODE = StudySessionPreferences().defaultStudyMode
         val DEFAULT_VOICE_ANSWERING_ENABLED = StudySessionPreferences().voiceAnsweringEnabled
         val DEFAULT_READ_ALOUD_ENABLED = StudySessionPreferences().readAloudEnabled
+        val DEFAULT_PARTIAL_RATING_CARD_REQUEUEING_ENABLED =
+            StudySessionPreferences().partialRatingCardRequeueingEnabled
         val DEFAULT_SORT_ORDER = StudySessionPreferences().sortOrder
         val DEFAULT_VOICE_SPEECH_RATE = VoiceSettings().speechRate
         val DEFAULT_SUBCATEGORY_COUNT_RANGE = StudySessionPreferences().subcategoryCountRange
@@ -107,6 +114,8 @@ class DataStoreStudySessionPreferencesLocalDataSource @Inject constructor(
         val VOICE_ANSWERING_ENABLED_KEY = booleanPreferencesKey("voice_answering_enabled")
         val RATED_ATTEMPTS_KEY = intPreferencesKey("rated_attempts")
         val READ_ALOUD_ENABLED_KEY = booleanPreferencesKey("read_aloud_enabled")
+        val PARTIAL_RATING_CARD_REQUEUEING_ENABLED_KEY =
+            booleanPreferencesKey("partial_rating_card_requeueing_enabled")
         val SESSION_LENGTH_KEY = intPreferencesKey("session_length")
         val SORT_ORDER_KEY = stringPreferencesKey("sort_order")
         val VOICE_SPEECH_RATE_KEY = floatPreferencesKey("voice_speech_rate")

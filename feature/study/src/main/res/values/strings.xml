@@ -57,6 +57,7 @@
     <string name="preview_session_mode_label">Mode</string>
     <string name="preview_session_voice_answering_label">Voice answering</string>
     <string name="preview_session_attempts_label">Attempts</string>
+    <string name="preview_session_partial_rating_card_requeueing_label">Requeue Partials</string>
     <string name="preview_session_read_aloud_label">Read-aloud</string>
     <string name="preview_session_voice_settings_label">Voice</string>
     <string name="preview_session_length_label">Length</string>

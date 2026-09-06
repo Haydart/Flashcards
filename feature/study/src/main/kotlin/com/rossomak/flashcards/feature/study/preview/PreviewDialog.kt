@@ -28,25 +28,35 @@ typealias PreviewDialogEvent = DialogEvent<PreviewDialog>
  */
 sealed interface PreviewDialog {
 
-    data class Mode(val draft: StudyMode, val keepAsDefault: Boolean = false) : PreviewDialog
+    data class Mode(val draftState: StudyMode, val keepAsDefault: Boolean = false) : PreviewDialog
 
-    data class VoiceAnswering(val draft: Boolean, val keepAsDefault: Boolean = false) : PreviewDialog
+    data class VoiceAnswering(val draftState: Boolean, val keepAsDefault: Boolean = false) : PreviewDialog
 
     /** Rated-only, like [VoiceAnswering] — the row that opens it is not offered in Fast mode. */
-    data class Attempts(val draft: Int, val keepAsDefault: Boolean = false) : PreviewDialog
+    data class Attempts(val draftState: Int, val keepAsDefault: Boolean = false) : PreviewDialog
+
+    /**
+     * Rated-only, like [Attempts]. `draftState = true` (the default) re-queues a Partial-rated
+     * card; `false` finishes it on the spot, recording Terminal Partial rather than Mastered
+     * (ADR-0044).
+     */
+    data class PartialRatingCardRequeueing(
+        val draftState: Boolean,
+        val keepAsDefault: Boolean = false,
+    ) : PreviewDialog
 
     /** The Fast-only counterpart of [VoiceAnswering]: spoken answers plus hands-free advance. */
-    data class ReadAloud(val draft: Boolean, val keepAsDefault: Boolean = false) : PreviewDialog
+    data class ReadAloud(val draftState: Boolean, val keepAsDefault: Boolean = false) : PreviewDialog
 
-    data class Length(val draft: Int, val keepAsDefault: Boolean = false) : PreviewDialog
+    data class Length(val draftState: Int, val keepAsDefault: Boolean = false) : PreviewDialog
 
-    data class Sort(val draft: FlashcardSortOrder, val keepAsDefault: Boolean = false) : PreviewDialog
+    data class Sort(val draftState: FlashcardSortOrder, val keepAsDefault: Boolean = false) : PreviewDialog
 
     /**
      * Quick Session only — the row that opens it is not offered for a single-Subcategory or
      * Custom session (ADR-0040).
      */
-    data class SubcategoryCountRange(val draft: IntRange, val keepAsDefault: Boolean = false) : PreviewDialog
+    data class SubcategoryCountRange(val draftState: IntRange, val keepAsDefault: Boolean = false) : PreviewDialog
 
     /**
      * Offered for Fast mode, or Rated with voice answering on — the same gate the summary row
@@ -56,7 +66,7 @@ sealed interface PreviewDialog {
      * ViewModel always replaces what it is handed here.
      */
     data class VoiceSettings(
-        val draft: VoiceSettingsDraftState = VoiceSettingsDraftState(),
+        val draftState: VoiceSettingsDraftState = VoiceSettingsDraftState(),
         val keepAsDefault: Boolean = false,
     ) : PreviewDialog
 
@@ -65,5 +75,5 @@ sealed interface PreviewDialog {
      * are session-scoped by definition (ADR-0030).
      * [availableTags] is the pool's tag vocabulary
      */
-    data class Filters(val draft: FlashcardFilters, val availableTags: List<String>) : PreviewDialog
+    data class Filters(val draftState: FlashcardFilters, val availableTags: List<String>) : PreviewDialog
 }

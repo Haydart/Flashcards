@@ -19,6 +19,7 @@ import com.rossomak.flashcards.core.ui.composables.FlashcardsBottomSheetState
 import com.rossomak.flashcards.core.ui.composables.FlashcardsDifficultyRangePill
 import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardFilters
 import com.rossomak.flashcards.core.ui.composables.dialogs.label
+import com.rossomak.flashcards.core.ui.composables.dialogs.partialRatingCardRequeueingLabel
 import com.rossomak.flashcards.core.ui.composables.dialogs.readAloudLabel
 import com.rossomak.flashcards.core.ui.composables.dialogs.speechRateLabel
 import com.rossomak.flashcards.core.ui.composables.dialogs.voiceAnsweringLabel
@@ -30,6 +31,7 @@ import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Attempts
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Filters
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Length
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Mode
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.PartialRatingCardRequeueing
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.ReadAloud
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Sort
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.SubcategoryCountRange
@@ -70,12 +72,12 @@ internal fun SessionSettingsSheet(
  * One row per adjustable setting, each opening its own dialog (ADR-0030), through the shared
  * [FlashcardsSettingRow].
  *
- * Voice answering and attempts are Rated-only: Fast mode has no rating step for either to drive
- * (ADR-0025). Read-aloud is the Fast-only counterpart — voice *output* plus hands-free advance,
- * where voice answering is voice *input*. Each is not offered outside its mode rather than being
- * offered and ignored, so the two branches are exclusive. The Voice row itself only joins them
- * when something will actually speak: Fast with read-aloud on, or voice answering on — Fast alone
- * has nothing to configure yet, since read-aloud might still be off.
+ * Voice answering, attempts and requeueing Partials are Rated-only: Fast mode has no rating step for any
+ * of them to drive (ADR-0025). Read-aloud is the Fast-only counterpart — voice *output* plus
+ * hands-free advance, where voice answering is voice *input*. Each is not offered outside its mode
+ * rather than being offered and ignored, so the two branches are exclusive. The Voice row itself
+ * only joins them when something will actually speak: Fast with read-aloud on, or voice answering
+ * on — Fast alone has nothing to configure yet, since read-aloud might still be off.
  */
 @Composable
 private fun SessionSettingRows(
@@ -90,7 +92,7 @@ private fun SessionSettingRows(
         FlashcardsSettingRow(
             label = stringResource(R.string.preview_session_mode_label),
             valueText = state.config.mode.label(),
-            onClick = { onDialogEvent(Open(Mode(draft = state.config.mode))) },
+            onClick = { onDialogEvent(Open(Mode(draftState = state.config.mode))) },
         )
         if (state.config.mode == StudyMode.Rated) {
             FlashcardsSettingRow(
@@ -98,7 +100,7 @@ private fun SessionSettingRows(
                 valueText = voiceAnsweringLabel(state.config.voiceAnsweringEnabled),
                 onClick = {
                     onDialogEvent(
-                        Open(VoiceAnswering(draft = state.config.voiceAnsweringEnabled))
+                        Open(VoiceAnswering(draftState = state.config.voiceAnsweringEnabled))
                     )
                 },
             )
@@ -109,13 +111,22 @@ private fun SessionSettingRows(
                     state.config.ratedAttempts,
                     state.config.ratedAttempts,
                 ),
-                onClick = { onDialogEvent(Open(Attempts(draft = state.config.ratedAttempts))) },
+                onClick = { onDialogEvent(Open(Attempts(draftState = state.config.ratedAttempts))) },
+            )
+            FlashcardsSettingRow(
+                label = stringResource(R.string.preview_session_partial_rating_card_requeueing_label),
+                valueText = partialRatingCardRequeueingLabel(state.config.partialRatingCardRequeueingEnabled),
+                onClick = {
+                    onDialogEvent(
+                        Open(PartialRatingCardRequeueing(draftState = state.config.partialRatingCardRequeueingEnabled))
+                    )
+                },
             )
         } else {
             FlashcardsSettingRow(
                 label = stringResource(R.string.preview_session_read_aloud_label),
                 valueText = readAloudLabel(state.config.readAloudEnabled),
-                onClick = { onDialogEvent(Open(ReadAloud(draft = state.config.readAloudEnabled))) },
+                onClick = { onDialogEvent(Open(ReadAloud(draftState = state.config.readAloudEnabled))) },
             )
         }
         val fastModeSpeaksAloud = state.config.mode == StudyMode.Fast && state.config.readAloudEnabled
@@ -133,7 +144,7 @@ private fun SessionSettingRows(
                 state.config.length,
                 state.config.length,
             ),
-            onClick = { onDialogEvent(Open(Length(draft = state.config.length))) },
+            onClick = { onDialogEvent(Open(Length(draftState = state.config.length))) },
         )
         if (state.isQuickSession) {
             SubcategoryCountRangeSettingRow(state = state, onDialogEvent = onDialogEvent)
@@ -142,7 +153,7 @@ private fun SessionSettingRows(
         FlashcardsSettingRow(
             label = stringResource(R.string.preview_session_sort_label),
             valueText = state.config.sortOrder.label(),
-            onClick = { onDialogEvent(Open(Sort(draft = state.config.sortOrder))) },
+            onClick = { onDialogEvent(Open(Sort(draftState = state.config.sortOrder))) },
         )
     }
 }
@@ -163,7 +174,7 @@ private fun SubcategoryCountRangeSettingRow(
             state.config.subcategoryCountRange.first,
             state.config.subcategoryCountRange.last,
         ),
-        onClick = { onDialogEvent(Open(SubcategoryCountRange(draft = state.config.subcategoryCountRange))) },
+        onClick = { onDialogEvent(Open(SubcategoryCountRange(draftState = state.config.subcategoryCountRange))) },
     )
 }
 
@@ -180,7 +191,7 @@ private fun FiltersSettingRow(
             onDialogEvent(
                 Open(
                     Filters(
-                        draft = FlashcardFilters(
+                        draftState = FlashcardFilters(
                             selectedTags = state.config.tagIds,
                             difficultyRange = state.config.difficultyRange,
                         ),

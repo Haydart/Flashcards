@@ -42,7 +42,6 @@ internal fun StudySessionDialogHost(
 
     when (activeDialog) {
         null -> Unit
-
         is ReportProblem -> ReportProblemDialog(
             selectedActions = activeDialog.selectedActions,
             onActionCheckedChange = { action, isChecked ->
@@ -51,10 +50,7 @@ internal fun StudySessionDialogHost(
             onSubmit = onConfirm,
             onCancel = onDismiss,
         )
-
-        is ExtendedContext ->
-            ExtendedContextDialog(extendedContext = activeDialog.text, onDismiss = onDismiss)
-
+        is ExtendedContext -> ExtendedContextDialog(extendedContext = activeDialog.text, onDismiss = onDismiss)
         VoiceAnswerConsent -> FlashcardsDecisionDialog(
             title = stringResource(R.string.study_session_voice_answer_consent_title),
             confirmLabel = stringResource(R.string.study_session_voice_answer_consent_accept_button),
@@ -63,33 +59,21 @@ internal fun StudySessionDialogHost(
             supportingText = stringResource(R.string.study_session_voice_answer_consent_message),
             cancelLabel = stringResource(R.string.study_session_voice_answer_consent_decline_button),
         )
-
         is VoiceSettings -> VoiceSettingsDialog(
-            availableVoices = activeDialog.draft.availableVoices,
-            draftVoiceId = activeDialog.draft.draftVoiceId,
-            draftSpeechRate = activeDialog.draft.draftSpeed,
+            availableVoices = activeDialog.draftState.availableVoices,
+            draftVoiceId = activeDialog.draftState.draftVoiceId,
             onDraftVoiceChange = {
-                onDialogEvent(
-                    DraftChange(
-                        activeDialog.copy(draft = activeDialog.draft.copy(draftVoiceId = it))
-                    )
-                )
+                onDialogEvent(DraftChange(activeDialog.copy(draftState = activeDialog.draftState.copy(draftVoiceId = it))))
             },
+            draftSpeechRate = activeDialog.draftState.draftSpeed,
             onDraftSpeechRateChange = {
-                onDialogEvent(
-                    DraftChange(
-                        activeDialog.copy(draft = activeDialog.draft.copy(draftSpeed = it))
-                    )
-                )
+                onDialogEvent(DraftChange(activeDialog.copy(draftState = activeDialog.draftState.copy(draftSpeed = it))))
             },
             onConfirm = onConfirm,
             onDismiss = onDismiss,
             keepAsDefault = activeDialog.keepAsDefault,
-            onKeepAsDefaultChange = {
-                onDialogEvent(DraftChange(activeDialog.copy(keepAsDefault = it)))
-            },
+            onKeepAsDefaultChange = { onDialogEvent(DraftChange(activeDialog.copy(keepAsDefault = it))) },
         )
-
         ExitSession -> FlashcardsDecisionDialog(
             title = stringResource(R.string.exit_session_dialog_title),
             confirmLabel = stringResource(R.string.exit_session_confirm_button),

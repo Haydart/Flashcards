@@ -47,6 +47,14 @@ fun readAloudLabel(isEnabled: Boolean): String = if (isEnabled) {
     stringResource(R.string.read_aloud_off_label)
 }
 
+/** Rated-only. Paired with [PartialRatingCardRequeueingDialog]. */
+@Composable
+fun partialRatingCardRequeueingLabel(isEnabled: Boolean): String = if (isEnabled) {
+    stringResource(R.string.common_partial_rating_card_requeueing_on_label)
+} else {
+    stringResource(R.string.common_partial_rating_card_requeueing_off_label)
+}
+
 /**
  * A friendly, collision-free voice label — "English (US) Voice 1" — built entirely from
  * [VoiceOption.countryCode] and [VoiceOption.variantIndex], never from the opaque platform

@@ -6,15 +6,6 @@ import androidx.lifecycle.viewModelScope
 import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
-import com.rossomak.flashcards.core.domain.model.StudySessionPreference
-import com.rossomak.flashcards.core.domain.model.StudySessionPreference.DefaultStudyMode
-import com.rossomak.flashcards.core.domain.model.StudySessionPreference.RatedAttempts
-import com.rossomak.flashcards.core.domain.model.StudySessionPreference.ReadAloudEnabled
-import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SessionLength
-import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SortOrder
-import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SubcategoryCountRange as SubcategoryCountRangePreference
-import com.rossomak.flashcards.core.domain.model.StudySessionPreference.VoiceAnsweringEnabled
-import com.rossomak.flashcards.core.domain.model.StudySessionPreference.VoicePlayback
 import com.rossomak.flashcards.core.domain.model.VoiceOption
 import com.rossomak.flashcards.core.domain.model.orderedBy
 import com.rossomak.flashcards.core.domain.usecase.ObserveStudySessionPreferencesUseCase
@@ -27,18 +18,10 @@ import com.rossomak.flashcards.core.ui.dialog.DialogEvent.DraftChange
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.decodeRoute
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsController
-import com.rossomak.flashcards.core.ui.voice.toVoiceSettings
 import com.rossomak.flashcards.feature.study.FastStudySessionRoute
 import com.rossomak.flashcards.feature.study.PreviewStudySessionRoute
 import com.rossomak.flashcards.feature.study.RatedStudySessionRoute
-import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Attempts
-import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Filters
-import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Length
-import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Mode
-import com.rossomak.flashcards.feature.study.preview.PreviewDialog.ReadAloud
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Sort
-import com.rossomak.flashcards.feature.study.preview.PreviewDialog.SubcategoryCountRange
-import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceAnswering
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceSettings
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -126,6 +109,7 @@ class PreviewStudySessionViewModel @Inject constructor(
                         voiceAnsweringEnabled = defaults.voiceAnsweringEnabled,
                         ratedAttempts = defaults.ratedAttempts,
                         readAloudEnabled = defaults.readAloudEnabled,
+                        partialRatingCardRequeueingEnabled = defaults.partialRatingCardRequeueingEnabled,
                         length = defaults.sessionLength,
                         // The route wins when it carries an order: the user already saw a list in
                         // it. Null means nothing upstream chose one, so the saved default applies.
@@ -163,7 +147,7 @@ class PreviewStudySessionViewModel @Inject constructor(
     /**
      * Single entry point for every dialog on this screen.
      *
-     * Voice settings is the one dialog with a side effect on open and on every edit — its draft
+     * Voice settings is the one dialog with a side effect on open and on every edit — its draftState
      * comes from [VoiceSettingsController], not from screen state, and each edit previews — so it
      * gets its own [onDialogOpen]/[onDraftChange] rather than the flat assignment every other
      * dialog on this screen uses.
@@ -185,8 +169,8 @@ class PreviewStudySessionViewModel @Inject constructor(
     }
 
     private fun onVoiceSettingsOpen() {
-        val draft = voiceSettingsController.seedDraft(_state.value.config.voiceSettings)
-        _state.update { it.copy(activeDialog = VoiceSettings(draft)) }
+        val draftState = voiceSettingsController.seedDraft(_state.value.config.voiceSettings)
+        _state.update { it.copy(activeDialog = VoiceSettings(draftState)) }
         voiceSettingsController.loadVoices(viewModelScope, ::onVoicesLoaded)
     }
 
@@ -202,9 +186,9 @@ class PreviewStudySessionViewModel @Inject constructor(
             val dialog = withVoices.activeDialog as? VoiceSettings ?: return@update withVoices
             withVoices.copy(
                 activeDialog = dialog.copy(
-                    draft = dialog.draft.copy(
+                    draftState = dialog.draftState.copy(
                         availableVoices = voices,
-                        draftVoiceId = dialog.draft.draftVoiceId ?: voices.firstOrNull()?.id,
+                        draftVoiceId = dialog.draftState.draftVoiceId ?: voices.firstOrNull()?.id,
                     ),
                 ),
             )
@@ -212,19 +196,19 @@ class PreviewStudySessionViewModel @Inject constructor(
     }
 
     /**
-     * Stores the draft the host built, then previews the edit when it is the voice dialog — every
+     * Stores the draftState the host built, then previews the edit when it is the voice dialog — every
      * other dialog on this screen is silent.
      */
     private fun onDraftChange(dialog: PreviewDialog) {
         val previous = _state.value.activeDialog
         _state.update { it.copy(activeDialog = dialog) }
-        if (previous is VoiceSettings && dialog is VoiceSettings && dialog.draft != previous.draft) {
-            voiceSettingsController.preview(dialog.draft)
+        if (previous is VoiceSettings && dialog is VoiceSettings && dialog.draftState != previous.draftState) {
+            voiceSettingsController.preview(dialog.draftState)
         }
     }
 
     /**
-     * Dismissal is the discard path: the draft dies with the field, so nothing is applied. Preview
+     * Dismissal is the discard path: the draftState dies with the field, so nothing is applied. Preview
      * playback is stopped only when it could have been started — every other dialog is silent, and
      * stopping the shared player from one of those could cut off audio this screen never began.
      */
@@ -236,7 +220,7 @@ class PreviewStudySessionViewModel @Inject constructor(
     }
 
     /**
-     * The only dialog state commit path. Every dialog does the same three things: fold the draft
+     * The only dialog state commit path. Every dialog does the same three things: fold the draftState
      * into the session config, persist it as a global default when the user checked "keep as my
      * default", and close.
      *
@@ -245,22 +229,7 @@ class PreviewStudySessionViewModel @Inject constructor(
      */
     private fun onDialogConfirm() {
         val dialog = _state.value.activeDialog ?: return
-        val updatedConfig = with(_state.value.config) {
-            when (dialog) {
-                is Mode -> withMode(dialog.draft)
-                is VoiceAnswering -> copy(voiceAnsweringEnabled = dialog.draft)
-                is Attempts -> copy(ratedAttempts = dialog.draft)
-                is ReadAloud -> copy(readAloudEnabled = dialog.draft)
-                is Length -> copy(length = dialog.draft)
-                is Sort -> copy(sortOrder = dialog.draft)
-                is SubcategoryCountRange -> copy(subcategoryCountRange = dialog.draft)
-                is VoiceSettings -> copy(voiceSettings = dialog.draft.toVoiceSettings())
-                is Filters -> copy(
-                    tagIds = dialog.draft.selectedTags,
-                    difficultyRange = dialog.draft.difficultyRange,
-                )
-            }
-        }
+        val updatedConfig = _state.value.config.foldInDialog(dialog)
         dialog.toStudySessionPreferenceIfKept()?.let { preference ->
             viewModelScope.launch { saveStudySessionPreference(preference) }
         }
@@ -281,39 +250,12 @@ class PreviewStudySessionViewModel @Inject constructor(
      */
     private fun resolveSelectedCards(dialog: PreviewDialog) {
         if (dialog is Sort) {
-            val reordered = lastDrawnCards.orderedBy(dialog.draft)
+            val reordered = lastDrawnCards.orderedBy(dialog.draftState)
             lastDrawnCards = reordered
             selectedCardIds = reordered.map { it.id }
         } else {
             selectCards()
         }
-    }
-
-    /**
-     * `voiceAnsweringEnabled` is Rated-only (ADR-0025) — reset it switching away from Rated, not
-     * just gate its *display* at the read sites, since the stale value would otherwise also leak
-     * into [onStartSession]'s `RatedStudySessionRoute` payload unchanged. Its own function purely
-     * to keep [onDialogConfirm]'s cyclomatic complexity under detekt's threshold.
-     */
-    private fun StudySessionConfig.withMode(mode: StudyMode): StudySessionConfig = copy(
-        mode = mode,
-        voiceAnsweringEnabled = voiceAnsweringEnabled && mode == StudyMode.Rated,
-    )
-
-    /**
-     * `null` when the dialog didn't check "keep as my default" — or, for [Filters], can never
-     * check it at all: tags belong to one subcategory and cannot carry to another (ADR-0030).
-     */
-    private fun PreviewDialog.toStudySessionPreferenceIfKept(): StudySessionPreference? = when (this) {
-        is Mode -> DefaultStudyMode(draft).takeIf { keepAsDefault }
-        is VoiceAnswering -> VoiceAnsweringEnabled(draft).takeIf { keepAsDefault }
-        is Attempts -> RatedAttempts(draft).takeIf { keepAsDefault }
-        is ReadAloud -> ReadAloudEnabled(draft).takeIf { keepAsDefault }
-        is Length -> SessionLength(draft).takeIf { keepAsDefault }
-        is Sort -> SortOrder(draft).takeIf { keepAsDefault }
-        is SubcategoryCountRange -> SubcategoryCountRangePreference(draft).takeIf { keepAsDefault }
-        is VoiceSettings -> VoicePlayback(draft.toVoiceSettings()).takeIf { keepAsDefault }
-        is Filters -> null
     }
 
     /**
@@ -362,6 +304,7 @@ class PreviewStudySessionViewModel @Inject constructor(
                         cardIds = selectedCardIds,
                         voiceAnsweringEnabled = _state.value.config.voiceAnsweringEnabled,
                         ratedAttempts = _state.value.config.ratedAttempts,
+                        partialRatingCardRequeueingEnabled = _state.value.config.partialRatingCardRequeueingEnabled,
                         speechRate = _state.value.config.voiceSettings.speechRate,
                         voiceId = _state.value.config.voiceSettings.voiceId,
                     )

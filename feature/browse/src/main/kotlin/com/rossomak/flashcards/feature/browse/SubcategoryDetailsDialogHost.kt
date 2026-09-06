@@ -27,20 +27,18 @@ fun SubcategoryDetailsDialogHost(
     when (activeDialog) {
         null -> Unit
         is Sort -> FlashcardSortOrderDialog(
-            draft = activeDialog.draft,
-            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draft = it))) },
+            draft = activeDialog.draftState,
+            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draftState = it))) },
             onConfirm = onConfirm,
             onDismiss = onDismiss,
             keepAsDefault = activeDialog.keepAsDefault,
-            onKeepAsDefaultChange = {
-                onDialogEvent(DraftChange(activeDialog.copy(keepAsDefault = it)))
-            },
+            onKeepAsDefaultChange = { onDialogEvent(DraftChange(activeDialog.copy(keepAsDefault = it))) },
         )
         is Filters -> FlashcardFiltersDialog(
             availableTags = activeDialog.availableTags,
-            filters = activeDialog.draft,
+            filters = activeDialog.draftState,
             difficultyBounds = activeDialog.difficultyBounds,
-            onFiltersChange = { onDialogEvent(DraftChange(activeDialog.copy(draft = it))) },
+            onFiltersChange = { onDialogEvent(DraftChange(activeDialog.copy(draftState = it))) },
             onConfirm = onConfirm,
             onDismiss = onDismiss,
         )

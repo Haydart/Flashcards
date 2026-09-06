@@ -27,7 +27,7 @@ user ever managed on it.
 ### Partial can end a card immediately
 
 A user setting controls whether a Partial Rating re-queues the card or ends it on the spot. Default
-off, so Partial re-queues. Turned on, a Partial Rating resolves the card to Terminal Partial
+on, so Partial re-queues. Turned off, a Partial Rating resolves the card to Terminal Partial
 immediately.
 
 The setting's label must disclose that a Partial card does not count as mastered — a label implying

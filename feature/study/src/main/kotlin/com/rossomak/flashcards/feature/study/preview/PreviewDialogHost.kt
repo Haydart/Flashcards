@@ -2,8 +2,11 @@ package com.rossomak.flashcards.feature.study.preview
 
 import androidx.compose.runtime.Composable
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
+import com.rossomak.flashcards.core.domain.model.StudySessionConfig.Companion.LENGTH_STEP
+import com.rossomak.flashcards.core.domain.model.StudySessionConfig.Companion.RATED_ATTEMPTS_STEP
 import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardFiltersDialog
 import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardSortOrderDialog
+import com.rossomak.flashcards.core.ui.composables.dialogs.PartialRatingCardRequeueingDialog
 import com.rossomak.flashcards.core.ui.composables.dialogs.RatedAttemptsDialog
 import com.rossomak.flashcards.core.ui.composables.dialogs.ReadAloudDialog
 import com.rossomak.flashcards.core.ui.composables.dialogs.SessionLengthDialog
@@ -18,11 +21,19 @@ import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Attempts
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Filters
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Length
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Mode
+import com.rossomak.flashcards.feature.study.preview.PreviewDialog.PartialRatingCardRequeueing
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.ReadAloud
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Sort
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.SubcategoryCountRange
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceAnswering
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceSettings
+
+/** The one range each stepper dialog needs — named once so a call site never inlines the pair. */
+private val LENGTH_RANGE = StudySessionConfig.MIN_LENGTH..StudySessionConfig.MAX_LENGTH
+private val RATED_ATTEMPTS_RANGE = StudySessionConfig.MIN_RATED_ATTEMPTS..StudySessionConfig.MAX_RATED_ATTEMPTS
+private val SUBCATEGORY_COUNT_RANGE =
+    StudySessionConfig.MIN_SUBCATEGORY_COUNT..StudySessionConfig.MAX_SUBCATEGORY_COUNT
+private val DIFFICULTY_RANGE = StudySessionConfig.MIN_DIFFICULTY..StudySessionConfig.MAX_DIFFICULTY
 
 /**
  * Renders whichever dialog [activeDialog] names, or nothing when it is `null`.
@@ -36,6 +47,7 @@ import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceSettings
  * Each branch emits a total `copy()` of the case the `when` already narrowed — no branching and no
  * arithmetic, because nothing unit-tests this file (ADR-0036).
  */
+@Suppress("LongMethod")
 @Composable
 internal fun PreviewDialogHost(
     activeDialog: PreviewDialog?,
@@ -47,189 +59,96 @@ internal fun PreviewDialogHost(
     when (activeDialog) {
         null -> Unit
         is Mode -> StudyModeDialog(
-            draft = activeDialog.draft,
-            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draft = it))) },
+            draft = activeDialog.draftState,
+            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draftState = it))) },
             onConfirm = onConfirm,
             onDismiss = onDismiss,
             keepAsDefault = activeDialog.keepAsDefault,
-            onKeepAsDefaultChange = {
-                onDialogEvent(DraftChange(activeDialog.copy(keepAsDefault = it)))
-            },
+            onKeepAsDefaultChange = { onDialogEvent(DraftChange(activeDialog.copy(keepAsDefault = it))) },
         )
         is VoiceAnswering -> VoiceAnsweringDialog(
-            draft = activeDialog.draft,
-            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draft = it))) },
+            draft = activeDialog.draftState,
+            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draftState = it))) },
             onConfirm = onConfirm,
             onDismiss = onDismiss,
             keepAsDefault = activeDialog.keepAsDefault,
-            onKeepAsDefaultChange = {
-                onDialogEvent(DraftChange(activeDialog.copy(keepAsDefault = it)))
-            },
+            onKeepAsDefaultChange = { onDialogEvent(DraftChange(activeDialog.copy(keepAsDefault = it))) },
         )
-        is Attempts -> AttemptsDialog(
-            dialog = activeDialog,
-            onDialogEvent = onDialogEvent,
+        is Attempts -> RatedAttemptsDialog(
+            draft = activeDialog.draftState,
+            range = RATED_ATTEMPTS_RANGE,
+            step = RATED_ATTEMPTS_STEP,
+            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draftState = it))) },
             onConfirm = onConfirm,
             onDismiss = onDismiss,
+            keepAsDefault = activeDialog.keepAsDefault,
+            onKeepAsDefaultChange = { onDialogEvent(DraftChange(activeDialog.copy(keepAsDefault = it))) },
+        )
+        is PartialRatingCardRequeueing -> PartialRatingCardRequeueingDialog(
+            draft = activeDialog.draftState,
+            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draftState = it))) },
+            onConfirm = onConfirm,
+            onDismiss = onDismiss,
+            keepAsDefault = activeDialog.keepAsDefault,
+            onKeepAsDefaultChange = { onDialogEvent(DraftChange(activeDialog.copy(keepAsDefault = it))) },
         )
         is ReadAloud -> ReadAloudDialog(
-            draft = activeDialog.draft,
-            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draft = it))) },
+            draft = activeDialog.draftState,
+            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draftState = it))) },
             onConfirm = onConfirm,
             onDismiss = onDismiss,
             keepAsDefault = activeDialog.keepAsDefault,
-            onKeepAsDefaultChange = {
-                onDialogEvent(DraftChange(activeDialog.copy(keepAsDefault = it)))
-            },
+            onKeepAsDefaultChange = { onDialogEvent(DraftChange(activeDialog.copy(keepAsDefault = it))) },
         )
-        is Length -> LengthDialog(
-            dialog = activeDialog,
-            onDialogEvent = onDialogEvent,
+        is Length -> SessionLengthDialog(
+            draft = activeDialog.draftState,
+            range = LENGTH_RANGE,
+            step = LENGTH_STEP,
+            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draftState = it))) },
             onConfirm = onConfirm,
             onDismiss = onDismiss,
-        )
-        is Filters -> FiltersDialog(
-            dialog = activeDialog,
-            onDialogEvent = onDialogEvent,
-            onConfirm = onConfirm,
-            onDismiss = onDismiss,
+            keepAsDefault = activeDialog.keepAsDefault,
+            onKeepAsDefaultChange = { onDialogEvent(DraftChange(activeDialog.copy(keepAsDefault = it))) },
         )
         is Sort -> FlashcardSortOrderDialog(
-            draft = activeDialog.draft,
-            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draft = it))) },
+            draft = activeDialog.draftState,
+            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draftState = it))) },
             onConfirm = onConfirm,
             onDismiss = onDismiss,
             keepAsDefault = activeDialog.keepAsDefault,
-            onKeepAsDefaultChange = {
-                onDialogEvent(DraftChange(activeDialog.copy(keepAsDefault = it)))
-            },
+            onKeepAsDefaultChange = { onDialogEvent(DraftChange(activeDialog.copy(keepAsDefault = it))) },
         )
-        is VoiceSettings -> VoicePlaybackDialog(
-            dialog = activeDialog,
-            onDialogEvent = onDialogEvent,
+        is SubcategoryCountRange -> SubcategoryCountRangeDialog(
+            draft = activeDialog.draftState,
+            bounds = SUBCATEGORY_COUNT_RANGE,
+            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draftState = it))) },
             onConfirm = onConfirm,
             onDismiss = onDismiss,
+            keepAsDefault = activeDialog.keepAsDefault,
+            onKeepAsDefaultChange = { onDialogEvent(DraftChange(activeDialog.copy(keepAsDefault = it))) },
         )
-        is SubcategoryCountRange -> SubcategoryCountRangeRowDialog(
-            dialog = activeDialog,
-            onDialogEvent = onDialogEvent,
+        is VoiceSettings -> VoiceSettingsDialog(
+            availableVoices = activeDialog.draftState.availableVoices,
+            draftVoiceId = activeDialog.draftState.draftVoiceId,
+            onDraftVoiceChange = {
+                onDialogEvent(DraftChange(activeDialog.copy(draftState = activeDialog.draftState.copy(draftVoiceId = it))))
+            },
+            draftSpeechRate = activeDialog.draftState.draftSpeed,
+            onDraftSpeechRateChange = {
+                onDialogEvent(DraftChange(activeDialog.copy(draftState = activeDialog.draftState.copy(draftSpeed = it))))
+            },
+            onConfirm = onConfirm,
+            onDismiss = onDismiss,
+            keepAsDefault = activeDialog.keepAsDefault,
+            onKeepAsDefaultChange = { onDialogEvent(DraftChange(activeDialog.copy(keepAsDefault = it))) },
+        )
+        is Filters -> FlashcardFiltersDialog(
+            availableTags = activeDialog.availableTags,
+            filters = activeDialog.draftState,
+            difficultyBounds = DIFFICULTY_RANGE,
+            onFiltersChange = { onDialogEvent(DraftChange(activeDialog.copy(draftState = it))) },
             onConfirm = onConfirm,
             onDismiss = onDismiss,
         )
     }
-}
-
-/**
- * Lifted out of [PreviewDialogHost]'s `when` for the same reason as [FiltersDialog]: two draft
- * fields rather than one keeps the branch above the length that would otherwise fit inline. Still
- * only a total `copy()` of an already-narrowed case, as ADR-0036 requires of a host.
- */
-@Composable
-private fun VoicePlaybackDialog(
-    dialog: VoiceSettings,
-    onDialogEvent: (PreviewDialogEvent) -> Unit,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    VoiceSettingsDialog(
-        availableVoices = dialog.draft.availableVoices,
-        draftVoiceId = dialog.draft.draftVoiceId,
-        draftSpeechRate = dialog.draft.draftSpeed,
-        onDraftVoiceChange = {
-            onDialogEvent(DraftChange(dialog.copy(draft = dialog.draft.copy(draftVoiceId = it))))
-        },
-        onDraftSpeechRateChange = {
-            onDialogEvent(DraftChange(dialog.copy(draft = dialog.draft.copy(draftSpeed = it))))
-        },
-        onConfirm = onConfirm,
-        onDismiss = onDismiss,
-        keepAsDefault = dialog.keepAsDefault,
-        onKeepAsDefaultChange = { onDialogEvent(DraftChange(dialog.copy(keepAsDefault = it))) },
-    )
-}
-
-/**
- * Lifted out of [PreviewDialogHost]'s `when` purely to keep that dispatch under detekt's
- * `LongMethod` — the range and step it passes are what push this branch past a single-line call.
- * Still only a total `copy()` of an already-narrowed case, as ADR-0036 requires of a host.
- */
-@Composable
-private fun AttemptsDialog(
-    dialog: Attempts,
-    onDialogEvent: (PreviewDialogEvent) -> Unit,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    RatedAttemptsDialog(
-        draft = dialog.draft,
-        range = StudySessionConfig.MIN_RATED_ATTEMPTS..StudySessionConfig.MAX_RATED_ATTEMPTS,
-        step = StudySessionConfig.RATED_ATTEMPTS_STEP,
-        onDraftChange = { onDialogEvent(DraftChange(dialog.copy(draft = it))) },
-        onConfirm = onConfirm,
-        onDismiss = onDismiss,
-        keepAsDefault = dialog.keepAsDefault,
-        onKeepAsDefaultChange = { onDialogEvent(DraftChange(dialog.copy(keepAsDefault = it))) },
-    )
-}
-
-/** Same reason as [AttemptsDialog]: the range and step push this branch past a single-line call. */
-@Composable
-private fun LengthDialog(
-    dialog: Length,
-    onDialogEvent: (PreviewDialogEvent) -> Unit,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    SessionLengthDialog(
-        draft = dialog.draft,
-        range = StudySessionConfig.MIN_LENGTH..StudySessionConfig.MAX_LENGTH,
-        step = StudySessionConfig.LENGTH_STEP,
-        onDraftChange = { onDialogEvent(DraftChange(dialog.copy(draft = it))) },
-        onConfirm = onConfirm,
-        onDismiss = onDismiss,
-        keepAsDefault = dialog.keepAsDefault,
-        onKeepAsDefaultChange = { onDialogEvent(DraftChange(dialog.copy(keepAsDefault = it))) },
-    )
-}
-
-/** Same reason as [AttemptsDialog]/[LengthDialog]: computing `bounds` pushes this branch past a single-line call. */
-@Composable
-private fun SubcategoryCountRangeRowDialog(
-    dialog: SubcategoryCountRange,
-    onDialogEvent: (PreviewDialogEvent) -> Unit,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    SubcategoryCountRangeDialog(
-        draft = dialog.draft,
-        bounds = StudySessionConfig.MIN_SUBCATEGORY_COUNT..StudySessionConfig.MAX_SUBCATEGORY_COUNT,
-        onDraftChange = { onDialogEvent(DraftChange(dialog.copy(draft = it))) },
-        onConfirm = onConfirm,
-        onDismiss = onDismiss,
-        keepAsDefault = dialog.keepAsDefault,
-        onKeepAsDefaultChange = { onDialogEvent(DraftChange(dialog.copy(keepAsDefault = it))) },
-    )
-}
-
-/**
- * Same reason as [AttemptsDialog]/[LengthDialog]: computing [difficultyBounds][StudySessionConfig]
- * pushes this branch past a single-line call, so it is lifted out of [PreviewDialogHost]'s `when`.
- * Still only a total `copy()` of an already-narrowed case, as ADR-0036 requires of a host —
- * [FlashcardFiltersDialog] folds every tag/difficulty edit into one new filters value itself.
- */
-@Composable
-private fun FiltersDialog(
-    dialog: Filters,
-    onDialogEvent: (PreviewDialogEvent) -> Unit,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    FlashcardFiltersDialog(
-        availableTags = dialog.availableTags,
-        filters = dialog.draft,
-        difficultyBounds = StudySessionConfig.MIN_DIFFICULTY..StudySessionConfig.MAX_DIFFICULTY,
-        onFiltersChange = { onDialogEvent(DraftChange(dialog.copy(draft = it))) },
-        onConfirm = onConfirm,
-        onDismiss = onDismiss,
-    )
 }

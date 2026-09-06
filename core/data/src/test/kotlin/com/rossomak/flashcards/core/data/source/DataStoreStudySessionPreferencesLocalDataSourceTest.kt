@@ -9,6 +9,7 @@ import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.DefaultStudyMode
+import com.rossomak.flashcards.core.domain.model.StudySessionPreference.PartialRatingCardRequeueingEnabled
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.RatedAttempts
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.ReadAloudEnabled
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SessionLength
@@ -68,6 +69,7 @@ class DataStoreStudySessionPreferencesLocalDataSourceTest {
         localDataSource.save(VoiceAnsweringEnabled(true))
         localDataSource.save(RatedAttempts(2))
         localDataSource.save(ReadAloudEnabled(true))
+        localDataSource.save(PartialRatingCardRequeueingEnabled(false))
         localDataSource.save(SessionLength(35))
         localDataSource.save(SortOrder(FlashcardSortOrder.HardestFirst))
         localDataSource.save(VoicePlayback(VoiceSettings(speechRate = 1.5f, voiceId = "en-us-x-1")))
@@ -79,6 +81,7 @@ class DataStoreStudySessionPreferencesLocalDataSourceTest {
             voiceAnsweringEnabled = true,
             ratedAttempts = 2,
             readAloudEnabled = true,
+            partialRatingCardRequeueingEnabled = false,
             sessionLength = 35,
             sortOrder = FlashcardSortOrder.HardestFirst,
             voiceSettings = VoiceSettings(speechRate = 1.5f, voiceId = "en-us-x-1"),

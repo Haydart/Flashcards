@@ -2,6 +2,7 @@ package com.rossomak.flashcards.core.domain.repository
 
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.DefaultStudyMode
+import com.rossomak.flashcards.core.domain.model.StudySessionPreference.PartialRatingCardRequeueingEnabled
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.RatedAttempts
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.ReadAloudEnabled
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SessionLength
@@ -29,6 +30,8 @@ class FakeStudySessionPreferencesRepository : StudySessionPreferencesRepository 
             is VoiceAnsweringEnabled -> preferences.value.copy(voiceAnsweringEnabled = preference.value)
             is RatedAttempts -> preferences.value.copy(ratedAttempts = preference.value)
             is ReadAloudEnabled -> preferences.value.copy(readAloudEnabled = preference.value)
+            is PartialRatingCardRequeueingEnabled ->
+                preferences.value.copy(partialRatingCardRequeueingEnabled = preference.value)
             is SessionLength -> preferences.value.copy(sessionLength = preference.value)
             is SortOrder -> preferences.value.copy(sortOrder = preference.value)
             is SubcategoryCountRange -> preferences.value.copy(subcategoryCountRange = preference.value)

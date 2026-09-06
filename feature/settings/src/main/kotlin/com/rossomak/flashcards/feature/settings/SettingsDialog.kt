@@ -20,21 +20,27 @@ typealias SettingsDialogEvent = DialogEvent<SettingsDialog>
  */
 sealed interface SettingsDialog {
 
-    data class Length(val draft: Int) : SettingsDialog
+    data class Length(val draftState: Int) : SettingsDialog
 
-    data class Goal(val draft: Int) : SettingsDialog
+    data class Goal(val draftState: Int) : SettingsDialog
 
-    data class Attempts(val draft: Int) : SettingsDialog
+    data class Attempts(val draftState: Int) : SettingsDialog
 
-    data class Mode(val draft: StudyMode) : SettingsDialog
+    /**
+     * `draftState = true` (the default) re-queues a Partial-rated Rated card; `false` finishes it
+     * on the spot, recording Terminal Partial rather than Mastered (ADR-0044).
+     */
+    data class PartialRatingCardRequeueing(val draftState: Boolean) : SettingsDialog
 
-    data class Sort(val draft: FlashcardSortOrder) : SettingsDialog
+    data class Mode(val draftState: StudyMode) : SettingsDialog
 
-    data class SubcategoryCountRange(val draft: IntRange) : SettingsDialog
+    data class Sort(val draftState: FlashcardSortOrder) : SettingsDialog
 
-    data class VoiceAnswering(val draft: Boolean) : SettingsDialog
+    data class SubcategoryCountRange(val draftState: IntRange) : SettingsDialog
 
-    data class ReadAloud(val draft: Boolean) : SettingsDialog
+    data class VoiceAnswering(val draftState: Boolean) : SettingsDialog
+
+    data class ReadAloud(val draftState: Boolean) : SettingsDialog
 
     /**
      * The draft lives here like every other dialog's, but is the one this screen cannot seed at the
@@ -43,7 +49,7 @@ sealed interface SettingsDialog {
      * saved settings and voice cache, which the row does not have. The ViewModel always replaces
      * what it is handed, so the default here is a placeholder, never a value in use.
      */
-    data class VoiceSettings(val draft: VoiceSettingsDraftState = VoiceSettingsDraftState()) : SettingsDialog
+    data class VoiceSettings(val draftState: VoiceSettingsDraftState = VoiceSettingsDraftState()) : SettingsDialog
 
     /**
      * The one dialog with no draft: confirming it commits nothing, it runs sign-out and lets the

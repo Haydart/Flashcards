@@ -13,6 +13,12 @@ sealed interface StudySessionPreference {
 
     data class ReadAloudEnabled(val value: Boolean) : StudySessionPreference
 
+    /**
+     * Whether a Partial rating re-queues a Rated card (`true`, the default) or finishes it on the
+     * spot (`false`). A card finished this way records Terminal Partial, not Mastered (ADR-0044).
+     */
+    data class PartialRatingCardRequeueingEnabled(val value: Boolean) : StudySessionPreference
+
     data class SessionLength(val value: Int) : StudySessionPreference
 
     data class SortOrder(val value: FlashcardSortOrder) : StudySessionPreference
