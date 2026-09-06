@@ -1,7 +1,6 @@
 package com.rossomak.flashcards.feature.study
 
 import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
-import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.domain.model.VoiceSettings
 import kotlinx.serialization.Serializable
@@ -85,26 +84,6 @@ data class RatedStudySessionRoute(
     val cardIds: List<String>,
     val voiceAnsweringEnabled: Boolean = false,
     val ratedAttempts: Int = StudySessionConfig.DEFAULT_RATED_ATTEMPTS,
-    val speechRate: Float = VoiceSettings().speechRate,
-    val voiceId: String? = VoiceSettings().voiceId,
-) {
-    val voiceSettings: VoiceSettings
-        get() = VoiceSettings(speechRate = speechRate, voiceId = voiceId)
-}
-
-/**
- * @deprecated retained until ticket 04 removes the combined session screen that consumes it.
- */
-@Serializable
-data class StudySessionRoute(
-    val categoryId: String,
-    val sessionTitle: String,
-    val subcategoryIds: List<String>,
-    val cardIds: List<String>,
-    val studyMode: StudyMode,
-    val voiceAnsweringEnabled: Boolean = false,
-    val ratedAttempts: Int = StudySessionConfig.DEFAULT_RATED_ATTEMPTS,
-    val readAloudEnabled: Boolean = false,
     val speechRate: Float = VoiceSettings().speechRate,
     val voiceId: String? = VoiceSettings().voiceId,
 ) {
