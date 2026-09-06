@@ -27,11 +27,9 @@ import com.rossomak.flashcards.feature.onboarding.OnboardingScreen
 import com.rossomak.flashcards.feature.study.FastStudySessionRoute
 import com.rossomak.flashcards.feature.study.PreviewStudySessionRoute
 import com.rossomak.flashcards.feature.study.RatedStudySessionRoute
-import com.rossomak.flashcards.feature.study.StudySessionRoute
 import com.rossomak.flashcards.feature.study.fast.FastStudySessionScreen
 import com.rossomak.flashcards.feature.study.preview.PreviewStudySessionScreen
 import com.rossomak.flashcards.feature.study.rated.RatedStudySessionScreen
-import com.rossomak.flashcards.feature.study.session.StudySessionScreen
 import com.rossomak.flashcards.presentation.main.MainScreen
 import com.rossomak.flashcards.presentation.splash.SplashScreen
 import kotlinx.serialization.Serializable
@@ -266,11 +264,6 @@ fun FlashcardsNavGraph(
                         onNavigateBack = { navController.popBackStack() },
                         onNavigateToFastStudySession = { route -> navController.navigate(route) },
                         onNavigateToRatedStudySession = { route -> navController.navigate(route) }
-                    )
-                }
-                composable<StudySessionRoute> {
-                    StudySessionScreen(
-                        onNavigateBack = { navController.popBackStack() }
                     )
                 }
                 composable<FastStudySessionRoute> {
