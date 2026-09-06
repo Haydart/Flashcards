@@ -73,6 +73,7 @@ import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import com.rossomak.flashcards.core.ui.theme.brandColors
 import com.rossomak.flashcards.core.ui.theme.spacing
+import com.rossomak.flashcards.feature.study.FastStudySessionRoute
 import com.rossomak.flashcards.feature.study.R
 import com.rossomak.flashcards.feature.study.StudySessionRoute
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Length
@@ -88,12 +89,15 @@ fun PreviewStudySessionScreen(
     viewModel: PreviewStudySessionViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
     onNavigateToStudySession: (StudySessionRoute) -> Unit,
+    onNavigateToFastStudySession: (FastStudySessionRoute) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     observeAsEvents(viewModel.events) { destination ->
         when (destination) {
             is PreviewStudySessionDestination.StudySession -> onNavigateToStudySession(destination.route)
+            is PreviewStudySessionDestination.FastStudySession ->
+                onNavigateToFastStudySession(destination.route)
         }
     }
 

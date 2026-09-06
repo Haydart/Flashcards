@@ -26,6 +26,7 @@ import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.decodeRoute
 import com.rossomak.flashcards.core.ui.voice.VoiceSettingsController
 import com.rossomak.flashcards.core.ui.voice.toVoiceSettings
+import com.rossomak.flashcards.feature.study.FastStudySessionRoute
 import com.rossomak.flashcards.feature.study.PreviewStudySessionRoute
 import com.rossomak.flashcards.feature.study.StudySessionRoute
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.Attempts
@@ -298,11 +299,27 @@ class PreviewStudySessionViewModel @Inject constructor(
         selectCards()
     }
 
+    /**
+     * The confirmed Study Mode picks the destination (ADR-0045): Fast opens its own screen; Rated
+     * still opens the combined screen until spec 03 gives it one of its own.
+     */
     fun onStartSession() {
         if (selectedCardIds.isEmpty() || sessionStartInFlight) return
         sessionStartInFlight = true
         viewModelScope.launch {
-            eventChannel.send(
+            val destination = if (_state.value.config.mode == StudyMode.Fast) {
+                PreviewStudySessionDestination.FastStudySession(
+                    FastStudySessionRoute(
+                        categoryId = route.categoryId,
+                        sessionTitle = sessionTitle(),
+                        subcategoryIds = _state.value.config.subcategoryIds,
+                        cardIds = selectedCardIds,
+                        readAloudEnabled = _state.value.config.readAloudEnabled,
+                        speechRate = _state.value.config.voiceSettings.speechRate,
+                        voiceId = _state.value.config.voiceSettings.voiceId,
+                    )
+                )
+            } else {
                 PreviewStudySessionDestination.StudySession(
                     StudySessionRoute(
                         categoryId = route.categoryId,
@@ -317,7 +334,8 @@ class PreviewStudySessionViewModel @Inject constructor(
                         voiceId = _state.value.config.voiceSettings.voiceId,
                     )
                 )
-            )
+            }
+            eventChannel.send(destination)
         }
     }
 
