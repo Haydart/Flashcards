@@ -1,7 +1,11 @@
 package com.rossomak.flashcards.feature.study.rated
 
 import com.rossomak.flashcards.core.domain.model.Flashcard
+import com.rossomak.flashcards.core.domain.model.FlashcardRating
+import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
+import com.rossomak.flashcards.core.ui.composables.FlashcardsAttemptIndicator
+import com.rossomak.flashcards.core.ui.composables.FlashcardsAttemptSlotState
 import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog
 import com.rossomak.flashcards.feature.study.voice.VoiceAnswerPhase
 import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
@@ -14,9 +18,10 @@ import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
  * voice answering switches the gateway on.
  *
  * Deliberately duplicates the shape of `FastStudySessionScreenState` rather than sharing a base
- * type with it: this screen is about to grow an attempt counter and a per-card ledger in the next
- * spec in the sequence, and a shared base would need a `when` on mode to stay useful — exactly the
- * branching this split exists to remove.
+ * type with it: this screen carries a mastered-out-of-distinct counter and a per-card Rating ledger
+ * that Fast has no concept of (ticket 03 of the Rated session state machine sequence), and a shared
+ * base would need a `when` on mode to stay useful — exactly the branching this split exists to
+ * remove.
  */
 data class RatedStudySessionScreenState(
     val sessionTitle: String = "",
@@ -37,9 +42,38 @@ data class RatedStudySessionScreenState(
     val voiceAnswerError: String? = null,
     val isMicPermissionRequestPending: Boolean = false,
     val activeDialog: StudySessionDialog? = null,
-    // Mirrors RatedSessionState.masteredCount; carried now so ticket 03's counter widget doesn't
-    // need to reshape this state to read it.
+    // Mirrors RatedSessionState.masteredCount; the "mastered" half of the top bar's counter.
     val masteredCount: Int = 0,
+    // Mirrors RatedSessionState.distinctCardCount — the counter's "of" half. Fixed at session
+    // start; unlike masteredCount, a re-queue never moves it.
+    val distinctCardCount: Int = 0,
+    // Mirrors RatedSessionState.currentCardRatings — the current (head) card's own Rating history,
+    // source for the Attempt indicator's slots below.
+    val currentCardRatings: List<FlashcardRating> = emptyList(),
+    // The routed Attempts limit (RatedStudySessionRoute.ratedAttempts): the Attempt indicator's
+    // total slot count, independent of how many attempts this card has used so far.
+    val attemptsLimit: Int = StudySessionConfig.DEFAULT_RATED_ATTEMPTS,
 ) {
     val currentCard: Flashcard? get() = flashcards.getOrNull(currentCardIndex)
+
+    /**
+     * The current card's Rating history mapped to [FlashcardsAttemptIndicator] slots: one filled
+     * slot per past Attempt in order, one [FlashcardsAttemptSlotState.Current] slot, and the rest
+     * [FlashcardsAttemptSlotState.Future] — always [attemptsLimit] slots in total, per ticket 03 of
+     * the Rated session state machine sequence.
+     */
+    val attemptSlots: List<FlashcardsAttemptSlotState>
+        get() {
+            val pastSlots = currentCardRatings.map { it.toAttemptSlotState() }
+            val remainingSlots = (attemptsLimit - pastSlots.size).coerceAtLeast(0)
+            if (remainingSlots == 0) return pastSlots
+            val futureSlots = List(remainingSlots - 1) { FlashcardsAttemptSlotState.Future }
+            return pastSlots + FlashcardsAttemptSlotState.Current + futureSlots
+        }
+}
+
+private fun FlashcardRating.toAttemptSlotState(): FlashcardsAttemptSlotState = when (this) {
+    FlashcardRating.Failed -> FlashcardsAttemptSlotState.Failed
+    FlashcardRating.PartiallyCorrect -> FlashcardsAttemptSlotState.Partial
+    FlashcardRating.Correct -> FlashcardsAttemptSlotState.Correct
 }

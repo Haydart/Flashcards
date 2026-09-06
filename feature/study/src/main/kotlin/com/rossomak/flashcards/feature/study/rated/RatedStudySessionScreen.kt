@@ -53,6 +53,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.FlashcardRating
 import com.rossomak.flashcards.core.ui.R as CoreUiR
+import com.rossomak.flashcards.core.ui.composables.FlashcardsAttemptIndicator
+import com.rossomak.flashcards.core.ui.composables.FlashcardsAttemptSlotState
 import com.rossomak.flashcards.core.ui.composables.rating.FlashcardsRatingButtonRow
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
@@ -206,8 +208,15 @@ fun RatedStudySessionContent(
             StudySessionTopAppBar(
                 sessionTitle = state.sessionTitle,
                 reportableCard = state.currentCard,
-                currentCardIndex = state.currentCardIndex,
-                totalCardCount = state.flashcards.size,
+                counterText = if (state.distinctCardCount > 0) {
+                    stringResource(
+                        R.string.rated_study_session_mastered_counter_label,
+                        state.masteredCount,
+                        state.distinctCardCount,
+                    )
+                } else {
+                    null
+                },
                 onClose = { onDialogEvent(Open(ExitSession)) },
                 onReportProblem = { card ->
                     onDialogEvent(Open(ReportProblem(cardId = card.id, subcategoryId = card.subcategoryId)))
@@ -299,7 +308,7 @@ private fun RatedStudySessionSheetContent(
                     Text(stringResource(R.string.study_session_show_answer_button))
                 }
             } else {
-                RatingButtons(onRating = onRating)
+                RatingButtons(slots = state.attemptSlots, onRating = onRating)
             }
         }
     }
@@ -469,9 +478,14 @@ private fun RatedVoiceTransportRow(
 
 @Composable
 private fun RatingButtons(
+    slots: List<FlashcardsAttemptSlotState>,
     onRating: (FlashcardRating) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+            FlashcardsAttemptIndicator(slots = slots)
+        }
+        Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = stringResource(CoreUiR.string.common_rating_prompt_label),
             modifier = Modifier.fillMaxWidth(),

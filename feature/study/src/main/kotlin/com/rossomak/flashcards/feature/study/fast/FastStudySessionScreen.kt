@@ -191,8 +191,15 @@ fun FastStudySessionContent(
             StudySessionTopAppBar(
                 sessionTitle = state.sessionTitle,
                 reportableCard = state.currentCard,
-                currentCardIndex = state.currentCardIndex,
-                totalCardCount = state.flashcards.size,
+                counterText = if (state.flashcards.isNotEmpty()) {
+                    stringResource(
+                        R.string.fast_study_session_position_counter_label,
+                        state.currentCardIndex + 1,
+                        state.flashcards.size,
+                    )
+                } else {
+                    null
+                },
                 onClose = { actions.onDialogEvent(Open(ExitSession)) },
                 onReportProblem = { card ->
                     actions.onDialogEvent(Open(ReportProblem(cardId = card.id, subcategoryId = card.subcategoryId)))

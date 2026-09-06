@@ -78,7 +78,9 @@ class RatedStudySessionViewModel @Inject constructor(
     private val route = savedStateHandle.decodeRoute<RatedStudySessionRoute>()
     private val sessionTitle: String = route.sessionTitle
 
-    private val _state = MutableStateFlow(RatedStudySessionScreenState(sessionTitle = sessionTitle))
+    private val _state = MutableStateFlow(
+        RatedStudySessionScreenState(sessionTitle = sessionTitle, attemptsLimit = route.ratedAttempts),
+    )
     val state: StateFlow<RatedStudySessionScreenState> = _state.asStateFlow()
 
     // Tracks eagerly so rapid toggles don't race against isVoiceActive propagation.
@@ -166,6 +168,8 @@ class RatedStudySessionViewModel @Inject constructor(
                 flashcards = machine.remainingCards,
                 currentCardIndex = 0,
                 masteredCount = machine.masteredCount,
+                distinctCardCount = machine.distinctCardCount,
+                currentCardRatings = machine.currentCardRatings,
             )
         }
     }

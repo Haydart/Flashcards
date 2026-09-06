@@ -15,6 +15,7 @@ import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.ObserveUserPreferencesUseCase
 import com.rossomak.flashcards.core.domain.usecase.SaveUserPreferenceUseCase
 import com.rossomak.flashcards.core.domain.usecase.SubmitCurationReportUseCase
+import com.rossomak.flashcards.core.ui.composables.FlashcardsAttemptSlotState
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Dismiss
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.DraftChange
@@ -238,6 +239,75 @@ class RatedStudySessionViewModelTest {
         viewModel.onRating(FlashcardRating.Correct)
         viewModel.state.value.masteredCount shouldBe 1
     }
+
+    @Test
+    fun `the mastered count does not move on a card finishing Partial or Failed`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            flashcardRepository.flashcardsBySubcategory[subcategoryId] = Result.success(
+                listOf(flashcard("card-1"), flashcard("card-2")),
+            )
+            stubRoute(route.copy(cardIds = listOf("card-1", "card-2"), ratedAttempts = 1))
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onRating(FlashcardRating.Failed)
+            viewModel.state.value.masteredCount shouldBe 0
+
+            viewModel.onRating(FlashcardRating.PartiallyCorrect)
+            viewModel.state.value.masteredCount shouldBe 0
+        }
+
+    @Test
+    fun `the distinct card total is fixed at session start and does not grow as the queue grows`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            val distinctCountBefore = viewModel.state.value.distinctCardCount
+
+            viewModel.onRating(FlashcardRating.Failed)
+
+            viewModel.state.value.distinctCardCount shouldBe distinctCountBefore
+            viewModel.state.value.distinctCardCount shouldBe 3
+        }
+
+    @Test
+    fun `the attempt indicator's slots reflect the current card's Rating list in order`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadTenCards()
+            val viewModel = createViewModel().apply { random = Random(FIXED_SEED) }
+            advanceUntilIdle()
+
+            viewModel.onRating(FlashcardRating.Failed)
+            // The card that just went to the back of the queue is not the head any more, so cycle
+            // through the others (Correct finishes them immediately) until it resurfaces.
+            while (viewModel.state.value.currentCard?.id != "card-1") {
+                viewModel.onRating(FlashcardRating.Correct)
+            }
+
+            viewModel.state.value.currentCardRatings shouldBe listOf(FlashcardRating.Failed)
+            viewModel.state.value.attemptSlots shouldBe listOf(
+                FlashcardsAttemptSlotState.Failed,
+                FlashcardsAttemptSlotState.Current,
+                FlashcardsAttemptSlotState.Future,
+            )
+        }
+
+    @Test
+    fun `the attempt indicator's Current position and Future count match the configured Attempts limit`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            stubRoute(route.copy(cardIds = listOf("card-1", "card-2", "card-3"), ratedAttempts = 4))
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.state.value.attemptSlots shouldBe listOf(
+                FlashcardsAttemptSlotState.Current,
+                FlashcardsAttemptSlotState.Future,
+                FlashcardsAttemptSlotState.Future,
+                FlashcardsAttemptSlotState.Future,
+            )
+        }
 
     @Test
     fun `the terminal navigation event fires exactly once, when the last card finishes`() =
