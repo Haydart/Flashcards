@@ -5,6 +5,7 @@ import app.cash.turbine.test
 import com.rossomak.flashcards.core.domain.model.CurationAction
 import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.core.domain.model.FlashcardRating
+import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
 import com.rossomak.flashcards.core.domain.model.VoiceSettings
 import com.rossomak.flashcards.core.domain.repository.CurationRepository
@@ -28,6 +29,7 @@ import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog
 import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.ExitSession
 import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.ReportProblem
 import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.VoiceAnswerConsent
+import com.rossomak.flashcards.feature.study.voice.VoiceAnswerPhase
 import com.rossomak.flashcards.feature.study.voice.VoiceAnswerState
 import com.rossomak.flashcards.feature.study.voice.VoiceGateway
 import com.rossomak.flashcards.feature.study.voice.VoicePhase
@@ -46,6 +48,7 @@ import kotlin.random.Random
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -827,6 +830,164 @@ class RatedStudySessionViewModelTest {
         viewModel.onVoiceAnswerGradeDismissed()
 
         viewModel.state.value.lastVoiceAnswerGrade shouldBe null
+    }
+
+    /**
+     * Two [MutableStateFlow] writes, each followed by [advanceUntilIdle], so the collector actually
+     * observes the intermediate phase — writing SpeakingNotice twice in a row without that would
+     * conflate into one emission (equal consecutive [VoiceAnswerState] values), silently dropping a
+     * silence timeout.
+     */
+    private fun TestScope.emitSilenceTimeout() {
+        voiceGateway.voiceAnswerStateFlow.value = VoiceAnswerState(isEnabled = true, phase = VoiceAnswerPhase.Listening)
+        advanceUntilIdle()
+        voiceGateway.voiceAnswerStateFlow.value = VoiceAnswerState(isEnabled = true, phase = VoiceAnswerPhase.SpeakingNotice)
+        advanceUntilIdle()
+    }
+
+    private fun TestScope.emitGrade(grade: VoiceAnswerGrade, cardId: String) {
+        voiceGateway.voiceAnswerStateFlow.value = VoiceAnswerState(isEnabled = true, phase = VoiceAnswerPhase.Grading)
+        advanceUntilIdle()
+        voiceGateway.voiceAnswerStateFlow.value = VoiceAnswerState(
+            isEnabled = true,
+            phase = VoiceAnswerPhase.SpeakingNotice,
+            lastGrade = grade,
+            lastGradedCardId = cardId,
+        )
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `a voice grade drives the same Attempt increment and re-insertion as the equivalent manual rating`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            emitGrade(grade = VoiceAnswerGrade(sanitizedTranscript = "t", gradePercent = 20, feedback = "missed it"), cardId = "card-1")
+
+            viewModel.state.value.currentCard?.id shouldNotBe "card-1"
+            viewModel.state.value.flashcards.map { it.id } shouldContain "card-1"
+        }
+
+    @Test
+    fun `a grade in the Correct band finishes the card as Mastered, exactly as a manual Correct does`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            flashcardRepository.flashcardsBySubcategory[subcategoryId] = Result.success(listOf(flashcard("card-1")))
+            stubRoute(route.copy(cardIds = listOf("card-1")))
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.events.test {
+                emitGrade(grade = VoiceAnswerGrade(sanitizedTranscript = "t", gradePercent = 95, feedback = "great"), cardId = "card-1")
+                awaitItem() shouldBe RatedStudySessionDestination.Back
+            }
+            viewModel.state.value.masteredCount shouldBe 1
+        }
+
+    @Test
+    fun `a silence timeout leaves the card's Rating list and best rating unchanged, and re-queues the card`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadTenCards()
+            val viewModel = createViewModel().apply { random = Random(FIXED_SEED) }
+            advanceUntilIdle()
+
+            emitSilenceTimeout()
+
+            viewModel.state.value.currentCard?.id shouldNotBe "card-1"
+            viewModel.state.value.flashcards.map { it.id } shouldContain "card-1"
+            while (viewModel.state.value.currentCard?.id != "card-1") {
+                viewModel.onRating(FlashcardRating.Correct)
+            }
+
+            viewModel.state.value.currentCardRatings shouldBe emptyList()
+        }
+
+    @Test
+    fun `a silence timeout re-queues within the Failed gap range`() = runTest(mainDispatcherRule.testDispatcher) {
+        loadTenCards()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        emitSilenceTimeout()
+
+        val index = viewModel.state.value.flashcards.indexOfFirst { it.id == "card-1" }
+        (index in StudySessionConfig.FAILED_REQUEUE_MIN_GAP..StudySessionConfig.FAILED_REQUEUE_MAX_GAP) shouldBe true
+    }
+
+    @Test
+    fun `two silence timeouts do not pause the session, but the third does`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            repeat(2) { emitSilenceTimeout() }
+            viewModel.state.value.isVoiceAnswerPaused shouldBe false
+
+            emitSilenceTimeout()
+
+            viewModel.state.value.isVoiceAnswerPaused shouldBe true
+        }
+
+    @Test
+    fun `the consecutive silence counter resets on a graded answer, so silence-silence-grade-silence does not pause`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            repeat(2) { emitSilenceTimeout() }
+            emitGrade(
+                grade = VoiceAnswerGrade(sanitizedTranscript = "t", gradePercent = 90, feedback = "f"),
+                cardId = viewModel.state.value.currentCard?.id.orEmpty(),
+            )
+
+            emitSilenceTimeout()
+
+            viewModel.state.value.isVoiceAnswerPaused shouldBe false
+        }
+
+    @Test
+    fun `pausing after three silences stops playback, exposes the resume affordance, and records no outcome`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            voiceGateway.stateFlow.value = VoicePlaybackState(isActive = true, isPlaying = true)
+            advanceUntilIdle()
+            val masteredBefore = viewModel.state.value.masteredCount
+            val flashcardsBefore = viewModel.state.value.flashcards.map { it.id }
+
+            viewModel.events.test {
+                repeat(3) { emitSilenceTimeout() }
+                expectNoEvents()
+            }
+
+            viewModel.state.value.isVoiceAnswerPaused shouldBe true
+            voiceGateway.togglePlayPauseCalls shouldBe 1
+            voiceGateway.lastVoiceAnswering shouldBe false
+            viewModel.state.value.masteredCount shouldBe masteredBefore
+            viewModel.state.value.flashcards.map { it.id } shouldBe flashcardsBefore
+        }
+
+    @Test
+    fun `resuming continues from the same card with the counter reset`() = runTest(mainDispatcherRule.testDispatcher) {
+        loadThreeCards()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        repeat(3) { emitSilenceTimeout() }
+        val cardBeforePause = viewModel.state.value.currentCard?.id
+
+        viewModel.onResumeSession()
+
+        viewModel.state.value.isVoiceAnswerPaused shouldBe false
+        viewModel.state.value.currentCard?.id shouldBe cardBeforePause
+        voiceGateway.lastVoiceAnswering shouldBe true
+
+        // Counter reset: two more silences must not re-pause.
+        repeat(2) { emitSilenceTimeout() }
+        viewModel.state.value.isVoiceAnswerPaused shouldBe false
     }
 
     private companion object {

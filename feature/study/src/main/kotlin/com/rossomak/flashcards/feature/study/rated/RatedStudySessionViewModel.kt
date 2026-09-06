@@ -6,8 +6,12 @@ import androidx.lifecycle.viewModelScope
 import com.rossomak.flashcards.core.domain.model.FlashcardRating
 import com.rossomak.flashcards.core.domain.model.RatedSessionState
 import com.rossomak.flashcards.core.domain.model.UserPreference.VoiceAnswerConsent as VoiceAnswerConsentPreference
+import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
 import com.rossomak.flashcards.core.domain.model.VoiceOption
 import com.rossomak.flashcards.core.domain.model.VoiceSettings as SavedVoiceSettings
+import com.rossomak.flashcards.core.domain.model.rate
+import com.rossomak.flashcards.core.domain.model.requeueAfterSilence
+import com.rossomak.flashcards.core.domain.model.toFlashcardRating
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.ObserveUserPreferencesUseCase
 import com.rossomak.flashcards.core.domain.usecase.SaveUserPreferenceUseCase
@@ -62,7 +66,9 @@ import kotlinx.coroutines.launch
  * Failed/Partial re-insert it further down the queue (or finish it, per
  * [RatedStudySessionRoute.partialRatingCardRequeueingEnabled] and the Attempts limit), and the
  * session's terminal navigation event fires once the queue empties (ticket 02 of the Rated session
- * state machine sequence).
+ * state machine sequence). A voice grade drives the exact same [onRating] path as a manual tap; a
+ * silence timeout instead consumes no Attempt, and three in a row pause the session rather than
+ * finishing it (ticket 04).
  */
 @HiltViewModel
 class RatedStudySessionViewModel @Inject constructor(
@@ -115,6 +121,15 @@ class RatedStudySessionViewModel @Inject constructor(
 
     private var hasVoiceAnswerConsent = false
 
+    // Edge-detects a fresh arrival at SpeakingNotice in observeVoiceAnswerState — the collector
+    // sees every VoiceAnswerState the gateway emits, but a grade/silence-timeout must apply exactly
+    // once per round, not once per equal-value re-collection.
+    private var previousVoiceAnswerPhase = VoiceAnswerPhase.Idle
+
+    // Session-scoped, not per-card (ticket 04): counts consecutive silence timeouts, reset by any
+    // graded answer, and pauses the session on reaching CONSECUTIVE_SILENCE_PAUSE_THRESHOLD.
+    private var consecutiveSilenceCount = 0
+
     // Session-scoped like the rest of the routed config: a mid-session change updates only this
     // running session unless the user checks "keep as my default" (ADR-0030), so it lives in a
     // plain var rather than being re-read from the controller on every playback start.
@@ -143,7 +158,7 @@ class RatedStudySessionViewModel @Inject constructor(
             }
             val cardsById = results.flatMap { it.getOrThrow() }.associateBy { it.id }
             val sessionCards = route.cardIds.mapNotNull(cardsById::get)
-            ratedSessionState = RatedSessionState(
+            ratedSessionState = RatedSessionState.seed(
                 cards = sessionCards,
                 attemptsLimit = route.ratedAttempts,
                 partialRatingCardRequeueingEnabled = route.partialRatingCardRequeueingEnabled,
@@ -236,6 +251,12 @@ class RatedStudySessionViewModel @Inject constructor(
     private fun observeVoiceAnswerState() {
         viewModelScope.launch {
             voiceGateway.voiceAnswerState.collect { voiceAnswer ->
+                // Edge-detected before the state update below, off the collector's own running
+                // previousVoiceAnswerPhase — SpeakingNotice is entered exactly once per graded or
+                // silence-timed-out round, never re-triggered by an equal-value re-collection.
+                val justEnteredSpeakingNotice = voiceAnswer.phase == VoiceAnswerPhase.SpeakingNotice &&
+                    previousVoiceAnswerPhase != VoiceAnswerPhase.SpeakingNotice
+                previousVoiceAnswerPhase = voiceAnswer.phase
                 _state.update {
                     it.copy(
                         isVoiceAnswerEnabled = voiceAnswer.isEnabled,
@@ -250,8 +271,56 @@ class RatedStudySessionViewModel @Inject constructor(
                             voiceAnswer.phase == VoiceAnswerPhase.Grading,
                     )
                 }
+                if (!justEnteredSpeakingNotice) return@collect
+                // ADR-0026: lastGrade == null distinguishes a silence-timeout skip from a real
+                // graded result — both share SpeakingNotice, never a dedicated phase value.
+                val grade = voiceAnswer.lastGrade
+                if (grade != null) onVoiceGraded(grade) else onVoiceSilenceTimeout()
             }
         }
+    }
+
+    /**
+     * The one path a voice grade applies a Rating through — [onRating] itself, exactly like a
+     * manual tap, using the fixed grade-band mapping (ticket 04 of the Rated session state machine
+     * sequence). An actual graded utterance is the only proof someone is there, so this is also the
+     * one place [consecutiveSilenceCount] resets.
+     */
+    private fun onVoiceGraded(grade: VoiceAnswerGrade) {
+        consecutiveSilenceCount = 0
+        onRating(grade.toFlashcardRating())
+    }
+
+    /**
+     * A silence timeout: no Attempt, no Rating — the card is put back unchanged, using the Failed
+     * gap range. Three in a row pauses the session rather than letting an unattended phone cycle
+     * the deck indefinitely.
+     */
+    private fun onVoiceSilenceTimeout() {
+        ratedSessionState = ratedSessionState?.let(::requeueAfterSilence)
+        syncStateFromRatedSession()
+        consecutiveSilenceCount++
+        if (consecutiveSilenceCount >= CONSECUTIVE_SILENCE_PAUSE_THRESHOLD) {
+            pauseForRepeatedSilence()
+        }
+    }
+
+    /**
+     * Pausing is not ending: no Terminal State, no navigation event, the queue untouched. Playback
+     * and the microphone stop; only the resume affordance stays live.
+     */
+    private fun pauseForRepeatedSilence() {
+        if (_state.value.isVoicePlaying) voiceGateway.togglePlayPause()
+        voiceGateway.setVoiceAnswering(false)
+        _state.update { it.copy(isVoiceAnswerPaused = true) }
+    }
+
+    /** Re-arms voice answering on the same card, counter back at zero. */
+    fun onResumeSession() {
+        consecutiveSilenceCount = 0
+        _state.update { it.copy(isVoiceAnswerPaused = false) }
+        voiceGateway.setVoiceAnswering(true)
+        if (!_state.value.isVoicePlaying) voiceGateway.togglePlayPause()
     }
 
     private fun observeVoiceAnswerConsentState() {
@@ -330,10 +399,11 @@ class RatedStudySessionViewModel @Inject constructor(
      */
     fun onRating(rating: FlashcardRating) {
         val machine = ratedSessionState ?: return
-        machine.rate(rating)
+        val outcome = rate(machine, rating)
+        ratedSessionState = outcome.state
         _state.update { it.copy(isAnswerRevealed = false) }
         syncStateFromRatedSession()
-        if (machine.isComplete) navigateBack()
+        if (outcome.state.isComplete) navigateBack()
     }
 
     private fun ensureVoiceGatewayStarted() {
@@ -598,5 +668,6 @@ class RatedStudySessionViewModel @Inject constructor(
 
     private companion object {
         const val EXTENDED_CONTEXT_ADVANCE_DELAY_MS = 500L
+        const val CONSECUTIVE_SILENCE_PAUSE_THRESHOLD = 3
     }
 }

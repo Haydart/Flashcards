@@ -18,6 +18,8 @@
     <string name="study_session_voice_answer_grade_spoken_message">You scored %1$d percent. %2$s</string>
     <string name="study_session_voice_answer_failure_spoken_message">Couldn\'t grade that answer, moving on.</string>
     <string name="study_session_voice_answer_skip_spoken_message">No answer heard, moving on.</string>
+    <string name="study_session_voice_answer_paused_message">Paused after repeated silence — tap Resume to keep going.</string>
+    <string name="study_session_voice_answer_resume_button">Resume</string>
     <string name="study_session_no_cards_message">No cards available</string>
     <string name="study_session_load_error_message">Could not load flashcards</string>
     <string name="fast_study_session_report_failure_message">Failed to submit report</string>

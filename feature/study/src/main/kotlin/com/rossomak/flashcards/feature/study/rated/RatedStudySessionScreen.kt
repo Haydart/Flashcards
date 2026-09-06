@@ -171,6 +171,7 @@ fun RatedStudySessionScreen(
         onVoiceNext = viewModel::onVoiceNext,
         onVoicePrevious = viewModel::onVoicePrevious,
         onVoiceAnswerToggle = viewModel::onVoiceAnswerToggle,
+        onResumeSession = viewModel::onResumeSession,
         onDialogEvent = viewModel::onDialogEvent,
     )
 }
@@ -187,6 +188,7 @@ fun RatedStudySessionContent(
     onVoiceNext: () -> Unit,
     onVoicePrevious: () -> Unit,
     onVoiceAnswerToggle: () -> Unit,
+    onResumeSession: () -> Unit,
     onDialogEvent: (StudySessionDialogEvent) -> Unit,
 ) {
     val scaffoldState = rememberBottomSheetScaffoldState(
@@ -233,6 +235,7 @@ fun RatedStudySessionContent(
                 onVoicePrevious = onVoicePrevious,
                 onVoiceSettingsCogClick = { onDialogEvent(Open(VoiceSettings())) },
                 onVoiceAnswerToggle = onVoiceAnswerToggle,
+                onResumeSession = onResumeSession,
             )
         },
     ) { innerPadding ->
@@ -263,6 +266,7 @@ private fun RatedStudySessionSheetContent(
     onVoicePrevious: () -> Unit,
     onVoiceSettingsCogClick: () -> Unit,
     onVoiceAnswerToggle: () -> Unit,
+    onResumeSession: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -273,13 +277,19 @@ private fun RatedStudySessionSheetContent(
         if (state.isVoiceActive) {
             RatedVoiceAnswerHeader(state = state, onVoiceAnswerToggle = onVoiceAnswerToggle, onVoiceSettingsCogClick = onVoiceSettingsCogClick)
             RatedVoiceTranscript(state = state)
-            RatedVoiceTransportRow(
-                state = state,
-                onShowAnswer = onShowAnswer,
-                onVoicePlayPause = onVoicePlayPause,
-                onVoiceNext = onVoiceNext,
-                onVoicePrevious = onVoicePrevious,
-            )
+            if (state.isVoiceAnswerPaused) {
+                // Distinct from the transient busy/listening disable windows below: the transport
+                // itself is idle here, only the resume affordance is live.
+                RatedVoiceAnswerPausedContent(onResumeSession = onResumeSession)
+            } else {
+                RatedVoiceTransportRow(
+                    state = state,
+                    onShowAnswer = onShowAnswer,
+                    onVoicePlayPause = onVoicePlayPause,
+                    onVoiceNext = onVoiceNext,
+                    onVoicePrevious = onVoicePrevious,
+                )
+            }
         } else {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -387,6 +397,33 @@ private fun RatedVoiceTranscript(state: RatedStudySessionScreenState) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
+    }
+}
+
+/**
+ * Shown instead of [RatedVoiceTransportRow] once three consecutive silence timeouts have paused
+ * the session (ticket 04 of the Rated session state machine sequence): playback and the microphone
+ * are already stopped, and this is the only live control until the user taps Resume.
+ */
+@Composable
+private fun RatedVoiceAnswerPausedContent(onResumeSession: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = stringResource(R.string.study_session_voice_answer_paused_message),
+            modifier = Modifier.fillMaxWidth(),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Button(onClick = onResumeSession) {
+            Text(stringResource(R.string.study_session_voice_answer_resume_button))
+        }
     }
 }
 
@@ -516,6 +553,7 @@ private fun RatedStudySessionVoiceActivePreview() {
         onVoiceNext = {},
         onVoicePrevious = {},
         onVoiceAnswerToggle = {},
+        onResumeSession = {},
         onDialogEvent = {},
     )
 }
@@ -552,6 +590,7 @@ private fun RatedStudySessionManualPreview() {
         onVoiceNext = {},
         onVoicePrevious = {},
         onVoiceAnswerToggle = {},
+        onResumeSession = {},
         onDialogEvent = {},
     )
 }

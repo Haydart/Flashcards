@@ -53,6 +53,11 @@ data class RatedStudySessionScreenState(
     // The routed Attempts limit (RatedStudySessionRoute.ratedAttempts): the Attempt indicator's
     // total slot count, independent of how many attempts this card has used so far.
     val attemptsLimit: Int = StudySessionConfig.DEFAULT_RATED_ATTEMPTS,
+    // Three consecutive silence timeouts (ticket 04 of the Rated session state machine sequence):
+    // playback and the microphone are stopped and only the resume affordance is live. Distinct
+    // from the transient Listening/SpeechDetected/Grading/SpeakingNotice disable windows below —
+    // those stay load-bearing and unchanged by this flag.
+    val isVoiceAnswerPaused: Boolean = false,
 ) {
     val currentCard: Flashcard? get() = flashcards.getOrNull(currentCardIndex)
 
