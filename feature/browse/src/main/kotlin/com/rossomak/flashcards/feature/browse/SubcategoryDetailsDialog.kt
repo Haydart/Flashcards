@@ -23,7 +23,7 @@ sealed interface SubcategoryDetailsDialog {
      * this screen is a peer of the Preview screen rather than a separate setting.
      */
     data class Sort(
-        val draft: FlashcardSortOrder,
+        val draftState: FlashcardSortOrder,
         val keepAsDefault: Boolean = false,
     ) : SubcategoryDetailsDialog
 
@@ -36,7 +36,7 @@ sealed interface SubcategoryDetailsDialog {
      * @param difficultyBounds the selectable range, carried here for the same reason.
      */
     data class Filters(
-        val draft: FlashcardFilters,
+        val draftState: FlashcardFilters,
         val availableTags: List<String>,
         val difficultyBounds: IntRange = SubcategoryDetailsScreenState.DIFFICULTY_BOUNDS,
     ) : SubcategoryDetailsDialog
