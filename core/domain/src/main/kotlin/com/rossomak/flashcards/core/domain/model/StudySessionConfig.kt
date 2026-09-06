@@ -12,6 +12,10 @@ package com.rossomak.flashcards.core.domain.model
  * rather than being made nullable.
  * @param readAloudEnabled Fast-mode auto-play: answers are spoken and cards advance hands-free.
  * The Fast counterpart of [voiceAnsweringEnabled], and ignored in Rated mode for the same reason.
+ * @param partialRatingCardRequeueingEnabled Rated-only: whether a Partial rating re-queues the card
+ * (`true`, the default) or finishes it on the spot (`false`). A card finished this way records
+ * Terminal Partial, not Mastered (ADR-0044). Session-scoped like every other field here — the
+ * Preview screen may set it for one session without keeping it as a default.
  * @param tagIds OR-within: a card matches if it carries any of them. Empty means "no tag filter".
  * @param difficultyRange AND-combined with [tagIds].
  * @param subcategoryCountRange how many Subcategories a Quick Session samples its pool from
@@ -25,6 +29,7 @@ data class StudySessionConfig(
     val voiceAnsweringEnabled: Boolean = false,
     val ratedAttempts: Int = DEFAULT_RATED_ATTEMPTS,
     val readAloudEnabled: Boolean = false,
+    val partialRatingCardRequeueingEnabled: Boolean = true,
     val length: Int = DEFAULT_LENGTH,
     val sortOrder: FlashcardSortOrder = FlashcardSortOrder.Default,
     val voiceSettings: VoiceSettings = VoiceSettings(),

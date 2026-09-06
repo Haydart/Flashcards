@@ -15,6 +15,7 @@ data class StudySessionPreferences(
     val voiceAnsweringEnabled: Boolean = false,
     val ratedAttempts: Int = StudySessionConfig.DEFAULT_RATED_ATTEMPTS,
     val readAloudEnabled: Boolean = false,
+    val partialRatingCardRequeueingEnabled: Boolean = true,
     val sessionLength: Int = StudySessionConfig.DEFAULT_LENGTH,
     val sortOrder: FlashcardSortOrder = FlashcardSortOrder.Default,
     val voiceSettings: VoiceSettings = VoiceSettings(),
