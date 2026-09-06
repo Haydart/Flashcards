@@ -1155,8 +1155,8 @@ class PreviewStudySessionViewModelTest {
             advanceUntilIdle()
             val cardIdsBeforeSort = viewModel.selectedCardIds.toSet()
 
-            viewModel.onDialogEvent(Open(Sort(draft = viewModel.state.value.config.sortOrder)))
-            viewModel.onDialogEvent(DraftChange(Sort(draft = FlashcardSortOrder.EasiestFirst)))
+            viewModel.onDialogEvent(Open(Sort(draftState = viewModel.state.value.config.sortOrder)))
+            viewModel.onDialogEvent(DraftChange(Sort(draftState = FlashcardSortOrder.EasiestFirst)))
             viewModel.onDialogEvent(Confirm)
             advanceUntilIdle()
 
