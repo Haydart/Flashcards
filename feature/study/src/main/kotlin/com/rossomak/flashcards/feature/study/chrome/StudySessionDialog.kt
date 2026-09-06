@@ -76,7 +76,7 @@ sealed interface StudySessionDialog {
      * checked, it also writes the new default the way every other session setting does (ADR-0030).
      */
     data class VoiceSettings(
-        val draft: VoiceSettingsDraftState = VoiceSettingsDraftState(),
+        val draftState: VoiceSettingsDraftState = VoiceSettingsDraftState(),
         val keepAsDefault: Boolean = false,
     ) : StudySessionDialog
 
