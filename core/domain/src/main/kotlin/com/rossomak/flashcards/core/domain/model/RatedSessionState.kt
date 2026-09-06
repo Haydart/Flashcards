@@ -53,6 +53,12 @@ class RatedSessionState(
     val remainingCards: List<Flashcard> get() = queue.map { it.card }
 
     /**
+     * The current (head) card's own Rating history, in order — ticket 03's `FlashcardsAttemptIndicator`
+     * source. Empty once [isComplete], since there is no head left.
+     */
+    val currentCardRatings: List<FlashcardRating> get() = queue.firstOrNull()?.ratings ?: emptyList()
+
+    /**
      * Applies [rating] to the current (head) card. Returns the [TerminalState] the card resolved
      * to, or `null` when it was re-inserted rather than finished.
      */

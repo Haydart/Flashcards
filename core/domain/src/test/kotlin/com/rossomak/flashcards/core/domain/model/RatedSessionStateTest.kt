@@ -215,6 +215,33 @@ class RatedSessionStateTest {
     }
 
     @Test
+    fun `currentCardRatings is empty for a card on its first Attempt`() {
+        val session = state(cardCount = 1)
+
+        session.currentCardRatings shouldBe emptyList()
+    }
+
+    @Test
+    fun `currentCardRatings follows a card across a re-insertion, retaining its own Rating history`() {
+        val session = state(cardCount = LARGE_POOL_SIZE, attemptsLimit = 3, random = Random.Default)
+
+        session.rate(Failed)
+        // Fast-forward through whatever other cards sit ahead of card-1 until it is head again.
+        while (session.currentCard?.id != FIRST_CARD_ID) session.rate(Correct)
+
+        session.currentCardRatings shouldBe listOf(Failed)
+    }
+
+    @Test
+    fun `currentCardRatings is empty once the session is complete`() {
+        val session = state(cardCount = 1, attemptsLimit = 1)
+
+        session.rate(Correct)
+
+        session.currentCardRatings shouldBe emptyList()
+    }
+
+    @Test
     fun `the session reports complete exactly when every distinct card is terminal`() {
         val session = state(cardCount = 2, attemptsLimit = 1)
 
