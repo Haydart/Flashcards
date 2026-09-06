@@ -277,9 +277,16 @@ class RatedStudySessionViewModel @Inject constructor(
                 }
                 if (!justEnteredSpeakingNotice) return@collect
                 // ADR-0026: lastGrade == null distinguishes a silence-timeout skip from a real
-                // graded result — both share SpeakingNotice, never a dedicated phase value.
+                // graded result — both share SpeakingNotice, never a dedicated phase value. But a
+                // grading/transcription failure also lands in SpeakingNotice with lastGrade == null
+                // (VoiceAnswerController's catch block never sets a grade), so error must be ruled
+                // out first or a backend failure gets silently counted as silence.
                 val grade = voiceAnswer.lastGrade
-                if (grade != null) onVoiceGraded(grade) else onVoiceSilenceTimeout()
+                when {
+                    grade != null -> onVoiceGraded(grade)
+                    voiceAnswer.error != null -> Unit
+                    else -> onVoiceSilenceTimeout()
+                }
             }
         }
     }
