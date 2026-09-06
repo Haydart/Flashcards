@@ -8,9 +8,10 @@ import kotlin.random.Random
  * snapshot in and return the next one, so the Rated ViewModel holds a `var` and reassigns it,
  * mapping each new snapshot into screen state.
  *
- * [queue] **grows**, rather than being a fixed list with an advancing index: the current card is
- * always the head, and [rate] may return a snapshot with it removed from the head and placed
- * further down
+ * [queue] is reordered in place rather than being a fixed list with an advancing index: the current
+ * card is always the head, and a non-terminal [rate] removes it from the head and reinserts it
+ * further down — the queue's size never changes on a reinsertion, only its order. A terminal
+ * rating instead removes the card for good, shrinking it
  * ([ADR-0046](../../../../../../../docs/adr/0046-failed-and-partial-re-insertion-placement.md)). A
  * card whose Attempts are exhausted — or whose Rating already resolves it — leaves the queue for
  * good, resolved to a [TerminalState]

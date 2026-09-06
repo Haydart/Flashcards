@@ -215,6 +215,7 @@ class RatedSessionStateTest {
         }
 
         actualHeadIds shouldBe expectedHeadIds
+        session.remainingCards.map { it.id } shouldBe expectedQueue
     }
 
     @Test
