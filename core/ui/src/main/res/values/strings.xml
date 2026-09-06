@@ -61,7 +61,7 @@
 
     <string name="common_partial_rating_card_requeueing_dialog_title">Repeat Partial-rated cards in Rated sessions?</string>
     <string name="common_partial_rating_card_requeueing_on_label">On</string>
-    <string name="common_partial_rating_card_requeueing_on_message">The card is asked again later in the session.</string>
+    <string name="common_partial_rating_card_requeueing_on_message">The card is asked again later in the session and still won\'t count as mastered unless later rated Correct.</string>
     <string name="common_partial_rating_card_requeueing_off_label">Off</string>
     <string name="common_partial_rating_card_requeueing_off_message">The card is finished immediately and won\'t count as mastered.</string>
 
