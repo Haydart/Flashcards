@@ -14,7 +14,7 @@ cards: {                            // keyed by cardId
   <cardId>: {
     state: Seen | Failed | Partial | Mastered
     firstStudiedAt: Timestamp       // write-once
-    masteredAt: Timestamp?          // set when state becomes Mastered, retained thereafter
+    masteredAt: Timestamp?          // most recent mastery, null if never, retained after de-mastery
   }
 }
 ```

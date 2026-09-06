@@ -117,7 +117,7 @@ This is the only place Study Mode (and, up front, Voice answering) is chosen for
 2. If `filterTagIds` is non-empty: filter to cards where `card.tags` intersects `filterTagIds` (OR semantics — a card qualifies if it carries any of the active Tags)
 3. Filter to cards where `card.difficulty` falls within the selected difficulty range (inclusive on both ends), AND-combined with the tag filter
 4. Apply scoring and selection (MVP: random shuffle; target: performance-weighted sort → pick top N — see "Flashcard Selection Algorithm" below for the scoring formula)
-5. Pass resolved `cardIds` to `StudySession`; presentation order within the session is then set independently by the Preview screen's Sort row (Default/Easiest/Hardest), not by this selection step
+5. Pass resolved `cardIds` to the chosen session route (`FastStudySession`/`RatedStudySession`); presentation order within the session is then set independently by the Preview screen's Sort row (Default/Easiest/Hardest), not by this selection step
 
 `filterTagIds` is only ever non-empty for single-subcategory sessions launched from Subcategory Details. All other entry points (Quick Session, fast-start, Custom) pass `filterTagIds = emptyList()`.
 
@@ -133,7 +133,6 @@ Fast and Rated are **two separate screens, ViewModels and routes** — Study Mod
 
 **Fast mode entry point:** Study Mode is chosen exclusively on the Preview Study Session Screen (ADR-0004), which routes to `FastStudySession` or `RatedStudySession` accordingly. Read-aloud is an opt-in toggle on that screen (Voice row); when on, the session auto-starts voice playback once its cards are loaded (requesting the notification permission first on Android 13+), otherwise the session is manual tap-to-reveal/advance. Voice is tied to the session screen lifetime; navigating away stops playback.
 
-> **Known bug:** auto-start is currently gated on Study Mode alone, never on `readAloudEnabled` (`StudySessionViewModel.kt:121-127`), so every Fast session attempts TTS and requests the notification permission regardless of the toggle. The route field is carried but unread.
 
 > **Known bug:** with voice inactive, the sheet renders the Failed / Partial / Correct rating buttons unconditionally (`StudySessionScreen.kt:610-619`), so a Fast-manual session shows Rating controls for a mode that has no Ratings. The screen split above removes this class of bug structurally.
 
@@ -206,7 +205,7 @@ Both Study Modes terminate here. Fast renders a reduced variant: time, streak, n
 
 Designed:
 - **Study Again (All)** — navigates to Preview Study Session Screen with same `categoryId` + `subcategoryIds`, clearing the session stack (`popUpTo<Main>()`); card re-selection happens fresh on the Preview Study Session Screen
-- **Study Again (Failed)** — shown only if ≥1 Flashcard reached Terminal State Failed; navigates directly to `StudySession` with `cardIds = [failedCardIds]`, `popUpTo<Main>()`
+- **Study Again (Failed)** — shown only if ≥1 Flashcard reached Terminal State Failed; navigates directly to `RatedStudySession` with `cardIds = [failedCardIds]`, `popUpTo<Main>()`
 - **Back to Home** — `popUpTo<Main>(inclusive = false)`; returns to Main on whichever tab was active. System back has the same behavior.
 
 ## Settings Screen
@@ -374,7 +373,7 @@ users/{uid}/curationRequests/{cardId}                       → { subcategoryId:
 
 1. Filter to cards where `card.difficulty` falls in the configured range
 2. Filter to cards where `card.tags` intersects the configured tag set (OR-within; step is a no-op when the set is empty)
-3. Shuffle with a seeded `Random(config.seed)`, then take the configured length
+3. Shuffle with the injected `kotlin.random.Random` (no session seed — see Preview Study Session Screen above), then take the configured length
 4. Apply the configured sort order to that drawn subset only — Default keeps shuffle order, Easiest/Hardest sort by difficulty. Sorting never changes which cards were drawn (see Preview Study Session Screen above, Sort row).
 
 **Mastery Defense (Rated only, designed — not built):** mastered Flashcards are never excluded from the session pool. Mastery Defense sets a **floor** of 10% of the session's **resolved length** — `min(configured Length, eligible pool size)`, the same shrink-on-small-pool rule Card Selection already applies above — topping a natural draw up with mastered Flashcards only when it falls short. Every mastered Flashcard in the final selection is a defence card, however it was drawn. The session is always exactly its resolved length, so the card count and estimated duration on the Preview screen stay truthful; it only equals the configured Length when the eligible pool is at least that large. Global Flashcards only; a future per-card progress filter is the only thing that removes mastered Flashcards from the pool, and when it does the floor is 0.

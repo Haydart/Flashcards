@@ -306,8 +306,8 @@ class PreviewStudySessionViewModel @Inject constructor(
     }
 
     /**
-     * The confirmed Study Mode picks the destination (ADR-0045): Fast opens its own screen; Rated
-     * still opens the combined screen until spec 03 gives it one of its own.
+     * The confirmed Study Mode picks the destination (ADR-0045): Fast and Rated each open their
+     * own screen, carrying only the settings that mode uses.
      */
     fun onStartSession() {
         if (selectedCardIds.isEmpty() || sessionStartInFlight) return
