@@ -36,7 +36,7 @@ fun PartialRatingCardRequeueingDialog(
     onKeepAsDefaultChange: (Boolean) -> Unit = {},
 ) {
     FlashcardsSingleActionDialog(
-        title = stringResource(R.string.partial_rating_card_requeueing_dialog_title),
+        title = stringResource(R.string.common_partial_rating_card_requeueing_dialog_title),
         onConfirm = onConfirm,
         onDismiss = onDismiss,
         modifier = modifier,
@@ -46,15 +46,15 @@ fun PartialRatingCardRequeueingDialog(
         FlashcardsSingleSelectGroup {
             FlashcardsOptionCard(
                 icon = Icons.Default.Replay,
-                title = stringResource(R.string.partial_rating_card_requeueing_on_label),
-                description = stringResource(R.string.partial_rating_card_requeueing_on_message),
+                title = stringResource(R.string.common_partial_rating_card_requeueing_on_label),
+                description = stringResource(R.string.common_partial_rating_card_requeueing_on_message),
                 selected = draft,
                 onSelect = { onDraftChange(true) },
             )
             FlashcardsOptionCard(
                 icon = Icons.Default.CheckCircle,
-                title = stringResource(R.string.partial_rating_card_requeueing_off_label),
-                description = stringResource(R.string.partial_rating_card_requeueing_off_message),
+                title = stringResource(R.string.common_partial_rating_card_requeueing_off_label),
+                description = stringResource(R.string.common_partial_rating_card_requeueing_off_message),
                 selected = !draft,
                 onSelect = { onDraftChange(false) },
             )

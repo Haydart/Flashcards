@@ -50,9 +50,9 @@ fun readAloudLabel(isEnabled: Boolean): String = if (isEnabled) {
 /** Rated-only. Paired with [PartialRatingCardRequeueingDialog]. */
 @Composable
 fun partialRatingCardRequeueingLabel(isEnabled: Boolean): String = if (isEnabled) {
-    stringResource(R.string.partial_rating_card_requeueing_on_label)
+    stringResource(R.string.common_partial_rating_card_requeueing_on_label)
 } else {
-    stringResource(R.string.partial_rating_card_requeueing_off_label)
+    stringResource(R.string.common_partial_rating_card_requeueing_off_label)
 }
 
 /**
