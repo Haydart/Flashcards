@@ -403,6 +403,9 @@ class RatedStudySessionViewModel @Inject constructor(
      */
     fun onRating(rating: FlashcardRating) {
         val machine = ratedSessionState ?: return
+        // A rapid second tap, or a late voice grade/silence timeout racing the terminal navigation
+        // event, can still reach here after the queue has emptied — rate() assumes a head to rate.
+        if (machine.isComplete) return
         val outcome = rate(machine, rating)
         ratedSessionState = outcome.state
         _state.update { it.copy(isAnswerRevealed = false) }
