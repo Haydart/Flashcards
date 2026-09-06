@@ -76,7 +76,7 @@ import com.rossomak.flashcards.core.ui.theme.spacing
  *   study session screen).
  * - **Non-dismissible**: no gestures, no back-dismiss, and no drag handle at all — a handle that
  *   can't do anything is worse than none. This is the permanently-docked-panel shape
- *   (`StudySessionScreen`'s card/rating panel is a named future consumer).
+ *   (`RatedStudySessionScreen`'s card/rating panel is a named future consumer).
  *
  * An earlier version of this component took `dismissible` (and a separate `draggable`) as
  * independent parameters on *both* [FlashcardsBottomSheet] and the state builder. Review found
@@ -316,7 +316,7 @@ private fun FlashcardsBottomSheetPreview() {
 
 /**
  * The non-dismissible shape — no handle, no gestures, no back-dismiss — matching
- * `StudySessionScreen`'s permanently-docked card/rating panel.
+ * `RatedStudySessionScreen`'s permanently-docked card/rating panel.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @ShowkaseComposable(name = "Bottom sheet — non-dismissible", group = "Sheets")
