@@ -3,6 +3,7 @@ package com.rossomak.flashcards.feature.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.DefaultStudyMode
+import com.rossomak.flashcards.core.domain.model.StudySessionPreference.PartialRatingCardRequeueingEnabled
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.RatedAttempts
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.ReadAloudEnabled
 import com.rossomak.flashcards.core.domain.model.StudySessionPreference.SessionLength
@@ -26,6 +27,7 @@ import com.rossomak.flashcards.feature.settings.SettingsDialog.Attempts
 import com.rossomak.flashcards.feature.settings.SettingsDialog.Goal
 import com.rossomak.flashcards.feature.settings.SettingsDialog.Length
 import com.rossomak.flashcards.feature.settings.SettingsDialog.Mode
+import com.rossomak.flashcards.feature.settings.SettingsDialog.PartialRatingCardRequeueing
 import com.rossomak.flashcards.feature.settings.SettingsDialog.ReadAloud
 import com.rossomak.flashcards.feature.settings.SettingsDialog.SignOut
 import com.rossomak.flashcards.feature.settings.SettingsDialog.Sort
@@ -71,6 +73,7 @@ class SettingsViewModel @Inject constructor(
                     it.copy(
                         sessionLength = preferences.sessionLength,
                         ratedAttempts = preferences.ratedAttempts,
+                        partialRatingCardRequeueingEnabled = preferences.partialRatingCardRequeueingEnabled,
                         defaultStudyMode = preferences.defaultStudyMode,
                         sortOrder = preferences.sortOrder,
                         subcategoryCountRange = preferences.subcategoryCountRange,
@@ -130,9 +133,9 @@ class SettingsViewModel @Inject constructor(
             val dialog = withVoices.activeDialog as? VoiceSettings ?: return@update withVoices
             withVoices.copy(
                 activeDialog = dialog.copy(
-                    draft = dialog.draft.copy(
+                    draftState = dialog.draftState.copy(
                         availableVoices = voices,
-                        draftVoiceId = dialog.draft.draftVoiceId ?: voices.firstOrNull()?.id,
+                        draftVoiceId = dialog.draftState.draftVoiceId ?: voices.firstOrNull()?.id,
                     ),
                 ),
             )
@@ -149,9 +152,9 @@ class SettingsViewModel @Inject constructor(
         _state.update { it.copy(activeDialog = dialog) }
         if (previous is VoiceSettings &&
             dialog is VoiceSettings &&
-            dialog.draft != previous.draft
+            dialog.draftState != previous.draftState
         ) {
-            voiceSettingsController.preview(dialog.draft)
+            voiceSettingsController.preview(dialog.draftState)
         }
     }
 
@@ -186,7 +189,7 @@ class SettingsViewModel @Inject constructor(
                 return
             }
             is VoiceSettings -> {
-                voiceSettingsController.save(viewModelScope, dialog.draft)
+                voiceSettingsController.save(viewModelScope, dialog.draftState)
                 _state.update { it.copy(activeDialog = null) }
                 return
             }
@@ -194,23 +197,32 @@ class SettingsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            val result = when (dialog) {
-                is Length -> saveStudySessionPreference(SessionLength(dialog.draft))
-                is Attempts -> saveStudySessionPreference(RatedAttempts(dialog.draft))
-                is Mode -> saveStudySessionPreference(DefaultStudyMode(dialog.draft))
-                is Sort -> saveStudySessionPreference(SortOrder(dialog.draft))
-                is SubcategoryCountRange -> saveStudySessionPreference(SubcategoryCountRangePreference(dialog.draft))
-                is VoiceAnswering -> saveStudySessionPreference(VoiceAnsweringEnabled(dialog.draft))
-                is ReadAloud -> saveStudySessionPreference(ReadAloudEnabled(dialog.draft))
-                is Goal -> saveUserPreference(DailyGoalMinutes(dialog.draft))
-                // Both returned above; repeated only because the `when` is exhaustive.
-                is VoiceSettings, SignOut -> Result.success(Unit)
-            }
+            val result = saveDialogPreference(dialog)
             // The dialog closes either way — a dialog left open with a stale draft isn't a retry
             // path, it's a second write on the next confirm. The snackbar is the recovery signal.
             result.onFailure { _state.update { it.copy(saveError = "Failed to save setting") } }
         }
         _state.update { it.copy(activeDialog = null) }
+    }
+
+    /**
+     * Lifted out of [onDialogConfirm] purely to keep that function under detekt's
+     * `CyclomaticComplexMethod` threshold — [SignOut] and [VoiceSettings] never reach here, both
+     * having already returned above.
+     */
+    private suspend fun saveDialogPreference(dialog: SettingsDialog): Result<Unit> = when (dialog) {
+        is Length -> saveStudySessionPreference(SessionLength(dialog.draftState))
+        is Attempts -> saveStudySessionPreference(RatedAttempts(dialog.draftState))
+        is PartialRatingCardRequeueing ->
+            saveStudySessionPreference(PartialRatingCardRequeueingEnabled(dialog.draftState))
+        is Mode -> saveStudySessionPreference(DefaultStudyMode(dialog.draftState))
+        is Sort -> saveStudySessionPreference(SortOrder(dialog.draftState))
+        is SubcategoryCountRange -> saveStudySessionPreference(SubcategoryCountRangePreference(dialog.draftState))
+        is VoiceAnswering -> saveStudySessionPreference(VoiceAnsweringEnabled(dialog.draftState))
+        is ReadAloud -> saveStudySessionPreference(ReadAloudEnabled(dialog.draftState))
+        is Goal -> saveUserPreference(DailyGoalMinutes(dialog.draftState))
+        // Both returned above; repeated only because the `when` is exhaustive.
+        is VoiceSettings, SignOut -> Result.success(Unit)
     }
 
     fun onSaveErrorDismissed() {

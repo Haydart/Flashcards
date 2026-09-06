@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.GraphicEq
@@ -45,6 +46,7 @@ import com.rossomak.flashcards.core.ui.composables.FlashcardsIconTile
 import com.rossomak.flashcards.core.ui.composables.FlashcardsOverlineLabel
 import com.rossomak.flashcards.core.ui.composables.buttons.FlashcardsTextButton
 import com.rossomak.flashcards.core.ui.composables.dialogs.label
+import com.rossomak.flashcards.core.ui.composables.dialogs.partialRatingCardRequeueingLabel
 import com.rossomak.flashcards.core.ui.composables.dialogs.readAloudLabel
 import com.rossomak.flashcards.core.ui.composables.dialogs.speechRateLabel
 import com.rossomak.flashcards.core.ui.composables.dialogs.voiceAnsweringLabel
@@ -60,6 +62,7 @@ import com.rossomak.flashcards.feature.settings.SettingsDialog.Attempts
 import com.rossomak.flashcards.feature.settings.SettingsDialog.Goal
 import com.rossomak.flashcards.feature.settings.SettingsDialog.Length
 import com.rossomak.flashcards.feature.settings.SettingsDialog.Mode
+import com.rossomak.flashcards.feature.settings.SettingsDialog.PartialRatingCardRequeueing
 import com.rossomak.flashcards.feature.settings.SettingsDialog.ReadAloud
 import com.rossomak.flashcards.feature.settings.SettingsDialog.SignOut
 import com.rossomak.flashcards.feature.settings.SettingsDialog.Sort
@@ -190,14 +193,14 @@ private fun studySessionRows(
 ): List<FlashcardsListGroupItem> = listOf(
     FlashcardsListGroupItem.Row(
         title = stringResource(R.string.settings_daily_goal_label),
-        onClick = { onDialogEvent(Open(Goal(draft = state.dailyGoalMinutes))) },
+        onClick = { onDialogEvent(Open(Goal(draftState = state.dailyGoalMinutes))) },
         secondaryText = stringResource(R.string.settings_daily_goal_summary_label, state.dailyGoalMinutes),
         leading = { FlashcardsIconTile(icon = Icons.Default.EmojiEvents, contentDescription = null) },
         trailing = { FlashcardsChevron() },
     ),
     FlashcardsListGroupItem.Row(
         title = stringResource(R.string.settings_session_length_label),
-        onClick = { onDialogEvent(Open(Length(draft = state.sessionLength))) },
+        onClick = { onDialogEvent(Open(Length(draftState = state.sessionLength))) },
         secondaryText = pluralStringResource(
             CoreUiR.plurals.session_length_cards_label,
             state.sessionLength,
@@ -208,7 +211,7 @@ private fun studySessionRows(
     ),
     FlashcardsListGroupItem.Row(
         title = stringResource(R.string.settings_rated_attempts_label),
-        onClick = { onDialogEvent(Open(Attempts(draft = state.ratedAttempts))) },
+        onClick = { onDialogEvent(Open(Attempts(draftState = state.ratedAttempts))) },
         secondaryText = pluralStringResource(
             CoreUiR.plurals.rated_attempts_label,
             state.ratedAttempts,
@@ -218,22 +221,31 @@ private fun studySessionRows(
         trailing = { FlashcardsChevron() },
     ),
     FlashcardsListGroupItem.Row(
+        title = stringResource(R.string.settings_partial_rating_card_requeueing_label),
+        onClick = {
+            onDialogEvent(Open(PartialRatingCardRequeueing(draftState = state.partialRatingCardRequeueingEnabled)))
+        },
+        secondaryText = partialRatingCardRequeueingLabel(state.partialRatingCardRequeueingEnabled),
+        leading = { FlashcardsIconTile(icon = Icons.AutoMirrored.Filled.Undo, contentDescription = null) },
+        trailing = { FlashcardsChevron() },
+    ),
+    FlashcardsListGroupItem.Row(
         title = stringResource(R.string.settings_study_mode_label),
-        onClick = { onDialogEvent(Open(Mode(draft = state.defaultStudyMode))) },
+        onClick = { onDialogEvent(Open(Mode(draftState = state.defaultStudyMode))) },
         secondaryText = state.defaultStudyMode.label(),
         leading = { FlashcardsIconTile(icon = Icons.Default.SwapHoriz, contentDescription = null) },
         trailing = { FlashcardsChevron() },
     ),
     FlashcardsListGroupItem.Row(
         title = stringResource(R.string.settings_sort_order_label),
-        onClick = { onDialogEvent(Open(Sort(draft = state.sortOrder))) },
+        onClick = { onDialogEvent(Open(Sort(draftState = state.sortOrder))) },
         secondaryText = state.sortOrder.label(),
         leading = { FlashcardsIconTile(icon = Icons.Default.SortByAlpha, contentDescription = null) },
         trailing = { FlashcardsChevron() },
     ),
     FlashcardsListGroupItem.Row(
         title = stringResource(R.string.settings_subcategory_count_range_label),
-        onClick = { onDialogEvent(Open(SubcategoryCountRange(draft = state.subcategoryCountRange))) },
+        onClick = { onDialogEvent(Open(SubcategoryCountRange(draftState = state.subcategoryCountRange))) },
         secondaryText = stringResource(
             CoreUiR.string.subcategory_count_range_value_label,
             state.subcategoryCountRange.first,
@@ -256,14 +268,14 @@ private fun voiceRows(
 ): List<FlashcardsListGroupItem> = listOf(
     FlashcardsListGroupItem.Row(
         title = stringResource(R.string.settings_voice_answering_label),
-        onClick = { onDialogEvent(Open(VoiceAnswering(draft = state.voiceAnsweringEnabled))) },
+        onClick = { onDialogEvent(Open(VoiceAnswering(draftState = state.voiceAnsweringEnabled))) },
         secondaryText = voiceAnsweringLabel(state.voiceAnsweringEnabled),
         leading = { FlashcardsIconTile(icon = Icons.Default.GraphicEq, contentDescription = null) },
         trailing = { FlashcardsChevron() },
     ),
     FlashcardsListGroupItem.Row(
         title = stringResource(R.string.settings_read_aloud_label),
-        onClick = { onDialogEvent(Open(ReadAloud(draft = state.readAloudEnabled))) },
+        onClick = { onDialogEvent(Open(ReadAloud(draftState = state.readAloudEnabled))) },
         secondaryText = readAloudLabel(state.readAloudEnabled),
         leading = {
             FlashcardsIconTile(icon = Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null)

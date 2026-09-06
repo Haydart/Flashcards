@@ -5,8 +5,11 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
+import com.rossomak.flashcards.core.domain.model.StudySessionConfig.Companion.LENGTH_STEP
+import com.rossomak.flashcards.core.domain.model.StudySessionConfig.Companion.RATED_ATTEMPTS_STEP
 import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardSortOrderDialog
 import com.rossomak.flashcards.core.ui.composables.dialogs.FlashcardsDecisionDialog
+import com.rossomak.flashcards.core.ui.composables.dialogs.PartialRatingCardRequeueingDialog
 import com.rossomak.flashcards.core.ui.composables.dialogs.RatedAttemptsDialog
 import com.rossomak.flashcards.core.ui.composables.dialogs.ReadAloudDialog
 import com.rossomak.flashcards.core.ui.composables.dialogs.SessionLengthDialog
@@ -21,12 +24,19 @@ import com.rossomak.flashcards.feature.settings.SettingsDialog.Attempts
 import com.rossomak.flashcards.feature.settings.SettingsDialog.Goal
 import com.rossomak.flashcards.feature.settings.SettingsDialog.Length
 import com.rossomak.flashcards.feature.settings.SettingsDialog.Mode
+import com.rossomak.flashcards.feature.settings.SettingsDialog.PartialRatingCardRequeueing
 import com.rossomak.flashcards.feature.settings.SettingsDialog.ReadAloud
 import com.rossomak.flashcards.feature.settings.SettingsDialog.SignOut
 import com.rossomak.flashcards.feature.settings.SettingsDialog.Sort
 import com.rossomak.flashcards.feature.settings.SettingsDialog.SubcategoryCountRange
 import com.rossomak.flashcards.feature.settings.SettingsDialog.VoiceAnswering
 import com.rossomak.flashcards.feature.settings.SettingsDialog.VoiceSettings
+
+/** The one range each stepper dialog needs — named once so a call site never inlines the pair. */
+private val LENGTH_RANGE = StudySessionConfig.MIN_LENGTH..StudySessionConfig.MAX_LENGTH
+private val RATED_ATTEMPTS_RANGE = StudySessionConfig.MIN_RATED_ATTEMPTS..StudySessionConfig.MAX_RATED_ATTEMPTS
+private val SUBCATEGORY_COUNT_RANGE =
+    StudySessionConfig.MIN_SUBCATEGORY_COUNT..StudySessionConfig.MAX_SUBCATEGORY_COUNT
 
 /**
  * Renders whichever dialog [activeDialog] names, or nothing when it is `null`.
@@ -40,6 +50,7 @@ import com.rossomak.flashcards.feature.settings.SettingsDialog.VoiceSettings
  * Every dialog here passes `keepAsDefault = null` — a Settings value *is* the default, so there is
  * nothing to promote.
  */
+@Suppress("LongMethod")
 @Composable
 internal fun SettingsDialogHost(
     activeDialog: SettingsDialog?,
@@ -50,76 +61,78 @@ internal fun SettingsDialogHost(
 
     when (activeDialog) {
         null -> Unit
-
         is Length -> SessionLengthDialog(
-            draft = activeDialog.draft,
-            range = StudySessionConfig.MIN_LENGTH..StudySessionConfig.MAX_LENGTH,
-            step = StudySessionConfig.LENGTH_STEP,
-            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draft = it))) },
+            draft = activeDialog.draftState,
+            range = LENGTH_RANGE,
+            step = LENGTH_STEP,
+            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draftState = it))) },
             onConfirm = onConfirm,
             onDismiss = onDismiss,
         )
-
         is Goal -> DailyGoalDialog(
-            draft = activeDialog.draft,
-            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draft = it))) },
+            draft = activeDialog.draftState,
+            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draftState = it))) },
             onConfirm = onConfirm,
             onDismiss = onDismiss,
         )
-
         is Attempts -> RatedAttemptsDialog(
-            draft = activeDialog.draft,
-            range = StudySessionConfig.MIN_RATED_ATTEMPTS..StudySessionConfig.MAX_RATED_ATTEMPTS,
-            step = StudySessionConfig.RATED_ATTEMPTS_STEP,
-            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draft = it))) },
+            draft = activeDialog.draftState,
+            range = RATED_ATTEMPTS_RANGE,
+            step = RATED_ATTEMPTS_STEP,
+            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draftState = it))) },
             onConfirm = onConfirm,
             onDismiss = onDismiss,
         )
-
+        is PartialRatingCardRequeueing -> PartialRatingCardRequeueingDialog(
+            draft = activeDialog.draftState,
+            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draftState = it))) },
+            onConfirm = onConfirm,
+            onDismiss = onDismiss,
+        )
         is Mode -> StudyModeDialog(
-            draft = activeDialog.draft,
-            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draft = it))) },
+            draft = activeDialog.draftState,
+            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draftState = it))) },
             onConfirm = onConfirm,
             onDismiss = onDismiss,
         )
-
         is Sort -> FlashcardSortOrderDialog(
-            draft = activeDialog.draft,
-            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draft = it))) },
+            draft = activeDialog.draftState,
+            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draftState = it))) },
             onConfirm = onConfirm,
             onDismiss = onDismiss,
         )
-        is SubcategoryCountRange ->
-            SubcategoryCountRangeDialogFor(activeDialog, onDialogEvent, onConfirm, onDismiss)
-
+        is SubcategoryCountRange -> SubcategoryCountRangeDialog(
+            draft = activeDialog.draftState,
+            bounds = SUBCATEGORY_COUNT_RANGE,
+            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draftState = it))) },
+            onConfirm = onConfirm,
+            onDismiss = onDismiss,
+        )
         is VoiceAnswering -> VoiceAnsweringDialog(
-            draft = activeDialog.draft,
-            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draft = it))) },
+            draft = activeDialog.draftState,
+            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draftState = it))) },
             onConfirm = onConfirm,
             onDismiss = onDismiss,
         )
-
         is ReadAloud -> ReadAloudDialog(
-            draft = activeDialog.draft,
-            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draft = it))) },
+            draft = activeDialog.draftState,
+            onDraftChange = { onDialogEvent(DraftChange(activeDialog.copy(draftState = it))) },
             onConfirm = onConfirm,
             onDismiss = onDismiss,
         )
-
         is VoiceSettings -> VoiceSettingsDialog(
-            availableVoices = activeDialog.draft.availableVoices,
-            draftVoiceId = activeDialog.draft.draftVoiceId,
-            draftSpeechRate = activeDialog.draft.draftSpeed,
+            availableVoices = activeDialog.draftState.availableVoices,
+            draftVoiceId = activeDialog.draftState.draftVoiceId,
             onDraftVoiceChange = {
-                onDialogEvent(DraftChange(activeDialog.copy(draft = activeDialog.draft.copy(draftVoiceId = it))))
+                onDialogEvent(DraftChange(activeDialog.copy(draftState = activeDialog.draftState.copy(draftVoiceId = it))))
             },
+            draftSpeechRate = activeDialog.draftState.draftSpeed,
             onDraftSpeechRateChange = {
-                onDialogEvent(DraftChange(activeDialog.copy(draft = activeDialog.draft.copy(draftSpeed = it))))
+                onDialogEvent(DraftChange(activeDialog.copy(draftState = activeDialog.draftState.copy(draftSpeed = it))))
             },
             onConfirm = onConfirm,
             onDismiss = onDismiss,
         )
-
         // Cancel and back both discard, so the decision dialog's single onCancel is Dismiss.
         SignOut -> FlashcardsDecisionDialog(
             title = stringResource(R.string.settings_sign_out_dialog_title),
@@ -130,24 +143,4 @@ internal fun SettingsDialogHost(
             supportingText = stringResource(R.string.settings_sign_out_dialog_message),
         )
     }
-}
-
-/**
- * Split out of [SettingsDialogHost]'s `when` — the same shape as every other branch, pulled out
- * only because a ninth inline case pushes the host past detekt's `LongMethod` threshold.
- */
-@Composable
-private fun SubcategoryCountRangeDialogFor(
-    dialog: SubcategoryCountRange,
-    onDialogEvent: (SettingsDialogEvent) -> Unit,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    SubcategoryCountRangeDialog(
-        draft = dialog.draft,
-        bounds = StudySessionConfig.MIN_SUBCATEGORY_COUNT..StudySessionConfig.MAX_SUBCATEGORY_COUNT,
-        onDraftChange = { onDialogEvent(DraftChange(dialog.copy(draft = it))) },
-        onConfirm = onConfirm,
-        onDismiss = onDismiss,
-    )
 }
