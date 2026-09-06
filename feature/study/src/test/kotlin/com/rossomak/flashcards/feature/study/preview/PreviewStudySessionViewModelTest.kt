@@ -418,7 +418,7 @@ class PreviewStudySessionViewModelTest {
 
         viewModel.state.value.config.sortOrder shouldBe FlashcardSortOrder.EasiestFirst
         viewModel.events.test {
-            val destination = awaitItem() as PreviewStudySessionDestination.StudySession
+            val destination = awaitItem() as PreviewStudySessionDestination.RatedStudySession
             destination.route.cardIds shouldBe listOf("card-2", "card-3", "card-1")
         }
     }
@@ -445,7 +445,7 @@ class PreviewStudySessionViewModelTest {
         viewModel.onStartSession()
 
         viewModel.events.test {
-            val destination = awaitItem() as PreviewStudySessionDestination.StudySession
+            val destination = awaitItem() as PreviewStudySessionDestination.RatedStudySession
             destination.route.cardIds shouldBe listOf("card-1", "card-3", "card-2")
         }
     }
@@ -636,7 +636,7 @@ class PreviewStudySessionViewModelTest {
         }
 
     @Test
-    fun `onStartSession emits StudySession route with selected cards, mode, voice answering, attempts and read-aloud`() =
+    fun `onStartSession emits RatedStudySession route with selected cards, voice answering and attempts`() =
         runTest(mainDispatcherRule.testDispatcher) {
             stubRoute(singleSubcategoryRoute)
             flashcardRepository.flashcardsToReturn = Result.success(
@@ -653,22 +653,17 @@ class PreviewStudySessionViewModelTest {
             viewModel.onDialogEvent(Open(Attempts(draft = viewModel.state.value.config.ratedAttempts)))
             viewModel.onDialogEvent(DraftChange(Attempts(draft = 5)))
             viewModel.onDialogEvent(Confirm)
-            viewModel.onDialogEvent(Open(ReadAloud(draft = viewModel.state.value.config.readAloudEnabled)))
-            viewModel.onDialogEvent(DraftChange(ReadAloud(draft = true)))
-            viewModel.onDialogEvent(Confirm)
             advanceUntilIdle()
             viewModel.onStartSession()
 
             viewModel.events.test {
-                val destination = awaitItem() as PreviewStudySessionDestination.StudySession
+                val destination = awaitItem() as PreviewStudySessionDestination.RatedStudySession
                 destination.route.categoryId shouldBe categoryId
                 destination.route.sessionTitle shouldBe subcategoryName
                 destination.route.subcategoryIds shouldBe listOf(subcategoryId)
                 destination.route.cardIds shouldContainAll listOf("card-1", "card-2")
-                destination.route.studyMode shouldBe StudyMode.Rated
                 destination.route.voiceAnsweringEnabled shouldBe true
                 destination.route.ratedAttempts shouldBe 5
-                destination.route.readAloudEnabled shouldBe true
             }
         }
 
@@ -717,7 +712,7 @@ class PreviewStudySessionViewModelTest {
         viewModel.onStartSession()
 
         viewModel.events.test {
-            val destination = awaitItem() as PreviewStudySessionDestination.StudySession
+            val destination = awaitItem() as PreviewStudySessionDestination.RatedStudySession
             destination.route.voiceSettings shouldBe voiceSettings
         }
     }
@@ -773,7 +768,7 @@ class PreviewStudySessionViewModelTest {
         viewModel.onStartSession()
 
         viewModel.events.test {
-            awaitItem() as PreviewStudySessionDestination.StudySession
+            awaitItem() as PreviewStudySessionDestination.RatedStudySession
             expectNoEvents()
         }
     }
@@ -808,7 +803,7 @@ class PreviewStudySessionViewModelTest {
         viewModel.onStartSession()
 
         viewModel.events.test {
-            val destination = awaitItem() as PreviewStudySessionDestination.StudySession
+            val destination = awaitItem() as PreviewStudySessionDestination.RatedStudySession
             destination.route.sessionTitle shouldBe categoryName
         }
     }
