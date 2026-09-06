@@ -7,17 +7,6 @@
         errorLine1="        super.onCleared()"
         errorLine2="              ~~~~~~~~~">
         <location
-            file="src/main/kotlin/com/rossomak/flashcards/feature/study/session/StudySessionViewModel.kt"
-            line="483"
-            column="15"/>
-    </issue>
-
-    <issue
-        id="EmptySuperCall"
-        message="No need to call `super.onCleared`; the super method is defined to be empty"
-        errorLine1="        super.onCleared()"
-        errorLine2="              ~~~~~~~~~">
-        <location
             file="src/main/kotlin/com/rossomak/flashcards/feature/study/fast/FastStudySessionViewModel.kt"
             line="456"
             column="15"/>
@@ -41,7 +30,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/rossomak/flashcards/feature/study/voice/VoiceAnswerController.kt"
-            line="158"
+            line="173"
             column="13"/>
     </issue>
 
@@ -52,30 +41,8 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/rossomak/flashcards/feature/study/voice/VoiceAnswerController.kt"
-            line="158"
+            line="173"
             column="13"/>
-    </issue>
-
-    <issue
-        id="LocalContextGetResourceValueCall"
-        message="Querying resource values using LocalContext.current"
-        errorLine1="            message = context.getString("
-        errorLine2="                      ^">
-        <location
-            file="src/main/kotlin/com/rossomak/flashcards/feature/study/session/StudySessionScreen.kt"
-            line="156"
-            column="23"/>
-    </issue>
-
-    <issue
-        id="LocalContextGetResourceValueCall"
-        message="Querying resource values using LocalContext.current"
-        errorLine1="            message = context.getString(R.string.study_session_voice_answer_error_message),"
-        errorLine2="                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/kotlin/com/rossomak/flashcards/feature/study/session/StudySessionScreen.kt"
-            line="169"
-            column="23"/>
     </issue>
 
     <issue
@@ -118,7 +85,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/rossomak/flashcards/feature/study/voice/TtsPlayer.kt"
-            line="482"
+            line="486"
             column="13"/>
     </issue>
 
@@ -129,19 +96,8 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/rossomak/flashcards/feature/study/voice/TtsPlayer.kt"
-            line="508"
+            line="512"
             column="13"/>
-    </issue>
-
-    <issue
-        id="AutoboxingStateCreation"
-        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
-        errorLine1="    var draftCardCount by remember(cardCount) { mutableStateOf(cardCount.toFloat()) }"
-        errorLine2="                                                ~~~~~~~~~~~~~~">
-        <location
-            file="src/main/kotlin/com/rossomak/flashcards/feature/study/preview/PreviewStudySessionScreen.kt"
-            line="335"
-            column="49"/>
     </issue>
 
 </issues>
