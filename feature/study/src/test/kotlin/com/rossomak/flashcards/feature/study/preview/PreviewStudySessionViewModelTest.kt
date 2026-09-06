@@ -673,6 +673,33 @@ class PreviewStudySessionViewModelTest {
         }
 
     @Test
+    fun `onStartSession with Fast mode emits FastStudySession route`() = runTest(mainDispatcherRule.testDispatcher) {
+        stubRoute(singleSubcategoryRoute)
+        flashcardRepository.flashcardsToReturn = Result.success(
+            listOf(flashcard(id = "card-1"), flashcard(id = "card-2"))
+        )
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDialogEvent(Open(Mode(draft = StudyMode.Fast)))
+        viewModel.onDialogEvent(Confirm)
+        viewModel.onDialogEvent(Open(ReadAloud(draft = viewModel.state.value.config.readAloudEnabled)))
+        viewModel.onDialogEvent(DraftChange(ReadAloud(draft = true)))
+        viewModel.onDialogEvent(Confirm)
+        advanceUntilIdle()
+        viewModel.onStartSession()
+
+        viewModel.events.test {
+            val destination = awaitItem() as PreviewStudySessionDestination.FastStudySession
+            destination.route.categoryId shouldBe categoryId
+            destination.route.sessionTitle shouldBe subcategoryName
+            destination.route.subcategoryIds shouldBe listOf(subcategoryId)
+            destination.route.cardIds shouldContainAll listOf("card-1", "card-2")
+            destination.route.readAloudEnabled shouldBe true
+        }
+    }
+
+    @Test
     fun `onStartSession carries the confirmed voice settings on the route`() = runTest(mainDispatcherRule.testDispatcher) {
         stubRoute(singleSubcategoryRoute)
         flashcardRepository.flashcardsToReturn = Result.success(listOf(flashcard(id = "card-1")))
