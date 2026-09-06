@@ -24,7 +24,10 @@ import kotlin.random.Random
  * [copy].
  *
  * @param queue the cards still due an Attempt, current card first.
- * @param terminalStates every distinct card that has left the queue, by id.
+ * @param terminalStates every distinct card that has left the queue, by id, paired with the record
+ * it resolved from — [ResolvedRatedCard] keeps [RatedSessionCardRecord.attemptsUsed] and
+ * [RatedSessionCardRecord.wasPreviouslyMastered] readable for [sealRatedLedger] after the record
+ * itself has left [queue].
  * @param distinctCardCount fixed at [seed] time — a re-insertion never changes how many distinct
  * cards there are, so this is carried on every [copy] rather than re-derived from [queue]'s length.
  * @param attemptsLimit how many Attempts a card gets before Attempts-exhausted resolution applies.
@@ -41,14 +44,14 @@ import kotlin.random.Random
  */
 data class RatedSessionState(
     val queue: List<RatedSessionCardRecord>,
-    val terminalStates: Map<String, TerminalState> = emptyMap(),
+    val terminalStates: Map<String, ResolvedRatedCard> = emptyMap(),
     val distinctCardCount: Int = queue.size,
     val attemptsLimit: Int,
     val partialRatingCardRequeueingEnabled: Boolean = true,
     val random: Random = Random.Default,
 ) {
     /** How many distinct cards have resolved [TerminalState.Mastered] so far. */
-    val masteredCount: Int get() = terminalStates.values.count { it == TerminalState.Mastered }
+    val masteredCount: Int get() = terminalStates.values.count { it.terminalState == TerminalState.Mastered }
 
     /** `true` exactly when every distinct card has reached a Terminal State. */
     val isComplete: Boolean get() = queue.isEmpty()
@@ -86,6 +89,14 @@ data class RatedSessionState(
 }
 
 /**
+ * A card that has left [RatedSessionState.queue] for good, paired with the [RatedSessionCardRecord]
+ * it resolved from — the record itself is discarded from the queue once terminal, so this is what
+ * [sealRatedLedger] reads [RatedSessionCardRecord.attemptsUsed] and
+ * [RatedSessionCardRecord.wasPreviouslyMastered] from afterward.
+ */
+data class ResolvedRatedCard(val record: RatedSessionCardRecord, val terminalState: TerminalState)
+
+/**
  * One [rate] call's result: the next snapshot, alongside the [TerminalState] the rated card
  * resolved to, or `null` when it was re-inserted rather than finished.
  */
@@ -102,7 +113,8 @@ fun rate(state: RatedSessionState, rating: FlashcardRating): RatedSessionRatingO
         val nextQueue = reinsert(state, remainingQueue, ratedRecord, rating)
         return RatedSessionRatingOutcome(state = state.copy(queue = nextQueue), terminal = null)
     }
-    val nextTerminalStates = state.terminalStates + (ratedRecord.card.id to terminal)
+    val resolved = ResolvedRatedCard(record = ratedRecord, terminalState = terminal)
+    val nextTerminalStates = state.terminalStates + (ratedRecord.card.id to resolved)
     val nextState = state.copy(queue = remainingQueue, terminalStates = nextTerminalStates)
     return RatedSessionRatingOutcome(state = nextState, terminal = terminal)
 }
@@ -168,3 +180,52 @@ private fun reinsertAt(
     val gap = random.nextInt(minGap, maxGap + 1)
     return remainingQueue.toMutableList().apply { add(gap.coerceAtMost(size), record) }
 }
+
+/**
+ * Seals [state] into [SessionResult]'s per-card ledger — one [SessionLedgerEntry] per card with at
+ * least one completed Attempt, Rated's definition of Studied. A card never reached, and a card that
+ * received only a silence timeout (zero Attempts either way), contributes nothing.
+ *
+ * A card already resolved to a [TerminalState] ([RatedSessionState.terminalStates]) carries that
+ * outcome straight through. A card still mid re-insertion when [abandoned] is `true` — waiting for
+ * its next draw, not yet terminal — is force-resolved from its best-rating-so-far via
+ * [toAbandonedTerminalState]: the same [ADR-0044](../../../../../../../docs/adr/0044-three-valued-terminal-state.md)
+ * table [resolveTerminalState] uses for natural resolution, just not through that function — there
+ * is no just-submitted rating at abandon time, and the remaining queue's Attempts may be well under
+ * its limit, so neither of [resolveTerminalState]'s inputs apply.
+ */
+fun sealRatedLedger(state: RatedSessionState, abandoned: Boolean): List<SessionLedgerEntry> {
+    val resolvedEntries = state.terminalStates.values.map { resolved ->
+        resolved.record.toLedgerEntry(resolved.terminalState.toFlashcardProgressState())
+    }
+    if (!abandoned) return resolvedEntries
+
+    val forcedEntries = state.queue
+        .filter { it.attemptsUsed > 0 }
+        .map { record ->
+            val bestRating = requireNotNull(record.bestRating) {
+                "a record with attemptsUsed > 0 always has a bestRating"
+            }
+            record.toLedgerEntry(bestRating.toAbandonedTerminalState().toFlashcardProgressState())
+        }
+    return resolvedEntries + forcedEntries
+}
+
+/**
+ * [ADR-0044](../../../../../../../docs/adr/0044-three-valued-terminal-state.md)'s table, applied to
+ * a best-rating-so-far at abandon time rather than a just-submitted rating — see [sealRatedLedger].
+ */
+fun FlashcardRating.toAbandonedTerminalState(): TerminalState = when (this) {
+    FlashcardRating.Correct -> TerminalState.Mastered
+    FlashcardRating.PartiallyCorrect -> TerminalState.Partial
+    FlashcardRating.Failed -> TerminalState.Failed
+}
+
+private fun RatedSessionCardRecord.toLedgerEntry(state: FlashcardProgressState): SessionLedgerEntry =
+    SessionLedgerEntry(
+        cardId = card.id,
+        subcategoryId = card.subcategoryId,
+        state = state,
+        attemptsUsed = attemptsUsed,
+        wasPreviouslyMastered = wasPreviouslyMastered,
+    )
