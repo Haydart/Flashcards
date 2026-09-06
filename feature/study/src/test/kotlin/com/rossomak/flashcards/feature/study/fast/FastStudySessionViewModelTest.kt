@@ -373,6 +373,66 @@ class FastStudySessionViewModelTest {
     }
 
     @Test
+    fun `report draft is submittable only once an action is checked`() = runTest(mainDispatcherRule.testDispatcher) {
+        loadThreeCards()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDialogEvent(Open(openReportProblem(viewModel)))
+
+        reportDraft(viewModel).canSubmit shouldBe false
+
+        viewModel.onDialogEvent(
+            DraftChange(
+                reportDraft(viewModel).withAction(CurationAction.Delete, isChecked = true)
+            )
+        )
+
+        reportDraft(viewModel).canSubmit shouldBe true
+    }
+
+    @Test
+    fun `checking a difficulty action clears its opposite in the report draft`() = runTest(mainDispatcherRule.testDispatcher) {
+        loadThreeCards()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDialogEvent(Open(openReportProblem(viewModel)))
+
+        viewModel.onDialogEvent(
+            DraftChange(
+                reportDraft(viewModel).withAction(CurationAction.DifficultyTooHard, isChecked = true)
+            )
+        )
+        viewModel.onDialogEvent(
+            DraftChange(
+                reportDraft(viewModel).withAction(CurationAction.DifficultyTooEasy, isChecked = true)
+            )
+        )
+
+        reportDraft(viewModel).selectedActions shouldBe setOf(CurationAction.DifficultyTooEasy)
+    }
+
+    @Test
+    fun `unchecking an action removes it from the report draft`() = runTest(mainDispatcherRule.testDispatcher) {
+        loadThreeCards()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDialogEvent(Open(openReportProblem(viewModel)))
+
+        viewModel.onDialogEvent(
+            DraftChange(
+                reportDraft(viewModel).withAction(CurationAction.WrongTags, isChecked = true)
+            )
+        )
+        viewModel.onDialogEvent(
+            DraftChange(
+                reportDraft(viewModel).withAction(CurationAction.WrongTags, isChecked = false)
+            )
+        )
+
+        reportDraft(viewModel).selectedActions shouldBe emptySet()
+    }
+
+    @Test
     fun `Confirm submits the whole checked set in one call and closes the dialog`() = runTest(mainDispatcherRule.testDispatcher) {
         loadThreeCards()
         val curationRepository = FakeCurationRepository()
@@ -392,6 +452,26 @@ class FastStudySessionViewModelTest {
     }
 
     @Test
+    fun `Dismiss discards the report draft without submitting`() = runTest(mainDispatcherRule.testDispatcher) {
+        loadThreeCards()
+        val curationRepository = FakeCurationRepository()
+        val viewModel = createViewModel(curationRepository)
+        advanceUntilIdle()
+        viewModel.onDialogEvent(Open(openReportProblem(viewModel)))
+        viewModel.onDialogEvent(
+            DraftChange(
+                reportDraft(viewModel).withAction(CurationAction.Delete, isChecked = true)
+            )
+        )
+
+        viewModel.onDialogEvent(Dismiss)
+        advanceUntilIdle()
+
+        curationRepository.submittedReports shouldBe emptyList()
+        viewModel.state.value.activeDialog shouldBe null
+    }
+
+    @Test
     fun `VoiceSettingsOpen seeds the draft from this session's current settings`() = runTest(mainDispatcherRule.testDispatcher) {
         val sessionSettings = VoiceSettings(speechRate = 1.5f, voiceId = "voice-1")
         stubRoute(route.copy(speechRate = sessionSettings.speechRate, voiceId = sessionSettings.voiceId))
@@ -401,6 +481,55 @@ class FastStudySessionViewModelTest {
         viewModel.onDialogEvent(Open(VoiceSettingsDialog()))
 
         verify(exactly = 1) { voiceSettingsController.seedDraft(sessionSettings) }
+    }
+
+    @Test
+    fun `VoiceSettings confirm without keepAsDefault applies for the session but writes nothing`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            every { voiceSettingsController.seedDraft(any()) } returns VoiceSettingsDraftState()
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            voiceGateway.stateFlow.value = VoicePlaybackState(isActive = true)
+            advanceUntilIdle()
+            viewModel.onDialogEvent(Open(VoiceSettingsDialog()))
+            val draft = (viewModel.state.value.activeDialog as VoiceSettingsDialog).draft
+                .copy(draftSpeed = 1.5f, draftVoiceId = "voice-1")
+            viewModel.onDialogEvent(DraftChange(VoiceSettingsDialog(draft)))
+
+            viewModel.onDialogEvent(Confirm)
+
+            verify(exactly = 0) { voiceSettingsController.save(any(), any()) }
+            verify(exactly = 1) { voiceSettingsController.stopPreview() }
+            voiceGateway.lastSpeechRate shouldBe 1.5f
+            voiceGateway.lastVoiceId shouldBe "voice-1"
+            viewModel.state.value.activeDialog shouldBe null
+        }
+
+    @Test
+    fun `VoiceSettings confirm with keepAsDefault writes the preference`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDialogEvent(Open(VoiceSettingsDialog()))
+        val dialog = viewModel.state.value.activeDialog as VoiceSettingsDialog
+        viewModel.onDialogEvent(DraftChange(dialog.copy(keepAsDefault = true)))
+
+        viewModel.onDialogEvent(Confirm)
+
+        verify(exactly = 1) { voiceSettingsController.save(any(), any()) }
+        viewModel.state.value.activeDialog shouldBe null
+    }
+
+    @Test
+    fun `VoiceSettings Dismiss discards the draft through the controller`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onDialogEvent(Open(VoiceSettingsDialog()))
+
+        viewModel.onDialogEvent(Dismiss)
+
+        verify(exactly = 1) { voiceSettingsController.stopPreview() }
+        verify(exactly = 0) { voiceSettingsController.save(any(), any()) }
+        viewModel.state.value.activeDialog shouldBe null
     }
 
     @Test
