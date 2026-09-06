@@ -32,13 +32,16 @@ import com.rossomak.flashcards.feature.study.voice.VoiceGateway
 import com.rossomak.flashcards.feature.study.voice.VoicePhase
 import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 import com.rossomak.flashcards.testutil.MainDispatcherRule
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import io.mockk.verify
+import kotlin.random.Random
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -132,6 +135,13 @@ class RatedStudySessionViewModelTest {
         )
     }
 
+    /** A pool large enough that a re-insertion gap lands mid-queue instead of clamping to the end. */
+    private fun loadTenCards() {
+        val cardIds = (1..10).map { "card-$it" }
+        flashcardRepository.flashcardsBySubcategory[subcategoryId] = Result.success(cardIds.map { flashcard(it) })
+        stubRoute(route.copy(cardIds = cardIds))
+    }
+
     @Test
     fun `loadFlashcards resolves routed card ids preserving order`() = runTest(mainDispatcherRule.testDispatcher) {
         flashcardRepository.flashcardsBySubcategory[subcategoryId] = Result.success(
@@ -180,7 +190,7 @@ class RatedStudySessionViewModelTest {
     }
 
     @Test
-    fun `onRating advances to next card and hides the answer, discarding the rating`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `rating the current card Correct removes it and advances to the next`() = runTest(mainDispatcherRule.testDispatcher) {
         loadThreeCards()
 
         val viewModel = createViewModel()
@@ -188,7 +198,7 @@ class RatedStudySessionViewModelTest {
         viewModel.onShowAnswer()
         viewModel.onRating(FlashcardRating.Correct)
 
-        viewModel.state.value.currentCardIndex shouldBe 1
+        viewModel.state.value.currentCard?.id shouldBe "card-2"
         viewModel.state.value.isAnswerRevealed shouldBe false
     }
 
@@ -203,6 +213,90 @@ class RatedStudySessionViewModelTest {
 
         viewModel.events.test { awaitItem() shouldBe RatedStudySessionDestination.Back }
     }
+
+    @Test
+    fun `rating it Failed keeps it in the session and brings it back later`() = runTest(mainDispatcherRule.testDispatcher) {
+        loadThreeCards()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onRating(FlashcardRating.Failed)
+
+        viewModel.state.value.currentCard?.id shouldNotBe "card-1"
+        viewModel.state.value.flashcards.map { it.id } shouldContain "card-1"
+    }
+
+    @Test
+    fun `the mastered count increases only on a Terminal Mastered`() = runTest(mainDispatcherRule.testDispatcher) {
+        loadThreeCards()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onRating(FlashcardRating.Failed)
+        viewModel.state.value.masteredCount shouldBe 0
+
+        viewModel.onRating(FlashcardRating.Correct)
+        viewModel.state.value.masteredCount shouldBe 1
+    }
+
+    @Test
+    fun `the terminal navigation event fires exactly once, when the last card finishes`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onRating(FlashcardRating.Correct)
+            viewModel.onRating(FlashcardRating.Correct)
+
+            viewModel.events.test {
+                viewModel.onRating(FlashcardRating.Correct)
+                awaitItem() shouldBe RatedStudySessionDestination.Back
+            }
+        }
+
+    @Test
+    fun `partialRatingCardRequeueingEnabled false ends a Partial rating immediately as Terminal Partial`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            flashcardRepository.flashcardsBySubcategory[subcategoryId] = Result.success(listOf(flashcard("card-1")))
+            stubRoute(route.copy(cardIds = listOf("card-1"), partialRatingCardRequeueingEnabled = false))
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onRating(FlashcardRating.PartiallyCorrect)
+
+            viewModel.events.test { awaitItem() shouldBe RatedStudySessionDestination.Back }
+        }
+
+    @Test
+    fun `partialRatingCardRequeueingEnabled true re-queues a Partial rating`() = runTest(mainDispatcherRule.testDispatcher) {
+        loadThreeCards()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onRating(FlashcardRating.PartiallyCorrect)
+
+        viewModel.state.value.currentCard?.id shouldNotBe "card-1"
+        viewModel.state.value.flashcards.map { it.id } shouldContain "card-1"
+    }
+
+    @Test
+    fun `a rating sequence produces the expected order of displayed cards under a fixed Random`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadTenCards()
+            val ratingSequence = listOf(FlashcardRating.Failed, FlashcardRating.PartiallyCorrect, FlashcardRating.Failed)
+
+            val firstViewModel = createViewModel().apply { random = Random(FIXED_SEED) }
+            advanceUntilIdle()
+            ratingSequence.forEach(firstViewModel::onRating)
+            val firstOrder = firstViewModel.state.value.flashcards.map { it.id }
+
+            val secondViewModel = createViewModel().apply { random = Random(FIXED_SEED) }
+            advanceUntilIdle()
+            ratingSequence.forEach(secondViewModel::onRating)
+            val secondOrder = secondViewModel.state.value.flashcards.map { it.id }
+
+            firstOrder shouldBe secondOrder
+        }
 
     @Test
     fun `confirming the exit dialog closes it and navigates back`() = runTest(mainDispatcherRule.testDispatcher) {
@@ -663,6 +757,10 @@ class RatedStudySessionViewModelTest {
         viewModel.onVoiceAnswerGradeDismissed()
 
         viewModel.state.value.lastVoiceAnswerGrade shouldBe null
+    }
+
+    private companion object {
+        const val FIXED_SEED = 42L
     }
 }
 

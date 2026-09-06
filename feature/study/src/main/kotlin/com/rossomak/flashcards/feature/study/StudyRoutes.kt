@@ -66,14 +66,12 @@ data class FastStudySessionRoute(
  * @param voiceAnsweringEnabled the Preview screen's choice (ADR-0030). Honoured on entry, reading
  * consent as a one-shot rather than from the observed flag — the collector may not have emitted by
  * the time the cards land.
- * @param ratedAttempts the Preview screen's confirmed choice, carried through so it reaches the
- * session rather than being silently dropped. Not yet acted on here — the session has no
- * retry-on-fail behavior to drive it until the next spec in the sequence.
- * @param partialRatingCardRequeueingEnabled the Preview screen's confirmed choice, carried through
- * so it reaches the session rather than being silently dropped. Not yet acted on here for the same
- * reason as [ratedAttempts] — nothing in the session reads it until the state machine that
- * branches on it lands. `true` (the default) means a Partial rating re-queues the card as before;
- * `false` means it finishes the card on the spot, recording Terminal Partial rather than Mastered
+ * @param ratedAttempts the Preview screen's confirmed choice. Bounds `RatedSessionState`'s Attempts
+ * limit — how many times a card may be rated before it resolves to a Terminal State on Attempts
+ * exhausted (ticket 02 of the Rated session state machine sequence).
+ * @param partialRatingCardRequeueingEnabled the Preview screen's confirmed choice, read by
+ * `RatedSessionState`. `true` (the default) means a Partial rating re-queues the card; `false`
+ * means it finishes the card on the spot, recording Terminal Partial rather than Mastered
  * (ADR-0044).
  * @param speechRate the Preview screen's confirmed `VoiceSettings.speechRate`, session-scoped from
  * here on: a mid-session change updates only this running session (unless the user keeps it as

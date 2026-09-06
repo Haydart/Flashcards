@@ -37,6 +37,9 @@ data class RatedStudySessionScreenState(
     val voiceAnswerError: String? = null,
     val isMicPermissionRequestPending: Boolean = false,
     val activeDialog: StudySessionDialog? = null,
+    // Mirrors RatedSessionState.masteredCount; carried now so ticket 03's counter widget doesn't
+    // need to reshape this state to read it.
+    val masteredCount: Int = 0,
 ) {
     val currentCard: Flashcard? get() = flashcards.getOrNull(currentCardIndex)
 }

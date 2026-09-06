@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rossomak.flashcards.core.domain.model.FlashcardRating
+import com.rossomak.flashcards.core.domain.model.RatedSessionState
 import com.rossomak.flashcards.core.domain.model.UserPreference.VoiceAnswerConsent as VoiceAnswerConsentPreference
 import com.rossomak.flashcards.core.domain.model.VoiceOption
 import com.rossomak.flashcards.core.domain.model.VoiceSettings as SavedVoiceSettings
@@ -32,6 +33,7 @@ import com.rossomak.flashcards.feature.study.voice.VoicePhase
 import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlin.random.Random
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -56,9 +58,11 @@ import kotlinx.coroutines.launch
  * The user-preferences use cases live here and only here: their sole current purpose is the
  * voice-answering consent flag (ADR-0025), and Fast has no path to it.
  *
- * Behaviour-preserving relative to the combined `StudySessionViewModel`'s Rated path: the rating
- * callback still discards its argument and just advances — recording the Rating is the next spec's
- * job.
+ * The rating callback drives a [RatedSessionState]: a Correct rating finishes a card as Mastered,
+ * Failed/Partial re-insert it further down the queue (or finish it, per
+ * [RatedStudySessionRoute.partialRatingCardRequeueingEnabled] and the Attempts limit), and the
+ * session's terminal navigation event fires once the queue empties (ticket 02 of the Rated session
+ * state machine sequence).
  */
 @HiltViewModel
 class RatedStudySessionViewModel @Inject constructor(
@@ -82,12 +86,19 @@ class RatedStudySessionViewModel @Inject constructor(
 
     internal var rewindThresholdMs: Long = VoicePlaybackState.REWIND_THRESHOLD_MS
 
+    // Test-only seam for asserting a deterministic queue sequence (ADR-0046) — production leaves
+    // this as Random.Default and never seeds it.
+    internal var random: Random = Random.Default
+
     private var rewindJob: Job? = null
     private var isPastRewindThreshold = false
     private val eventChannel = Channel<RatedStudySessionDestination>(Channel.BUFFERED)
     val events = eventChannel.receiveAsFlow()
 
     private var lastObservedCardIndex = -1
+
+    // Seeded once the routed cards resolve (loadFlashcards); null only during that initial load.
+    private var ratedSessionState: RatedSessionState? = null
 
     private val isExtendedContextDialogOpen: Boolean
         get() = _state.value.activeDialog is ExtendedContext
@@ -130,8 +141,32 @@ class RatedStudySessionViewModel @Inject constructor(
             }
             val cardsById = results.flatMap { it.getOrThrow() }.associateBy { it.id }
             val sessionCards = route.cardIds.mapNotNull(cardsById::get)
-            _state.update { it.copy(isLoading = false, flashcards = sessionCards) }
+            ratedSessionState = RatedSessionState(
+                cards = sessionCards,
+                attemptsLimit = route.ratedAttempts,
+                partialRatingCardRequeueingEnabled = route.partialRatingCardRequeueingEnabled,
+                random = random,
+            )
+            _state.update { it.copy(isLoading = false) }
+            syncStateFromRatedSession()
             honourRoutedVoiceAnswering(hasCards = sessionCards.isNotEmpty())
+        }
+    }
+
+    /**
+     * Mirrors the machine's queue into screen state. [RatedStudySessionScreenState.currentCardIndex]
+     * always lands on 0 in this path — the current card is always the queue's head — but stays a
+     * mutable field because [observeVoiceState] still drives it from the voice engine's own index
+     * while voice is active (ticket 04's concern, unchanged here).
+     */
+    private fun syncStateFromRatedSession() {
+        val machine = ratedSessionState ?: return
+        _state.update {
+            it.copy(
+                flashcards = machine.remainingCards,
+                currentCardIndex = 0,
+                masteredCount = machine.masteredCount,
+            )
         }
     }
 
@@ -283,27 +318,18 @@ class RatedStudySessionViewModel @Inject constructor(
         }
     }
 
-    private fun onNextCard() {
-        val currentState = _state.value
-        if (currentState.currentCardIndex >= currentState.flashcards.lastIndex) {
-            navigateBack()
-        } else {
-            _state.update {
-                it.copy(
-                    currentCardIndex = it.currentCardIndex + 1,
-                    isAnswerRevealed = false,
-                )
-            }
-        }
-    }
-
     /**
-     * Discards the Rating and just advances — recording it is the next spec's job. Keeping that
-     * out here is what makes this ticket behaviour-preserving rather than a place untested domain
-     * logic sneaks into a PR whose whole claim is that it changes nothing.
+     * Applies [rating] to the machine's current (head) card: Correct finishes it Mastered
+     * immediately, Failed/Partial either re-insert it further down the queue or finish it, per the
+     * Attempts limit and [RatedStudySessionRoute.partialRatingCardRequeueingEnabled]. The session
+     * completes — and the terminal navigation event fires — exactly when the queue empties.
      */
     fun onRating(rating: FlashcardRating) {
-        onNextCard()
+        val machine = ratedSessionState ?: return
+        machine.rate(rating)
+        _state.update { it.copy(isAnswerRevealed = false) }
+        syncStateFromRatedSession()
+        if (machine.isComplete) navigateBack()
     }
 
     private fun ensureVoiceGatewayStarted() {
