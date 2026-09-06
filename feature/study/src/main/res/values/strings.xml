@@ -58,6 +58,17 @@
     <string name="exit_session_dialog_message">All progress for this session will be lost. This can\'t be undone.</string>
     <string name="exit_session_confirm_button">Exit</string>
 
+    <string name="study_session_summary_mode_rated_label">Rated session</string>
+    <string name="study_session_summary_mode_fast_label">Fast session</string>
+    <string name="study_session_summary_completed_label">Deck completed</string>
+    <string name="study_session_summary_abandoned_label">Session ended early</string>
+    <string name="study_session_summary_duration_label">Studied for %1$dm %2$ds</string>
+    <string name="study_session_summary_cards_studied_label">%1$d cards studied</string>
+    <string name="study_session_summary_mastered_count_label">%1$d mastered</string>
+    <string name="study_session_summary_partial_count_label">%1$d partial</string>
+    <string name="study_session_summary_failed_count_label">%1$d failed</string>
+    <string name="study_session_summary_back_button">Back to Home</string>
+
     <string name="preview_session_mode_label">Mode</string>
     <string name="preview_session_voice_answering_label">Voice answering</string>
     <string name="preview_session_attempts_label">Attempts</string>
