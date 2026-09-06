@@ -59,6 +59,8 @@ import com.rossomak.flashcards.core.ui.composables.rating.FlashcardsRatingButton
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import com.rossomak.flashcards.feature.study.R
+import com.rossomak.flashcards.feature.study.StudySessionSummaryRoute
+import com.rossomak.flashcards.feature.study.chrome.ObserveStudySessionLifecycle
 import com.rossomak.flashcards.feature.study.chrome.StudySessionBody
 import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.ExitSession
 import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.ExtendedContext
@@ -74,13 +76,13 @@ import kotlinx.coroutines.launch
 fun RatedStudySessionScreen(
     modifier: Modifier = Modifier,
     viewModel: RatedStudySessionViewModel = hiltViewModel(),
-    onNavigateBack: () -> Unit,
+    onNavigateToSummary: (StudySessionSummaryRoute) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     observeAsEvents(viewModel.events) { destination ->
         when (destination) {
-            RatedStudySessionDestination.Back -> onNavigateBack()
+            is RatedStudySessionDestination.Summary -> onNavigateToSummary(destination.route)
         }
     }
 
@@ -91,6 +93,11 @@ fun RatedStudySessionScreen(
         view.keepScreenOn = true
         onDispose { view.keepScreenOn = false }
     }
+
+    ObserveStudySessionLifecycle(
+        onBackgrounded = viewModel::onScreenBackgrounded,
+        onForegrounded = viewModel::onScreenForegrounded,
+    )
 
     val snackbarHostState = remember { SnackbarHostState() }
 

@@ -307,6 +307,8 @@ class PreviewStudySessionViewModel @Inject constructor(
                         partialRatingCardRequeueingEnabled = _state.value.config.partialRatingCardRequeueingEnabled,
                         speechRate = _state.value.config.voiceSettings.speechRate,
                         voiceId = _state.value.config.voiceSettings.voiceId,
+                        categoryName = route.categoryName,
+                        subcategoryNames = _state.value.subcategoryNames,
                     )
                 )
             }

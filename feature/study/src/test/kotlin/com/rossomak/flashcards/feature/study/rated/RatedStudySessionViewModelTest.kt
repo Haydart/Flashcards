@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
 import com.rossomak.flashcards.core.domain.model.CurationAction
 import com.rossomak.flashcards.core.domain.model.Flashcard
+import com.rossomak.flashcards.core.domain.model.FlashcardProgressState
 import com.rossomak.flashcards.core.domain.model.FlashcardRating
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
@@ -35,7 +36,9 @@ import com.rossomak.flashcards.feature.study.voice.VoiceGateway
 import com.rossomak.flashcards.feature.study.voice.VoicePhase
 import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 import com.rossomak.flashcards.testutil.MainDispatcherRule
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -44,6 +47,7 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import io.mockk.verify
+import java.time.Instant
 import kotlin.random.Random
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -227,7 +231,7 @@ class RatedStudySessionViewModelTest {
         advanceUntilIdle()
         viewModel.onRating(FlashcardRating.Correct)
 
-        viewModel.events.test { awaitItem() shouldBe RatedStudySessionDestination.Back }
+        viewModel.events.test { awaitItem().shouldBeInstanceOf<RatedStudySessionDestination.Summary>() }
     }
 
     @Test
@@ -335,7 +339,7 @@ class RatedStudySessionViewModelTest {
 
             viewModel.events.test {
                 viewModel.onRating(FlashcardRating.Correct)
-                awaitItem() shouldBe RatedStudySessionDestination.Back
+                awaitItem().shouldBeInstanceOf<RatedStudySessionDestination.Summary>()
             }
         }
 
@@ -349,7 +353,7 @@ class RatedStudySessionViewModelTest {
 
             viewModel.onRating(FlashcardRating.PartiallyCorrect)
 
-            viewModel.events.test { awaitItem() shouldBe RatedStudySessionDestination.Back }
+            viewModel.events.test { awaitItem().shouldBeInstanceOf<RatedStudySessionDestination.Summary>() }
         }
 
     @Test
@@ -393,7 +397,7 @@ class RatedStudySessionViewModelTest {
         viewModel.onDialogEvent(Confirm)
 
         viewModel.state.value.activeDialog shouldBe null
-        viewModel.events.test { awaitItem() shouldBe RatedStudySessionDestination.Back }
+        viewModel.events.test { awaitItem().shouldBeInstanceOf<RatedStudySessionDestination.Summary>() }
     }
 
     @Test
@@ -892,7 +896,7 @@ class RatedStudySessionViewModelTest {
 
             viewModel.events.test {
                 emitGrade(grade = VoiceAnswerGrade(sanitizedTranscript = "t", gradePercent = 95, feedback = "great"), cardId = "card-1")
-                awaitItem() shouldBe RatedStudySessionDestination.Back
+                awaitItem().shouldBeInstanceOf<RatedStudySessionDestination.Summary>()
             }
             viewModel.state.value.masteredCount shouldBe 1
         }
@@ -1017,8 +1021,175 @@ class RatedStudySessionViewModelTest {
         viewModel.state.value.isVoiceAnswerPaused shouldBe false
     }
 
+    @Test
+    fun `a completed Rated session seals a ledger with one entry per distinct card and the abandoned flag clear`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onRating(FlashcardRating.Correct)
+            viewModel.onRating(FlashcardRating.Correct)
+
+            viewModel.events.test {
+                viewModel.onRating(FlashcardRating.Correct)
+                val destination = awaitItem().shouldBeInstanceOf<RatedStudySessionDestination.Summary>()
+
+                destination.route.abandoned shouldBe false
+                destination.route.cardIds.toSet() shouldBe setOf("card-1", "card-2", "card-3")
+                destination.route.cardStates shouldBe List(3) { FlashcardProgressState.Mastered }
+            }
+        }
+
+    @Test
+    fun `an abandoned Rated session's ledger holds only cards that completed at least one Attempt`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            // card-1 resolves Mastered; card-2 becomes current but is never rated; card-3 is never drawn to.
+            viewModel.onRating(FlashcardRating.Correct)
+            viewModel.onDialogEvent(Open(ExitSession))
+
+            viewModel.events.test {
+                viewModel.onDialogEvent(Confirm)
+                val destination = awaitItem().shouldBeInstanceOf<RatedStudySessionDestination.Summary>()
+
+                destination.route.abandoned shouldBe true
+                destination.route.cardIds shouldBe listOf("card-1")
+                destination.route.cardStates shouldBe listOf(FlashcardProgressState.Mastered)
+            }
+        }
+
+    @Test
+    fun `a card that received only a silence timeout is absent from the ledger`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            emitSilenceTimeout()
+            viewModel.onDialogEvent(Open(ExitSession))
+
+            viewModel.events.test {
+                viewModel.onDialogEvent(Confirm)
+                val destination = awaitItem().shouldBeInstanceOf<RatedStudySessionDestination.Summary>()
+
+                destination.route.cardIds shouldNotContain "card-1"
+            }
+        }
+
+    @Test
+    fun `abandoning mid re-insertion force-resolves a card with a completed Attempt using its best-rating-so-far`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            // Attempts limit defaults to 3: one PartiallyCorrect re-inserts card-1 rather than
+            // resolving it — still mid re-insertion, not yet Terminal, when the session is abandoned.
+            viewModel.onRating(FlashcardRating.PartiallyCorrect)
+            viewModel.onDialogEvent(Open(ExitSession))
+
+            viewModel.events.test {
+                viewModel.onDialogEvent(Confirm)
+                val destination = awaitItem().shouldBeInstanceOf<RatedStudySessionDestination.Summary>()
+
+                val index = destination.route.cardIds.indexOf("card-1")
+                index shouldNotBe -1
+                destination.route.cardStates[index] shouldBe FlashcardProgressState.Partial
+                destination.route.cardAttemptsUsed[index] shouldBe 1
+            }
+        }
+
+    @Test
+    fun `duration is measured from first card shown, not from route entry`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            val viewModel = createViewModel()
+            var clockInstant = FIXED_INSTANT
+            viewModel.now = { clockInstant }
+            advanceUntilIdle()
+
+            clockInstant = FIXED_INSTANT.plusSeconds(42)
+            viewModel.onDialogEvent(Open(ExitSession))
+
+            viewModel.events.test {
+                viewModel.onDialogEvent(Confirm)
+                val destination = awaitItem().shouldBeInstanceOf<RatedStudySessionDestination.Summary>()
+
+                destination.route.durationSeconds shouldBe 42
+            }
+        }
+
+    @Test
+    fun `a session whose card load fails and is then abandoned reports zero duration and an empty ledger`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            flashcardRepository.flashcardsBySubcategory[subcategoryId] = Result.failure(IllegalStateException("boom"))
+            val viewModel = createViewModel()
+            var clockInstant = FIXED_INSTANT
+            viewModel.now = { clockInstant }
+            advanceUntilIdle()
+
+            clockInstant = FIXED_INSTANT.plusSeconds(999)
+            viewModel.onDialogEvent(Open(ExitSession))
+
+            viewModel.events.test {
+                viewModel.onDialogEvent(Confirm)
+                val destination = awaitItem().shouldBeInstanceOf<RatedStudySessionDestination.Summary>()
+
+                destination.route.durationSeconds shouldBe 0
+                destination.route.cardIds.shouldBeEmpty()
+            }
+        }
+
+    @Test
+    fun `backgrounding while voice-answering is idle pauses the clock, and foregrounding resumes it`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            val viewModel = createViewModel()
+            var clockInstant = FIXED_INSTANT
+            viewModel.now = { clockInstant }
+            advanceUntilIdle()
+
+            clockInstant = FIXED_INSTANT.plusSeconds(10)
+            viewModel.onScreenBackgrounded()
+            clockInstant = FIXED_INSTANT.plusSeconds(100) // backgrounded gap must not accrue
+            viewModel.onScreenForegrounded()
+            clockInstant = FIXED_INSTANT.plusSeconds(115)
+            viewModel.onDialogEvent(Open(ExitSession))
+
+            viewModel.events.test {
+                viewModel.onDialogEvent(Confirm)
+                val destination = awaitItem().shouldBeInstanceOf<RatedStudySessionDestination.Summary>()
+
+                destination.route.durationSeconds shouldBe 25
+            }
+        }
+
+    @Test
+    fun `backgrounding while voice-answering is actively playing keeps the clock running`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            val viewModel = createViewModel()
+            var clockInstant = FIXED_INSTANT
+            viewModel.now = { clockInstant }
+            advanceUntilIdle()
+            voiceGateway.stateFlow.value = VoicePlaybackState(isActive = true, isPlaying = true)
+            advanceUntilIdle()
+
+            viewModel.onScreenBackgrounded() // isVoicePlaying true, so this must be a no-op
+            clockInstant = FIXED_INSTANT.plusSeconds(30)
+            viewModel.onDialogEvent(Open(ExitSession))
+
+            viewModel.events.test {
+                viewModel.onDialogEvent(Confirm)
+                val destination = awaitItem().shouldBeInstanceOf<RatedStudySessionDestination.Summary>()
+
+                destination.route.durationSeconds shouldBe 30
+            }
+        }
+
     private companion object {
         const val FIXED_SEED = 42L
+        val FIXED_INSTANT: Instant = Instant.parse("2026-09-06T10:00:00Z")
     }
 }
 

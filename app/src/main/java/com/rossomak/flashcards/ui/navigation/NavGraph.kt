@@ -27,9 +27,11 @@ import com.rossomak.flashcards.feature.onboarding.OnboardingScreen
 import com.rossomak.flashcards.feature.study.FastStudySessionRoute
 import com.rossomak.flashcards.feature.study.PreviewStudySessionRoute
 import com.rossomak.flashcards.feature.study.RatedStudySessionRoute
+import com.rossomak.flashcards.feature.study.StudySessionSummaryRoute
 import com.rossomak.flashcards.feature.study.fast.FastStudySessionScreen
 import com.rossomak.flashcards.feature.study.preview.PreviewStudySessionScreen
 import com.rossomak.flashcards.feature.study.rated.RatedStudySessionScreen
+import com.rossomak.flashcards.feature.study.summary.StudySessionSummaryScreen
 import com.rossomak.flashcards.presentation.main.MainScreen
 import com.rossomak.flashcards.presentation.splash.SplashScreen
 import kotlinx.serialization.Serializable
@@ -140,6 +142,20 @@ private fun NavHostController.navigateToPreviewStudySessionForCategory(
             isQuickSession = isQuickSession,
         )
     )
+}
+
+/**
+ * Terminating a Rated or Fast session lands here — natural end or a confirmed exit alike (spec 03
+ * ticket 02). One `popUpTo` does both jobs the spec calls out separately: the just-finished session
+ * sits above [Main] on the back stack, so popping up to [Main] removes it (the session can never be
+ * swiped or backed into again) *and* leaves the Summary sitting directly on top of [Main] — so both
+ * the Summary's own action and a plain system back land on the tab the user started from, with no
+ * second `popUpTo` needed at the Summary screen itself.
+ */
+private fun NavHostController.navigateToStudySessionSummary(route: StudySessionSummaryRoute) {
+    navigate(route) {
+        popUpTo(Main) { inclusive = false }
+    }
 }
 
 /**
@@ -273,6 +289,11 @@ fun FlashcardsNavGraph(
                 }
                 composable<RatedStudySessionRoute> {
                     RatedStudySessionScreen(
+                        onNavigateToSummary = navController::navigateToStudySessionSummary
+                    )
+                }
+                composable<StudySessionSummaryRoute> {
+                    StudySessionSummaryScreen(
                         onNavigateBack = { navController.popBackStack() }
                     )
                 }

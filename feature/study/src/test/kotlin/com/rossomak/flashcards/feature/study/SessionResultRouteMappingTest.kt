@@ -1,0 +1,59 @@
+package com.rossomak.flashcards.feature.study
+
+import com.rossomak.flashcards.core.domain.model.FlashcardProgressState
+import com.rossomak.flashcards.core.domain.model.SessionLedgerEntry
+import com.rossomak.flashcards.core.domain.model.SessionResult
+import com.rossomak.flashcards.core.domain.model.StudyMode
+import io.kotest.matchers.shouldBe
+import java.time.Instant
+import org.junit.Test
+
+/**
+ * Not an encoding test (the spec is explicit that route-argument encoding is not what's being
+ * asserted) — this only checks that flattening onto [StudySessionSummaryRoute] and reading it back
+ * loses nothing.
+ */
+class SessionResultRouteMappingTest {
+
+    private val result = SessionResult(
+        id = "session-1",
+        mode = StudyMode.Rated,
+        startedAt = Instant.parse("2026-09-06T10:00:00Z"),
+        durationSeconds = 90,
+        abandoned = true,
+        categoryId = "cat-1",
+        categoryName = "Category",
+        subcategoryIds = listOf("sub-1", "sub-2"),
+        subcategoryNames = listOf("Subcategory 1", "Subcategory 2"),
+        ledger = listOf(
+            SessionLedgerEntry(
+                cardId = "card-1",
+                subcategoryId = "sub-1",
+                state = FlashcardProgressState.Mastered,
+                attemptsUsed = 1,
+                wasPreviouslyMastered = false,
+            ),
+            SessionLedgerEntry(
+                cardId = "card-2",
+                subcategoryId = "sub-2",
+                state = FlashcardProgressState.Partial,
+                attemptsUsed = 2,
+                wasPreviouslyMastered = true,
+            ),
+        ),
+    )
+
+    @Test
+    fun `a SessionResult survives a round trip through StudySessionSummaryRoute unchanged`() {
+        val roundTripped = result.toSummaryRoute().toSessionResult()
+
+        roundTripped shouldBe result
+    }
+
+    @Test
+    fun `an empty ledger survives the round trip as an empty ledger`() {
+        val empty = result.copy(ledger = emptyList())
+
+        empty.toSummaryRoute().toSessionResult() shouldBe empty
+    }
+}

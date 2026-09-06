@@ -5,12 +5,19 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rossomak.flashcards.core.domain.model.FlashcardRating
 import com.rossomak.flashcards.core.domain.model.RatedSessionState
+import com.rossomak.flashcards.core.domain.model.SessionClock
+import com.rossomak.flashcards.core.domain.model.SessionResult
+import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.UserPreference.VoiceAnswerConsent as VoiceAnswerConsentPreference
 import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
 import com.rossomak.flashcards.core.domain.model.VoiceOption
 import com.rossomak.flashcards.core.domain.model.VoiceSettings as SavedVoiceSettings
 import com.rossomak.flashcards.core.domain.model.rate
 import com.rossomak.flashcards.core.domain.model.requeueAfterSilence
+import com.rossomak.flashcards.core.domain.model.sealRatedLedger
+import com.rossomak.flashcards.core.domain.model.sealSessionResult
+import com.rossomak.flashcards.core.domain.model.startClock
+import com.rossomak.flashcards.core.domain.model.stopClock
 import com.rossomak.flashcards.core.domain.model.toFlashcardRating
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.ObserveUserPreferencesUseCase
@@ -31,11 +38,14 @@ import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.ReportPro
 import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.VoiceAnswerConsent
 import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.VoiceSettings
 import com.rossomak.flashcards.feature.study.chrome.StudySessionDialogEvent
+import com.rossomak.flashcards.feature.study.toSummaryRoute
 import com.rossomak.flashcards.feature.study.voice.VoiceAnswerPhase
 import com.rossomak.flashcards.feature.study.voice.VoiceGateway
 import com.rossomak.flashcards.feature.study.voice.VoicePhase
 import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.Instant
+import java.util.UUID
 import javax.inject.Inject
 import kotlin.random.Random
 import kotlinx.coroutines.Job
@@ -97,6 +107,27 @@ class RatedStudySessionViewModel @Inject constructor(
     // Test-only seam for asserting a deterministic queue sequence (ADR-0046) — production leaves
     // this as Random.Default and never seeds it.
     internal var random: Random = Random.Default
+
+    // Test-only seam mirroring random above — production leaves this as Instant::now and never
+    // overrides it.
+    internal var now: () -> Instant = Instant::now
+
+    // Generated once per session and carried on the ViewModel rather than SavedStateHandle — the
+    // ViewModel instance itself already survives rotation, and there is nothing to restore it from
+    // after an app kill (spec 03 ticket 02: no in-progress persistence, by design).
+    private val sessionId: String = UUID.randomUUID().toString()
+
+    private var clock: SessionClock = SessionClock()
+
+    // The instant the clock first started — SessionClock itself only remembers its *current*
+    // running span's start, which a background/foreground cycle overwrites; the result's startedAt
+    // needs the original instant regardless of how many such cycles happened since.
+    private var sessionStartedAt: Instant? = null
+
+    // Guards onScreenForegrounded/onScreenBackgrounded against firing before the clock has ever
+    // started — e.g. a background/foreground cycle while flashcards are still loading must not
+    // bank time for a session that has not shown a card yet.
+    private var clockStarted = false
 
     private var rewindJob: Job? = null
     private var isPastRewindThreshold = false
@@ -166,8 +197,35 @@ class RatedStudySessionViewModel @Inject constructor(
             )
             _state.update { it.copy(isLoading = false) }
             syncStateFromRatedSession()
+            // The clock starts here, once a card is actually on screen — never at route entry, so
+            // a session whose card load fails never banks time (spec 03 ticket 02).
+            if (sessionCards.isNotEmpty()) startStudyClock()
             honourRoutedVoiceAnswering(hasCards = sessionCards.isNotEmpty())
         }
+    }
+
+    private fun startStudyClock() {
+        val instant = now()
+        sessionStartedAt = instant
+        clock = startClock(clock, instant)
+        clockStarted = true
+    }
+
+    /**
+     * The screen tells the ViewModel its own lifecycle rather than the ViewModel observing one
+     * itself, so the clock stays testable without a device (spec 03 ticket 02). Backgrounding
+     * pauses the clock unless voice-answering is actively playing — the shared TTS engine reading a
+     * question or a graded turn's feedback is genuinely studying, phone-in-pocket
+     * (ADR-0025/ADR-0027/ADR-0028) — in which case it keeps running. [clockStarted] guards both
+     * against firing before the first card is shown.
+     */
+    fun onScreenBackgrounded() {
+        if (clockStarted && !_state.value.isVoicePlaying) clock = stopClock(clock, now())
+    }
+
+    /** Resumes the clock — a no-op if it never paused because voice was actively playing. */
+    fun onScreenForegrounded() {
+        if (clockStarted) clock = startClock(clock, now())
     }
 
     /**
@@ -417,7 +475,7 @@ class RatedStudySessionViewModel @Inject constructor(
         ratedSessionState = outcome.state
         _state.update { it.copy(isAnswerRevealed = false) }
         syncStateFromRatedSession()
-        if (outcome.state.isComplete) navigateBack()
+        if (outcome.state.isComplete) terminate(abandoned = false)
     }
 
     private fun ensureVoiceGatewayStarted() {
@@ -622,7 +680,7 @@ class RatedStudySessionViewModel @Inject constructor(
             is VoiceSettings -> onVoiceSettingsSave()
             ExitSession -> {
                 onDialogDismiss()
-                navigateBack()
+                terminate(abandoned = true)
             }
             // "Got it" and a scrim tap are the same act on a single-action dialog.
             is ExtendedContext, null -> onDialogDismiss()
@@ -666,9 +724,33 @@ class RatedStudySessionViewModel @Inject constructor(
         }
     }
 
-    /** Leaving is a one-time event, never a flag in state (ADR-0019). */
-    private fun navigateBack() {
-        viewModelScope.launch { eventChannel.send(RatedStudySessionDestination.Back) }
+    /**
+     * Both terminal paths — the last card resolving and a confirmed "Exit session?" — run this,
+     * [abandoned] the only thing differing (spec 03 ticket 02). Seals the ledger from whatever the
+     * state machine has resolved so far, stamps the duration off [clock], and emits the one-time
+     * navigation event (ADR-0019) exactly once. A `null` [ratedSessionState] (abandoning before
+     * flashcards ever finished loading) seals an empty ledger with zero duration rather than
+     * crashing — there is nothing to have studied yet.
+     */
+    private fun terminate(abandoned: Boolean) {
+        val at = now()
+        val ledger = ratedSessionState?.let { sealRatedLedger(it, abandoned) } ?: emptyList()
+        val placeholderResult = SessionResult(
+            id = sessionId,
+            mode = StudyMode.Rated,
+            startedAt = sessionStartedAt ?: at,
+            durationSeconds = 0, // overwritten by sealSessionResult below
+            abandoned = abandoned,
+            categoryId = route.categoryId,
+            categoryName = route.categoryName,
+            subcategoryIds = route.subcategoryIds,
+            subcategoryNames = route.subcategoryNames,
+            ledger = ledger,
+        )
+        val result = sealSessionResult(result = placeholderResult, clock = clock, at = at)
+        viewModelScope.launch {
+            eventChannel.send(RatedStudySessionDestination.Summary(result.toSummaryRoute()))
+        }
     }
 
     fun onCurationErrorDismissed() {
