@@ -426,7 +426,7 @@ private fun ScopeHeroBody(
                 ),
                 icon = Icons.Default.Style,
                 style = OnGradient,
-                onClick = { onOpenSettingsDialog(Length(draft = state.config.length)) },
+                onClick = { onOpenSettingsDialog(Length(draftState = state.config.length)) },
             )
             if (!state.isSingleSubcategory) {
                 FlashcardsMetadataBadge(
@@ -442,7 +442,7 @@ private fun ScopeHeroBody(
                         // subcategories are hand-picked outside this screen, so no dialog matches
                         // them — the badge falls back to just revealing the sheet (ticket per grill).
                         if (state.isQuickSession) {
-                            onOpenSettingsDialog(SubcategoryCountRange(draft = state.config.subcategoryCountRange))
+                            onOpenSettingsDialog(SubcategoryCountRange(draftState = state.config.subcategoryCountRange))
                         } else {
                             onOpenSettings()
                         }
@@ -482,7 +482,7 @@ private fun SettingsBadgeRow(
             label = state.config.mode.label(),
             icon = if (isRated) Icons.Default.Star else Icons.Default.Bolt,
             style = OnGradient,
-            onClick = { onOpenSettingsDialog(Mode(draft = state.config.mode)) },
+            onClick = { onOpenSettingsDialog(Mode(draftState = state.config.mode)) },
         )
         val interactionBadge = interactionBadgeContent(isRated = isRated, enabled = interactionEnabled)
         FlashcardsMetadataBadge(
@@ -492,9 +492,9 @@ private fun SettingsBadgeRow(
             onClick = {
                 onOpenSettingsDialog(
                     if (isRated) {
-                        VoiceAnswering(draft = state.config.voiceAnsweringEnabled)
+                        VoiceAnswering(draftState = state.config.voiceAnsweringEnabled)
                     } else {
-                        ReadAloud(draft = state.config.readAloudEnabled)
+                        ReadAloud(draftState = state.config.readAloudEnabled)
                     },
                 )
             },
