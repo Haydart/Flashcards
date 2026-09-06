@@ -1008,6 +1008,8 @@ private class FakeVoiceGateway : VoiceGateway {
     var lastStartCards: List<Flashcard>? = null
     var lastStartIndex: Int? = null
     var lastStartSubcategoryName: String? = null
+    var updateQueueCalls = 0
+    var lastUpdateQueueCards: List<Flashcard>? = null
     var togglePlayPauseCalls = 0
     var rewindToNextCalls = 0
     var rewindToPreviousCalls = 0
@@ -1024,6 +1026,10 @@ private class FakeVoiceGateway : VoiceGateway {
         lastStartSubcategoryName = subcategoryName
     }
 
+    override fun updateQueue(cards: List<Flashcard>) {
+        updateQueueCalls++
+        lastUpdateQueueCards = cards
+    }
     override fun stop() {
         stopCalls++
     }
