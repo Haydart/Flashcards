@@ -7,13 +7,6 @@ package com.rossomak.flashcards.core.domain.model
  * ([tagIds], [difficultyRange]) are never a default because tags belong to one subcategory and
  * cannot carry to another (ADR-0030).
  *
- * Selection is a pure deterministic function of this value: same config in, same cards out. That
- * is what [seed] buys — re-randomizing is `copy(seed = Random.nextLong())` and a test pins it.
- *
- * > **Do not exclude [seed] from `equals()`.** `MutableStateFlow` conflates by equality, so a
- * > config that ignored the seed would make re-randomize emit nothing and silently do nothing.
- * > A comparison that genuinely needs to ignore it belongs in a named function, not in `equals`.
- *
  * @param ratedAttempts how many times a card may be answered before it counts as failed. Rated
  * only — Fast mode has no rating step to retry (ADR-0025) — so it is carried but ignored there
  * rather than being made nullable.
@@ -38,7 +31,6 @@ data class StudySessionConfig(
     val difficultyRange: IntRange = MIN_DIFFICULTY..MAX_DIFFICULTY,
     val tagIds: Set<String> = emptySet(),
     val subcategoryCountRange: IntRange = DEFAULT_SUBCATEGORY_COUNT_RANGE,
-    val seed: Long = 0L,
 ) {
 
     companion object {

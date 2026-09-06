@@ -40,7 +40,6 @@ import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceAnswerin
 import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceSettings
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlin.random.Random
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -76,7 +75,6 @@ class PreviewStudySessionViewModel @Inject constructor(
                 subcategoryIds = route.subcategoryIds,
                 tagIds = route.filterTagIds.toSet(),
                 difficultyRange = route.difficultyRange,
-                seed = Random.nextLong(),
             ),
         )
     )
@@ -103,8 +101,8 @@ class PreviewStudySessionViewModel @Inject constructor(
      * [sortOrder][StudySessionConfig.sortOrder] change the selection, so seeding after would
      * select twice and flash the card count, and a live collect would let a "keep as my default"
      * write from this same screen clobber the session edits the user just made. Route- and
-     * session-scoped fields (subcategoryIds, tagIds, difficultyRange, seed) are left untouched —
-     * filters are exempt from defaults entirely (ADR-0030).
+     * session-scoped fields (subcategoryIds, tagIds, difficultyRange) are left untouched — filters
+     * are exempt from defaults entirely (ADR-0030).
      *
      * Sort is the one seeded field the route can override: arriving from a browsed list, the order
      * the user was just looking at wins over the saved default (ADR-0038).
@@ -127,6 +125,9 @@ class PreviewStudySessionViewModel @Inject constructor(
                     ).withMode(defaults.defaultStudyMode),
                 )
             }
+            if (route.isQuickSession) {
+                resampleSubcategories()
+            }
             selectCards()
         }
         // The voice row shows the voice's name, not its id, so the list is needed before the
@@ -138,10 +139,15 @@ class PreviewStudySessionViewModel @Inject constructor(
         selectCards()
     }
 
-    /** A different draw from the same pool — selection is a pure function of the config's seed. */
+    /**
+     * Re-randomise: rerolls the Quick Session's subcategory sample and then the card draw within
+     * it. Every other selection reuses the held sample instead of re-rolling it (ADR-0040).
+     */
     fun onReshuffleSubcategories() {
-        _state.update { it.copy(config = it.config.copy(seed = Random.nextLong())) }
-        selectCards()
+        viewModelScope.launch {
+            resampleSubcategories()
+            selectCards()
+        }
     }
 
     /**
@@ -403,26 +409,32 @@ class PreviewStudySessionViewModel @Inject constructor(
     /**
      * Every session type but Quick hands [SelectSessionFlashcardsUseCase] the fixed Subcategory
      * list the route carries. Quick is the only scenario where the Subcategory *set itself* can
-     * change between resolutions: it resamples a bounded subset via
-     * [SampleQuickSessionSubcategoriesUseCase], seeded off the same
-     * [StudySessionConfig.seed][com.rossomak.flashcards.core.domain.model.StudySessionConfig.seed]
-     * the card draw uses, so reshuffling re-rolls the sample itself, not just the draw within it
-     * (ADR-0040). Sampled ids are mapped back to names through [candidateSubcategoryNamesById] —
-     * the pool this resolution is allowed to draw its sample from.
+     * change between resolutions, and it does so from the sample [resampleSubcategories] already
+     * put in state — this never re-samples itself (ADR-0040). Sampled ids are mapped back to names
+     * through [candidateSubcategoryNamesById] — the pool the sample was drawn from.
      */
-    private suspend fun resolveSubcategories(): ResolvedSubcategories {
+    private fun resolveSubcategories(): ResolvedSubcategories {
         if (!route.isQuickSession) {
             return ResolvedSubcategories(route.subcategoryIds, route.subcategoryNames)
         }
+        val sampledIds = _state.value.quickSessionSampledSubcategoryIds.orEmpty()
+        val sampledNames = sampledIds.map { id -> candidateSubcategoryNamesById.getValue(id) }
+        return ResolvedSubcategories(sampledIds, sampledNames)
+    }
+
+    /**
+     * Samples a fresh Quick Session subcategory subset and holds it in state. Called on load and
+     * on Re-randomise only — every other selection reuses what's already there, which is what
+     * keeps the sample stable while the user adjusts a filter, the length or the sort (ADR-0040).
+     */
+    private suspend fun resampleSubcategories() {
         val sampledIds = sampleQuickSessionSubcategories(
             SampleQuickSessionSubcategoriesUseCase.Params(
                 candidateSubcategoryIds = route.subcategoryIds,
                 countRange = _state.value.config.subcategoryCountRange,
-                seed = _state.value.config.seed,
             )
         )
-        val sampledNames = sampledIds.map { id -> candidateSubcategoryNamesById.getValue(id) }
-        return ResolvedSubcategories(sampledIds, sampledNames)
+        _state.update { it.copy(quickSessionSampledSubcategoryIds = sampledIds) }
     }
 
     private fun sessionTitle(): String =

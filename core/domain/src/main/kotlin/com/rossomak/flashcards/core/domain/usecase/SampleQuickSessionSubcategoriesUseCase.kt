@@ -14,22 +14,23 @@ import kotlin.random.Random
  * because Quick is the only scenario where the Subcategory set itself can change between
  * resolutions.
  *
- * Seeded off the same [com.rossomak.flashcards.core.domain.model.StudySessionConfig.seed] the
- * card draw uses, so one seed reproduces the whole plan — the Subcategory sample and the card draw
- * within it alike.
+ * The sampled ids are held as screen state, not re-derived per selection: the caller samples once
+ * on load and once on Re-randomise, and reuses the result for every other selection (ADR-0040).
+ *
+ * [random] drives the sample — `Random.Default` in production, bound in `RandomModule`, and a
+ * fixed `Random` in tests, injected directly. There is no session seed.
  */
-class SampleQuickSessionSubcategoriesUseCase @Inject constructor() :
-    UseCase<SampleQuickSessionSubcategoriesUseCase.Params, List<String>> {
+class SampleQuickSessionSubcategoriesUseCase @Inject constructor(
+    private val random: Random,
+) : UseCase<SampleQuickSessionSubcategoriesUseCase.Params, List<String>> {
 
     /**
      * @param candidateSubcategoryIds every Subcategory the sample may be drawn from.
      * @param countRange bounds on how many Subcategories to sample.
-     * @param seed drives both the sampled count and the subset itself.
      */
     data class Params(
         val candidateSubcategoryIds: List<String>,
         val countRange: IntRange,
-        val seed: Long,
     )
 
     /**
@@ -43,7 +44,6 @@ class SampleQuickSessionSubcategoriesUseCase @Inject constructor() :
      * first keeps every feasible count equally likely.
      */
     override suspend fun invoke(params: Params): List<String> {
-        val random = Random(params.seed)
         val poolSize = params.candidateSubcategoryIds.size
         val lowerBound = params.countRange.first.coerceAtMost(poolSize)
         val upperBound = params.countRange.last.coerceAtMost(poolSize)

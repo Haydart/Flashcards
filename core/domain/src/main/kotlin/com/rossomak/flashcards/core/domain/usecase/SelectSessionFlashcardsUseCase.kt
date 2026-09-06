@@ -26,10 +26,14 @@ import kotlinx.coroutines.coroutineScope
  *
  * Session-only. Browsing a Subcategory does not come through here: a browsed list is complete and
  * stably ordered, where a session draw is capped and shuffled.
+ *
+ * [random] drives the shuffle — `Random.Default` in production, bound in `RandomModule`, and a
+ * fixed `Random` in tests, injected directly. There is no session seed.
  */
 class SelectSessionFlashcardsUseCase @Inject constructor(
     private val getFlashcards: GetFlashcardsUseCase,
     private val filterFlashcards: FilterFlashcardsUseCase,
+    private val random: Random,
 ) : UseCase<StudySessionConfig, Result<StudySessionPlan>> {
 
     /**
@@ -65,7 +69,7 @@ class SelectSessionFlashcardsUseCase @Inject constructor(
      */
     private fun draw(filtered: FilteredFlashcards, config: StudySessionConfig): List<Flashcard> =
         filtered.cards
-            .shuffled(Random(config.seed))
+            .shuffled(random)
             .take(config.length)
             .orderedBy(config.sortOrder)
 

@@ -20,6 +20,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
+import kotlin.random.Random
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -72,8 +73,9 @@ class PreviewStudySessionSortSeedingTest {
         SelectSessionFlashcardsUseCase(
             getFlashcards = GetFlashcardsUseCase(flashcardRepository),
             filterFlashcards = FilterFlashcardsUseCase(),
+            random = Random.Default,
         ),
-        SampleQuickSessionSubcategoriesUseCase(),
+        SampleQuickSessionSubcategoriesUseCase(random = Random.Default),
         ObserveStudySessionPreferencesUseCase(preferencesRepository),
         SaveStudySessionPreferenceUseCase(preferencesRepository),
         voiceSettingsController,

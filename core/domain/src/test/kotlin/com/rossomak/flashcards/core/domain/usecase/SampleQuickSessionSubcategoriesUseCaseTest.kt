@@ -3,44 +3,43 @@ package com.rossomak.flashcards.core.domain.usecase
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import kotlin.random.Random
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
 class SampleQuickSessionSubcategoriesUseCaseTest {
 
-    private val useCase = SampleQuickSessionSubcategoriesUseCase()
+    private fun createUseCase(random: Random = Random(FIXED_SEED)): SampleQuickSessionSubcategoriesUseCase =
+        SampleQuickSessionSubcategoriesUseCase(random = random)
 
     private fun params(
         candidateSubcategoryIds: List<String> = CANDIDATE_IDS,
         countRange: IntRange = COUNT_RANGE,
-        seed: Long = FIXED_SEED,
     ): SampleQuickSessionSubcategoriesUseCase.Params = SampleQuickSessionSubcategoriesUseCase.Params(
         candidateSubcategoryIds = candidateSubcategoryIds,
         countRange = countRange,
-        seed = seed,
     )
 
     @Test
-    fun `the same seed always samples the same subset`() = runTest {
-        val firstSample = useCase(params())
-        val secondSample = useCase(params())
+    fun `a fixed random always samples the same subset`() = runTest {
+        val firstSample = createUseCase(random = Random(FIXED_SEED))(params())
+        val secondSample = createUseCase(random = Random(FIXED_SEED))(params())
 
         firstSample shouldBe secondSample
     }
 
     @Test
-    fun `a different seed samples a different subset`() = runTest {
-        val firstSample = useCase(params(seed = FIXED_SEED))
-        val secondSample = useCase(params(seed = FIXED_SEED + 1))
+    fun `the default random produces varying samples across repetitions`() = runTest {
+        val samples = (1..10).map { createUseCase(random = Random.Default)(params()) }
 
-        firstSample shouldNotBe secondSample
+        samples.distinct().size shouldNotBe 1
     }
 
     @Test
     fun `a candidate pool smaller than the range's minimum returns the whole pool`() = runTest {
         val smallPool = listOf("android-compose", "android-coroutines")
 
-        val sample = useCase(params(candidateSubcategoryIds = smallPool, countRange = 3..5))
+        val sample = createUseCase()(params(candidateSubcategoryIds = smallPool, countRange = 3..5))
 
         sample.toSet() shouldBe smallPool.toSet()
         sample shouldHaveSize smallPool.size
@@ -48,8 +47,9 @@ class SampleQuickSessionSubcategoriesUseCaseTest {
 
     @Test
     fun `the sampled count always falls within the range once the pool is large enough`() = runTest {
-        (0 until 50).forEach { seed ->
-            val sample = useCase(params(seed = seed.toLong()))
+        val useCase = createUseCase(random = Random.Default)
+        repeat(50) {
+            val sample = useCase(params())
 
             (sample.size in COUNT_RANGE) shouldBe true
         }
@@ -57,7 +57,7 @@ class SampleQuickSessionSubcategoriesUseCaseTest {
 
     @Test
     fun `every sampled id comes from the candidate pool`() = runTest {
-        val sample = useCase(params())
+        val sample = createUseCase()(params())
 
         sample.forEach { id -> (id in CANDIDATE_IDS) shouldBe true }
     }

@@ -44,6 +44,7 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import io.mockk.verify
+import kotlin.random.Random
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -115,8 +116,9 @@ class PreviewStudySessionViewModelTest {
         SelectSessionFlashcardsUseCase(
             getFlashcards = GetFlashcardsUseCase(flashcardRepository),
             filterFlashcards = FilterFlashcardsUseCase(),
+            random = Random.Default,
         ),
-        SampleQuickSessionSubcategoriesUseCase(),
+        SampleQuickSessionSubcategoriesUseCase(random = Random.Default),
         ObserveStudySessionPreferencesUseCase(studySessionPreferencesRepository),
         SaveStudySessionPreferenceUseCase(studySessionPreferencesRepository),
         voiceSettingsController,
@@ -516,6 +518,7 @@ class PreviewStudySessionViewModelTest {
 
             val viewModel = createViewModel()
             advanceUntilIdle()
+            val sampledIdsBeforeConfirm = viewModel.state.value.config.subcategoryIds
             val draftDialog = SubcategoryCountRange(draft = viewModel.state.value.config.subcategoryCountRange)
             viewModel.onDialogEvent(Open(draftDialog))
             viewModel.onDialogEvent(
@@ -527,6 +530,13 @@ class PreviewStudySessionViewModelTest {
             studySessionPreferencesRepository.preferences.value.subcategoryCountRange shouldBe
                 narrowerSubcategoryCountRange
             viewModel.state.value.config.subcategoryCountRange shouldBe narrowerSubcategoryCountRange
+            // A count-range change edits a setting for the *next* sample — it never itself
+            // re-samples (ADR-0040), so the held sample from the initial load is untouched here.
+            viewModel.state.value.config.subcategoryIds shouldBe sampledIdsBeforeConfirm
+
+            viewModel.onReshuffleSubcategories()
+            advanceUntilIdle()
+
             (viewModel.state.value.config.subcategoryIds.size in narrowerSubcategoryCountRange) shouldBe true
         }
 
@@ -832,25 +842,26 @@ class PreviewStudySessionViewModelTest {
     }
 
     @Test
-    fun `onReshuffleSubcategories redraws with a new seed, keeping session size`() = runTest(mainDispatcherRule.testDispatcher) {
-        stubRoute(multiSubcategoryRoute)
-        flashcardRepository.flashcardsBySubcategory["android-compose"] =
-            Result.success((1..30).map { index -> flashcard(id = "compose-$index") })
-        flashcardRepository.flashcardsBySubcategory["android-coroutines"] =
-            Result.success((1..30).map { index -> flashcard(id = "coroutines-$index", subcategoryId = "android-coroutines") })
+    fun `onReshuffleSubcategories redraws a different set of cards, keeping session size`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(multiSubcategoryRoute)
+            flashcardRepository.flashcardsBySubcategory["android-compose"] =
+                Result.success((1..30).map { index -> flashcard(id = "compose-$index") })
+            flashcardRepository.flashcardsBySubcategory["android-coroutines"] =
+                Result.success(
+                    (1..30).map { index -> flashcard(id = "coroutines-$index", subcategoryId = "android-coroutines") },
+                )
 
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-        val cardIdsBeforeReshuffle = viewModel.selectedCardIds
-        val seedBeforeReshuffle = viewModel.state.value.config.seed
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            val cardIdsBeforeReshuffle = viewModel.selectedCardIds
 
-        viewModel.onReshuffleSubcategories()
-        advanceUntilIdle()
+            viewModel.onReshuffleSubcategories()
+            advanceUntilIdle()
 
-        viewModel.state.value.config.seed shouldNotBe seedBeforeReshuffle
-        viewModel.state.value.selectedCardCount shouldBe 20
-        viewModel.selectedCardIds shouldNotBe cardIdsBeforeReshuffle
-    }
+            viewModel.state.value.selectedCardCount shouldBe 20
+            viewModel.selectedCardIds shouldNotBe cardIdsBeforeReshuffle
+        }
 
     @Test
     fun `a Custom session cannot reshuffle subcategories, single or multi`() = runTest(mainDispatcherRule.testDispatcher) {
@@ -898,6 +909,53 @@ class PreviewStudySessionViewModelTest {
 
             val sampledIds = viewModel.state.value.config.subcategoryIds
             (sampledIds.size in narrowerSubcategoryCountRange) shouldBe true
+        }
+
+    @Test
+    fun `a filter, length or sort change never resamples a quick session's subcategories`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(quickSessionRoute)
+            quickSessionRoute.subcategoryIds.forEach { id ->
+                flashcardRepository.flashcardsBySubcategory[id] =
+                    Result.success((1..30).map { index -> flashcard(id = "$id-card-$index", subcategoryId = id) })
+            }
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            val sampledIds = viewModel.state.value.config.subcategoryIds
+
+            viewModel.onDialogEvent(Open(Length(draft = viewModel.state.value.config.length)))
+            viewModel.onDialogEvent(DraftChange(Length(draft = 10)))
+            viewModel.onDialogEvent(Confirm)
+            advanceUntilIdle()
+            viewModel.state.value.config.subcategoryIds shouldBe sampledIds
+
+            viewModel.onDialogEvent(Open(Sort(draft = viewModel.state.value.config.sortOrder)))
+            viewModel.onDialogEvent(DraftChange(Sort(draft = FlashcardSortOrder.HardestFirst)))
+            viewModel.onDialogEvent(Confirm)
+            advanceUntilIdle()
+            viewModel.state.value.config.subcategoryIds shouldBe sampledIds
+
+            viewModel.onDialogEvent(
+                Open(
+                    Filters(
+                        draft = FlashcardFilters(
+                            selectedTags = viewModel.state.value.config.tagIds,
+                            difficultyRange = viewModel.state.value.config.difficultyRange,
+                        ),
+                        availableTags = viewModel.state.value.availableTags,
+                    ),
+                ),
+            )
+            val filtersDialog = viewModel.state.value.activeDialog as Filters
+            viewModel.onDialogEvent(
+                DraftChange(
+                    filtersDialog.copy(draft = FlashcardFilters(selectedTags = emptySet(), difficultyRange = 1..5)),
+                ),
+            )
+            viewModel.onDialogEvent(Confirm)
+            advanceUntilIdle()
+            viewModel.state.value.config.subcategoryIds shouldBe sampledIds
         }
 
     @Test

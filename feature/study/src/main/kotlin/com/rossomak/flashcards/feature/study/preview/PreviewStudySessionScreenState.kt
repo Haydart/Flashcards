@@ -19,6 +19,12 @@ data class PreviewStudySessionScreenState(
     val availableTags: List<String> = emptyList(),
     /** Resolves `config.voiceSettings.voiceId` to a [VoiceOption] for the voice row's summary. */
     val availableVoices: List<VoiceOption> = emptyList(),
+    /**
+     * Quick Session's sampled subcategory ids, held here rather than re-derived per selection:
+     * sampling runs on load and on Re-randomise only, and every other selection reuses this
+     * (ADR-0040). Null for a non-Quick session, and before the first sample completes.
+     */
+    val quickSessionSampledSubcategoryIds: List<String>? = null,
     val activeDialog: PreviewDialog? = null,
 ) {
     val isSingleSubcategory: Boolean get() = subcategoryNames.size == 1
