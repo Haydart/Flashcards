@@ -1,6 +1,5 @@
 package com.rossomak.flashcards.feature.study.rated
 
-import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -109,24 +108,6 @@ class RatedStudySessionViewModel @Inject constructor(
     // Seeded once the routed cards resolve (loadFlashcards); null only during that initial load.
     private var ratedSessionState: RatedSessionState? = null
 
-    // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge): plain android.util.Log
-    // is unmocked in this module's JVM unit tests (no Robolectric), so every call site below routes
-    // through this instead of Log.d directly — swallows the "not mocked" RuntimeException there,
-    // logs for real on device.
-    private fun logCr(message: String) {
-        runCatching { Log.d(TEST_LOG_TAG, message) }
-    }
-
-    // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge): compact partial
-    // state dump appended to most operation logs below, so a single logcat line shows what changed
-    // and what the rest of the session looked like at that instant.
-    private fun stateSnapshot(): String {
-        val s = _state.value
-        return "card=${s.currentCard?.id} idx=${s.currentCardIndex} mastered=${s.masteredCount}/${s.distinctCardCount} " +
-            "ratings=${s.currentCardRatings} remaining=${s.flashcards.size} silenceCount=$consecutiveSilenceCount " +
-            "voice(active=${s.isVoiceActive} playing=${s.isVoicePlaying} answerPhase=${s.voiceAnswerPhase} paused=${s.isVoiceAnswerPaused})"
-    }
-
     private val isExtendedContextDialogOpen: Boolean
         get() = _state.value.activeDialog is ExtendedContext
 
@@ -194,8 +175,6 @@ class RatedStudySessionViewModel @Inject constructor(
             )
             _state.update { it.copy(isLoading = false) }
             syncStateFromRatedSession()
-            // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge).
-            logCr("loadFlashcards done, ${sessionCards.size} cards | ${stateSnapshot()}")
             honourRoutedVoiceAnswering(hasCards = sessionCards.isNotEmpty())
         }
     }
@@ -226,9 +205,6 @@ class RatedStudySessionViewModel @Inject constructor(
         // regardless of bind state, so this still reaches the gateway before onServiceConnected()
         // loads it, rather than leaving it to load the stale pre-rating order.
         if (_state.value.isVoiceActive || voiceStarted) {
-            // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge): confirms
-            // the voice gateway is actually re-seeded on every reorder, and with what order.
-            logCr("updateQueue -> ${machine.remainingCards.map { it.id }}")
             voiceGateway.updateQueue(machine.remainingCards)
         }
     }
@@ -249,8 +225,6 @@ class RatedStudySessionViewModel @Inject constructor(
         viewModelScope.launch {
             voiceGateway.state.collect { voice ->
                 if (voice.error != null) {
-                    // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge).
-                    logCr("observeVoiceState error=${voice.error} | ${stateSnapshot()}")
                     voiceStarted = false
                     _state.update { it.copy(isVoiceActive = false, isVoicePlaying = false, voiceError = voice.error) }
                     return@collect
@@ -337,13 +311,9 @@ class RatedStudySessionViewModel @Inject constructor(
                 val grade = voiceAnswer.lastGrade
                 when {
                     grade != null -> onVoiceGraded(grade, voiceAnswer.lastGradedCardId)
-                    voiceAnswer.error != null -> {
-                        // TEST-LOG (throwaway, PR 66 CR manual verification — remove before
-                        // merge): confirms a grading/transcription failure is no longer counted
-                        // as a silence timeout (was: bumped consecutiveSilenceCount, could
-                        // trigger the repeated-silence pause after 3 unrelated network errors).
-                        logCr("grading error ignored, not counted as silence: ${voiceAnswer.error}")
-                    }
+                    // A grading/transcription failure is not counted as a silence timeout — it
+                    // is simply ignored, leaving the queue and consecutiveSilenceCount untouched.
+                    voiceAnswer.error != null -> Unit
                     else -> onVoiceSilenceTimeout()
                 }
             }
@@ -355,8 +325,7 @@ class RatedStudySessionViewModel @Inject constructor(
      * manual tap, using the fixed grade-band mapping (ticket 04 of the Rated session state machine
      * sequence). An actual graded utterance is the only proof someone is there, so this is also the
      * one place [consecutiveSilenceCount] resets.
-     */
-    /**
+     *
      * [gradedCardId] guards against grading a card the reducer head has already moved past — the
      * Rated voice transport still allows Next while a question is being read (before listening
      * opens), so a grade can in principle land for a card that isn't the current head any more. A
@@ -364,13 +333,7 @@ class RatedStudySessionViewModel @Inject constructor(
      */
     private fun onVoiceGraded(grade: VoiceAnswerGrade, gradedCardId: String?) {
         val headCardId = ratedSessionState?.currentCard?.id
-        if (gradedCardId != null && gradedCardId != headCardId) {
-            // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge).
-            logCr("onVoiceGraded ignored, gradedCardId=$gradedCardId != head=$headCardId")
-            return
-        }
-        // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge).
-        logCr("onVoiceGraded percent=${grade.gradePercent} -> ${grade.toFlashcardRating()} | ${stateSnapshot()}")
+        if (gradedCardId != null && gradedCardId != headCardId) return
         consecutiveSilenceCount = 0
         applyRating(grade.toFlashcardRating(), deferSync = true)
     }
@@ -385,14 +348,9 @@ class RatedStudySessionViewModel @Inject constructor(
      * next head must not appear until that notice finishes.
      */
     private fun onVoiceSilenceTimeout() {
-        val cardBefore = ratedSessionState?.currentCard?.id
         ratedSessionState = ratedSessionState?.let(::requeueAfterSilence)
         consecutiveSilenceCount++
-        pendingSessionSync = {
-            syncStateFromRatedSession()
-            // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge).
-            logCr("onVoiceSilenceTimeout card=$cardBefore requeued | ${stateSnapshot()}")
-        }
+        pendingSessionSync = { syncStateFromRatedSession() }
         if (consecutiveSilenceCount >= CONSECUTIVE_SILENCE_PAUSE_THRESHOLD) {
             pauseForRepeatedSilence()
         }
@@ -403,8 +361,6 @@ class RatedStudySessionViewModel @Inject constructor(
      * and the microphone stop; only the resume affordance stays live.
      */
     private fun pauseForRepeatedSilence() {
-        // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge).
-        logCr("pauseForRepeatedSilence | ${stateSnapshot()}")
         if (_state.value.isVoicePlaying) voiceGateway.togglePlayPause()
         voiceGateway.setVoiceAnswering(false)
         _state.update { it.copy(isVoiceAnswerPaused = true) }
@@ -412,8 +368,6 @@ class RatedStudySessionViewModel @Inject constructor(
 
     /** Re-arms voice answering on the same card, counter back at zero. */
     fun onResumeSession() {
-        // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge).
-        logCr("onResumeSession | ${stateSnapshot()}")
         consecutiveSilenceCount = 0
         _state.update { it.copy(isVoiceAnswerPaused = false) }
         voiceGateway.setVoiceAnswering(true)
@@ -429,8 +383,6 @@ class RatedStudySessionViewModel @Inject constructor(
     }
 
     fun onVoiceAnswerToggle() {
-        // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge).
-        logCr("onVoiceAnswerToggle enabled=${_state.value.isVoiceAnswerEnabled} | ${stateSnapshot()}")
         if (_state.value.isVoiceAnswerEnabled) {
             // Voice-answering-on drives the shared TTS engine in a stop-after-question shape;
             // there is no meaningful "keep reading, just stop grading" middle state (ADR-0025),
@@ -470,8 +422,6 @@ class RatedStudySessionViewModel @Inject constructor(
     }
 
     fun onMicPermissionResult(isGranted: Boolean) {
-        // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge).
-        logCr("onMicPermissionResult granted=$isGranted | ${stateSnapshot()}")
         _state.update { it.copy(isMicPermissionRequestPending = false) }
         if (!isGranted) return
         // Rated sessions never auto-start the gateway; enabling voice answering is what
@@ -485,8 +435,6 @@ class RatedStudySessionViewModel @Inject constructor(
     }
 
     fun onShowAnswer() {
-        // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge).
-        logCr("onShowAnswer | ${stateSnapshot()}")
         if (_state.value.isVoiceActive) {
             voiceGateway.showAnswer()
         } else {
@@ -516,20 +464,12 @@ class RatedStudySessionViewModel @Inject constructor(
         val machine = ratedSessionState ?: return
         // A rapid second tap, or a late voice grade/silence timeout racing the terminal navigation
         // event, can still reach here after the queue has emptied — rate() assumes a head to rate.
-        if (machine.isComplete) {
-            // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge): confirms
-            // the guard actually caught a rating attempt after completion instead of crashing.
-            logCr("onRating($rating) ignored, session already complete")
-            return
-        }
-        val cardBefore = machine.currentCard?.id
+        if (machine.isComplete) return
         val outcome = rate(machine, rating)
         ratedSessionState = outcome.state
         val applyEffects = {
             _state.update { it.copy(isAnswerRevealed = false) }
             syncStateFromRatedSession()
-            // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge).
-            logCr("onRating($rating) card=$cardBefore -> terminal=${outcome.terminal} | ${stateSnapshot()}")
             if (outcome.state.isComplete) navigateBack()
         }
         if (deferSync) pendingSessionSync = applyEffects else applyEffects()
@@ -540,8 +480,6 @@ class RatedStudySessionViewModel @Inject constructor(
         with(_state.value) {
             if (flashcards.isEmpty()) return
             voiceStarted = true
-            // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge).
-            logCr("ensureVoiceGatewayStarted cards=${flashcards.map { it.id }} startIndex=$currentCardIndex")
             voiceGateway.start(
                 cards = flashcards,
                 startIndex = currentCardIndex,
@@ -553,8 +491,6 @@ class RatedStudySessionViewModel @Inject constructor(
     }
 
     fun onVoicePlayPause() {
-        // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge).
-        logCr("onVoicePlayPause | ${stateSnapshot()}")
         if (pausedDueToExtendedContext) {
             advanceAfterExtendedContextJob?.cancel()
             pausedDueToExtendedContext = false
@@ -568,16 +504,12 @@ class RatedStudySessionViewModel @Inject constructor(
     }
 
     fun onVoiceNext() {
-        // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge).
-        logCr("onVoiceNext | ${stateSnapshot()}")
         advanceAfterExtendedContextJob?.cancel()
         pausedDueToExtendedContext = false
         voiceGateway.rewindToNext()
     }
 
     fun onVoicePrevious() {
-        // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge).
-        logCr("onVoicePrevious | ${stateSnapshot()}")
         advanceAfterExtendedContextJob?.cancel()
         pausedDueToExtendedContext = false
         if (isPastRewindThreshold || voiceGateway.state.value.currentIndex == 0) {
@@ -589,14 +521,10 @@ class RatedStudySessionViewModel @Inject constructor(
     }
 
     fun onVoiceSpeedChange(rate: Float) {
-        // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge).
-        logCr("onVoiceSpeedChange rate=$rate")
         voiceGateway.setSpeechRate(rate)
     }
 
     private fun onExtendedContextDialogOpen(dialog: ExtendedContext) {
-        // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge).
-        logCr("onExtendedContextDialogOpen | ${stateSnapshot()}")
         _state.update { it.copy(activeDialog = dialog) }
         val voiceState = voiceGateway.state.value
         if (voiceState.isInBetweenPause && voiceState.isPlaying) {
@@ -606,8 +534,6 @@ class RatedStudySessionViewModel @Inject constructor(
     }
 
     private fun onExtendedContextDialogDismissed() {
-        // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge).
-        logCr("onExtendedContextDialogDismissed pausedDueToExtendedContext=$pausedDueToExtendedContext")
         if (pausedDueToExtendedContext) {
             advanceAfterExtendedContextJob = viewModelScope.launch {
                 delay(EXTENDED_CONTEXT_ADVANCE_DELAY_MS)
@@ -797,8 +723,6 @@ class RatedStudySessionViewModel @Inject constructor(
 
     /** Leaving is a one-time event, never a flag in state (ADR-0019). */
     private fun navigateBack() {
-        // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge).
-        logCr("navigateBack | ${stateSnapshot()}")
         viewModelScope.launch { eventChannel.send(RatedStudySessionDestination.Back) }
     }
 
@@ -807,8 +731,6 @@ class RatedStudySessionViewModel @Inject constructor(
     }
 
     public override fun onCleared() {
-        // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge).
-        logCr("onCleared | ${stateSnapshot()}")
         voiceGateway.stop()
         super.onCleared()
     }
@@ -816,8 +738,5 @@ class RatedStudySessionViewModel @Inject constructor(
     private companion object {
         const val EXTENDED_CONTEXT_ADVANCE_DELAY_MS = 500L
         const val CONSECUTIVE_SILENCE_PAUSE_THRESHOLD = 3
-
-        // TEST-LOG (throwaway, PR 66 CR manual verification — remove before merge).
-        const val TEST_LOG_TAG = "RatedCR"
     }
 }
