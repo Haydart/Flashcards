@@ -24,8 +24,10 @@ import com.rossomak.flashcards.feature.browse.SubcategoryDetailsRoute
 import com.rossomak.flashcards.feature.browse.SubcategoryDetailsScreen
 import com.rossomak.flashcards.feature.onboarding.OnboardingRoute
 import com.rossomak.flashcards.feature.onboarding.OnboardingScreen
+import com.rossomak.flashcards.feature.study.FastStudySessionRoute
 import com.rossomak.flashcards.feature.study.PreviewStudySessionRoute
 import com.rossomak.flashcards.feature.study.StudySessionRoute
+import com.rossomak.flashcards.feature.study.fast.FastStudySessionScreen
 import com.rossomak.flashcards.feature.study.preview.PreviewStudySessionScreen
 import com.rossomak.flashcards.feature.study.session.StudySessionScreen
 import com.rossomak.flashcards.presentation.main.MainScreen
@@ -260,11 +262,17 @@ fun FlashcardsNavGraph(
                 composable<PreviewStudySessionRoute> {
                     PreviewStudySessionScreen(
                         onNavigateBack = { navController.popBackStack() },
-                        onNavigateToStudySession = { route -> navController.navigate(route) }
+                        onNavigateToStudySession = { route -> navController.navigate(route) },
+                        onNavigateToFastStudySession = { route -> navController.navigate(route) }
                     )
                 }
                 composable<StudySessionRoute> {
                     StudySessionScreen(
+                        onNavigateBack = { navController.popBackStack() }
+                    )
+                }
+                composable<FastStudySessionRoute> {
+                    FastStudySessionScreen(
                         onNavigateBack = { navController.popBackStack() }
                     )
                 }
