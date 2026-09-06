@@ -409,9 +409,9 @@ class RatedStudySessionViewModel @Inject constructor(
             val dialog = state.activeDialog as? VoiceSettings ?: return@update state
             state.copy(
                 activeDialog = dialog.copy(
-                    draft = dialog.draft.copy(
+                    draftState = dialog.draftState.copy(
                         availableVoices = voices,
-                        draftVoiceId = dialog.draft.draftVoiceId ?: voices.firstOrNull()?.id,
+                        draftVoiceId = dialog.draftState.draftVoiceId ?: voices.firstOrNull()?.id,
                     ),
                 ),
             )
@@ -426,10 +426,10 @@ class RatedStudySessionViewModel @Inject constructor(
      */
     private fun onVoiceSettingsSave() {
         val dialog = _state.value.activeDialog as? VoiceSettings ?: return
-        val settings = dialog.draft.toVoiceSettings()
+        val settings = dialog.draftState.toVoiceSettings()
         sessionVoiceSettings = settings
         if (dialog.keepAsDefault) {
-            voiceSettingsController.save(viewModelScope, dialog.draft)
+            voiceSettingsController.save(viewModelScope, dialog.draftState)
         } else {
             voiceSettingsController.stopPreview()
         }
@@ -470,7 +470,7 @@ class RatedStudySessionViewModel @Inject constructor(
     /**
      * The caller hands over the dialog it wants shown, already seeded from what it was rendering.
      * This adds only what the call site could not: the playback side effects, and the voice-settings
-     * draft, which comes from the shared controller rather than screen state.
+     * draftState, which comes from the shared controller rather than screen state.
      */
     private fun onDialogOpen(dialog: StudySessionDialog) {
         when (dialog) {
@@ -483,9 +483,9 @@ class RatedStudySessionViewModel @Inject constructor(
     }
 
     /**
-     * Stores the draft the host built, then fires any side effect the edit implies.
+     * Stores the draftState the host built, then fires any side effect the edit implies.
      *
-     * The side effect comes from diffing the previous draft against the next rather than from an
+     * The side effect comes from diffing the previous draftState against the next rather than from an
      * event that names the changed field: it keeps every dialog on the one generic
      * [StudySessionDialogEvent.DraftChange], and puts the trigger somewhere a unit test can reach
      * (ADR-0036).
@@ -495,9 +495,9 @@ class RatedStudySessionViewModel @Inject constructor(
         _state.update { it.copy(activeDialog = dialog) }
         if (previous is VoiceSettings &&
             dialog is VoiceSettings &&
-            dialog.draft != previous.draft
+            dialog.draftState != previous.draftState
         ) {
-            voiceSettingsController.preview(dialog.draft)
+            voiceSettingsController.preview(dialog.draftState)
         }
     }
 
@@ -515,7 +515,7 @@ class RatedStudySessionViewModel @Inject constructor(
         }
     }
 
-    /** Always the discard path: the draft dies with the field. */
+    /** Always the discard path: the draftState dies with the field. */
     private fun onDialogDismiss() {
         val dialog = _state.value.activeDialog
         _state.update { it.copy(activeDialog = null) }

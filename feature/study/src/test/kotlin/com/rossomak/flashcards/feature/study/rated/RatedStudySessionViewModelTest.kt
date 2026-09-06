@@ -444,7 +444,7 @@ class RatedStudySessionViewModelTest {
             voiceGateway.stateFlow.value = VoicePlaybackState(isActive = true)
             advanceUntilIdle()
             viewModel.onDialogEvent(Open(StudySessionDialog.VoiceSettings()))
-            val draft = (viewModel.state.value.activeDialog as StudySessionDialog.VoiceSettings).draft
+            val draft = (viewModel.state.value.activeDialog as StudySessionDialog.VoiceSettings).draftState
                 .copy(draftSpeed = 1.5f, draftVoiceId = "voice-1")
             viewModel.onDialogEvent(DraftChange(StudySessionDialog.VoiceSettings(draft)))
 
