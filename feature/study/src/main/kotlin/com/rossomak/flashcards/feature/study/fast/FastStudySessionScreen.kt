@@ -52,6 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import com.rossomak.flashcards.feature.study.R
+import com.rossomak.flashcards.feature.study.StudySessionSummaryRoute
 import com.rossomak.flashcards.feature.study.chrome.StudySessionBody
 import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.ExitSession
 import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.ExtendedContext
@@ -66,13 +67,13 @@ import kotlinx.coroutines.launch
 fun FastStudySessionScreen(
     modifier: Modifier = Modifier,
     viewModel: FastStudySessionViewModel = hiltViewModel(),
-    onNavigateBack: () -> Unit,
+    onNavigateToSummary: (StudySessionSummaryRoute) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     observeAsEvents(viewModel.events) { destination ->
         when (destination) {
-            FastStudySessionDestination.Back -> onNavigateBack()
+            is FastStudySessionDestination.Summary -> onNavigateToSummary(destination.route)
         }
     }
 

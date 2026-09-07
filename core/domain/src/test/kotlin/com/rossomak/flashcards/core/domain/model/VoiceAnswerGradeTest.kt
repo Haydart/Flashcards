@@ -10,26 +10,26 @@ class VoiceAnswerGradeTest {
 
     @Test
     fun `a grade below 40 percent maps to Failed`() {
-        grade(39).toFlashcardRating() shouldBe FlashcardRating.Failed
+        grade(39).toFlashcardAttemptRating() shouldBe FlashcardAttemptRating.Failed
     }
 
     @Test
     fun `a grade of exactly 40 percent maps to PartiallyCorrect`() {
-        grade(40).toFlashcardRating() shouldBe FlashcardRating.PartiallyCorrect
+        grade(40).toFlashcardAttemptRating() shouldBe FlashcardAttemptRating.PartiallyCorrect
     }
 
     @Test
     fun `a grade of 79 percent maps to PartiallyCorrect`() {
-        grade(79).toFlashcardRating() shouldBe FlashcardRating.PartiallyCorrect
+        grade(79).toFlashcardAttemptRating() shouldBe FlashcardAttemptRating.PartiallyCorrect
     }
 
     @Test
     fun `a grade of exactly 80 percent maps to Correct`() {
-        grade(80).toFlashcardRating() shouldBe FlashcardRating.Correct
+        grade(80).toFlashcardAttemptRating() shouldBe FlashcardAttemptRating.Correct
     }
 
     @Test
     fun `a grade of 100 percent maps to Correct`() {
-        grade(100).toFlashcardRating() shouldBe FlashcardRating.Correct
+        grade(100).toFlashcardAttemptRating() shouldBe FlashcardAttemptRating.Correct
     }
 }

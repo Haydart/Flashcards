@@ -1,7 +1,7 @@
 package com.rossomak.flashcards.feature.study.rated
 
 import com.rossomak.flashcards.core.domain.model.Flashcard
-import com.rossomak.flashcards.core.domain.model.FlashcardRating
+import com.rossomak.flashcards.core.domain.model.FlashcardAttemptRating
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
 import com.rossomak.flashcards.core.ui.composables.FlashcardsAttemptIndicator
@@ -49,7 +49,7 @@ data class RatedStudySessionScreenState(
     val distinctCardCount: Int = 0,
     // Mirrors RatedSessionState.currentCardRatings — the current (head) card's own Rating history,
     // source for the Attempt indicator's slots below.
-    val currentCardRatings: List<FlashcardRating> = emptyList(),
+    val currentCardRatings: List<FlashcardAttemptRating> = emptyList(),
     // The routed Attempts limit (RatedStudySessionRoute.ratedAttempts): the Attempt indicator's
     // total slot count, independent of how many attempts this card has used so far.
     val attemptsLimit: Int = StudySessionConfig.DEFAULT_RATED_ATTEMPTS,
@@ -77,8 +77,8 @@ data class RatedStudySessionScreenState(
         }
 }
 
-private fun FlashcardRating.toAttemptSlotState(): FlashcardsAttemptSlotState = when (this) {
-    FlashcardRating.Failed -> FlashcardsAttemptSlotState.Failed
-    FlashcardRating.PartiallyCorrect -> FlashcardsAttemptSlotState.Partial
-    FlashcardRating.Correct -> FlashcardsAttemptSlotState.Correct
+private fun FlashcardAttemptRating.toAttemptSlotState(): FlashcardsAttemptSlotState = when (this) {
+    FlashcardAttemptRating.Failed -> FlashcardsAttemptSlotState.Failed
+    FlashcardAttemptRating.PartiallyCorrect -> FlashcardsAttemptSlotState.Partial
+    FlashcardAttemptRating.Correct -> FlashcardsAttemptSlotState.Correct
 }

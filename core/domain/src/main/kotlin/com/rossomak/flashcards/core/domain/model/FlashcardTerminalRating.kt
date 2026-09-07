@@ -2,11 +2,11 @@ package com.rossomak.flashcards.core.domain.model
 
 /**
  * A Flashcard's outcome once a Rated Study Session's [RatedSessionState] has finished asking it —
- * distinct from [FlashcardRating], which is one answer's grade rather than one card's outcome.
+ * distinct from [FlashcardAttemptRating], which is one answer's grade rather than one card's outcome.
  * Collapsing the two is exactly the confusion
  * [ADR-0044](../../../../../../../docs/adr/0044-three-valued-terminal-state.md) exists to prevent.
  */
-enum class TerminalState {
+enum class FlashcardTerminalRating {
     /** The card was rated Correct at least once. */
     Mastered,
 

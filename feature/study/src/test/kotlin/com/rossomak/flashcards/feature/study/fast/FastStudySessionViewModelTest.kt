@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
 import com.rossomak.flashcards.core.domain.model.CurationAction
 import com.rossomak.flashcards.core.domain.model.Flashcard
+import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
 import com.rossomak.flashcards.core.domain.model.VoiceSettings
 import com.rossomak.flashcards.core.domain.repository.CurationRepository
 import com.rossomak.flashcards.core.domain.repository.FakeCurationRepository
@@ -27,12 +28,16 @@ import com.rossomak.flashcards.feature.study.voice.VoiceGateway
 import com.rossomak.flashcards.feature.study.voice.VoicePhase
 import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 import com.rossomak.flashcards.testutil.MainDispatcherRule
+import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import io.mockk.verify
+import java.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -208,29 +213,40 @@ class FastStudySessionViewModelTest {
     }
 
     @Test
-    fun `onNextCard on the last card navigates back`() = runTest(mainDispatcherRule.testDispatcher) {
-        flashcardRepository.flashcardsBySubcategory[subcategoryId] = Result.success(listOf(flashcard("card-1")))
-        stubRoute(route.copy(cardIds = listOf("card-1")))
+    fun `onNextCard on the last card terminates naturally and navigates to the summary`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            flashcardRepository.flashcardsBySubcategory[subcategoryId] = Result.success(listOf(flashcard("card-1")))
+            stubRoute(route.copy(cardIds = listOf("card-1")))
 
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-        viewModel.onNextCard()
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onShowAnswer()
 
-        viewModel.events.test { awaitItem() shouldBe FastStudySessionDestination.Back }
-    }
+            viewModel.events.test {
+                viewModel.onNextCard()
+                val destination = awaitItem().shouldBeInstanceOf<FastStudySessionDestination.Summary>()
+
+                destination.route.abandoned shouldBe false
+                destination.route.cardIds shouldBe listOf("card-1")
+            }
+        }
 
     @Test
-    fun `confirming the exit dialog closes it and navigates back`() = runTest(mainDispatcherRule.testDispatcher) {
-        loadThreeCards()
-        val viewModel = createViewModel()
-        advanceUntilIdle()
-        viewModel.onDialogEvent(Open(ExitSession))
+    fun `confirming the exit dialog closes it and navigates to the summary with the abandoned flag set`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onDialogEvent(Open(ExitSession))
 
-        viewModel.onDialogEvent(Confirm)
+            viewModel.events.test {
+                viewModel.onDialogEvent(Confirm)
+                val destination = awaitItem().shouldBeInstanceOf<FastStudySessionDestination.Summary>()
 
-        viewModel.state.value.activeDialog shouldBe null
-        viewModel.events.test { awaitItem() shouldBe FastStudySessionDestination.Back }
-    }
+                destination.route.abandoned shouldBe true
+            }
+            viewModel.state.value.activeDialog shouldBe null
+        }
 
     @Test
     fun `dismissing the exit dialog closes it without navigating`() = runTest(mainDispatcherRule.testDispatcher) {
@@ -244,6 +260,224 @@ class FastStudySessionViewModelTest {
         viewModel.state.value.activeDialog shouldBe null
         viewModel.events.test { expectNoEvents() }
     }
+
+    @Test
+    fun `a card skipped during its question is absent from the ledger`() = runTest(mainDispatcherRule.testDispatcher) {
+        loadThreeCards()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        // card-1's question is skipped past without its answer ever being shown.
+        viewModel.onDialogEvent(Open(ExitSession))
+
+        viewModel.events.test {
+            viewModel.onDialogEvent(Confirm)
+            val destination = awaitItem().shouldBeInstanceOf<FastStudySessionDestination.Summary>()
+
+            destination.route.cardIds shouldNotContain "card-1"
+        }
+    }
+
+    @Test
+    fun `a completed Fast session records every card whose answer was shown, all Seen with zero Attempts`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onShowAnswer()
+            viewModel.onNextCard()
+            viewModel.onShowAnswer()
+            viewModel.onNextCard()
+            viewModel.onShowAnswer()
+
+            viewModel.events.test {
+                viewModel.onNextCard()
+                val destination = awaitItem().shouldBeInstanceOf<FastStudySessionDestination.Summary>()
+
+                destination.route.abandoned shouldBe false
+                destination.route.cardIds shouldBe listOf("card-1", "card-2", "card-3")
+                destination.route.cardStates shouldBe List(3) { FlashcardStudyProgressState.Seen }
+                destination.route.cardAttemptsUsed shouldBe List(3) { 0 }
+                destination.route.cardWasPreviouslyMastered shouldBe List(3) { false }
+            }
+        }
+
+    @Test
+    fun `revisiting a card whose answer was already shown does not add a second ledger entry`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onShowAnswer()
+            viewModel.onShowAnswer() // a re-tap while still on the same card
+
+            viewModel.onDialogEvent(Open(ExitSession))
+            viewModel.events.test {
+                viewModel.onDialogEvent(Confirm)
+                val destination = awaitItem().shouldBeInstanceOf<FastStudySessionDestination.Summary>()
+
+                destination.route.cardIds shouldBe listOf("card-1")
+            }
+        }
+
+    @Test
+    fun `an abandoned Fast session's ledger holds only cards seen up to that point`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onShowAnswer()
+            viewModel.onNextCard()
+            // card-2's answer is never shown before exiting.
+            viewModel.onDialogEvent(Open(ExitSession))
+
+            viewModel.events.test {
+                viewModel.onDialogEvent(Confirm)
+                val destination = awaitItem().shouldBeInstanceOf<FastStudySessionDestination.Summary>()
+
+                destination.route.abandoned shouldBe true
+                destination.route.cardIds shouldBe listOf("card-1")
+            }
+        }
+
+    @Test
+    fun `under read-aloud, reaching the answer phase records the card and does not by itself end the session`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.events.test {
+                voiceGateway.stateFlow.value =
+                    VoicePlaybackState(isActive = true, isPlaying = true, currentIndex = 0, totalCards = 3, phase = VoicePhase.Answer)
+                advanceUntilIdle()
+                expectNoEvents()
+            }
+            viewModel.onDialogEvent(Open(ExitSession))
+            viewModel.events.test {
+                viewModel.onDialogEvent(Confirm)
+                val destination = awaitItem().shouldBeInstanceOf<FastStudySessionDestination.Summary>()
+
+                destination.route.cardIds shouldBe listOf("card-1")
+            }
+        }
+
+    @Test
+    fun `read-aloud natural end fires once the queue settles back on the last card's question, not when its answer starts`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            // Each card's answer phase is reached in turn as read-aloud progresses through the deck.
+            listOf(0, 1, 2).forEach { index ->
+                voiceGateway.stateFlow.value =
+                    VoicePlaybackState(isActive = true, isPlaying = true, currentIndex = index, totalCards = 3, phase = VoicePhase.Answer)
+                advanceUntilIdle()
+            }
+
+            viewModel.events.test {
+                voiceGateway.stateFlow.value =
+                    VoicePlaybackState(isActive = true, isPlaying = false, currentIndex = 2, totalCards = 3, phase = VoicePhase.Question)
+                advanceUntilIdle()
+                val destination = awaitItem().shouldBeInstanceOf<FastStudySessionDestination.Summary>()
+
+                destination.route.abandoned shouldBe false
+                destination.route.cardIds shouldBe listOf("card-1", "card-2", "card-3")
+            }
+        }
+
+    @Test
+    fun `the terminal navigation event fires exactly once even if voice state re-settles after natural end`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            voiceGateway.stateFlow.value =
+                VoicePlaybackState(isActive = true, isPlaying = true, currentIndex = 2, totalCards = 3, phase = VoicePhase.Answer)
+            advanceUntilIdle()
+
+            viewModel.events.test {
+                voiceGateway.stateFlow.value =
+                    VoicePlaybackState(isActive = true, isPlaying = false, currentIndex = 2, totalCards = 3, phase = VoicePhase.Question)
+                advanceUntilIdle()
+                awaitItem().shouldBeInstanceOf<FastStudySessionDestination.Summary>()
+
+                // A distinct value (speechRate) so the StateFlow actually re-emits, still matching
+                // the same natural-end condition — terminated must guard this second collection.
+                voiceGateway.stateFlow.value = VoicePlaybackState(
+                    isActive = true,
+                    isPlaying = false,
+                    currentIndex = 2,
+                    totalCards = 3,
+                    phase = VoicePhase.Question,
+                    speechRate = 1.5f,
+                )
+                advanceUntilIdle()
+                expectNoEvents()
+            }
+        }
+
+    @Test
+    fun `duration is measured from first card shown, not from route entry`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            val viewModel = createViewModel()
+            var clockInstant = FIXED_INSTANT
+            viewModel.now = { clockInstant }
+            advanceUntilIdle()
+
+            clockInstant = FIXED_INSTANT.plusSeconds(17)
+            viewModel.onDialogEvent(Open(ExitSession))
+
+            viewModel.events.test {
+                viewModel.onDialogEvent(Confirm)
+                val destination = awaitItem().shouldBeInstanceOf<FastStudySessionDestination.Summary>()
+
+                destination.route.durationSeconds shouldBe 17
+            }
+        }
+
+    @Test
+    fun `a session whose card load fails and is then abandoned reports zero duration and an empty ledger`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            flashcardRepository.flashcardsBySubcategory[subcategoryId] = Result.failure(IllegalStateException("boom"))
+            val viewModel = createViewModel()
+            var clockInstant = FIXED_INSTANT
+            viewModel.now = { clockInstant }
+            advanceUntilIdle()
+
+            clockInstant = FIXED_INSTANT.plusSeconds(999)
+            viewModel.onDialogEvent(Open(ExitSession))
+
+            viewModel.events.test {
+                viewModel.onDialogEvent(Confirm)
+                val destination = awaitItem().shouldBeInstanceOf<FastStudySessionDestination.Summary>()
+
+                destination.route.durationSeconds shouldBe 0
+                destination.route.cardIds.shouldBeEmpty()
+            }
+        }
+
+    @Test
+    fun `a long real-world gap between first card shown and termination is counted in full — v1 never pauses the clock`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            val viewModel = createViewModel()
+            var clockInstant = FIXED_INSTANT
+            viewModel.now = { clockInstant }
+            advanceUntilIdle()
+
+            // Simulates a long backgrounded gap (a phone call, switching apps) with no lifecycle
+            // hook to react to it — v1 is deliberately simplistic: wall time only, no pausing.
+            clockInstant = FIXED_INSTANT.plusSeconds(1_200)
+            viewModel.onDialogEvent(Open(ExitSession))
+
+            viewModel.events.test {
+                viewModel.onDialogEvent(Confirm)
+                val destination = awaitItem().shouldBeInstanceOf<FastStudySessionDestination.Summary>()
+
+                destination.route.durationSeconds shouldBe 1_200
+            }
+        }
 
     @Test
     fun `onVoiceAutoStartDeclined clears the pending flag`() = runTest(mainDispatcherRule.testDispatcher) {
@@ -541,6 +775,10 @@ class FastStudySessionViewModelTest {
         viewModel.onCleared()
 
         voiceGateway.stopCalls shouldBe 1
+    }
+
+    private companion object {
+        val FIXED_INSTANT: Instant = Instant.parse("2026-09-06T10:00:00Z")
     }
 }
 

@@ -28,7 +28,7 @@ Root NavHost
     ├── PreviewStudySession(categoryId, categoryName, subcategoryIds, subcategoryNames, filterTagIds, isQuickSession)
     ├── RatedStudySession(categoryId, sessionTitle, subcategoryIds, cardIds, voiceAnsweringEnabled, attemptsPerCard, partialEndsCard)
     ├── FastStudySession(categoryId, sessionTitle, subcategoryIds, cardIds, readAloudEnabled, speechRate, voiceId)
-    ├── SessionSummary(sessionId)  ← both Study Modes terminate here; also serves a past session's detailed review
+    ├── StudySessionSummary(sessionId, result)  ← mandatory fresh-session egress for both Study Modes, natural end or premature exit; never used to view a past session (a future past-session detail view is a separate screen/route)
     └── CreatePrivateFlashcard(subcategoryId)
 ```
 
@@ -44,7 +44,7 @@ All session entry points navigate to `PreviewStudySessionScreen`, which owns car
 
 - **Study Again (All)**: → `PreviewStudySessionScreen` with same params, `popUpTo<Main>()`.
 - **Study Again (Failed)**: → `RatedStudySession` directly with `cardIds = [failedCardIds]`, `popUpTo<Main>()`. Unambiguous by construction — a failed-card replay is always Rated.
-- **Back to Home / system back from SessionSummary**: `popUpTo<Main>(inclusive = false)` — returns to whatever tab was active.
+- **Back to Home / system back from StudySessionSummary**: `popUpTo<Main>(inclusive = false)` — returns to whatever tab was active.
 
 ### Cross-tab navigation
 
@@ -199,9 +199,9 @@ The batch contains:
 
 **Concurrency is not addressed.** The batch is atomic but not transactional against concurrently-read state: two sessions racing on the same Subcategory (two devices, or two tabs) can both read the same pre-session `progress` document and both apply their `FieldValue.increment` deltas, double-counting `studiedCount`/`masteredCount` and XP. This is an accepted limitation for a single-account academic project, not a designed-around case — a future multi-device-concurrent design would need a transaction that re-reads `progress` and `state/progression` at commit time.
 
-### Session Summary Screen
+### Study Session Summary Screen
 
-**Not yet implemented.** `StudySummaryRoute` exists as a route type but is never registered in the nav graph and no screen composable exists for it. Today, session end (natural or premature) just calls `onNavigateBack()` straight to whichever tab was active.
+**Not yet implemented.** `StudySummaryRoute` exists in code today as a route type (to be renamed `StudySessionSummaryRoute`, alongside a new `StudySessionSummaryScreen`), but it is never registered in the nav graph and no screen composable exists for it. Today, session end (natural or premature) just calls `onNavigateBack()` straight to whichever tab was active.
 
 It is the **mandatory exit path for every session**, abandoned included, and the only place XP is computed and persisted. A freshly-finished session's result arrives as route arguments — `cardResults` flattened into parallel lists of primitives (`androidx.navigation`'s typesafe routes only derive a `NavType` for primitives, enums and lists of those, the same constraint `StudySessionRoute` already works around for its voice settings). `cardIds`/`subcategoryIds`/`states` are always present; `attemptsUsed`/`wasPreviouslyMastered` are Rated-only lists, `null` on a Fast route rather than lists of zeroes and falses. A past session instead carries only `sessionId` and is read back from `sessions/{sessionId}` — one document, `cardResults` included. Session length is capped at `StudySessionConfig.MAX_LENGTH` (50 cards), so the flattened lists stay well within the platform's navigation argument size ceiling.
 

@@ -1,6 +1,7 @@
 package com.rossomak.flashcards.feature.study.fast
 
 import com.rossomak.flashcards.core.ui.navigation.NavigationEvent
+import com.rossomak.flashcards.feature.study.StudySessionSummaryRoute
 
 /**
  * Where a Fast Study Session can send the user. One-time events rather than state (ADR-0019):
@@ -9,6 +10,10 @@ import com.rossomak.flashcards.core.ui.navigation.NavigationEvent
  */
 sealed interface FastStudySessionDestination : NavigationEvent {
 
-    /** The session ended — either the last card was advanced past, or the user confirmed "Exit session?". */
-    data object Back : FastStudySessionDestination
+    /**
+     * The session ended — the deck was exhausted, or the user confirmed "Exit session?" — carrying
+     * the sealed result on to the Session Summary (spec 03 ticket 03). The session's only
+     * destination now; there is no longer a plain "go back" outcome.
+     */
+    data class Summary(val route: StudySessionSummaryRoute) : FastStudySessionDestination
 }

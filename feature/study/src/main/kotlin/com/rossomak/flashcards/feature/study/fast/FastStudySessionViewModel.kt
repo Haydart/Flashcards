@@ -3,8 +3,16 @@ package com.rossomak.flashcards.feature.study.fast
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.rossomak.flashcards.core.domain.model.Flashcard
+import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
+import com.rossomak.flashcards.core.domain.model.SessionClock
+import com.rossomak.flashcards.core.domain.model.SessionLedgerEntry
+import com.rossomak.flashcards.core.domain.model.SessionResult
+import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.VoiceOption
 import com.rossomak.flashcards.core.domain.model.VoiceSettings as SavedVoiceSettings
+import com.rossomak.flashcards.core.domain.model.sealSessionResult
+import com.rossomak.flashcards.core.domain.model.startClock
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.SubmitCurationReportUseCase
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
@@ -23,10 +31,13 @@ import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.ReportPro
 import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.VoiceAnswerConsent
 import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.VoiceSettings
 import com.rossomak.flashcards.feature.study.chrome.StudySessionDialogEvent
+import com.rossomak.flashcards.feature.study.toSummaryRoute
 import com.rossomak.flashcards.feature.study.voice.VoiceGateway
 import com.rossomak.flashcards.feature.study.voice.VoicePhase
 import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.Instant
+import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -92,6 +103,35 @@ class FastStudySessionViewModel @Inject constructor(
     // plain var rather than being re-read from the controller on every playback start.
     private var sessionVoiceSettings: SavedVoiceSettings = route.voiceSettings
 
+    // Generated once per session and carried on the ViewModel rather than SavedStateHandle — the
+    // ViewModel instance itself already survives rotation, and there is nothing to restore it from
+    // after an app kill (spec 03 ticket 02: no in-progress persistence, by design).
+    private val sessionId: String = UUID.randomUUID().toString()
+
+    // Started once, at first card shown, and never paused — v1 is deliberately simplistic: wall
+    // time from first card shown to termination, unconditional of backgrounding or playback state.
+    // Revisit if a richer policy (e.g. pausing on background) is needed later.
+    private var clock: SessionClock = SessionClock()
+
+    // The instant the clock started — carried separately because a session whose card load fails
+    // never starts it at all, and SessionResult.startedAt needs that distinction.
+    private var sessionStartedAt: Instant? = null
+
+    // Test-only seam mirroring RatedStudySessionViewModel.now — production leaves this as
+    // Instant::now and never overrides it.
+    internal var now: () -> Instant = Instant::now
+
+    // Guards terminate() against firing twice — a rapid double advance/exit-confirm, or a stray
+    // voice-state re-collection after natural end has already fired, must not send a second
+    // navigation event.
+    private var terminated = false
+
+    // A Fast card's answer being shown is the Studied criterion (spec 03 ticket 03), tracked here
+    // rather than in core:domain — Fast has no state-machine record the way Rated does, just this
+    // set. A LinkedHashSet keeps first-seen order for the sealed ledger and makes re-recording a
+    // revisited card (skip-previous) a no-op, satisfying idempotency for free.
+    private val seenCardIds = linkedSetOf<String>()
+
     init {
         loadFlashcards()
         observeVoiceState()
@@ -123,7 +163,16 @@ class FastStudySessionViewModel @Inject constructor(
                     isVoiceAutoStartPending = route.readAloudEnabled && sessionCards.isNotEmpty(),
                 )
             }
+            // The clock starts here, once a card is actually on screen — never at route entry, so
+            // a session whose card load fails never banks time (spec 03 ticket 02/03).
+            if (sessionCards.isNotEmpty()) startStudyClock()
         }
+    }
+
+    private fun startStudyClock() {
+        val instant = now()
+        sessionStartedAt = instant
+        clock = startClock(clock, instant)
     }
 
     private fun observeVoiceState() {
@@ -134,6 +183,13 @@ class FastStudySessionViewModel @Inject constructor(
                     _state.update { it.copy(isVoiceActive = false, isVoicePlaying = false, voiceError = voice.error) }
                     return@collect
                 }
+                // The answer phase for the current index is Fast's Studied criterion under
+                // read-aloud (spec 03 ticket 03) — recorded before the natural-end check below,
+                // which relies on the last card already being marked Seen.
+                if (voice.isActive && voice.phase == VoicePhase.Answer) {
+                    markSeen(voice.currentIndex)
+                }
+                val readAloudNaturalEnd = isReadAloudNaturalEnd(voice)
                 _state.update {
                     it.copy(
                         isVoiceActive = voice.isActive,
@@ -160,23 +216,51 @@ class FastStudySessionViewModel @Inject constructor(
                     pausedDueToExtendedContext = true
                     viewModelScope.launch { voiceGateway.togglePlayPause() }
                 }
+                // The final card's answer is read in full before this fires — never at the moment
+                // it merely started (spec 03 ticket 03: "do not confuse answer shown with session
+                // over").
+                if (readAloudNaturalEnd) terminate(abandoned = false)
             }
         }
+    }
+
+    /**
+     * The engine settling back on [VoicePhase.Question], not playing, at the last card is unique to
+     * the TTS engine's own natural-end branch — a user-initiated pause never resets phase back to
+     * Question this way, and requiring the last card to already be in [seenCardIds] rules out the
+     * otherwise-identical "never started playing" resting state.
+     */
+    private fun isReadAloudNaturalEnd(voice: VoicePlaybackState): Boolean =
+        voice.isActive &&
+            !voice.isPlaying &&
+            voice.phase == VoicePhase.Question &&
+            voice.totalCards > 0 &&
+            voice.currentIndex == voice.totalCards - 1 &&
+            seenCardIds.contains(_state.value.flashcards.getOrNull(voice.currentIndex)?.id)
+
+    /** Idempotent per card (spec 03 ticket 03) — a [linkedSetOf] no-ops a revisit via skip-previous. */
+    private fun markSeen(cardIndex: Int) {
+        _state.value.flashcards.getOrNull(cardIndex)?.let { seenCardIds.add(it.id) }
     }
 
     fun onShowAnswer() {
         if (_state.value.isVoiceActive) {
             voiceGateway.showAnswer()
         } else {
+            markSeen(_state.value.currentCardIndex)
             _state.update { it.copy(isAnswerRevealed = true) }
         }
     }
 
-    /** The Fast sheet's manual advance affordance — the only way to move on without Read-aloud. */
+    /**
+     * The Fast sheet's manual advance affordance — the only way to move on without Read-aloud. Only
+     * reachable once the current card's answer is revealed (the sheet shows "Show answer" until
+     * then), so the last card is always fully Studied before this can end the session.
+     */
     fun onNextCard() {
         val currentState = _state.value
         if (currentState.currentCardIndex >= currentState.flashcards.lastIndex) {
-            navigateBack()
+            terminate(abandoned = false)
         } else {
             _state.update {
                 it.copy(
@@ -398,7 +482,7 @@ class FastStudySessionViewModel @Inject constructor(
             is VoiceSettings -> onVoiceSettingsSave()
             ExitSession -> {
                 onDialogDismiss()
-                navigateBack()
+                terminate(abandoned = true)
             }
             // Unreachable in Fast (VoiceAnswerConsent is never opened, ADR-0025); "Got it" and a
             // scrim tap on the single-action Extended Context dialog are the same act.
@@ -443,9 +527,53 @@ class FastStudySessionViewModel @Inject constructor(
         }
     }
 
-    /** Leaving is a one-time event, never a flag in state (ADR-0019). */
-    private fun navigateBack() {
-        viewModelScope.launch { eventChannel.send(FastStudySessionDestination.Back) }
+    /**
+     * Both terminal paths — the deck exhausted and a confirmed "Exit session?" — run this,
+     * [abandoned] the only thing differing (spec 03 tickets 02/03), calling the same shared
+     * `core:domain` [sealSessionResult] Rated uses rather than duplicating its clock-stamping.
+     * Seals the ledger from [seenCardIds], stamps the duration off [clock], and emits the one-time
+     * navigation event (ADR-0019) exactly once — [terminated] guards a stray second call.
+     */
+    private fun terminate(abandoned: Boolean) {
+        if (terminated) return
+        terminated = true
+        val at = now()
+        val placeholderResult = SessionResult(
+            id = sessionId,
+            mode = StudyMode.Fast,
+            startedAt = sessionStartedAt ?: at,
+            durationSeconds = 0, // overwritten by sealSessionResult below
+            abandoned = abandoned,
+            categoryId = route.categoryId,
+            categoryName = route.categoryName,
+            subcategoryIds = route.subcategoryIds,
+            subcategoryNames = route.subcategoryNames,
+            ledger = sealFastLedger(),
+        )
+        val result = sealSessionResult(result = placeholderResult, clock = clock, at = at)
+        viewModelScope.launch {
+            eventChannel.send(FastStudySessionDestination.Summary(result.toSummaryRoute()))
+        }
+    }
+
+    /**
+     * One [SessionLedgerEntry] per [seenCardIds], in first-seen order — Fast's definition of
+     * Studied (spec 03 ticket 03). Every entry is [FlashcardStudyProgressState.Seen] with zero Attempts
+     * and `wasPreviouslyMastered` unset — Fast has no `RatedSessionCardRecord` to read either from.
+     */
+    private fun sealFastLedger(): List<SessionLedgerEntry> {
+        val cardsById = _state.value.flashcards.associateBy(Flashcard::id)
+        return seenCardIds.mapNotNull { cardId ->
+            cardsById[cardId]?.let { card ->
+                SessionLedgerEntry(
+                    cardId = card.id,
+                    subcategoryId = card.subcategoryId,
+                    state = FlashcardStudyProgressState.Seen,
+                    attemptsUsed = 0,
+                    wasPreviouslyMastered = false,
+                )
+            }
+        }
     }
 
     fun onCurationErrorDismissed() {
