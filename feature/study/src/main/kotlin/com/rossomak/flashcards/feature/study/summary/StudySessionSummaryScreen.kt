@@ -7,9 +7,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -17,7 +21,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.StudyMode
+import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import com.rossomak.flashcards.feature.study.R
+import kotlinx.coroutines.launch
 
 /**
  * A Rated or Fast Study Session's mandatory egress — natural end or premature exit alike (spec 03
@@ -35,7 +41,23 @@ fun StudySessionSummaryScreen(
     onNavigateBack: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    StudySessionSummaryContent(modifier = modifier, state = state, onNavigateBack = onNavigateBack)
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    val saveFailedMessage = stringResource(R.string.study_session_summary_save_failed_message)
+    val snackbarScope = rememberCoroutineScope()
+    observeAsEvents(viewModel.messages) { message ->
+        val text = when (message) {
+            StudySessionSummaryMessage.SaveFailed -> saveFailedMessage
+        }
+        snackbarScope.launch { snackbarHostState.showSnackbar(text) }
+    }
+
+    StudySessionSummaryContent(
+        modifier = modifier,
+        state = state,
+        onNavigateBack = onNavigateBack,
+        snackbarHostState = snackbarHostState,
+    )
 }
 
 @Composable
@@ -43,8 +65,9 @@ fun StudySessionSummaryContent(
     modifier: Modifier = Modifier,
     state: StudySessionSummaryScreenState,
     onNavigateBack: () -> Unit,
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
-    Scaffold(modifier = modifier) { innerPadding ->
+    Scaffold(modifier = modifier, snackbarHost = { SnackbarHost(snackbarHostState) }) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
