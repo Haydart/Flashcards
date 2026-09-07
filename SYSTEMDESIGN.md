@@ -175,7 +175,11 @@ Fast and Rated are **two separate screens, ViewModels and routes** — Study Mod
 Designed. Both Study Modes terminate the same way: the session seals its `cardResults`, stamps `durationSeconds`, hands the result to the Summary screen, and writes nothing itself.
 
 - **Natural end**: Rated — the queue empties (every Flashcard reached a Terminal State). Fast — the last card's answer has been shown. Both navigate to the Session Summary screen
-- **Premature exit** (X button → confirm dialog): the result carries everything accumulated so far, flagged `isAbandoned`. A queued Flashcard the user never reached is simply absent from `cardResults`, but a queued Flashcard that already completed at least one Attempt is force-resolved into `cardResults` using its best rating so far (the same best-rating rule natural resolution uses) rather than discarded — it already satisfies **Studied**, so losing it at exit would contradict that definition. Also navigates to Summary
+- **Premature exit** (X button → confirm dialog): the result carries everything accumulated so far, flagged `isAbandoned`. The rule differs by mode:
+  - **Rated** — a queued Flashcard the user never reached is simply absent from `cardResults`, but a queued Flashcard that already completed at least one Attempt is force-resolved into `cardResults` using its best rating so far (the same best-rating rule natural resolution uses) rather than discarded — it already satisfies **Studied**, so losing it at exit would contradict that definition
+  - **Fast** — has no Attempts or Ratings, so it has no best-rating-so-far to force-resolve. Every Flashcard whose answer was shown becomes a `{ state: Seen }` entry in `cardResults`; a Flashcard the user never reached is simply absent
+  
+  Both navigate to Summary
 - The exit-confirmation dialog **is already built** (`StudySessionDialog.ExitSession`); it currently pops the back stack instead of routing to Summary
 - App kill during session: session is lost, no data saved, no resumption
 
