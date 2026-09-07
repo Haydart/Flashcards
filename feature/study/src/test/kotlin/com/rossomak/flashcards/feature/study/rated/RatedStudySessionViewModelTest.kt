@@ -2,18 +2,23 @@ package com.rossomak.flashcards.feature.study.rated
 
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
+import com.rossomak.flashcards.core.domain.model.CardProgressEntry
 import com.rossomak.flashcards.core.domain.model.CurationAction
 import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.core.domain.model.FlashcardAttemptRating
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
+import com.rossomak.flashcards.core.domain.model.SubcategoryProgress
 import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
 import com.rossomak.flashcards.core.domain.model.VoiceSettings
 import com.rossomak.flashcards.core.domain.repository.CurationRepository
+import com.rossomak.flashcards.core.domain.repository.FakeCardProgressRepository
 import com.rossomak.flashcards.core.domain.repository.FakeCurationRepository
 import com.rossomak.flashcards.core.domain.repository.FakeFlashcardRepository
 import com.rossomak.flashcards.core.domain.repository.FakeUserPreferencesRepository
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
+import com.rossomak.flashcards.core.domain.usecase.GetSessionStartDataUseCase
+import com.rossomak.flashcards.core.domain.usecase.GetSubcategoryProgressUseCase
 import com.rossomak.flashcards.core.domain.usecase.ObserveUserPreferencesUseCase
 import com.rossomak.flashcards.core.domain.usecase.SaveUserPreferenceUseCase
 import com.rossomak.flashcards.core.domain.usecase.SubmitCurationReportUseCase
@@ -73,6 +78,9 @@ class RatedStudySessionViewModelTest {
     private val savedStateHandle: SavedStateHandle = mockk()
     private val flashcardRepository = FakeFlashcardRepository()
     private val getFlashcards = GetFlashcardsUseCase(flashcardRepository)
+    private val cardProgressRepository = FakeCardProgressRepository()
+    private val getSubcategoryProgress = GetSubcategoryProgressUseCase(cardProgressRepository)
+    private val getSessionStartData = GetSessionStartDataUseCase(getFlashcards, getSubcategoryProgress)
     private val userPreferencesRepository = FakeUserPreferencesRepository()
     private val voiceGateway = FakeVoiceGateway()
     private val voiceSettingsController: VoiceSettingsController = mockk(relaxed = true)
@@ -107,7 +115,7 @@ class RatedStudySessionViewModelTest {
     private fun createViewModel(curationRepository: CurationRepository = FakeCurationRepository()): RatedStudySessionViewModel =
         RatedStudySessionViewModel(
             savedStateHandle,
-            getFlashcards,
+            getSessionStartData,
             SubmitCurationReportUseCase(curationRepository),
             ObserveUserPreferencesUseCase(userPreferencesRepository),
             SaveUserPreferenceUseCase(userPreferencesRepository),
@@ -187,6 +195,117 @@ class RatedStudySessionViewModelTest {
         viewModel.state.value.error shouldBe "Could not load flashcards"
         viewModel.state.value.isLoading shouldBe false
     }
+
+    @Test
+    fun `session start issues exactly one progress read for a one-subcategory session`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+
+            createViewModel()
+            advanceUntilIdle()
+
+            cardProgressRepository.requestedSubcategoryIds shouldBe listOf(subcategoryId)
+        }
+
+    @Test
+    fun `session start issues exactly three progress reads for a three-subcategory session, never chunked`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val subcategoryIds = listOf("sub-1", "sub-2", "sub-3")
+            subcategoryIds.forEach { id -> flashcardRepository.flashcardsBySubcategory[id] = Result.success(listOf(flashcard("card-$id", subcategoryId = id))) }
+            stubRoute(route.copy(subcategoryIds = subcategoryIds, cardIds = subcategoryIds.map { "card-$it" }))
+
+            createViewModel()
+            advanceUntilIdle()
+
+            cardProgressRepository.requestedSubcategoryIds.toSet() shouldBe subcategoryIds.toSet()
+            cardProgressRepository.requestedSubcategoryIds.size shouldBe 3
+        }
+
+    @Test
+    fun `a Rated card with an existing Mastered entry has its previously-mastered flag set`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            cardProgressRepository.seed(
+                SubcategoryProgress(
+                    subcategoryId = subcategoryId,
+                    categoryId = "android",
+                    cards = mapOf("card-1" to CardProgressEntry(state = FlashcardStudyProgressState.Mastered, firstStudiedAt = FIXED_INSTANT, masteredAt = FIXED_INSTANT)),
+                ),
+            )
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            // One completed Attempt is enough to make card-1 Studied and force-resolvable on
+            // abandon — the seeded flag is carried regardless of what this session itself rates it.
+            viewModel.onAttemptRating(FlashcardAttemptRating.Failed)
+            viewModel.onDialogEvent(Open(ExitSession))
+
+            viewModel.events.test {
+                viewModel.onDialogEvent(Confirm)
+                val destination = awaitItem().shouldBeInstanceOf<RatedStudySessionDestination.Summary>()
+
+                val index = destination.route.cardIds.indexOf("card-1")
+                index shouldNotBe -1
+                destination.route.cardWasPreviouslyMastered?.get(index) shouldBe true
+            }
+        }
+
+    @Test
+    fun `a Rated card with an existing non-Mastered entry does not have its previously-mastered flag set`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            cardProgressRepository.seed(
+                SubcategoryProgress(
+                    subcategoryId = subcategoryId,
+                    categoryId = "android",
+                    cards = mapOf("card-1" to CardProgressEntry(state = FlashcardStudyProgressState.Failed, firstStudiedAt = FIXED_INSTANT, masteredAt = null)),
+                ),
+            )
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onAttemptRating(FlashcardAttemptRating.Failed)
+            viewModel.onDialogEvent(Open(ExitSession))
+
+            viewModel.events.test {
+                viewModel.onDialogEvent(Confirm)
+                val destination = awaitItem().shouldBeInstanceOf<RatedStudySessionDestination.Summary>()
+
+                val index = destination.route.cardIds.indexOf("card-1")
+                index shouldNotBe -1
+                destination.route.cardWasPreviouslyMastered?.get(index) shouldBe false
+            }
+        }
+
+    @Test
+    fun `a card with no prior entry is identifiable as new`() = runTest(mainDispatcherRule.testDispatcher) {
+        loadThreeCards()
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.priorProgressByCardId.keys shouldNotContain "card-1"
+    }
+
+    @Test
+    fun `a failed progress read still produces a running session with every previously-mastered flag false and no error shown`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            cardProgressRepository.resultToReturn = Result.failure(IllegalStateException("offline"))
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.state.value.error shouldBe null
+            viewModel.state.value.isLoading shouldBe false
+            viewModel.priorProgressByCardId shouldBe emptyMap()
+            viewModel.onAttemptRating(FlashcardAttemptRating.Failed)
+            viewModel.onDialogEvent(Open(ExitSession))
+
+            viewModel.events.test {
+                viewModel.onDialogEvent(Confirm)
+                val destination = awaitItem().shouldBeInstanceOf<RatedStudySessionDestination.Summary>()
+
+                destination.route.cardWasPreviouslyMastered?.all { it == false } shouldBe true
+            }
+        }
 
     @Test
     fun `onShowAnswer reveals answer when voice inactive`() = runTest(mainDispatcherRule.testDispatcher) {
