@@ -3,6 +3,8 @@ package com.rossomak.flashcards.core.data.source
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
+import com.rossomak.flashcards.core.domain.model.SessionCommit
 import com.rossomak.flashcards.core.domain.model.SessionLedgerEntry
 import com.rossomak.flashcards.core.domain.model.SessionResult
 import com.rossomak.flashcards.core.domain.model.StudyMode
@@ -10,10 +12,10 @@ import java.util.concurrent.Executor
 import javax.inject.Inject
 
 /**
- * Writes the `sessions/{sessionId}` document (ADR-0014) as one Firestore batch. The batch is
- * overkill for this single write today — tickets 02 and 03 add the packed progress documents and
- * the progress-summary increments to this same [FirebaseFirestore.batch], and spec 05 a further
- * scoring-state write, all as further lines in [commitSession] rather than a restructure.
+ * Writes the `sessions/{sessionId}` document (ADR-0014) and, since ticket 02, every
+ * [SessionCommit.progressWrites] Subcategory progress document (ADR-0016) — as one Firestore batch.
+ * Ticket 03 and spec 05 add the progress-summary increments and a further scoring-state write to
+ * this same [FirebaseFirestore.batch], as further lines in [commitSession] rather than a restructure.
  *
  * **Not awaited on the success path.** Firestore's on-device persistence queues a batch locally and
  * only resolves [com.google.android.gms.tasks.Task] once connectivity returns and the backend
@@ -30,18 +32,24 @@ import javax.inject.Inject
 class StudySessionRemoteDataSource @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val firebaseAuth: FirebaseAuth,
+    private val cardProgressRemoteDataSource: CardProgressRemoteDataSource,
 ) {
 
     private val uid: String
         get() = requireNotNull(firebaseAuth.currentUser?.uid) { "No authenticated user" }
 
-    fun commitSession(sessionResult: SessionResult, onRejected: (Throwable) -> Unit) {
+    fun commitSession(sessionCommit: SessionCommit, onRejected: (Throwable) -> Unit) {
+        val sessionResult = sessionCommit.sessionResult
         val sessionDocRef = firestore
             .collection(COLLECTION_PATH_TEMPLATE.format(uid))
             .document(sessionResult.id)
 
         val batch = firestore.batch()
-        batch.set(sessionDocRef, sessionResult.toDocumentFields())
+        batch.set(sessionDocRef, sessionResult.toDocumentFields(sessionCommit.newCardsStudied))
+        sessionCommit.progressWrites.forEach { write ->
+            val progressDocRef = cardProgressRemoteDataSource.documentReference(write.subcategoryId)
+            batch.set(progressDocRef, cardProgressRemoteDataSource.toMergeFields(write), SetOptions.merge())
+        }
         batch.commit().addOnFailureListener(DIRECT_EXECUTOR) { exception -> onRejected(exception) }
     }
 
@@ -50,10 +58,10 @@ class StudySessionRemoteDataSource @Inject constructor(
      * [FIELD_CARDS_PARTIAL]/[FIELD_CARDS_DEFENDED]/[FIELD_CARDS_DEMASTERED] are present only for a
      * Rated session — genuinely absent from a Fast document, not zeroed. [FIELD_CARDS_DEFENDED] and
      * [FIELD_CARDS_DEMASTERED] are written as zero on every Rated document until spec 07 produces a
-     * defended or de-mastered card. [FIELD_NEW_CARDS_STUDIED] is written as zero for both modes until
-     * ticket 02, which is what reads prior progress and can tell a new card from a returning one.
+     * defended or de-mastered card. [newCardsStudied] comes from [CommitStudySessionUseCase][com.rossomak.flashcards.core.domain.usecase.CommitStudySessionUseCase]'s
+     * read of prior progress — mode-agnostic, unlike the four counts above.
      */
-    private fun SessionResult.toDocumentFields(): Map<String, Any> = buildMap {
+    private fun SessionResult.toDocumentFields(newCardsStudied: Int): Map<String, Any> = buildMap {
         put(FIELD_SESSION_ID, id)
         put(FIELD_START_TIMESTAMP, Timestamp(startedAt.epochSecond, startedAt.nano))
         put(FIELD_DURATION_SECONDS, durationSeconds)
@@ -64,7 +72,7 @@ class StudySessionRemoteDataSource @Inject constructor(
         put(FIELD_SUBCATEGORY_IDS, subcategoryIds)
         put(FIELD_SUBCATEGORY_NAMES, subcategoryNames)
         put(FIELD_CARD_COUNT, studiedCount)
-        put(FIELD_NEW_CARDS_STUDIED, 0) // ticket 02 fills this in from the prior-progress read
+        put(FIELD_NEW_CARDS_STUDIED, newCardsStudied)
         put(FIELD_CARD_RESULTS, ledger.associate { entry -> entry.cardId to entry.toResultFields(mode) })
         if (mode == StudyMode.Rated) {
             put(FIELD_CARDS_MASTERED, masteredCount)

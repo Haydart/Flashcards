@@ -2,6 +2,7 @@ package com.rossomak.flashcards.core.data.repository
 
 import com.rossomak.flashcards.core.data.source.StudySessionRemoteDataSource
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
+import com.rossomak.flashcards.core.domain.model.SessionCommit
 import com.rossomak.flashcards.core.domain.model.SessionLedgerEntry
 import com.rossomak.flashcards.core.domain.model.SessionResult
 import com.rossomak.flashcards.core.domain.model.StudyMode
@@ -24,73 +25,77 @@ class DefaultStudySessionRepositoryTest {
 
     private fun createRepository(): DefaultStudySessionRepository = DefaultStudySessionRepository(remoteDataSource)
 
-    private fun sessionResult(): SessionResult = SessionResult(
-        id = "session-1",
-        mode = StudyMode.Rated,
-        startedAt = Instant.parse("2026-09-06T10:00:00Z"),
-        durationSeconds = 60,
-        abandoned = false,
-        categoryId = "cat-1",
-        categoryName = "Category",
-        subcategoryIds = listOf("sub-1"),
-        subcategoryNames = listOf("Subcategory"),
-        ledger = listOf(
-            SessionLedgerEntry(
-                cardId = "card-1",
-                subcategoryId = "sub-1",
-                state = FlashcardStudyProgressState.Mastered,
-                attemptsUsed = 1,
-                wasPreviouslyMastered = false,
+    private fun sessionCommit(): SessionCommit = SessionCommit(
+        sessionResult = SessionResult(
+            id = "session-1",
+            mode = StudyMode.Rated,
+            startedAt = Instant.parse("2026-09-06T10:00:00Z"),
+            durationSeconds = 60,
+            abandoned = false,
+            categoryId = "cat-1",
+            categoryName = "Category",
+            subcategoryIds = listOf("sub-1"),
+            subcategoryNames = listOf("Subcategory"),
+            ledger = listOf(
+                SessionLedgerEntry(
+                    cardId = "card-1",
+                    subcategoryId = "sub-1",
+                    state = FlashcardStudyProgressState.Mastered,
+                    attemptsUsed = 1,
+                    wasPreviouslyMastered = false,
+                ),
             ),
         ),
+        newCardsStudied = 1,
+        progressWrites = emptyList(),
     )
 
     @Test
     fun `commitSession delegates to the data source and returns success without awaiting it`() = runTest {
-        val result = sessionResult()
-        every { remoteDataSource.commitSession(result, any()) } just Runs
+        val commit = sessionCommit()
+        every { remoteDataSource.commitSession(commit, any()) } just Runs
 
-        val outcome = createRepository().commitSession(result)
+        val outcome = createRepository().commitSession(commit)
 
         outcome.isSuccess shouldBe true
-        verify(exactly = 1) { remoteDataSource.commitSession(result, any()) }
+        verify(exactly = 1) { remoteDataSource.commitSession(commit, any()) }
     }
 
     @Test
     fun `wraps a synchronous data source failure in a failure result`() = runTest {
-        val result = sessionResult()
+        val commit = sessionCommit()
         val error = IllegalStateException("No authenticated user")
-        every { remoteDataSource.commitSession(result, any()) } throws error
+        every { remoteDataSource.commitSession(commit, any()) } throws error
 
-        val outcome = createRepository().commitSession(result)
+        val outcome = createRepository().commitSession(commit)
 
         outcome.isFailure shouldBe true
         outcome.exceptionOrNull() shouldBe error
-        verify(exactly = 1) { remoteDataSource.commitSession(result, any()) }
+        verify(exactly = 1) { remoteDataSource.commitSession(commit, any()) }
     }
 
     @Test
     fun `rethrows cancellation instead of wrapping it`() = runTest {
-        val result = sessionResult()
-        every { remoteDataSource.commitSession(result, any()) } throws CancellationException("cancelled")
+        val commit = sessionCommit()
+        every { remoteDataSource.commitSession(commit, any()) } throws CancellationException("cancelled")
 
-        val thrown = runCatching { createRepository().commitSession(result) }.exceptionOrNull()
+        val thrown = runCatching { createRepository().commitSession(commit) }.exceptionOrNull()
 
         (thrown is CancellationException) shouldBe true
-        verify(exactly = 1) { remoteDataSource.commitSession(result, any()) }
+        verify(exactly = 1) { remoteDataSource.commitSession(commit, any()) }
     }
 
     @Test
     fun `forwards onRejected to the data source unchanged`() = runTest {
-        val result = sessionResult()
+        val commit = sessionCommit()
         var reportedByDataSource: ((Throwable) -> Unit)? = null
-        every { remoteDataSource.commitSession(result, any()) } answers {
+        every { remoteDataSource.commitSession(commit, any()) } answers {
             reportedByDataSource = secondArg()
         }
         val error = IllegalStateException("permission denied")
         var reportedToCaller: Throwable? = null
 
-        createRepository().commitSession(result) { rejection -> reportedToCaller = rejection }
+        createRepository().commitSession(commit) { rejection -> reportedToCaller = rejection }
         reportedByDataSource?.invoke(error)
 
         reportedToCaller shouldBe error

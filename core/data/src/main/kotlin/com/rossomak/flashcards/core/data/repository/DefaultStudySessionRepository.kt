@@ -1,7 +1,7 @@
 package com.rossomak.flashcards.core.data.repository
 
 import com.rossomak.flashcards.core.data.source.StudySessionRemoteDataSource
-import com.rossomak.flashcards.core.domain.model.SessionResult
+import com.rossomak.flashcards.core.domain.model.SessionCommit
 import com.rossomak.flashcards.core.domain.repository.StudySessionRepository
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -12,10 +12,10 @@ class DefaultStudySessionRepository @Inject constructor(
     private val remoteDataSource: StudySessionRemoteDataSource,
 ) : StudySessionRepository {
 
-    override suspend fun commitSession(sessionResult: SessionResult, onRejected: (Throwable) -> Unit): Result<Unit> =
+    override suspend fun commitSession(sessionCommit: SessionCommit, onRejected: (Throwable) -> Unit): Result<Unit> =
         withContext(Dispatchers.IO) {
             try {
-                remoteDataSource.commitSession(sessionResult, onRejected)
+                remoteDataSource.commitSession(sessionCommit, onRejected)
                 Result.success(Unit)
             } catch (exception: CancellationException) {
                 throw exception

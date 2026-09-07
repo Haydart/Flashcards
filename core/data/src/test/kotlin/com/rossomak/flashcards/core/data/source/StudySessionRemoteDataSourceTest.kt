@@ -8,11 +8,15 @@ import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.WriteBatch
+import com.rossomak.flashcards.core.domain.model.CardProgressUpdate
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
+import com.rossomak.flashcards.core.domain.model.SessionCommit
 import com.rossomak.flashcards.core.domain.model.SessionLedgerEntry
 import com.rossomak.flashcards.core.domain.model.SessionResult
 import com.rossomak.flashcards.core.domain.model.StudyMode
+import com.rossomak.flashcards.core.domain.model.SubcategoryProgressWrite
 import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.mockk.every
@@ -24,10 +28,10 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * Thin secondary seam: only the mapping between [SessionResult] and the stored document's fields,
+ * Thin secondary seam: only the mapping between [SessionCommit] and the stored documents' fields,
  * in both modes, plus the fire-and-forget commit/rejection wiring. The rich behavioural rules —
- * which fields a mode carries, what gets counted — are pinned at the domain level; this test only
- * checks they survive translation into a raw Firestore document.
+ * which fields a mode carries, what gets counted, which cards a commit writes — are pinned at the
+ * domain level; this test only checks they survive translation into raw Firestore documents.
  */
 class StudySessionRemoteDataSourceTest {
 
@@ -36,9 +40,12 @@ class StudySessionRemoteDataSourceTest {
     private val firebaseUser: FirebaseUser = mockk { every { uid } returns UID }
     private val collectionReference: CollectionReference = mockk()
     private val documentReference: DocumentReference = mockk()
+    private val progressDocumentReference: DocumentReference = mockk()
     private val writeBatch: WriteBatch = mockk()
+    private val cardProgressRemoteDataSource: CardProgressRemoteDataSource = mockk()
 
-    private fun createDataSource(): StudySessionRemoteDataSource = StudySessionRemoteDataSource(firestore, firebaseAuth)
+    private fun createDataSource(): StudySessionRemoteDataSource =
+        StudySessionRemoteDataSource(firestore, firebaseAuth, cardProgressRemoteDataSource)
 
     @Before
     fun setUp() {
@@ -47,7 +54,10 @@ class StudySessionRemoteDataSourceTest {
         every { collectionReference.document(any()) } returns documentReference
         every { firestore.batch() } returns writeBatch
         every { writeBatch.set(any(), any()) } returns writeBatch
+        every { writeBatch.set(any(), any(), any<SetOptions>()) } returns writeBatch
         every { writeBatch.commit() } returns Tasks.forResult(null)
+        every { cardProgressRemoteDataSource.documentReference(any()) } returns progressDocumentReference
+        every { cardProgressRemoteDataSource.toMergeFields(any()) } returns MERGE_FIELDS
     }
 
     private fun ratedResult(): SessionResult = SessionResult(
@@ -84,9 +94,15 @@ class StudySessionRemoteDataSourceTest {
         ),
     )
 
+    private fun commit(
+        sessionResult: SessionResult = ratedResult(),
+        newCardsStudied: Int = 0,
+        progressWrites: List<SubcategoryProgressWrite> = emptyList(),
+    ): SessionCommit = SessionCommit(sessionResult, newCardsStudied, progressWrites)
+
     @Test
     fun `commits to the session document keyed by session id under the user`() {
-        createDataSource().commitSession(ratedResult(), onRejected = {})
+        createDataSource().commitSession(commit(), onRejected = {})
 
         verify(exactly = 1) { collectionReference.document("session-1") }
         verify(exactly = 1) { writeBatch.commit() }
@@ -97,14 +113,14 @@ class StudySessionRemoteDataSourceTest {
         val fieldsSlot = slot<Map<String, Any>>()
         every { writeBatch.set(documentReference, capture(fieldsSlot)) } returns writeBatch
 
-        createDataSource().commitSession(ratedResult(), onRejected = {})
+        createDataSource().commitSession(commit(ratedResult(), newCardsStudied = 1), onRejected = {})
 
         val fields = fieldsSlot.captured
         fields["cardsMastered"] shouldBe 1
         fields["cardsPartial"] shouldBe 0
         fields["cardsDefended"] shouldBe 0
         fields["cardsDemastered"] shouldBe 0
-        fields["newCardsStudied"] shouldBe 0
+        fields["newCardsStudied"] shouldBe 1
         @Suppress("UNCHECKED_CAST")
         val cardResults = fields["cardResults"] as Map<String, Map<String, Any>>
         val entry = cardResults.getValue("card-1")
@@ -118,7 +134,7 @@ class StudySessionRemoteDataSourceTest {
         val fieldsSlot = slot<Map<String, Any>>()
         every { writeBatch.set(documentReference, capture(fieldsSlot)) } returns writeBatch
 
-        createDataSource().commitSession(fastResult(), onRejected = {})
+        createDataSource().commitSession(commit(fastResult()), onRejected = {})
 
         val fields = fieldsSlot.captured
         fields.keys shouldNotContain "cardsMastered"
@@ -134,12 +150,35 @@ class StudySessionRemoteDataSourceTest {
     }
 
     @Test
+    fun `each progress write joins the same batch as a merge set keyed by its subcategory id`() {
+        val write = SubcategoryProgressWrite(
+            subcategoryId = "sub-1",
+            categoryId = "cat-1",
+            cards = mapOf("card-1" to CardProgressUpdate(FlashcardStudyProgressState.Mastered, stampFirstStudied = true, stampMastered = true)),
+        )
+
+        createDataSource().commitSession(commit(progressWrites = listOf(write)), onRejected = {})
+
+        verify(exactly = 1) { cardProgressRemoteDataSource.documentReference("sub-1") }
+        verify(exactly = 1) { cardProgressRemoteDataSource.toMergeFields(write) }
+        verify(exactly = 1) { writeBatch.set(progressDocumentReference, MERGE_FIELDS, any<SetOptions>()) }
+        verify(exactly = 1) { writeBatch.commit() }
+    }
+
+    @Test
+    fun `a session with no progress writes adds no merge set to the batch`() {
+        createDataSource().commitSession(commit(progressWrites = emptyList()), onRejected = {})
+
+        verify(exactly = 0) { writeBatch.set(any(), any(), any<SetOptions>()) }
+    }
+
+    @Test
     fun `a rejected commit invokes onRejected with the exception`() {
         val error = Exception("permission denied")
         every { writeBatch.commit() } returns Tasks.forException(error)
         var reported: Throwable? = null
 
-        createDataSource().commitSession(ratedResult()) { rejection -> reported = rejection }
+        createDataSource().commitSession(commit()) { rejection -> reported = rejection }
 
         reported shouldBe error
     }
@@ -150,12 +189,13 @@ class StudySessionRemoteDataSourceTest {
         every { writeBatch.commit() } returns pendingTask
         var reported: Throwable? = null
 
-        createDataSource().commitSession(ratedResult()) { rejection -> reported = rejection }
+        createDataSource().commitSession(commit()) { rejection -> reported = rejection }
 
         reported shouldBe null
     }
 
     private companion object {
         const val UID = "user-1"
+        val MERGE_FIELDS: Map<String, Any> = mapOf("categoryId" to "cat-1", "cards" to mapOf("card-1" to mapOf("state" to "Mastered")))
     }
 }
