@@ -4,9 +4,14 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rossomak.flashcards.core.domain.model.FlashcardRating
+import com.rossomak.flashcards.core.domain.model.RatedSessionState
 import com.rossomak.flashcards.core.domain.model.UserPreference.VoiceAnswerConsent as VoiceAnswerConsentPreference
+import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
 import com.rossomak.flashcards.core.domain.model.VoiceOption
 import com.rossomak.flashcards.core.domain.model.VoiceSettings as SavedVoiceSettings
+import com.rossomak.flashcards.core.domain.model.rate
+import com.rossomak.flashcards.core.domain.model.requeueAfterSilence
+import com.rossomak.flashcards.core.domain.model.toFlashcardRating
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.ObserveUserPreferencesUseCase
 import com.rossomak.flashcards.core.domain.usecase.SaveUserPreferenceUseCase
@@ -32,6 +37,7 @@ import com.rossomak.flashcards.feature.study.voice.VoicePhase
 import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlin.random.Random
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -56,9 +62,13 @@ import kotlinx.coroutines.launch
  * The user-preferences use cases live here and only here: their sole current purpose is the
  * voice-answering consent flag (ADR-0025), and Fast has no path to it.
  *
- * Behaviour-preserving relative to the combined `StudySessionViewModel`'s Rated path: the rating
- * callback still discards its argument and just advances — recording the Rating is the next spec's
- * job.
+ * The rating callback drives a [RatedSessionState]: a Correct rating finishes a card as Mastered,
+ * Failed/Partial re-insert it further down the queue (or finish it, per
+ * [RatedStudySessionRoute.partialRatingCardRequeueingEnabled] and the Attempts limit), and the
+ * session's terminal navigation event fires once the queue empties (ticket 02 of the Rated session
+ * state machine sequence). A voice grade drives the exact same [onRating] path as a manual tap; a
+ * silence timeout instead consumes no Attempt, and three in a row pause the session rather than
+ * finishing it (ticket 04).
  */
 @HiltViewModel
 class RatedStudySessionViewModel @Inject constructor(
@@ -74,7 +84,9 @@ class RatedStudySessionViewModel @Inject constructor(
     private val route = savedStateHandle.decodeRoute<RatedStudySessionRoute>()
     private val sessionTitle: String = route.sessionTitle
 
-    private val _state = MutableStateFlow(RatedStudySessionScreenState(sessionTitle = sessionTitle))
+    private val _state = MutableStateFlow(
+        RatedStudySessionScreenState(sessionTitle = sessionTitle, attemptsLimit = route.ratedAttempts),
+    )
     val state: StateFlow<RatedStudySessionScreenState> = _state.asStateFlow()
 
     // Tracks eagerly so rapid toggles don't race against isVoiceActive propagation.
@@ -82,12 +94,19 @@ class RatedStudySessionViewModel @Inject constructor(
 
     internal var rewindThresholdMs: Long = VoicePlaybackState.REWIND_THRESHOLD_MS
 
+    // Test-only seam for asserting a deterministic queue sequence (ADR-0046) — production leaves
+    // this as Random.Default and never seeds it.
+    internal var random: Random = Random.Default
+
     private var rewindJob: Job? = null
     private var isPastRewindThreshold = false
     private val eventChannel = Channel<RatedStudySessionDestination>(Channel.BUFFERED)
     val events = eventChannel.receiveAsFlow()
 
     private var lastObservedCardIndex = -1
+
+    // Seeded once the routed cards resolve (loadFlashcards); null only during that initial load.
+    private var ratedSessionState: RatedSessionState? = null
 
     private val isExtendedContextDialogOpen: Boolean
         get() = _state.value.activeDialog is ExtendedContext
@@ -101,6 +120,24 @@ class RatedStudySessionViewModel @Inject constructor(
     private var pausedForVoiceSettings = false
 
     private var hasVoiceAnswerConsent = false
+
+    // Edge-detects a fresh arrival at SpeakingNotice in observeVoiceAnswerState — the collector
+    // sees every VoiceAnswerState the gateway emits, but a grade/silence-timeout must apply exactly
+    // once per round, not once per equal-value re-collection.
+    private var previousVoiceAnswerPhase = VoiceAnswerPhase.Idle
+
+    // Holds the screen-visible half of a voice-graded rating or silence-timeout (queue reseed,
+    // currentCard/currentCardRatings, answer-reveal reset, terminal navigation) while the grade or
+    // skip notice is still being spoken. The queue reducer itself (ratedSessionState) still updates
+    // immediately — only what the user sees is held back — so the top of the screen keeps showing
+    // the card the feedback is actually about instead of jumping to the next question mid-notice.
+    // Runs the moment the phase leaves SpeakingNotice (see observeVoiceAnswerState), whatever the
+    // reason (notice finished naturally, or voice answering was torn down mid-notice).
+    private var pendingSessionSync: (() -> Unit)? = null
+
+    // Session-scoped, not per-card (ticket 04): counts consecutive silence timeouts, reset by any
+    // graded answer, and pauses the session on reaching CONSECUTIVE_SILENCE_PAUSE_THRESHOLD.
+    private var consecutiveSilenceCount = 0
 
     // Session-scoped like the rest of the routed config: a mid-session change updates only this
     // running session unless the user checks "keep as my default" (ADR-0030), so it lives in a
@@ -130,8 +167,45 @@ class RatedStudySessionViewModel @Inject constructor(
             }
             val cardsById = results.flatMap { it.getOrThrow() }.associateBy { it.id }
             val sessionCards = route.cardIds.mapNotNull(cardsById::get)
-            _state.update { it.copy(isLoading = false, flashcards = sessionCards) }
+            ratedSessionState = RatedSessionState.seed(
+                cards = sessionCards,
+                attemptsLimit = route.ratedAttempts,
+                partialRatingCardRequeueingEnabled = route.partialRatingCardRequeueingEnabled,
+                random = random,
+            )
+            _state.update { it.copy(isLoading = false) }
+            syncStateFromRatedSession()
             honourRoutedVoiceAnswering(hasCards = sessionCards.isNotEmpty())
+        }
+    }
+
+    /**
+     * Mirrors the machine's queue into screen state. [RatedStudySessionScreenState.currentCardIndex]
+     * always lands on 0 in this path — the current card is always the queue's head.
+     *
+     * Also re-seeds the voice engine's queue whenever voice is active: [VoiceGateway.updateQueue]
+     * swaps in [RatedSessionState.remainingCards] without touching the in-flight utterance, keeping
+     * the spoken card, displayed card, and reducer head from diverging once a rating or silence
+     * timeout reorders the queue (ADR-0046).
+     */
+    private fun syncStateFromRatedSession() {
+        val machine = ratedSessionState ?: return
+        _state.update {
+            it.copy(
+                flashcards = machine.remainingCards,
+                currentCardIndex = 0,
+                masteredCount = machine.masteredCount,
+                distinctCardCount = machine.distinctCardCount,
+                currentCardRatings = machine.currentCardRatings,
+            )
+        }
+        // voiceStarted, not just isVoiceActive: a rating can land after voiceGateway.start() was
+        // called but before the async bind actually completes (isVoiceActive still false at that
+        // point) — StudySessionVoiceGateway.updateQueue() unconditionally updates its pendingCards
+        // regardless of bind state, so this still reaches the gateway before onServiceConnected()
+        // loads it, rather than leaving it to load the stale pre-rating order.
+        if (_state.value.isVoiceActive || voiceStarted) {
+            voiceGateway.updateQueue(machine.remainingCards)
         }
     }
 
@@ -197,6 +271,19 @@ class RatedStudySessionViewModel @Inject constructor(
     private fun observeVoiceAnswerState() {
         viewModelScope.launch {
             voiceGateway.voiceAnswerState.collect { voiceAnswer ->
+                // Edge-detected before the state update below, off the collector's own running
+                // previousVoiceAnswerPhase — SpeakingNotice is entered exactly once per graded or
+                // silence-timed-out round, never re-triggered by an equal-value re-collection.
+                val justEnteredSpeakingNotice = voiceAnswer.phase == VoiceAnswerPhase.SpeakingNotice &&
+                    previousVoiceAnswerPhase != VoiceAnswerPhase.SpeakingNotice
+                // Mirrors justEnteredSpeakingNotice the other way: fires exactly once, the instant
+                // the grade/skip notice stops being the active phase — whether that's the natural
+                // WaitingForQuestion it flips to once the notice finishes speaking, or voice
+                // answering getting torn down mid-notice. Either way the deferred sync below is safe
+                // to run: it's idempotent and there is nothing left mid-notice to interrupt.
+                val justLeftSpeakingNotice = previousVoiceAnswerPhase == VoiceAnswerPhase.SpeakingNotice &&
+                    voiceAnswer.phase != VoiceAnswerPhase.SpeakingNotice
+                previousVoiceAnswerPhase = voiceAnswer.phase
                 _state.update {
                     it.copy(
                         isVoiceAnswerEnabled = voiceAnswer.isEnabled,
@@ -211,8 +298,80 @@ class RatedStudySessionViewModel @Inject constructor(
                             voiceAnswer.phase == VoiceAnswerPhase.Grading,
                     )
                 }
+                if (justLeftSpeakingNotice) {
+                    pendingSessionSync?.invoke()
+                    pendingSessionSync = null
+                }
+                if (!justEnteredSpeakingNotice) return@collect
+                // ADR-0026: lastGrade == null distinguishes a silence-timeout skip from a real
+                // graded result — both share SpeakingNotice, never a dedicated phase value. But a
+                // grading/transcription failure also lands in SpeakingNotice with lastGrade == null
+                // (VoiceAnswerController's catch block never sets a grade), so error must be ruled
+                // out first or a backend failure gets silently counted as silence.
+                val grade = voiceAnswer.lastGrade
+                when {
+                    grade != null -> onVoiceGraded(grade, voiceAnswer.lastGradedCardId)
+                    // A grading/transcription failure is not counted as a silence timeout — it
+                    // is simply ignored, leaving the queue and consecutiveSilenceCount untouched.
+                    voiceAnswer.error != null -> Unit
+                    else -> onVoiceSilenceTimeout()
+                }
             }
         }
+    }
+
+    /**
+     * The one path a voice grade applies a Rating through — [onRating] itself, exactly like a
+     * manual tap, using the fixed grade-band mapping (ticket 04 of the Rated session state machine
+     * sequence). An actual graded utterance is the only proof someone is there, so this is also the
+     * one place [consecutiveSilenceCount] resets.
+     *
+     * [gradedCardId] guards against grading a card the reducer head has already moved past — the
+     * Rated voice transport still allows Next while a question is being read (before listening
+     * opens), so a grade can in principle land for a card that isn't the current head any more. A
+     * mismatch means this grade is stale; drop it rather than rating whatever the head currently is.
+     */
+    private fun onVoiceGraded(grade: VoiceAnswerGrade, gradedCardId: String?) {
+        val headCardId = ratedSessionState?.currentCard?.id
+        if (gradedCardId != null && gradedCardId != headCardId) return
+        consecutiveSilenceCount = 0
+        applyRating(grade.toFlashcardRating(), deferSync = true)
+    }
+
+    /**
+     * A silence timeout: no Attempt, no Rating — the card is put back unchanged, using the Failed
+     * gap range. Three in a row pauses the session rather than letting an unattended phone cycle
+     * the deck indefinitely.
+     *
+     * The reducer updates right away, but what the screen shows waits like [applyRating]'s deferred
+     * path does — the "didn't hear you" notice is about the still-displayed card, so the queue's
+     * next head must not appear until that notice finishes.
+     */
+    private fun onVoiceSilenceTimeout() {
+        ratedSessionState = ratedSessionState?.let(::requeueAfterSilence)
+        consecutiveSilenceCount++
+        pendingSessionSync = { syncStateFromRatedSession() }
+        if (consecutiveSilenceCount >= CONSECUTIVE_SILENCE_PAUSE_THRESHOLD) {
+            pauseForRepeatedSilence()
+        }
+    }
+
+    /**
+     * Pausing is not ending: no Terminal State, no navigation event, the queue untouched. Playback
+     * and the microphone stop; only the resume affordance stays live.
+     */
+    private fun pauseForRepeatedSilence() {
+        if (_state.value.isVoicePlaying) voiceGateway.togglePlayPause()
+        voiceGateway.setVoiceAnswering(false)
+        _state.update { it.copy(isVoiceAnswerPaused = true) }
+    }
+
+    /** Re-arms voice answering on the same card, counter back at zero. */
+    fun onResumeSession() {
+        consecutiveSilenceCount = 0
+        _state.update { it.copy(isVoiceAnswerPaused = false) }
+        voiceGateway.setVoiceAnswering(true)
+        if (!_state.value.isVoicePlaying) voiceGateway.togglePlayPause()
     }
 
     private fun observeVoiceAnswerConsentState() {
@@ -283,27 +442,37 @@ class RatedStudySessionViewModel @Inject constructor(
         }
     }
 
-    private fun onNextCard() {
-        val currentState = _state.value
-        if (currentState.currentCardIndex >= currentState.flashcards.lastIndex) {
-            navigateBack()
-        } else {
-            _state.update {
-                it.copy(
-                    currentCardIndex = it.currentCardIndex + 1,
-                    isAnswerRevealed = false,
-                )
-            }
-        }
-    }
+    /**
+     * Applies [rating] to the machine's current (head) card: Correct finishes it Mastered
+     * immediately, Failed/Partial either re-insert it further down the queue or finish it, per the
+     * Attempts limit and [RatedStudySessionRoute.partialRatingCardRequeueingEnabled]. The session
+     * completes — and the terminal navigation event fires — exactly when the queue empties.
+     */
+    fun onRating(rating: FlashcardRating) = applyRating(rating, deferSync = false)
 
     /**
-     * Discards the Rating and just advances — recording it is the next spec's job. Keeping that
-     * out here is what makes this ticket behaviour-preserving rather than a place untested domain
-     * logic sneaks into a PR whose whole claim is that it changes nothing.
+     * [deferSync] is what separates a manual tap from a voice grade: a tap has no feedback playing
+     * over it, so the queue advance is immediate exactly like before. A voice grade instead lands
+     * mid-[VoiceAnswerPhase.SpeakingNotice] — the feedback about to be read is about the card still
+     * on screen, so the queue reducer updates now (the [VoiceGateway] still needs the reordered
+     * queue reseeded to know what's next once the notice ends) but everything the user actually
+     * sees — [RatedStudySessionScreenState.currentCard]/`currentCardRatings`, the answer-reveal
+     * reset, and the terminal navigation event — is captured into [pendingSessionSync] and only
+     * runs once that notice actually finishes (observeVoiceAnswerState's SpeakingNotice-exit edge).
      */
-    fun onRating(rating: FlashcardRating) {
-        onNextCard()
+    private fun applyRating(rating: FlashcardRating, deferSync: Boolean) {
+        val machine = ratedSessionState ?: return
+        // A rapid second tap, or a late voice grade/silence timeout racing the terminal navigation
+        // event, can still reach here after the queue has emptied — rate() assumes a head to rate.
+        if (machine.isComplete) return
+        val outcome = rate(machine, rating)
+        ratedSessionState = outcome.state
+        val applyEffects = {
+            _state.update { it.copy(isAnswerRevealed = false) }
+            syncStateFromRatedSession()
+            if (outcome.state.isComplete) navigateBack()
+        }
+        if (deferSync) pendingSessionSync = applyEffects else applyEffects()
     }
 
     private fun ensureVoiceGatewayStarted() {
@@ -568,5 +737,6 @@ class RatedStudySessionViewModel @Inject constructor(
 
     private companion object {
         const val EXTENDED_CONTEXT_ADVANCE_DELAY_MS = 500L
+        const val CONSECUTIVE_SILENCE_PAUSE_THRESHOLD = 3
     }
 }

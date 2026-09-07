@@ -5,6 +5,7 @@ import app.cash.turbine.test
 import com.rossomak.flashcards.core.domain.model.CurationAction
 import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.core.domain.model.FlashcardRating
+import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
 import com.rossomak.flashcards.core.domain.model.VoiceSettings
 import com.rossomak.flashcards.core.domain.repository.CurationRepository
@@ -15,6 +16,7 @@ import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.ObserveUserPreferencesUseCase
 import com.rossomak.flashcards.core.domain.usecase.SaveUserPreferenceUseCase
 import com.rossomak.flashcards.core.domain.usecase.SubmitCurationReportUseCase
+import com.rossomak.flashcards.core.ui.composables.FlashcardsAttemptSlotState
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Dismiss
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.DraftChange
@@ -27,21 +29,26 @@ import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog
 import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.ExitSession
 import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.ReportProblem
 import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.VoiceAnswerConsent
+import com.rossomak.flashcards.feature.study.voice.VoiceAnswerPhase
 import com.rossomak.flashcards.feature.study.voice.VoiceAnswerState
 import com.rossomak.flashcards.feature.study.voice.VoiceGateway
 import com.rossomak.flashcards.feature.study.voice.VoicePhase
 import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 import com.rossomak.flashcards.testutil.MainDispatcherRule
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import io.mockk.verify
+import kotlin.random.Random
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -132,6 +139,25 @@ class RatedStudySessionViewModelTest {
         )
     }
 
+    /**
+     * A pool small enough to keep this file's tests cheap, but with a remaining-queue size (3)
+     * bigger than [StudySessionConfig.FAILED_REQUEUE_MIN_GAP] — unlike a 3-card pool, whose
+     * remaining size (2) forces every re-insertion to clamp to the same tail position, making 3
+     * rotations trivially cyclic back to the original order regardless of the actual gap drawn.
+     */
+    private fun loadFourCards() {
+        val cardIds = (1..4).map { "card-$it" }
+        flashcardRepository.flashcardsBySubcategory[subcategoryId] = Result.success(cardIds.map { flashcard(it) })
+        stubRoute(route.copy(cardIds = cardIds))
+    }
+
+    /** A pool large enough that a re-insertion gap lands mid-queue instead of clamping to the end. */
+    private fun loadTenCards() {
+        val cardIds = (1..10).map { "card-$it" }
+        flashcardRepository.flashcardsBySubcategory[subcategoryId] = Result.success(cardIds.map { flashcard(it) })
+        stubRoute(route.copy(cardIds = cardIds))
+    }
+
     @Test
     fun `loadFlashcards resolves routed card ids preserving order`() = runTest(mainDispatcherRule.testDispatcher) {
         flashcardRepository.flashcardsBySubcategory[subcategoryId] = Result.success(
@@ -180,7 +206,7 @@ class RatedStudySessionViewModelTest {
     }
 
     @Test
-    fun `onRating advances to next card and hides the answer, discarding the rating`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `rating the current card Correct removes it and advances to the next`() = runTest(mainDispatcherRule.testDispatcher) {
         loadThreeCards()
 
         val viewModel = createViewModel()
@@ -188,7 +214,7 @@ class RatedStudySessionViewModelTest {
         viewModel.onShowAnswer()
         viewModel.onRating(FlashcardRating.Correct)
 
-        viewModel.state.value.currentCardIndex shouldBe 1
+        viewModel.state.value.currentCard?.id shouldBe "card-2"
         viewModel.state.value.isAnswerRevealed shouldBe false
     }
 
@@ -203,6 +229,159 @@ class RatedStudySessionViewModelTest {
 
         viewModel.events.test { awaitItem() shouldBe RatedStudySessionDestination.Back }
     }
+
+    @Test
+    fun `rating it Failed keeps it in the session and brings it back later`() = runTest(mainDispatcherRule.testDispatcher) {
+        loadThreeCards()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onRating(FlashcardRating.Failed)
+
+        viewModel.state.value.currentCard?.id shouldNotBe "card-1"
+        viewModel.state.value.flashcards.map { it.id } shouldContain "card-1"
+    }
+
+    @Test
+    fun `the mastered count increases only on a Terminal Mastered`() = runTest(mainDispatcherRule.testDispatcher) {
+        loadThreeCards()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onRating(FlashcardRating.Failed)
+        viewModel.state.value.masteredCount shouldBe 0
+
+        viewModel.onRating(FlashcardRating.Correct)
+        viewModel.state.value.masteredCount shouldBe 1
+    }
+
+    @Test
+    fun `the mastered count does not move on a card finishing Partial or Failed`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            flashcardRepository.flashcardsBySubcategory[subcategoryId] = Result.success(
+                listOf(flashcard("card-1"), flashcard("card-2")),
+            )
+            stubRoute(route.copy(cardIds = listOf("card-1", "card-2"), ratedAttempts = 1))
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onRating(FlashcardRating.Failed)
+            viewModel.state.value.masteredCount shouldBe 0
+
+            viewModel.onRating(FlashcardRating.PartiallyCorrect)
+            viewModel.state.value.masteredCount shouldBe 0
+        }
+
+    @Test
+    fun `the distinct card total is fixed at session start and does not grow as the queue grows`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            val distinctCountBefore = viewModel.state.value.distinctCardCount
+
+            viewModel.onRating(FlashcardRating.Failed)
+
+            viewModel.state.value.distinctCardCount shouldBe distinctCountBefore
+            viewModel.state.value.distinctCardCount shouldBe 3
+        }
+
+    @Test
+    fun `the attempt indicator's slots reflect the current card's Rating list in order`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadTenCards()
+            val viewModel = createViewModel().apply { random = Random(FIXED_SEED) }
+            advanceUntilIdle()
+
+            viewModel.onRating(FlashcardRating.Failed)
+            // The card that just went to the back of the queue is not the head any more, so cycle
+            // through the others (Correct finishes them immediately) until it resurfaces.
+            while (viewModel.state.value.currentCard?.id != "card-1") {
+                viewModel.onRating(FlashcardRating.Correct)
+            }
+
+            viewModel.state.value.currentCardRatings shouldBe listOf(FlashcardRating.Failed)
+            viewModel.state.value.attemptSlots shouldBe listOf(
+                FlashcardsAttemptSlotState.Failed,
+                FlashcardsAttemptSlotState.Current,
+                FlashcardsAttemptSlotState.Future,
+            )
+        }
+
+    @Test
+    fun `the attempt indicator's Current position and Future count match the configured Attempts limit`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            stubRoute(route.copy(cardIds = listOf("card-1", "card-2", "card-3"), ratedAttempts = 4))
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.state.value.attemptSlots shouldBe listOf(
+                FlashcardsAttemptSlotState.Current,
+                FlashcardsAttemptSlotState.Future,
+                FlashcardsAttemptSlotState.Future,
+                FlashcardsAttemptSlotState.Future,
+            )
+        }
+
+    @Test
+    fun `the terminal navigation event fires exactly once, when the last card finishes`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onRating(FlashcardRating.Correct)
+            viewModel.onRating(FlashcardRating.Correct)
+
+            viewModel.events.test {
+                viewModel.onRating(FlashcardRating.Correct)
+                awaitItem() shouldBe RatedStudySessionDestination.Back
+            }
+        }
+
+    @Test
+    fun `partialRatingCardRequeueingEnabled false ends a Partial rating immediately as Terminal Partial`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            flashcardRepository.flashcardsBySubcategory[subcategoryId] = Result.success(listOf(flashcard("card-1")))
+            stubRoute(route.copy(cardIds = listOf("card-1"), partialRatingCardRequeueingEnabled = false))
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onRating(FlashcardRating.PartiallyCorrect)
+
+            viewModel.events.test { awaitItem() shouldBe RatedStudySessionDestination.Back }
+        }
+
+    @Test
+    fun `partialRatingCardRequeueingEnabled true re-queues a Partial rating`() = runTest(mainDispatcherRule.testDispatcher) {
+        loadThreeCards()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onRating(FlashcardRating.PartiallyCorrect)
+
+        viewModel.state.value.currentCard?.id shouldNotBe "card-1"
+        viewModel.state.value.flashcards.map { it.id } shouldContain "card-1"
+    }
+
+    @Test
+    fun `a rating sequence produces the expected order of displayed cards under a fixed Random`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadTenCards()
+            val ratingSequence = listOf(FlashcardRating.Failed, FlashcardRating.PartiallyCorrect, FlashcardRating.Failed)
+
+            val firstViewModel = createViewModel().apply { random = Random(FIXED_SEED) }
+            advanceUntilIdle()
+            ratingSequence.forEach(firstViewModel::onRating)
+            val firstOrder = firstViewModel.state.value.flashcards.map { it.id }
+
+            val secondViewModel = createViewModel().apply { random = Random(FIXED_SEED) }
+            advanceUntilIdle()
+            ratingSequence.forEach(secondViewModel::onRating)
+            val secondOrder = secondViewModel.state.value.flashcards.map { it.id }
+
+            firstOrder shouldBe secondOrder
+        }
 
     @Test
     fun `confirming the exit dialog closes it and navigates back`() = runTest(mainDispatcherRule.testDispatcher) {
@@ -664,6 +843,197 @@ class RatedStudySessionViewModelTest {
 
         viewModel.state.value.lastVoiceAnswerGrade shouldBe null
     }
+
+    /**
+     * Three [MutableStateFlow] writes, each followed by [advanceUntilIdle], so the collector
+     * actually observes every intermediate phase — writing SpeakingNotice twice in a row without
+     * that would conflate into one emission (equal consecutive [VoiceAnswerState] values), silently
+     * dropping a silence timeout. The final WaitingForQuestion write mirrors the real notice-finished
+     * transition ([VoiceAnswerController.onNoticeFinishedSpeaking]) — the screen's queue/currentCard
+     * sync is deferred until the phase actually leaves SpeakingNotice, so a test that stopped at
+     * SpeakingNotice would never see it applied.
+     */
+    private fun TestScope.emitSilenceTimeout() {
+        voiceGateway.voiceAnswerStateFlow.value = VoiceAnswerState(isEnabled = true, phase = VoiceAnswerPhase.Listening)
+        advanceUntilIdle()
+        voiceGateway.voiceAnswerStateFlow.value = VoiceAnswerState(isEnabled = true, phase = VoiceAnswerPhase.SpeakingNotice)
+        advanceUntilIdle()
+        voiceGateway.voiceAnswerStateFlow.value = VoiceAnswerState(isEnabled = true, phase = VoiceAnswerPhase.WaitingForQuestion)
+        advanceUntilIdle()
+    }
+
+    private fun TestScope.emitGrade(grade: VoiceAnswerGrade, cardId: String) {
+        voiceGateway.voiceAnswerStateFlow.value = VoiceAnswerState(isEnabled = true, phase = VoiceAnswerPhase.Grading)
+        advanceUntilIdle()
+        voiceGateway.voiceAnswerStateFlow.value = VoiceAnswerState(
+            isEnabled = true,
+            phase = VoiceAnswerPhase.SpeakingNotice,
+            lastGrade = grade,
+            lastGradedCardId = cardId,
+        )
+        advanceUntilIdle()
+        // Notice-finished edge (see emitSilenceTimeout's kdoc) — this is what actually applies the
+        // deferred queue/currentCard sync in production.
+        voiceGateway.voiceAnswerStateFlow.value = VoiceAnswerState(
+            isEnabled = true,
+            phase = VoiceAnswerPhase.WaitingForQuestion,
+            lastGrade = grade,
+            lastGradedCardId = cardId,
+        )
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `a voice grade drives the same Attempt increment and re-insertion as the equivalent manual rating`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            emitGrade(grade = VoiceAnswerGrade(sanitizedTranscript = "t", gradePercent = 20, feedback = "missed it"), cardId = "card-1")
+
+            viewModel.state.value.currentCard?.id shouldNotBe "card-1"
+            viewModel.state.value.flashcards.map { it.id } shouldContain "card-1"
+        }
+
+    @Test
+    fun `a grade in the Correct band finishes the card as Mastered, exactly as a manual Correct does`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            flashcardRepository.flashcardsBySubcategory[subcategoryId] = Result.success(listOf(flashcard("card-1")))
+            stubRoute(route.copy(cardIds = listOf("card-1")))
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.events.test {
+                emitGrade(grade = VoiceAnswerGrade(sanitizedTranscript = "t", gradePercent = 95, feedback = "great"), cardId = "card-1")
+                awaitItem() shouldBe RatedStudySessionDestination.Back
+            }
+            viewModel.state.value.masteredCount shouldBe 1
+        }
+
+    @Test
+    fun `a silence timeout leaves the card's Rating list and best rating unchanged, and re-queues the card`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadTenCards()
+            val viewModel = createViewModel().apply { random = Random(FIXED_SEED) }
+            advanceUntilIdle()
+
+            emitSilenceTimeout()
+
+            viewModel.state.value.currentCard?.id shouldNotBe "card-1"
+            viewModel.state.value.flashcards.map { it.id } shouldContain "card-1"
+            while (viewModel.state.value.currentCard?.id != "card-1") {
+                viewModel.onRating(FlashcardRating.Correct)
+            }
+
+            viewModel.state.value.currentCardRatings shouldBe emptyList()
+        }
+
+    @Test
+    fun `a silence timeout re-queues within the Failed gap range`() = runTest(mainDispatcherRule.testDispatcher) {
+        loadTenCards()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        emitSilenceTimeout()
+
+        val index = viewModel.state.value.flashcards.indexOfFirst { it.id == "card-1" }
+        (index in StudySessionConfig.FAILED_REQUEUE_MIN_GAP..StudySessionConfig.FAILED_REQUEUE_MAX_GAP) shouldBe true
+    }
+
+    @Test
+    fun `two silence timeouts do not pause the session, but the third does`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            repeat(2) { emitSilenceTimeout() }
+            viewModel.state.value.isVoiceAnswerPaused shouldBe false
+
+            emitSilenceTimeout()
+
+            viewModel.state.value.isVoiceAnswerPaused shouldBe true
+        }
+
+    @Test
+    fun `the consecutive silence counter resets on a graded answer, so silence-silence-grade-silence does not pause`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            repeat(2) { emitSilenceTimeout() }
+            emitGrade(
+                grade = VoiceAnswerGrade(sanitizedTranscript = "t", gradePercent = 90, feedback = "f"),
+                cardId = viewModel.state.value.currentCard?.id.orEmpty(),
+            )
+
+            emitSilenceTimeout()
+
+            viewModel.state.value.isVoiceAnswerPaused shouldBe false
+        }
+
+    @Test
+    fun `pausing after three silences stops playback, exposes the resume affordance, and records no outcome`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadFourCards()
+            val viewModel = createViewModel().apply { random = Random(FIXED_SEED) }
+            advanceUntilIdle()
+            voiceGateway.stateFlow.value = VoicePlaybackState(isActive = true, isPlaying = true)
+            advanceUntilIdle()
+            val masteredBefore = viewModel.state.value.masteredCount
+            val flashcardsBefore = viewModel.state.value.flashcards.map { it.id }
+
+            // Independently reproduces requeueAfterSilence's exact draw order/range with an
+            // unrelated Random instance seeded identically — a 4-card pool's remaining-queue size
+            // (3) exceeds the Failed gap's minimum (2), so unlike a 3-card pool this genuinely
+            // exercises re-insertion position rather than clamping to a fixed spot every time.
+            val referenceRandom = Random(FIXED_SEED)
+            val expectedQueue = flashcardsBefore.toMutableList()
+            repeat(3) {
+                val head = expectedQueue.removeAt(0)
+                val gap = referenceRandom.nextInt(
+                    StudySessionConfig.FAILED_REQUEUE_MIN_GAP,
+                    StudySessionConfig.FAILED_REQUEUE_MAX_GAP + 1,
+                )
+                expectedQueue.add(gap.coerceAtMost(expectedQueue.size), head)
+            }
+
+            viewModel.events.test {
+                repeat(3) { emitSilenceTimeout() }
+                expectNoEvents()
+            }
+
+            viewModel.state.value.isVoiceAnswerPaused shouldBe true
+            voiceGateway.togglePlayPauseCalls shouldBe 1
+            voiceGateway.lastVoiceAnswering shouldBe false
+            viewModel.state.value.masteredCount shouldBe masteredBefore
+            viewModel.state.value.flashcards.map { it.id } shouldBe expectedQueue
+        }
+
+    @Test
+    fun `resuming continues from the same card with the counter reset`() = runTest(mainDispatcherRule.testDispatcher) {
+        loadThreeCards()
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        repeat(3) { emitSilenceTimeout() }
+        val cardBeforePause = viewModel.state.value.currentCard?.id
+
+        viewModel.onResumeSession()
+
+        viewModel.state.value.isVoiceAnswerPaused shouldBe false
+        viewModel.state.value.currentCard?.id shouldBe cardBeforePause
+        voiceGateway.lastVoiceAnswering shouldBe true
+
+        // Counter reset: two more silences must not re-pause.
+        repeat(2) { emitSilenceTimeout() }
+        viewModel.state.value.isVoiceAnswerPaused shouldBe false
+    }
+
+    private companion object {
+        const val FIXED_SEED = 42L
+    }
 }
 
 private class FakeVoiceGateway : VoiceGateway {
@@ -679,6 +1049,8 @@ private class FakeVoiceGateway : VoiceGateway {
     var lastStartCards: List<Flashcard>? = null
     var lastStartIndex: Int? = null
     var lastStartSubcategoryName: String? = null
+    var updateQueueCalls = 0
+    var lastUpdateQueueCards: List<Flashcard>? = null
     var togglePlayPauseCalls = 0
     var rewindToNextCalls = 0
     var rewindToPreviousCalls = 0
@@ -695,6 +1067,10 @@ private class FakeVoiceGateway : VoiceGateway {
         lastStartSubcategoryName = subcategoryName
     }
 
+    override fun updateQueue(cards: List<Flashcard>) {
+        updateQueueCalls++
+        lastUpdateQueueCards = cards
+    }
     override fun stop() {
         stopCalls++
     }

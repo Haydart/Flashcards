@@ -573,6 +573,8 @@ private class FakeVoiceGateway : VoiceGateway {
         lastStartSubcategoryName = subcategoryName
     }
 
+    override fun updateQueue(cards: List<Flashcard>) = Unit
+
     override fun stop() {
         stopCalls++
     }

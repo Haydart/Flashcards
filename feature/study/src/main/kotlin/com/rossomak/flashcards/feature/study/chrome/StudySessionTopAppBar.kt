@@ -21,12 +21,16 @@ import com.rossomak.flashcards.feature.study.R
  * The top app bar shared by every Study Session screen (ticket 01 of
  * [ADR-0045](../../../../../../../../docs/adr/0045-separate-fast-and-rated-session-screens.md)):
  * a close action that opens the exit-confirmation dialog, a flag action shown only while a card is
- * on screen that opens Report a problem for that card, and a trailing `current / total` counter
- * shown only once the deck is non-empty.
+ * on screen that opens Report a problem for that card, and a trailing counter shown whenever
+ * [counterText] is non-null.
  *
- * Takes the current card and the counter as plain values rather than the screen state that owns
- * them — the two Study Modes are about to diverge into two different state types, and this bar
- * must not force either of them into a shared supertype just to be fed.
+ * Takes the current card and the already-formatted counter text as plain values rather than the
+ * screen state that owns them — the two Study Modes are about to diverge into two different state
+ * types, and this bar must not force either of them into a shared supertype just to be fed. The
+ * counter's meaning itself diverges too (ticket 03 of the Rated session state machine sequence):
+ * Fast shows deck position, Rated shows distinct cards mastered — so this bar renders [counterText]
+ * verbatim rather than deriving it from a position/total pair, and takes no Study Mode flag to
+ * choose between them.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,8 +38,7 @@ fun StudySessionTopAppBar(
     modifier: Modifier = Modifier,
     sessionTitle: String,
     reportableCard: Flashcard?,
-    currentCardIndex: Int,
-    totalCardCount: Int,
+    counterText: String?,
     onClose: () -> Unit,
     onReportProblem: (card: Flashcard) -> Unit,
 ) {
@@ -61,9 +64,9 @@ fun StudySessionTopAppBar(
                     )
                 }
             }
-            if (totalCardCount > 0) {
+            if (counterText != null) {
                 Text(
-                    text = "${currentCardIndex + 1} / $totalCardCount",
+                    text = counterText,
                     modifier = Modifier.padding(end = 16.dp),
                     style = MaterialTheme.typography.labelLarge,
                 )

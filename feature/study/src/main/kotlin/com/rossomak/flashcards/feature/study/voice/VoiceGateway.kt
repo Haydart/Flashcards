@@ -28,6 +28,14 @@ interface VoiceGateway {
     val state: StateFlow<VoicePlaybackState>
     val voiceAnswerState: StateFlow<VoiceAnswerState>
     fun start(cards: List<Flashcard>, startIndex: Int, subcategoryName: String)
+
+    /**
+     * Swaps in a fresh queue order without touching playback — [cards]'s head is always whatever
+     * is currently speaking, so the in-flight utterance is untouched; only what comes next changes.
+     * Rated sessions call this after every rating or silence-timeout requeue (ADR-0046) instead of
+     * re-calling [start], which would restart the engine from scratch.
+     */
+    fun updateQueue(cards: List<Flashcard>)
     fun stop()
     fun togglePlayPause()
     fun rewindToNext()

@@ -39,7 +39,7 @@ data class StudySessionConfig(
 ) {
 
     companion object {
-        const val MIN_LENGTH = 10
+        const val MIN_LENGTH = 5
         const val MAX_LENGTH = 50
         const val LENGTH_STEP = 5
         const val DEFAULT_LENGTH = 20
@@ -58,5 +58,17 @@ data class StudySessionConfig(
         const val MAX_RATED_ATTEMPTS = 5
         const val RATED_ATTEMPTS_STEP = 1
         const val DEFAULT_RATED_ATTEMPTS = 3
+
+        /**
+         * [RatedSessionState]'s re-insertion gap for a Failed Rating, in cards shown before this
+         * one returns — never 0 or 1, so the card is a recall rather than a re-read of the answer
+         * still on screen ([ADR-0046](../../../../../../../docs/adr/0046-failed-and-partial-re-insertion-placement.md)).
+         */
+        const val FAILED_REQUEUE_MIN_GAP = 2
+        const val FAILED_REQUEUE_MAX_GAP = 4
+
+        /** [RatedSessionState]'s re-insertion gap for a Partial Rating — further out than Failed. */
+        const val PARTIAL_REQUEUE_MIN_GAP = 5
+        const val PARTIAL_REQUEUE_MAX_GAP = 9
     }
 }

@@ -53,6 +53,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.domain.model.FlashcardRating
 import com.rossomak.flashcards.core.ui.R as CoreUiR
+import com.rossomak.flashcards.core.ui.composables.FlashcardsAttemptIndicator
+import com.rossomak.flashcards.core.ui.composables.FlashcardsAttemptSlotState
 import com.rossomak.flashcards.core.ui.composables.rating.FlashcardsRatingButtonRow
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
@@ -169,6 +171,7 @@ fun RatedStudySessionScreen(
         onVoiceNext = viewModel::onVoiceNext,
         onVoicePrevious = viewModel::onVoicePrevious,
         onVoiceAnswerToggle = viewModel::onVoiceAnswerToggle,
+        onResumeSession = viewModel::onResumeSession,
         onDialogEvent = viewModel::onDialogEvent,
     )
 }
@@ -185,6 +188,7 @@ fun RatedStudySessionContent(
     onVoiceNext: () -> Unit,
     onVoicePrevious: () -> Unit,
     onVoiceAnswerToggle: () -> Unit,
+    onResumeSession: () -> Unit,
     onDialogEvent: (StudySessionDialogEvent) -> Unit,
 ) {
     val scaffoldState = rememberBottomSheetScaffoldState(
@@ -206,8 +210,15 @@ fun RatedStudySessionContent(
             StudySessionTopAppBar(
                 sessionTitle = state.sessionTitle,
                 reportableCard = state.currentCard,
-                currentCardIndex = state.currentCardIndex,
-                totalCardCount = state.flashcards.size,
+                counterText = if (state.distinctCardCount > 0) {
+                    stringResource(
+                        R.string.rated_study_session_mastered_counter_label,
+                        state.masteredCount,
+                        state.distinctCardCount,
+                    )
+                } else {
+                    null
+                },
                 onClose = { onDialogEvent(Open(ExitSession)) },
                 onReportProblem = { card ->
                     onDialogEvent(Open(ReportProblem(cardId = card.id, subcategoryId = card.subcategoryId)))
@@ -224,6 +235,7 @@ fun RatedStudySessionContent(
                 onVoicePrevious = onVoicePrevious,
                 onVoiceSettingsCogClick = { onDialogEvent(Open(VoiceSettings())) },
                 onVoiceAnswerToggle = onVoiceAnswerToggle,
+                onResumeSession = onResumeSession,
             )
         },
     ) { innerPadding ->
@@ -254,6 +266,7 @@ private fun RatedStudySessionSheetContent(
     onVoicePrevious: () -> Unit,
     onVoiceSettingsCogClick: () -> Unit,
     onVoiceAnswerToggle: () -> Unit,
+    onResumeSession: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -264,13 +277,19 @@ private fun RatedStudySessionSheetContent(
         if (state.isVoiceActive) {
             RatedVoiceAnswerHeader(state = state, onVoiceAnswerToggle = onVoiceAnswerToggle, onVoiceSettingsCogClick = onVoiceSettingsCogClick)
             RatedVoiceTranscript(state = state)
-            RatedVoiceTransportRow(
-                state = state,
-                onShowAnswer = onShowAnswer,
-                onVoicePlayPause = onVoicePlayPause,
-                onVoiceNext = onVoiceNext,
-                onVoicePrevious = onVoicePrevious,
-            )
+            if (state.isVoiceAnswerPaused) {
+                // Distinct from the transient busy/listening disable windows below: the transport
+                // itself is idle here, only the resume affordance is live.
+                RatedVoiceAnswerPausedContent(onResumeSession = onResumeSession)
+            } else {
+                RatedVoiceTransportRow(
+                    state = state,
+                    onShowAnswer = onShowAnswer,
+                    onVoicePlayPause = onVoicePlayPause,
+                    onVoiceNext = onVoiceNext,
+                    onVoicePrevious = onVoicePrevious,
+                )
+            }
         } else {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -299,7 +318,7 @@ private fun RatedStudySessionSheetContent(
                     Text(stringResource(R.string.study_session_show_answer_button))
                 }
             } else {
-                RatingButtons(onRating = onRating)
+                RatingButtons(slots = state.attemptSlots, onRating = onRating)
             }
         }
     }
@@ -378,6 +397,33 @@ private fun RatedVoiceTranscript(state: RatedStudySessionScreenState) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
+    }
+}
+
+/**
+ * Shown instead of [RatedVoiceTransportRow] once three consecutive silence timeouts have paused
+ * the session (ticket 04 of the Rated session state machine sequence): playback and the microphone
+ * are already stopped, and this is the only live control until the user taps Resume.
+ */
+@Composable
+private fun RatedVoiceAnswerPausedContent(onResumeSession: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = stringResource(R.string.study_session_voice_answer_paused_message),
+            modifier = Modifier.fillMaxWidth(),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Button(onClick = onResumeSession) {
+            Text(stringResource(R.string.study_session_voice_answer_resume_button))
+        }
     }
 }
 
@@ -469,9 +515,14 @@ private fun RatedVoiceTransportRow(
 
 @Composable
 private fun RatingButtons(
+    slots: List<FlashcardsAttemptSlotState>,
     onRating: (FlashcardRating) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+            FlashcardsAttemptIndicator(slots = slots)
+        }
+        Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = stringResource(CoreUiR.string.common_rating_prompt_label),
             modifier = Modifier.fillMaxWidth(),
@@ -502,6 +553,7 @@ private fun RatedStudySessionVoiceActivePreview() {
         onVoiceNext = {},
         onVoicePrevious = {},
         onVoiceAnswerToggle = {},
+        onResumeSession = {},
         onDialogEvent = {},
     )
 }
@@ -538,6 +590,7 @@ private fun RatedStudySessionManualPreview() {
         onVoiceNext = {},
         onVoicePrevious = {},
         onVoiceAnswerToggle = {},
+        onResumeSession = {},
         onDialogEvent = {},
     )
 }
