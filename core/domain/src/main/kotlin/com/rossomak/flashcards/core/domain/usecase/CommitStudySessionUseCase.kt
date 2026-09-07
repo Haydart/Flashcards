@@ -10,7 +10,6 @@ import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState.Par
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState.Seen
 import com.rossomak.flashcards.core.domain.model.SessionCommit
 import com.rossomak.flashcards.core.domain.model.SessionResult
-import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.SubcategoryProgressWrite
 import com.rossomak.flashcards.core.domain.repository.CardProgressRepository
 import com.rossomak.flashcards.core.domain.repository.StudySessionRepository
@@ -20,7 +19,7 @@ import javax.inject.Inject
  * The single use case that performs the whole session save (ADR-0014), called once by the Summary
  * ViewModel on arrival. Reads each touched Subcategory's prior progress itself
  * ([ADR-0016](../../../../../../../docs/adr/0016-card-progress-model.md)) — never trusting
- * [FlashcardResult.wasPreviouslyMastered], which exists for in-session display only — and turns
+ * [FlashcardResult.Rated.wasPreviouslyMastered], which exists for in-session display only — and turns
  * the session's card results into the [SubcategoryProgressWrite]s and new-cards-studied count
  * [StudySessionRepository.commitSession] writes alongside the session document, in the same batch.
  *
@@ -48,7 +47,7 @@ class CommitStudySessionUseCase @Inject constructor(
                 val prior = priorCards[entry.cardId]
                 if (prior == null) newCardsStudied++
 
-                resolveUpdate(sessionResult.mode, entry.state, prior)?.let { update ->
+                resolveUpdate(entry, prior)?.let { update ->
                     cardUpdates[entry.cardId] = update
                 }
             }
@@ -77,13 +76,9 @@ class CommitStudySessionUseCase @Inject constructor(
      * card (already Mastered, ending Mastered again) changes no state, so it writes nothing either —
      * only a genuine transition into Mastered stamps [CardProgressUpdate.stampMastered].
      */
-    private fun resolveUpdate(
-        mode: StudyMode,
-        state: FlashcardStudyProgressState,
-        prior: CardProgressEntry?,
-    ): CardProgressUpdate? = when (mode) {
-        StudyMode.Fast -> resolveFastUpdate(prior)
-        StudyMode.Rated -> resolveRatedUpdate(state, prior)
+    private fun resolveUpdate(entry: FlashcardResult, prior: CardProgressEntry?): CardProgressUpdate? = when (entry) {
+        is FlashcardResult.Fast -> resolveFastUpdate(prior)
+        is FlashcardResult.Rated -> resolveRatedUpdate(entry.state, prior)
     }
 
     private fun resolveFastUpdate(prior: CardProgressEntry?): CardProgressUpdate? =

@@ -7,7 +7,6 @@ import com.google.firebase.firestore.SetOptions
 import com.rossomak.flashcards.core.domain.model.FlashcardResult
 import com.rossomak.flashcards.core.domain.model.SessionCommit
 import com.rossomak.flashcards.core.domain.model.SessionResult
-import com.rossomak.flashcards.core.domain.model.StudyMode
 import java.util.concurrent.Executor
 import javax.inject.Inject
 
@@ -54,11 +53,11 @@ class StudySessionRemoteDataSource @Inject constructor(
     }
 
     /**
-     * The document's own shape follows [SessionResult.mode]: [FIELD_CARDS_MASTERED]/
+     * The document's own shape follows [SessionResult]'s sealed branch: [FIELD_CARDS_MASTERED]/
      * [FIELD_CARDS_PARTIAL]/[FIELD_CARDS_DEFENDED]/[FIELD_CARDS_DEMASTERED] are present only for a
-     * Rated session — genuinely absent from a Fast document, not zeroed. [FIELD_CARDS_DEFENDED] and
-     * [FIELD_CARDS_DEMASTERED] are written as zero on every Rated document until spec 07 produces a
-     * defended or de-mastered card. [newCardsStudied] comes from [CommitStudySessionUseCase][com.rossomak.flashcards.core.domain.usecase.CommitStudySessionUseCase]'s
+     * [SessionResult.Rated] — genuinely absent from a Fast document, not zeroed. [FIELD_CARDS_DEFENDED]
+     * and [FIELD_CARDS_DEMASTERED] are written as zero on every Rated document until spec 07 produces
+     * a defended or de-mastered card. [newCardsStudied] comes from [CommitStudySessionUseCase][com.rossomak.flashcards.core.domain.usecase.CommitStudySessionUseCase]'s
      * read of prior progress — mode-agnostic, unlike the four counts above.
      */
     private fun SessionResult.toDocumentFields(newCardsStudied: Int): Map<String, Any> = buildMap {
@@ -73,21 +72,21 @@ class StudySessionRemoteDataSource @Inject constructor(
         put(FIELD_SUBCATEGORY_NAMES, subcategoryNames)
         put(FIELD_CARD_COUNT, studiedCount)
         put(FIELD_NEW_CARDS_STUDIED, newCardsStudied)
-        put(FIELD_CARD_RESULTS, cardResults.associate { entry -> entry.cardId to entry.toResultFields(mode) })
-        if (mode == StudyMode.Rated) {
-            put(FIELD_CARDS_MASTERED, masteredCount)
-            put(FIELD_CARDS_PARTIAL, partialCount)
+        put(FIELD_CARD_RESULTS, cardResults.associate { entry -> entry.cardId to entry.toResultFields() })
+        if (this@toDocumentFields is SessionResult.Rated) {
+            put(FIELD_CARDS_MASTERED, this@toDocumentFields.masteredCount)
+            put(FIELD_CARDS_PARTIAL, this@toDocumentFields.partialCount)
             put(FIELD_CARDS_DEFENDED, 0) // spec 07 fills this in
             put(FIELD_CARDS_DEMASTERED, 0) // spec 07 fills this in
         }
     }
 
-    private fun FlashcardResult.toResultFields(mode: StudyMode): Map<String, Any> = buildMap {
+    private fun FlashcardResult.toResultFields(): Map<String, Any> = buildMap {
         put(FIELD_CARD_SUBCATEGORY_ID, subcategoryId)
         put(FIELD_STATE, state.name)
-        if (mode == StudyMode.Rated) {
-            put(FIELD_ATTEMPTS_USED, attemptsUsed)
-            put(FIELD_WAS_PREVIOUSLY_MASTERED, wasPreviouslyMastered)
+        if (this@toResultFields is FlashcardResult.Rated) {
+            put(FIELD_ATTEMPTS_USED, this@toResultFields.attemptsUsed)
+            put(FIELD_WAS_PREVIOUSLY_MASTERED, this@toResultFields.wasPreviouslyMastered)
         }
     }
 

@@ -5,7 +5,6 @@ import com.rossomak.flashcards.core.domain.model.FlashcardResult
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
 import com.rossomak.flashcards.core.domain.model.SessionCommit
 import com.rossomak.flashcards.core.domain.model.SessionResult
-import com.rossomak.flashcards.core.domain.model.StudyMode
 import io.kotest.matchers.shouldBe
 import io.mockk.Runs
 import io.mockk.every
@@ -26,9 +25,8 @@ class DefaultStudySessionRepositoryTest {
     private fun createRepository(): DefaultStudySessionRepository = DefaultStudySessionRepository(remoteDataSource)
 
     private fun sessionCommit(): SessionCommit = SessionCommit(
-        sessionResult = SessionResult(
+        sessionResult = SessionResult.Rated(
             id = "session-1",
-            mode = StudyMode.Rated,
             startedAt = Instant.parse("2026-09-06T10:00:00Z"),
             durationSeconds = 60,
             abandoned = false,
@@ -37,7 +35,7 @@ class DefaultStudySessionRepositoryTest {
             subcategoryIds = listOf("sub-1"),
             subcategoryNames = listOf("Subcategory"),
             cardResults = listOf(
-                FlashcardResult(
+                FlashcardResult.Rated(
                     cardId = "card-1",
                     subcategoryId = "sub-1",
                     state = FlashcardStudyProgressState.Mastered,

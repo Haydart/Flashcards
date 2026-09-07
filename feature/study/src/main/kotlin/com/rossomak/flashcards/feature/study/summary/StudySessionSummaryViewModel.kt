@@ -3,6 +3,7 @@ package com.rossomak.flashcards.feature.study.summary
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.rossomak.flashcards.core.domain.model.SessionResult
 import com.rossomak.flashcards.core.domain.usecase.CommitStudySessionUseCase
 import com.rossomak.flashcards.core.ui.navigation.decodeRoute
 import com.rossomak.flashcards.feature.study.StudySessionSummaryRoute
@@ -36,15 +37,25 @@ class StudySessionSummaryViewModel @Inject constructor(
 
     private val result = savedStateHandle.decodeRoute<StudySessionSummaryRoute>().toSessionResult()
 
+    /**
+     * 0/0/0 for a Fast result is a UI-state convention only (see [StudySessionSummaryScreenState]'s own
+     * KDoc) — the screen already chooses its layout off `mode`, never off these being zero. The domain
+     * [SessionResult] itself has no such fields on its Fast branch at all (sealed).
+     */
+    private val terminalStateCounts: Triple<Int, Int, Int> = when (result) {
+        is SessionResult.Rated -> Triple(result.masteredCount, result.partialCount, result.failedCount)
+        is SessionResult.Fast -> Triple(0, 0, 0)
+    }
+
     private val _state = MutableStateFlow(
         StudySessionSummaryScreenState(
             mode = result.mode,
             durationSeconds = result.durationSeconds,
             studiedCount = result.studiedCount,
             abandoned = result.abandoned,
-            masteredCount = result.masteredCount,
-            partialCount = result.partialCount,
-            failedCount = result.failedCount,
+            masteredCount = terminalStateCounts.first,
+            partialCount = terminalStateCounts.second,
+            failedCount = terminalStateCounts.third,
         ),
     )
     val state: StateFlow<StudySessionSummaryScreenState> = _state.asStateFlow()

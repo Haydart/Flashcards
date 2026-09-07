@@ -195,7 +195,7 @@ private fun reinsertAt(
  * is no just-submitted rating at abandon time, and the remaining queue's Attempts may be well under
  * its limit, so neither of [resolveFlashcardTerminalRating]'s inputs apply.
  */
-fun sealRatedCardResults(state: RatedSessionState, abandoned: Boolean): List<FlashcardResult> {
+fun sealRatedCardResults(state: RatedSessionState, abandoned: Boolean): List<FlashcardResult.Rated> {
     val resolvedEntries = state.terminalStates.values.map { resolved ->
         resolved.record.toFlashcardResult(resolved.terminalState.toFlashcardStudyProgressState())
     }
@@ -222,8 +222,8 @@ fun FlashcardAttemptRating.toAbandonedFlashcardTerminalRating(): FlashcardTermin
     FlashcardAttemptRating.Failed -> FlashcardTerminalRating.Failed
 }
 
-private fun RatedSessionCardRecord.toFlashcardResult(state: FlashcardStudyProgressState): FlashcardResult =
-    FlashcardResult(
+private fun RatedSessionCardRecord.toFlashcardResult(state: FlashcardStudyProgressState): FlashcardResult.Rated =
+    FlashcardResult.Rated(
         cardId = card.id,
         subcategoryId = card.subcategoryId,
         state = state,

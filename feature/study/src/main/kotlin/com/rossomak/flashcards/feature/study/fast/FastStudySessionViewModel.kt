@@ -8,7 +8,6 @@ import com.rossomak.flashcards.core.domain.model.FlashcardResult
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
 import com.rossomak.flashcards.core.domain.model.SessionClock
 import com.rossomak.flashcards.core.domain.model.SessionResult
-import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.VoiceOption
 import com.rossomak.flashcards.core.domain.model.VoiceSettings as SavedVoiceSettings
 import com.rossomak.flashcards.core.domain.model.sealSessionResult
@@ -541,9 +540,8 @@ class FastStudySessionViewModel @Inject constructor(
         if (terminated) return
         terminated = true
         val at = now()
-        val placeholderResult = SessionResult(
+        val placeholderResult = SessionResult.Fast(
             id = sessionId,
-            mode = StudyMode.Fast,
             startedAt = sessionStartedAt ?: at,
             durationSeconds = 0, // overwritten by sealSessionResult below
             abandoned = abandoned,
@@ -560,20 +558,18 @@ class FastStudySessionViewModel @Inject constructor(
     }
 
     /**
-     * One [FlashcardResult] per [seenCardIds], in first-seen order — Fast's definition of
-     * Studied (spec 03 ticket 03). Every entry is [FlashcardStudyProgressState.Seen] with zero Attempts
-     * and `wasPreviouslyMastered` unset — Fast has no `RatedSessionCardRecord` to read either from.
+     * One [FlashcardResult.Fast] per [seenCardIds], in first-seen order — Fast's definition of
+     * Studied (spec 03 ticket 03). Every entry is [FlashcardStudyProgressState.Seen] — Fast has no
+     * Attempts or `wasPreviouslyMastered` field to carry at all.
      */
-    private fun sealFastCardResults(): List<FlashcardResult> {
+    private fun sealFastCardResults(): List<FlashcardResult.Fast> {
         val cardsById = _state.value.flashcards.associateBy(Flashcard::id)
         return seenCardIds.mapNotNull { cardId ->
             cardsById[cardId]?.let { card ->
-                FlashcardResult(
+                FlashcardResult.Fast(
                     cardId = card.id,
                     subcategoryId = card.subcategoryId,
                     state = FlashcardStudyProgressState.Seen,
-                    attemptsUsed = 0,
-                    wasPreviouslyMastered = false,
                 )
             }
         }

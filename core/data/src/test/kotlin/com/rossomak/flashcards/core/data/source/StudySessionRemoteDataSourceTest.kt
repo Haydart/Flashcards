@@ -15,7 +15,6 @@ import com.rossomak.flashcards.core.domain.model.FlashcardResult
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
 import com.rossomak.flashcards.core.domain.model.SessionCommit
 import com.rossomak.flashcards.core.domain.model.SessionResult
-import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.SubcategoryProgressWrite
 import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
@@ -60,9 +59,8 @@ class StudySessionRemoteDataSourceTest {
         every { cardProgressRemoteDataSource.toMergeFields(any()) } returns MERGE_FIELDS
     }
 
-    private fun ratedResult(): SessionResult = SessionResult(
+    private fun ratedResult(): SessionResult = SessionResult.Rated(
         id = "session-1",
-        mode = StudyMode.Rated,
         startedAt = Instant.parse("2026-09-06T10:00:00Z"),
         durationSeconds = 60,
         abandoned = false,
@@ -71,7 +69,7 @@ class StudySessionRemoteDataSourceTest {
         subcategoryIds = listOf("sub-1"),
         subcategoryNames = listOf("Subcategory"),
         cardResults = listOf(
-            FlashcardResult(
+            FlashcardResult.Rated(
                 cardId = "card-1",
                 subcategoryId = "sub-1",
                 state = FlashcardStudyProgressState.Mastered,
@@ -81,15 +79,20 @@ class StudySessionRemoteDataSourceTest {
         ),
     )
 
-    private fun fastResult(): SessionResult = ratedResult().copy(
-        mode = StudyMode.Fast,
+    private fun fastResult(): SessionResult = SessionResult.Fast(
+        id = "session-1",
+        startedAt = Instant.parse("2026-09-06T10:00:00Z"),
+        durationSeconds = 60,
+        abandoned = false,
+        categoryId = "cat-1",
+        categoryName = "Category",
+        subcategoryIds = listOf("sub-1"),
+        subcategoryNames = listOf("Subcategory"),
         cardResults = listOf(
-            FlashcardResult(
+            FlashcardResult.Fast(
                 cardId = "card-1",
                 subcategoryId = "sub-1",
                 state = FlashcardStudyProgressState.Seen,
-                attemptsUsed = 0,
-                wasPreviouslyMastered = false,
             ),
         ),
     )

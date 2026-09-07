@@ -7,7 +7,6 @@ import com.rossomak.flashcards.core.domain.model.FlashcardAttemptRating
 import com.rossomak.flashcards.core.domain.model.RatedSessionState
 import com.rossomak.flashcards.core.domain.model.SessionClock
 import com.rossomak.flashcards.core.domain.model.SessionResult
-import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.UserPreference.VoiceAnswerConsent as VoiceAnswerConsentPreference
 import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
 import com.rossomak.flashcards.core.domain.model.VoiceOption
@@ -778,9 +777,8 @@ class RatedStudySessionViewModel @Inject constructor(
         terminated = true
         val at = now()
         val cardResults = ratedSessionState?.let { sealRatedCardResults(it, abandoned) } ?: emptyList()
-        val placeholderResult = SessionResult(
+        val placeholderResult = SessionResult.Rated(
             id = sessionId,
-            mode = StudyMode.Rated,
             startedAt = sessionStartedAt ?: at,
             durationSeconds = 0, // overwritten by sealSessionResult below
             abandoned = abandoned,

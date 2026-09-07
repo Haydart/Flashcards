@@ -8,7 +8,7 @@ class SessionTerminationTest {
 
     private val startedAt = Instant.parse("2026-09-06T10:00:00Z")
 
-    private fun cardResult(cardId: String): FlashcardResult = FlashcardResult(
+    private fun cardResult(cardId: String): FlashcardResult.Rated = FlashcardResult.Rated(
         cardId = cardId,
         subcategoryId = "sub-1",
         state = FlashcardStudyProgressState.Seen,
@@ -16,10 +16,9 @@ class SessionTerminationTest {
         wasPreviouslyMastered = false,
     )
 
-    private fun placeholderResult(cardResults: List<FlashcardResult> = listOf(cardResult("card-1"))): SessionResult =
-        SessionResult(
+    private fun placeholderResult(cardResults: List<FlashcardResult.Rated> = listOf(cardResult("card-1"))): SessionResult.Rated =
+        SessionResult.Rated(
             id = "session-1",
-            mode = StudyMode.Rated,
             startedAt = startedAt,
             durationSeconds = -1, // deliberately wrong, so a passing test proves it was overwritten
             abandoned = false,
@@ -50,7 +49,8 @@ class SessionTerminationTest {
 
         val result = sealSessionResult(result = placeholder, clock = SessionClock(), at = startedAt)
 
-        result.copy(durationSeconds = placeholder.durationSeconds) shouldBe placeholder
+        val resolved = result as SessionResult.Rated
+        resolved.copy(durationSeconds = placeholder.durationSeconds) shouldBe placeholder
     }
 
     @Test
