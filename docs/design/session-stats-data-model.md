@@ -16,13 +16,13 @@ The batch contains, in one commit:
 A single-Subcategory session is therefore **four writes**; a composite session adds one further
 `progress` write per additional Subcategory touched — three fixed writes plus one per Subcategory.
 
-## Session completion vs partial sessions
+## Session completion vs abandoned sessions
 
 **Full session:** User reaches deck end. Session Summary is shown automatically.
 
-**Partial session:** User presses back or taps the X button mid-session. A confirmation dialog is shown. On confirmation the user is taken to the Session Summary screen, which triggers the write with everything accumulated up to that point. A queued card the user never reached is absent from `cardResults`; a queued card that already completed at least one Attempt is force-resolved into `cardResults` using its best rating so far, the same rule natural resolution uses — it already satisfies Studied, so exit does not discard it.
+**Abandoned session:** User presses back or taps the X button mid-session. A confirmation dialog is shown. On confirmation the user is taken to the Session Summary screen, which triggers the write with everything accumulated up to that point. A queued card the user never reached is absent from `cardResults`; a queued card that already completed at least one Attempt is force-resolved into `cardResults` using its best rating so far, the same rule natural resolution uses — it already satisfies Studied, so exit does not discard it.
 
-Partial sessions:
+Abandoned sessions:
 - Count toward streak (the session reached the Summary screen)
 - Count toward daily goal (time studied is recorded)
 - Count toward time-based stats (total time, history chart, per-category breakdown)
@@ -31,7 +31,9 @@ Partial sessions:
 - Do **not** earn session-completion XP
 - Are flagged `isAbandoned: true`
 
-There is no way to exit a Study Session without passing through the Session Summary screen. An app kill or crash is the exception, and records nothing at all — not a partial session, but no session.
+("Abandoned," not "partial" — `Partial` already names a Rated Terminal State, and calling an early exit a "partial session" invited exactly that confusion.)
+
+There is no way to exit a Study Session without passing through the Session Summary screen. An app kill or crash is the exception, and records nothing at all — not an abandoned session, but no session.
 
 ## Session duration
 
@@ -57,7 +59,7 @@ Backgrounded time accrues **only while voice playback is active**. A backgrounde
 
 ## Firestore schema
 
-### Session record: `users/{uid}/sessions/{sessionId}`
+### Session Result: `users/{uid}/sessions/{sessionId}`
 
 **One session is one document.** Aggregates, denormalized names, and the per-card results embedded as a `cardResults` map. Home's Recents carousel is this collection's highest-traffic reader, and reads it with `orderBy(startTimestamp, DESCENDING).limit(n)`, whose cost is the limit rather than the collection size.
 
@@ -96,7 +98,7 @@ The four Rated-only counts exist so `xpBreakdown` is auditable against them, not
 | `demastered` | Long | **Rated only, absent on Fast** — `cardsDemastered × XpConfig.cardDemasteredXp` (negative) |
 | `timeStudied` | Long | Minutes studied × `XpConfig.xpPerMinute` |
 | `dailyGoalBonus` | Long | 0 unless this session is the one that met the calendar day's goal |
-| `sessionCompletionBonus` | Long | 0 for partial sessions |
+| `sessionCompletionBonus` | Long | 0 for abandoned sessions |
 | `streakBonus` | Long | 0 unless this session extended the streak |
 
 The four Rated-only sub-fields follow the same rule as their source counters: absent on a Fast session's `xpBreakdown`, not present at 0. `xpTotal` sums whichever sub-fields actually exist.

@@ -192,7 +192,7 @@ The Cloud Function must verify server-side that the caller has an active premium
 
 ### Data retention
 
-Fully ephemeral on the server: the Cloud Function receives the WAV in the request body, forwards it to ElevenLabs in-memory, and discards it once the transcript comes back — nothing is written to Cloud Storage or disk. Only the sanitized transcript and grade are persisted, in Firestore. Persisting the obfuscated audio itself (e.g. to let a user replay their own answer, or for grading disputes/audits) was considered and rejected for v1: it adds real storage cost, a retention policy, and GDPR-style deletion-on-request obligations for a capability nobody has asked for yet, and works against the "ephemeral by design" privacy posture the rest of the pipeline commits to.
+Fully ephemeral, server and client alike: the Cloud Function receives the WAV in the request body, forwards it to ElevenLabs in-memory, and discards it once the transcript comes back — nothing is written to Cloud Storage or disk. Neither the sanitized transcript nor the grade is persisted anywhere, in Firestore or otherwise (see ADR-0014/ADR-0028) — both are shown on screen transiently, during the session, to display grading feedback, then discarded once the card's `FlashcardResult.Rated` is sealed. Only the resulting outcome (Terminal State, Attempts used, previously-mastered flag) survives, into `cardResults`. Persisting the obfuscated audio itself (e.g. to let a user replay their own answer, or for grading disputes/audits) was considered and rejected for v1: it adds real storage cost, a retention policy, and GDPR-style deletion-on-request obligations for a capability nobody has asked for yet, and works against the "ephemeral by design" privacy posture the rest of the pipeline commits to.
 
 ## Implementation strategy for blocked/inaccessible dependencies
 
@@ -213,7 +213,7 @@ This feature has several hard external dependencies an implementing agent won't 
 - Raw, unobfuscated voice audio never leaves the device.
 - Obfuscated audio is never persisted anywhere, client or server.
 - Premium entitlement is checked server-side per request, not trusted from the client.
-- Transcripts and grades are never written to Firestore — only shown transiently on screen during the session. Only the resulting outcome (Terminal State) is persisted, at the Summary commit.
+- Transcripts and grades are never written to Firestore — only shown transiently on screen during the session. Only the resulting `FlashcardResult.Rated` (Terminal State, Attempts used, previously-mastered flag) is persisted, at the Summary commit.
 
 ## Open decisions carried forward
 
