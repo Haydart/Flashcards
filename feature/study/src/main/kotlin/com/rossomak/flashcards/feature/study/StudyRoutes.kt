@@ -45,6 +45,11 @@ data class PreviewStudySessionRoute(
  * routes only derive a NavType for primitives and enums.
  * @param voiceId the Preview screen's confirmed `VoiceSettings.voiceId`, flattened for the same
  * reason as [speechRate].
+ * @param categoryName and [subcategoryNames]: not used inside the session itself, only carried so
+ * termination can build a complete `SessionResult` (spec 03 ticket 01) without a second lookup —
+ * the same denormalize-alongside-the-id idiom `Subcategory`/`Category` already use
+ * ([ADR-0014](../../../docs/adr/0014-session-stats-written-at-summary-screen.md)), and the same
+ * reason [RatedStudySessionRoute] carries them.
  */
 @Serializable
 data class FastStudySessionRoute(
@@ -55,6 +60,8 @@ data class FastStudySessionRoute(
     val readAloudEnabled: Boolean = false,
     val speechRate: Float = VoiceSettings().speechRate,
     val voiceId: String? = VoiceSettings().voiceId,
+    val categoryName: String = "",
+    val subcategoryNames: List<String> = emptyList(),
 ) {
     val voiceSettings: VoiceSettings
         get() = VoiceSettings(speechRate = speechRate, voiceId = voiceId)

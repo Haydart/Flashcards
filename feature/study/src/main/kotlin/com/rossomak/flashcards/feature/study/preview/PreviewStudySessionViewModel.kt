@@ -293,6 +293,8 @@ class PreviewStudySessionViewModel @Inject constructor(
                         readAloudEnabled = _state.value.config.readAloudEnabled,
                         speechRate = _state.value.config.voiceSettings.speechRate,
                         voiceId = _state.value.config.voiceSettings.voiceId,
+                        categoryName = route.categoryName,
+                        subcategoryNames = _state.value.subcategoryNames,
                     )
                 )
             } else {

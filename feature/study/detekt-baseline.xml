@@ -2,6 +2,7 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
+    <ID>LargeClass:FastStudySessionViewModelTest.kt$FastStudySessionViewModelTest</ID>
     <ID>LargeClass:PreviewStudySessionViewModelTest.kt$PreviewStudySessionViewModelTest</ID>
     <ID>LargeClass:RatedStudySessionViewModelTest.kt$RatedStudySessionViewModelTest</ID>
     <ID>LongMethod:RatedStudySessionScreen.kt$@Composable fun RatedStudySessionScreen( modifier: Modifier = Modifier, viewModel: RatedStudySessionViewModel = hiltViewModel(), onNavigateToSummary: (StudySessionSummaryRoute) -&gt; Unit, )</ID>
