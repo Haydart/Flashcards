@@ -223,7 +223,7 @@ class RatedStudySessionViewModelTest {
     }
 
     @Test
-    fun `onAttemptRating on the last card navigates back`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `onAttemptRating on the last card terminates naturally and navigates to the summary`() = runTest(mainDispatcherRule.testDispatcher) {
         flashcardRepository.flashcardsBySubcategory[subcategoryId] = Result.success(listOf(flashcard("card-1")))
         stubRoute(route.copy(cardIds = listOf("card-1")))
 
@@ -408,7 +408,7 @@ class RatedStudySessionViewModelTest {
         }
 
     @Test
-    fun `confirming the exit dialog closes it and navigates back`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `confirming the exit dialog closes it and navigates to the summary`() = runTest(mainDispatcherRule.testDispatcher) {
         loadThreeCards()
         val viewModel = createViewModel()
         advanceUntilIdle()
