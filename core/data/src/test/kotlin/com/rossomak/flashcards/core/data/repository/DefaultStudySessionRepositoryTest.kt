@@ -1,9 +1,9 @@
 package com.rossomak.flashcards.core.data.repository
 
 import com.rossomak.flashcards.core.data.source.StudySessionRemoteDataSource
+import com.rossomak.flashcards.core.domain.model.FlashcardResult
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
 import com.rossomak.flashcards.core.domain.model.SessionCommit
-import com.rossomak.flashcards.core.domain.model.SessionLedgerEntry
 import com.rossomak.flashcards.core.domain.model.SessionResult
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import io.kotest.matchers.shouldBe
@@ -36,8 +36,8 @@ class DefaultStudySessionRepositoryTest {
             categoryName = "Category",
             subcategoryIds = listOf("sub-1"),
             subcategoryNames = listOf("Subcategory"),
-            ledger = listOf(
-                SessionLedgerEntry(
+            cardResults = listOf(
+                FlashcardResult(
                     cardId = "card-1",
                     subcategoryId = "sub-1",
                     state = FlashcardStudyProgressState.Mastered,

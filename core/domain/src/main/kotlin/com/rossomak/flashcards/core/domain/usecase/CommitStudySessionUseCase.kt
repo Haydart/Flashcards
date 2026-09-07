@@ -2,13 +2,13 @@ package com.rossomak.flashcards.core.domain.usecase
 
 import com.rossomak.flashcards.core.domain.model.CardProgressEntry
 import com.rossomak.flashcards.core.domain.model.CardProgressUpdate
+import com.rossomak.flashcards.core.domain.model.FlashcardResult
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState.Failed
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState.Mastered
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState.Partial
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState.Seen
 import com.rossomak.flashcards.core.domain.model.SessionCommit
-import com.rossomak.flashcards.core.domain.model.SessionLedgerEntry
 import com.rossomak.flashcards.core.domain.model.SessionResult
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.SubcategoryProgressWrite
@@ -20,8 +20,8 @@ import javax.inject.Inject
  * The single use case that performs the whole session save (ADR-0014), called once by the Summary
  * ViewModel on arrival. Reads each touched Subcategory's prior progress itself
  * ([ADR-0016](../../../../../../../docs/adr/0016-card-progress-model.md)) — never trusting
- * [SessionLedgerEntry.wasPreviouslyMastered], which exists for in-session display only — and turns
- * the session's ledger into the [SubcategoryProgressWrite]s and new-cards-studied count
+ * [FlashcardResult.wasPreviouslyMastered], which exists for in-session display only — and turns
+ * the session's card results into the [SubcategoryProgressWrite]s and new-cards-studied count
  * [StudySessionRepository.commitSession] writes alongside the session document, in the same batch.
  *
  * Not a [com.rossomak.flashcards.core.domain.usecase.base.UseCase]: [onRejected] is a side channel
@@ -37,7 +37,7 @@ class CommitStudySessionUseCase @Inject constructor(
         var newCardsStudied = 0
         val progressWrites = mutableListOf<SubcategoryProgressWrite>()
 
-        for ((subcategoryId, entries) in sessionResult.ledger.groupBy(SessionLedgerEntry::subcategoryId)) {
+        for ((subcategoryId, entries) in sessionResult.cardResults.groupBy(FlashcardResult::subcategoryId)) {
             val priorCards = cardProgressRepository.getProgress(subcategoryId)
                 .getOrElse { exception -> return Result.failure(exception) }
                 ?.cards
@@ -98,7 +98,7 @@ class CommitStudySessionUseCase @Inject constructor(
             Mastered -> if (wasMastered) null else CardProgressUpdate(state = Mastered, stampFirstStudied = false, stampMastered = true)
             Partial -> if (wasMastered) null else CardProgressUpdate(state = Partial, stampFirstStudied = false, stampMastered = false)
             Failed -> CardProgressUpdate(state = Failed, stampFirstStudied = false, stampMastered = false)
-            Seen -> error("A Rated ledger entry can never resolve to Seen")
+            Seen -> error("A Rated card result can never resolve to Seen")
         }
     }
 }

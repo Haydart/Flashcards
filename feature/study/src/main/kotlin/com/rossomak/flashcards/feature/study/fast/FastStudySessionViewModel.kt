@@ -4,9 +4,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rossomak.flashcards.core.domain.model.Flashcard
+import com.rossomak.flashcards.core.domain.model.FlashcardResult
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
 import com.rossomak.flashcards.core.domain.model.SessionClock
-import com.rossomak.flashcards.core.domain.model.SessionLedgerEntry
 import com.rossomak.flashcards.core.domain.model.SessionResult
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.VoiceOption
@@ -128,7 +128,7 @@ class FastStudySessionViewModel @Inject constructor(
 
     // A Fast card's answer being shown is the Studied criterion (spec 03 ticket 03), tracked here
     // rather than in core:domain — Fast has no state-machine record the way Rated does, just this
-    // set. A LinkedHashSet keeps first-seen order for the sealed ledger and makes re-recording a
+    // set. A LinkedHashSet keeps first-seen order for the sealed cardResults and makes re-recording a
     // revisited card (skip-previous) a no-op, satisfying idempotency for free.
     private val seenCardIds = linkedSetOf<String>()
 
@@ -531,8 +531,11 @@ class FastStudySessionViewModel @Inject constructor(
      * Both terminal paths — the deck exhausted and a confirmed "Exit session?" — run this,
      * [abandoned] the only thing differing (spec 03 tickets 02/03), calling the same shared
      * `core:domain` [sealSessionResult] Rated uses rather than duplicating its clock-stamping.
-     * Seals the ledger from [seenCardIds], stamps the duration off [clock], and emits the one-time
-     * navigation event (ADR-0019) exactly once — [terminated] guards a stray second call.
+     * Seals cardResults from [seenCardIds], stamps the duration off [clock], and emits the one-time
+     * navigation event (ADR-0019) exactly once — [terminated] guards a stray second call. Confirming
+     * "Exit session?" before any card has loaded (the X button is reachable during `isLoading`/error
+     * too) seals empty cardResults with zero duration rather than crashing, mirroring
+     * `RatedStudySessionViewModel.terminate` — there is nothing to have studied yet.
      */
     private fun terminate(abandoned: Boolean) {
         if (terminated) return
@@ -548,7 +551,7 @@ class FastStudySessionViewModel @Inject constructor(
             categoryName = route.categoryName,
             subcategoryIds = route.subcategoryIds,
             subcategoryNames = route.subcategoryNames,
-            ledger = sealFastLedger(),
+            cardResults = sealFastCardResults(),
         )
         val result = sealSessionResult(result = placeholderResult, clock = clock, at = at)
         viewModelScope.launch {
@@ -557,15 +560,15 @@ class FastStudySessionViewModel @Inject constructor(
     }
 
     /**
-     * One [SessionLedgerEntry] per [seenCardIds], in first-seen order — Fast's definition of
+     * One [FlashcardResult] per [seenCardIds], in first-seen order — Fast's definition of
      * Studied (spec 03 ticket 03). Every entry is [FlashcardStudyProgressState.Seen] with zero Attempts
      * and `wasPreviouslyMastered` unset — Fast has no `RatedSessionCardRecord` to read either from.
      */
-    private fun sealFastLedger(): List<SessionLedgerEntry> {
+    private fun sealFastCardResults(): List<FlashcardResult> {
         val cardsById = _state.value.flashcards.associateBy(Flashcard::id)
         return seenCardIds.mapNotNull { cardId ->
             cardsById[cardId]?.let { card ->
-                SessionLedgerEntry(
+                FlashcardResult(
                     cardId = card.id,
                     subcategoryId = card.subcategoryId,
                     state = FlashcardStudyProgressState.Seen,

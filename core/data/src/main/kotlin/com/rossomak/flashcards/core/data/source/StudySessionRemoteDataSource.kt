@@ -4,8 +4,8 @@ import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import com.rossomak.flashcards.core.domain.model.FlashcardResult
 import com.rossomak.flashcards.core.domain.model.SessionCommit
-import com.rossomak.flashcards.core.domain.model.SessionLedgerEntry
 import com.rossomak.flashcards.core.domain.model.SessionResult
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import java.util.concurrent.Executor
@@ -73,7 +73,7 @@ class StudySessionRemoteDataSource @Inject constructor(
         put(FIELD_SUBCATEGORY_NAMES, subcategoryNames)
         put(FIELD_CARD_COUNT, studiedCount)
         put(FIELD_NEW_CARDS_STUDIED, newCardsStudied)
-        put(FIELD_CARD_RESULTS, ledger.associate { entry -> entry.cardId to entry.toResultFields(mode) })
+        put(FIELD_CARD_RESULTS, cardResults.associate { entry -> entry.cardId to entry.toResultFields(mode) })
         if (mode == StudyMode.Rated) {
             put(FIELD_CARDS_MASTERED, masteredCount)
             put(FIELD_CARDS_PARTIAL, partialCount)
@@ -82,7 +82,7 @@ class StudySessionRemoteDataSource @Inject constructor(
         }
     }
 
-    private fun SessionLedgerEntry.toResultFields(mode: StudyMode): Map<String, Any> = buildMap {
+    private fun FlashcardResult.toResultFields(mode: StudyMode): Map<String, Any> = buildMap {
         put(FIELD_CARD_SUBCATEGORY_ID, subcategoryId)
         put(FIELD_STATE, state.name)
         if (mode == StudyMode.Rated) {

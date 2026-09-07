@@ -85,6 +85,8 @@ class RatedStudySessionViewModelTest {
         sessionTitle = sessionTitle,
         subcategoryIds = listOf(subcategoryId),
         cardIds = listOf("card-1", "card-2", "card-3"),
+        categoryName = "Android",
+        subcategoryNames = listOf("Compose"),
     )
 
     @Before
@@ -223,7 +225,7 @@ class RatedStudySessionViewModelTest {
     }
 
     @Test
-    fun `onAttemptRating on the last card navigates back`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `onAttemptRating on the last card terminates naturally and navigates to the summary`() = runTest(mainDispatcherRule.testDispatcher) {
         flashcardRepository.flashcardsBySubcategory[subcategoryId] = Result.success(listOf(flashcard("card-1")))
         stubRoute(route.copy(cardIds = listOf("card-1")))
 
@@ -408,7 +410,7 @@ class RatedStudySessionViewModelTest {
         }
 
     @Test
-    fun `confirming the exit dialog closes it and navigates back`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `confirming the exit dialog closes it and navigates to the summary`() = runTest(mainDispatcherRule.testDispatcher) {
         loadThreeCards()
         val viewModel = createViewModel()
         advanceUntilIdle()
@@ -1056,7 +1058,7 @@ class RatedStudySessionViewModelTest {
     }
 
     @Test
-    fun `a completed Rated session seals a ledger with one entry per distinct card and the abandoned flag clear`() =
+    fun `a completed Rated session seals cardResults with one entry per distinct card and the abandoned flag clear`() =
         runTest(mainDispatcherRule.testDispatcher) {
             loadThreeCards()
             val viewModel = createViewModel()
@@ -1075,7 +1077,7 @@ class RatedStudySessionViewModelTest {
         }
 
     @Test
-    fun `an abandoned Rated session's ledger holds only cards that completed at least one Attempt`() =
+    fun `an abandoned Rated session's cardResults holds only cards that completed at least one Attempt`() =
         runTest(mainDispatcherRule.testDispatcher) {
             loadThreeCards()
             val viewModel = createViewModel()
@@ -1095,7 +1097,7 @@ class RatedStudySessionViewModelTest {
         }
 
     @Test
-    fun `a card that received only a silence timeout is absent from the ledger`() =
+    fun `a card that received only a silence timeout is absent from cardResults`() =
         runTest(mainDispatcherRule.testDispatcher) {
             loadThreeCards()
             val viewModel = createViewModel()
@@ -1129,7 +1131,7 @@ class RatedStudySessionViewModelTest {
                 val index = destination.route.cardIds.indexOf("card-1")
                 index shouldNotBe -1
                 destination.route.cardStates[index] shouldBe FlashcardStudyProgressState.Partial
-                destination.route.cardAttemptsUsed[index] shouldBe 1
+                destination.route.cardAttemptsUsed?.get(index) shouldBe 1
             }
         }
 
@@ -1154,7 +1156,7 @@ class RatedStudySessionViewModelTest {
         }
 
     @Test
-    fun `a session whose card load fails and is then abandoned reports zero duration and an empty ledger`() =
+    fun `a session whose card load fails and is then abandoned reports zero duration and empty cardResults`() =
         runTest(mainDispatcherRule.testDispatcher) {
             flashcardRepository.flashcardsBySubcategory[subcategoryId] = Result.failure(IllegalStateException("boom"))
             val viewModel = createViewModel()

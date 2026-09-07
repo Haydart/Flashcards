@@ -3,6 +3,7 @@ package com.rossomak.flashcards.feature.study.fast
 import android.Manifest
 import android.content.Intent
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -83,6 +84,13 @@ fun FastStudySessionScreen(
     DisposableEffect(Unit) {
         view.keepScreenOn = true
         onDispose { view.keepScreenOn = false }
+    }
+
+    // System/predictive back must route through the same exit-confirmation flow as the top-bar X —
+    // otherwise it pops straight to Preview without sealing a result or showing the mandatory
+    // Summary screen.
+    BackHandler {
+        viewModel.onDialogEvent(Open(ExitSession))
     }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(

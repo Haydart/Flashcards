@@ -11,9 +11,9 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.WriteBatch
 import com.rossomak.flashcards.core.domain.model.CardProgressUpdate
+import com.rossomak.flashcards.core.domain.model.FlashcardResult
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
 import com.rossomak.flashcards.core.domain.model.SessionCommit
-import com.rossomak.flashcards.core.domain.model.SessionLedgerEntry
 import com.rossomak.flashcards.core.domain.model.SessionResult
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.SubcategoryProgressWrite
@@ -70,8 +70,8 @@ class StudySessionRemoteDataSourceTest {
         categoryName = "Category",
         subcategoryIds = listOf("sub-1"),
         subcategoryNames = listOf("Subcategory"),
-        ledger = listOf(
-            SessionLedgerEntry(
+        cardResults = listOf(
+            FlashcardResult(
                 cardId = "card-1",
                 subcategoryId = "sub-1",
                 state = FlashcardStudyProgressState.Mastered,
@@ -83,8 +83,8 @@ class StudySessionRemoteDataSourceTest {
 
     private fun fastResult(): SessionResult = ratedResult().copy(
         mode = StudyMode.Fast,
-        ledger = listOf(
-            SessionLedgerEntry(
+        cardResults = listOf(
+            FlashcardResult(
                 cardId = "card-1",
                 subcategoryId = "sub-1",
                 state = FlashcardStudyProgressState.Seen,

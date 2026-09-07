@@ -201,7 +201,7 @@ The batch contains:
 
 ### Study Session Summary Screen
 
-**Not yet implemented.** `StudySummaryRoute` exists in code today as a route type (to be renamed `StudySessionSummaryRoute`, alongside a new `StudySessionSummaryScreen`), but it is never registered in the nav graph and no screen composable exists for it. Today, session end (natural or premature) just calls `onNavigateBack()` straight to whichever tab was active.
+**Route and screen implemented; persistence not yet.** `StudySessionSummaryRoute` is registered in the nav graph and `StudySessionSummaryScreen` displays it — both session modes route their natural end and premature exit here. What's still missing is the commit: the screen only decodes and displays the route's flattened result today, it writes nothing (spec 04).
 
 It is the **mandatory exit path for every session**, abandoned included, and the only place XP is computed and persisted. A freshly-finished session's result arrives as route arguments — `cardResults` flattened into parallel lists of primitives (`androidx.navigation`'s typesafe routes only derive a `NavType` for primitives, enums and lists of those, the same constraint `StudySessionRoute` already works around for its voice settings). `cardIds`/`subcategoryIds`/`states` are always present; `attemptsUsed`/`wasPreviouslyMastered` are Rated-only lists, `null` on a Fast route rather than lists of zeroes and falses. A past session instead carries only `sessionId` and is read back from `sessions/{sessionId}` — one document, `cardResults` included. Session length is capped at `StudySessionConfig.MAX_LENGTH` (50 cards), so the flattened lists stay well within the platform's navigation argument size ceiling.
 

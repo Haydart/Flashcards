@@ -27,7 +27,7 @@ import kotlin.random.Random
  * @param queue the cards still due an Attempt, current card first.
  * @param terminalStates every distinct card that has left the queue, by id, paired with the record
  * it resolved from — [ResolvedRatedCard] keeps [RatedSessionCardRecord.attemptsUsed] and
- * [RatedSessionCardRecord.wasPreviouslyMastered] readable for [sealRatedLedger] after the record
+ * [RatedSessionCardRecord.wasPreviouslyMastered] readable for [sealRatedCardResults] after the record
  * itself has left [queue].
  * @param distinctCardCount fixed at [seed] time — a re-insertion never changes how many distinct
  * cards there are, so this is carried on every [copy] rather than re-derived from [queue]'s length.
@@ -92,7 +92,7 @@ data class RatedSessionState(
 /**
  * A card that has left [RatedSessionState.queue] for good, paired with the [RatedSessionCardRecord]
  * it resolved from — the record itself is discarded from the queue once terminal, so this is what
- * [sealRatedLedger] reads [RatedSessionCardRecord.attemptsUsed] and
+ * [sealRatedCardResults] reads [RatedSessionCardRecord.attemptsUsed] and
  * [RatedSessionCardRecord.wasPreviouslyMastered] from afterward.
  */
 data class ResolvedRatedCard(val record: RatedSessionCardRecord, val terminalState: FlashcardTerminalRating)
@@ -183,9 +183,9 @@ private fun reinsertAt(
 }
 
 /**
- * Seals [state] into [SessionResult]'s per-card ledger — one [SessionLedgerEntry] per card with at
- * least one completed Attempt, Rated's definition of Studied. A card never reached, and a card that
- * received only a silence timeout (zero Attempts either way), contributes nothing.
+ * Seals [state] into [SessionResult]'s per-card [SessionResult.cardResults] — one [FlashcardResult]
+ * per card with at least one completed Attempt, Rated's definition of Studied. A card never reached,
+ * and a card that received only a silence timeout (zero Attempts either way), contributes nothing.
  *
  * A card already resolved to a [FlashcardTerminalRating] ([RatedSessionState.terminalStates]) carries that
  * outcome straight through. A card still mid re-insertion when [abandoned] is `true` — waiting for
@@ -195,9 +195,9 @@ private fun reinsertAt(
  * is no just-submitted rating at abandon time, and the remaining queue's Attempts may be well under
  * its limit, so neither of [resolveFlashcardTerminalRating]'s inputs apply.
  */
-fun sealRatedLedger(state: RatedSessionState, abandoned: Boolean): List<SessionLedgerEntry> {
+fun sealRatedCardResults(state: RatedSessionState, abandoned: Boolean): List<FlashcardResult> {
     val resolvedEntries = state.terminalStates.values.map { resolved ->
-        resolved.record.toLedgerEntry(resolved.terminalState.toFlashcardStudyProgressState())
+        resolved.record.toFlashcardResult(resolved.terminalState.toFlashcardStudyProgressState())
     }
     if (!abandoned) return resolvedEntries
 
@@ -207,14 +207,14 @@ fun sealRatedLedger(state: RatedSessionState, abandoned: Boolean): List<SessionL
             val bestRating = requireNotNull(record.bestRating) {
                 "a record with attemptsUsed > 0 always has a bestRating"
             }
-            record.toLedgerEntry(bestRating.toAbandonedFlashcardTerminalRating().toFlashcardStudyProgressState())
+            record.toFlashcardResult(bestRating.toAbandonedFlashcardTerminalRating().toFlashcardStudyProgressState())
         }
     return resolvedEntries + forcedEntries
 }
 
 /**
  * [ADR-0044](../../../../../../../docs/adr/0044-three-valued-terminal-state.md)'s table, applied to
- * a best-rating-so-far at abandon time rather than a just-submitted rating — see [sealRatedLedger].
+ * a best-rating-so-far at abandon time rather than a just-submitted rating — see [sealRatedCardResults].
  */
 fun FlashcardAttemptRating.toAbandonedFlashcardTerminalRating(): FlashcardTerminalRating = when (this) {
     FlashcardAttemptRating.Correct -> FlashcardTerminalRating.Mastered
@@ -222,8 +222,8 @@ fun FlashcardAttemptRating.toAbandonedFlashcardTerminalRating(): FlashcardTermin
     FlashcardAttemptRating.Failed -> FlashcardTerminalRating.Failed
 }
 
-private fun RatedSessionCardRecord.toLedgerEntry(state: FlashcardStudyProgressState): SessionLedgerEntry =
-    SessionLedgerEntry(
+private fun RatedSessionCardRecord.toFlashcardResult(state: FlashcardStudyProgressState): FlashcardResult =
+    FlashcardResult(
         cardId = card.id,
         subcategoryId = card.subcategoryId,
         state = state,

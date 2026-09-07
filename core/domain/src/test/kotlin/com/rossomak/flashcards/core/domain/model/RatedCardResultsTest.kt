@@ -9,7 +9,7 @@ import io.kotest.matchers.shouldBe
 import kotlin.random.Random
 import org.junit.Test
 
-class RatedLedgerTest {
+class RatedCardResultsTest {
 
     private fun flashcard(id: String, subcategoryId: String = "sub-1"): Flashcard = Flashcard(
         id = id,
@@ -47,21 +47,21 @@ class RatedLedgerTest {
     }
 
     @Test
-    fun `a naturally completed session seals one ledger entry per distinct card with its Terminal State`() {
+    fun `a naturally completed session seals one card result per distinct card with its Terminal State`() {
         val afterCard1 = rate(state(cardCount = 2, attemptsLimit = 1), Correct)
         val afterCard2 = rate(afterCard1.state, Failed)
 
-        val ledger = sealRatedLedger(afterCard2.state, abandoned = false)
+        val cardResults = sealRatedCardResults(afterCard2.state, abandoned = false)
 
-        ledger shouldContainExactlyInAnyOrder listOf(
-            SessionLedgerEntry(
+        cardResults shouldContainExactlyInAnyOrder listOf(
+            FlashcardResult(
                 cardId = "card-1",
                 subcategoryId = "sub-1",
                 state = FlashcardStudyProgressState.Mastered,
                 attemptsUsed = 1,
                 wasPreviouslyMastered = false,
             ),
-            SessionLedgerEntry(
+            FlashcardResult(
                 cardId = "card-2",
                 subcategoryId = "sub-1",
                 state = FlashcardStudyProgressState.Failed,
@@ -72,21 +72,21 @@ class RatedLedgerTest {
     }
 
     @Test
-    fun `a card drawn but never reached is absent from the ledger even when abandoned`() {
+    fun `a card drawn but never reached is absent from cardResults even when abandoned`() {
         val session = state(cardCount = 2)
 
-        val ledger = sealRatedLedger(session, abandoned = true)
+        val cardResults = sealRatedCardResults(session, abandoned = true)
 
-        ledger.shouldBeEmpty()
+        cardResults.shouldBeEmpty()
     }
 
     @Test
-    fun `a card that received only a silence timeout is absent from the ledger`() {
+    fun `a card that received only a silence timeout is absent from cardResults`() {
         val session = requeueAfterSilence(state(cardCount = 1))
 
-        val ledger = sealRatedLedger(session, abandoned = true)
+        val cardResults = sealRatedCardResults(session, abandoned = true)
 
-        ledger.shouldBeEmpty()
+        cardResults.shouldBeEmpty()
     }
 
     @Test
@@ -96,10 +96,10 @@ class RatedLedgerTest {
         val afterPartial = rate(afterFailed.state, PartiallyCorrect)
         afterPartial.terminal shouldBe null
 
-        val ledger = sealRatedLedger(afterPartial.state, abandoned = true)
+        val cardResults = sealRatedCardResults(afterPartial.state, abandoned = true)
 
-        ledger shouldContainExactlyInAnyOrder listOf(
-            SessionLedgerEntry(
+        cardResults shouldContainExactlyInAnyOrder listOf(
+            FlashcardResult(
                 cardId = "card-1",
                 subcategoryId = "sub-1",
                 state = FlashcardStudyProgressState.Partial,
@@ -113,13 +113,13 @@ class RatedLedgerTest {
     fun `a force-resolved card is absent when the session is not abandoned, since natural end never leaves an unresolved card queued`() {
         val afterFailed = rate(state(cardCount = 1, attemptsLimit = 3), Failed)
 
-        val ledger = sealRatedLedger(afterFailed.state, abandoned = false)
+        val cardResults = sealRatedCardResults(afterFailed.state, abandoned = false)
 
-        ledger.shouldBeEmpty()
+        cardResults.shouldBeEmpty()
     }
 
     @Test
-    fun `wasPreviouslyMastered is threaded through to the ledger entry, both resolved and force-resolved`() {
+    fun `wasPreviouslyMastered is threaded through to the card result, both resolved and force-resolved`() {
         val previouslyMasteredCard = flashcard("card-1")
         val seeded = RatedSessionState(
             queue = listOf(RatedSessionCardRecord(card = previouslyMasteredCard, wasPreviouslyMastered = true)),
@@ -127,11 +127,11 @@ class RatedLedgerTest {
         )
 
         val afterPartial = rate(seeded, PartiallyCorrect)
-        val forcedLedger = sealRatedLedger(afterPartial.state, abandoned = true)
-        forcedLedger.single().wasPreviouslyMastered shouldBe true
+        val forcedResults = sealRatedCardResults(afterPartial.state, abandoned = true)
+        forcedResults.single().wasPreviouslyMastered shouldBe true
 
         val afterCorrect = rate(afterPartial.state, Correct)
-        val resolvedLedger = sealRatedLedger(afterCorrect.state, abandoned = false)
-        resolvedLedger.single().wasPreviouslyMastered shouldBe true
+        val resolvedResults = sealRatedCardResults(afterCorrect.state, abandoned = false)
+        resolvedResults.single().wasPreviouslyMastered shouldBe true
     }
 }

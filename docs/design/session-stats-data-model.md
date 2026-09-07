@@ -39,7 +39,7 @@ There is no way to exit a Study Session without passing through the Session Summ
 
 Duration = first card shown → deck end or exit confirmation. The clock starts when a card is actually on screen, not when the route is entered, so a session whose card load fails banks nothing.
 
-Backgrounded time accrues **only while voice playback is active**. A backgrounded Fast read-aloud session is genuinely studying and keeps counting; a backgrounded Rated session does not. Time on the Session Summary screen is excluded.
+v1 is deliberately simplistic: the clock runs unconditional of backgrounding or playback state — a session backgrounded for a minute banks that minute regardless of mode. Revisit with a pause/resume-on-background policy if this proves to matter in practice. Time on the Session Summary screen is excluded (the clock stops at termination, before Summary is shown).
 
 ## Streak rules
 

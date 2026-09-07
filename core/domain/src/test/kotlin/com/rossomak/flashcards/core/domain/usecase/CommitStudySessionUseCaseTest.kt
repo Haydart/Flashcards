@@ -1,8 +1,8 @@
 package com.rossomak.flashcards.core.domain.usecase
 
 import com.rossomak.flashcards.core.domain.model.CardProgressEntry
+import com.rossomak.flashcards.core.domain.model.FlashcardResult
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
-import com.rossomak.flashcards.core.domain.model.SessionLedgerEntry
 import com.rossomak.flashcards.core.domain.model.SessionResult
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.SubcategoryProgress
@@ -24,7 +24,7 @@ class CommitStudySessionUseCaseTest {
     private fun sessionResult(
         mode: StudyMode = StudyMode.Rated,
         subcategoryId: String = "sub-1",
-        ledger: List<SessionLedgerEntry>,
+        cardResults: List<FlashcardResult>,
     ): SessionResult = SessionResult(
         id = "session-1",
         mode = mode,
@@ -35,14 +35,14 @@ class CommitStudySessionUseCaseTest {
         categoryName = "Category",
         subcategoryIds = listOf(subcategoryId),
         subcategoryNames = listOf("Subcategory"),
-        ledger = ledger,
+        cardResults = cardResults,
     )
 
     private fun ratedEntry(
         cardId: String = "card-1",
         subcategoryId: String = "sub-1",
         state: FlashcardStudyProgressState,
-    ): SessionLedgerEntry = SessionLedgerEntry(
+    ): FlashcardResult = FlashcardResult(
         cardId = cardId,
         subcategoryId = subcategoryId,
         state = state,
@@ -50,8 +50,8 @@ class CommitStudySessionUseCaseTest {
         wasPreviouslyMastered = false,
     )
 
-    private fun fastEntry(cardId: String = "card-1", subcategoryId: String = "sub-1"): SessionLedgerEntry =
-        SessionLedgerEntry(
+    private fun fastEntry(cardId: String = "card-1", subcategoryId: String = "sub-1"): FlashcardResult =
+        FlashcardResult(
             cardId = cardId,
             subcategoryId = subcategoryId,
             state = FlashcardStudyProgressState.Seen,
@@ -69,7 +69,7 @@ class CommitStudySessionUseCaseTest {
 
     @Test
     fun `a card ending Mastered with no prior entry sets state Mastered and stamps the mastered timestamp`() = runTest {
-        val result = sessionResult(ledger = listOf(ratedEntry(state = FlashcardStudyProgressState.Mastered)))
+        val result = sessionResult(cardResults = listOf(ratedEntry(state = FlashcardStudyProgressState.Mastered)))
 
         createUseCase().invoke(result)
 
@@ -83,7 +83,7 @@ class CommitStudySessionUseCaseTest {
         cardProgressRepository.seed(
             SubcategoryProgress(subcategoryId = "sub-1", categoryId = "cat-1", cards = mapOf("card-1" to priorEntry(FlashcardStudyProgressState.Mastered))),
         )
-        val result = sessionResult(ledger = listOf(ratedEntry(state = FlashcardStudyProgressState.Partial)))
+        val result = sessionResult(cardResults = listOf(ratedEntry(state = FlashcardStudyProgressState.Partial)))
 
         createUseCase().invoke(result)
 
@@ -95,7 +95,7 @@ class CommitStudySessionUseCaseTest {
         cardProgressRepository.seed(
             SubcategoryProgress(subcategoryId = "sub-1", categoryId = "cat-1", cards = mapOf("card-1" to priorEntry(FlashcardStudyProgressState.Mastered))),
         )
-        val result = sessionResult(ledger = listOf(ratedEntry(state = FlashcardStudyProgressState.Failed)))
+        val result = sessionResult(cardResults = listOf(ratedEntry(state = FlashcardStudyProgressState.Failed)))
 
         createUseCase().invoke(result)
 
@@ -109,7 +109,7 @@ class CommitStudySessionUseCaseTest {
         cardProgressRepository.seed(
             SubcategoryProgress(subcategoryId = "sub-1", categoryId = "cat-1", cards = mapOf("card-1" to priorEntry(FlashcardStudyProgressState.Mastered))),
         )
-        val result = sessionResult(ledger = listOf(ratedEntry(state = FlashcardStudyProgressState.Mastered)))
+        val result = sessionResult(cardResults = listOf(ratedEntry(state = FlashcardStudyProgressState.Mastered)))
 
         createUseCase().invoke(result)
 
@@ -122,7 +122,7 @@ class CommitStudySessionUseCaseTest {
             SubcategoryProgress(subcategoryId = "sub-1", categoryId = "cat-1", cards = mapOf("card-2" to priorEntry(FlashcardStudyProgressState.Partial))),
         )
         val result = sessionResult(
-            ledger = listOf(
+            cardResults = listOf(
                 ratedEntry(cardId = "card-1", state = FlashcardStudyProgressState.Mastered),
                 ratedEntry(cardId = "card-2", state = FlashcardStudyProgressState.Mastered),
             ),
@@ -144,7 +144,7 @@ class CommitStudySessionUseCaseTest {
         )
         val result = sessionResult(
             mode = StudyMode.Fast,
-            ledger = listOf(fastEntry(cardId = "card-1"), fastEntry(cardId = "card-2")),
+            cardResults = listOf(fastEntry(cardId = "card-1"), fastEntry(cardId = "card-2")),
         )
 
         createUseCase().invoke(result)
@@ -159,7 +159,7 @@ class CommitStudySessionUseCaseTest {
         cardProgressRepository.seed(
             SubcategoryProgress(subcategoryId = "sub-1", categoryId = "cat-1", cards = mapOf("card-1" to priorEntry(FlashcardStudyProgressState.Mastered))),
         )
-        val result = sessionResult(mode = StudyMode.Fast, ledger = listOf(fastEntry(cardId = "card-1")))
+        val result = sessionResult(mode = StudyMode.Fast, cardResults = listOf(fastEntry(cardId = "card-1")))
 
         createUseCase().invoke(result)
 
@@ -168,7 +168,7 @@ class CommitStudySessionUseCaseTest {
 
     @Test
     fun `a Fast card with no prior entry counts toward new-cards-studied exactly like a Rated one`() = runTest {
-        val result = sessionResult(mode = StudyMode.Fast, ledger = listOf(fastEntry(cardId = "card-1")))
+        val result = sessionResult(mode = StudyMode.Fast, cardResults = listOf(fastEntry(cardId = "card-1")))
 
         createUseCase().invoke(result)
 
@@ -178,7 +178,7 @@ class CommitStudySessionUseCaseTest {
     @Test
     fun `a session spanning two Subcategories produces two progress writes with independent contents`() = runTest {
         val result = sessionResult(
-            ledger = listOf(
+            cardResults = listOf(
                 ratedEntry(cardId = "card-1", subcategoryId = "sub-1", state = FlashcardStudyProgressState.Mastered),
                 ratedEntry(cardId = "card-2", subcategoryId = "sub-2", state = FlashcardStudyProgressState.Failed),
             ),
@@ -193,8 +193,8 @@ class CommitStudySessionUseCaseTest {
     }
 
     @Test
-    fun `an abandoned session writes only what its ledger holds`() = runTest {
-        val result = sessionResult(ledger = listOf(ratedEntry(state = FlashcardStudyProgressState.Partial))).copy(abandoned = true)
+    fun `an abandoned session writes only what its cardResults holds`() = runTest {
+        val result = sessionResult(cardResults = listOf(ratedEntry(state = FlashcardStudyProgressState.Partial))).copy(abandoned = true)
 
         createUseCase().invoke(result)
 
@@ -205,7 +205,7 @@ class CommitStudySessionUseCaseTest {
     fun `a failed prior-progress read reports failure and writes nothing`() = runTest {
         val error = IllegalStateException("firestore down")
         cardProgressRepository.resultToReturn = Result.failure(error)
-        val result = sessionResult(ledger = listOf(ratedEntry(state = FlashcardStudyProgressState.Mastered)))
+        val result = sessionResult(cardResults = listOf(ratedEntry(state = FlashcardStudyProgressState.Mastered)))
 
         val outcome = createUseCase().invoke(result)
 
@@ -218,7 +218,7 @@ class CommitStudySessionUseCaseTest {
     fun `returns the repository's result as-is on success`() = runTest {
         studySessionRepository.commitResultToReturn = Result.success(Unit)
 
-        val outcome = createUseCase().invoke(sessionResult(ledger = listOf(ratedEntry(state = FlashcardStudyProgressState.Mastered))))
+        val outcome = createUseCase().invoke(sessionResult(cardResults = listOf(ratedEntry(state = FlashcardStudyProgressState.Mastered))))
 
         outcome.isSuccess shouldBe true
     }
@@ -228,7 +228,7 @@ class CommitStudySessionUseCaseTest {
         val error = IllegalStateException("no authenticated user")
         studySessionRepository.commitResultToReturn = Result.failure(error)
 
-        val outcome = createUseCase().invoke(sessionResult(ledger = listOf(ratedEntry(state = FlashcardStudyProgressState.Mastered))))
+        val outcome = createUseCase().invoke(sessionResult(cardResults = listOf(ratedEntry(state = FlashcardStudyProgressState.Mastered))))
 
         outcome.isFailure shouldBe true
         outcome.exceptionOrNull() shouldBe error
@@ -240,7 +240,7 @@ class CommitStudySessionUseCaseTest {
         studySessionRepository.rejectionToDeliver = error
         var reported: Throwable? = null
 
-        createUseCase().invoke(sessionResult(ledger = listOf(ratedEntry(state = FlashcardStudyProgressState.Mastered)))) { rejection ->
+        createUseCase().invoke(sessionResult(cardResults = listOf(ratedEntry(state = FlashcardStudyProgressState.Mastered)))) { rejection ->
             reported = rejection
         }
 

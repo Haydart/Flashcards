@@ -8,7 +8,7 @@ class SessionTerminationTest {
 
     private val startedAt = Instant.parse("2026-09-06T10:00:00Z")
 
-    private fun ledgerEntry(cardId: String): SessionLedgerEntry = SessionLedgerEntry(
+    private fun cardResult(cardId: String): FlashcardResult = FlashcardResult(
         cardId = cardId,
         subcategoryId = "sub-1",
         state = FlashcardStudyProgressState.Seen,
@@ -16,7 +16,7 @@ class SessionTerminationTest {
         wasPreviouslyMastered = false,
     )
 
-    private fun placeholderResult(ledger: List<SessionLedgerEntry> = listOf(ledgerEntry("card-1"))): SessionResult =
+    private fun placeholderResult(cardResults: List<FlashcardResult> = listOf(cardResult("card-1"))): SessionResult =
         SessionResult(
             id = "session-1",
             mode = StudyMode.Rated,
@@ -27,7 +27,7 @@ class SessionTerminationTest {
             categoryName = "Category",
             subcategoryIds = listOf("sub-1"),
             subcategoryNames = listOf("Subcategory"),
-            ledger = ledger,
+            cardResults = cardResults,
         )
 
     @Test
@@ -45,8 +45,8 @@ class SessionTerminationTest {
 
     @Test
     fun `sealSessionResult carries every other field of result straight through unchanged`() {
-        val ledger = listOf(ledgerEntry("card-1"), ledgerEntry("card-2"))
-        val placeholder = placeholderResult(ledger).copy(abandoned = true)
+        val cardResults = listOf(cardResult("card-1"), cardResult("card-2"))
+        val placeholder = placeholderResult(cardResults).copy(abandoned = true)
 
         val result = sealSessionResult(result = placeholder, clock = SessionClock(), at = startedAt)
 
@@ -56,7 +56,7 @@ class SessionTerminationTest {
     @Test
     fun `sealSessionResult on a clock that never started reports zero duration`() {
         val result = sealSessionResult(
-            result = placeholderResult(ledger = emptyList()),
+            result = placeholderResult(cardResults = emptyList()),
             clock = SessionClock(),
             at = startedAt.plusSeconds(999),
         )
