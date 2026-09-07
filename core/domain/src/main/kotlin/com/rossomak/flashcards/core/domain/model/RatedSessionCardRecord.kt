@@ -2,8 +2,10 @@ package com.rossomak.flashcards.core.domain.model
 
 /**
  * One card's history within a [RatedSessionState]'s queue: the card itself, every Rating recorded
- * across its Attempts so far in order, and whether it entered the session already Mastered (spec
- * 07's Mastery Defense — carried now and set by nobody yet, to avoid reshaping this record later).
+ * across its Attempts so far in order, and whether it entered the session already Mastered — stamped
+ * at [RatedSessionState.seed] time from the session-start progress read (ticket 04 of spec 04 session
+ * persistence). Spec 07's Mastery Defense is what finally *uses* the flag; this is only where it
+ * starts being set.
  *
  * [attemptsUsed] and [bestRating] are both *derived* from [ratings] rather than stored as separate
  * fields — one source of truth, no risk of a scalar drifting out of sync with the log.
