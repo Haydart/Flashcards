@@ -14,7 +14,7 @@ import com.rossomak.flashcards.core.domain.model.VoiceOption
 import com.rossomak.flashcards.core.domain.model.VoiceSettings as SavedVoiceSettings
 import com.rossomak.flashcards.core.domain.model.rate
 import com.rossomak.flashcards.core.domain.model.requeueAfterSilence
-import com.rossomak.flashcards.core.domain.model.sealRatedLedger
+import com.rossomak.flashcards.core.domain.model.sealRatedCardResults
 import com.rossomak.flashcards.core.domain.model.sealSessionResult
 import com.rossomak.flashcards.core.domain.model.startClock
 import com.rossomak.flashcards.core.domain.model.toFlashcardAttemptRating
@@ -765,19 +765,19 @@ class RatedStudySessionViewModel @Inject constructor(
 
     /**
      * Both terminal paths — the last card resolving and a confirmed "Exit session?" — run this,
-     * [abandoned] the only thing differing (spec 03 ticket 02). Seals the ledger from whatever the
+     * [abandoned] the only thing differing (spec 03 ticket 02). Seals cardResults from whatever the
      * state machine has resolved so far, stamps the duration off [clock], and emits the one-time
      * navigation event (ADR-0019) exactly once — [terminated] guards a stray second call, e.g. the
      * exit dialog being confirmed the instant after the last card's rating already completed the
      * deck and sent its own Summary event. A `null` [ratedSessionState] (abandoning before
-     * flashcards ever finished loading) seals an empty ledger with zero duration rather than
+     * flashcards ever finished loading) seals empty cardResults with zero duration rather than
      * crashing — there is nothing to have studied yet.
      */
     private fun terminate(abandoned: Boolean) {
         if (terminated) return
         terminated = true
         val at = now()
-        val ledger = ratedSessionState?.let { sealRatedLedger(it, abandoned) } ?: emptyList()
+        val cardResults = ratedSessionState?.let { sealRatedCardResults(it, abandoned) } ?: emptyList()
         val placeholderResult = SessionResult(
             id = sessionId,
             mode = StudyMode.Rated,
@@ -788,7 +788,7 @@ class RatedStudySessionViewModel @Inject constructor(
             categoryName = route.categoryName,
             subcategoryIds = route.subcategoryIds,
             subcategoryNames = route.subcategoryNames,
-            ledger = ledger,
+            cardResults = cardResults,
         )
         val result = sealSessionResult(result = placeholderResult, clock = clock, at = at)
         viewModelScope.launch {

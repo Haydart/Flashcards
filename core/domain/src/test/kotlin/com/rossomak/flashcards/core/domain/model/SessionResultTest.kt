@@ -6,12 +6,12 @@ import org.junit.Test
 
 class SessionResultTest {
 
-    private fun ledgerEntry(
+    private fun cardResult(
         cardId: String,
         state: FlashcardStudyProgressState,
         attemptsUsed: Int = 0,
         wasPreviouslyMastered: Boolean = false,
-    ): SessionLedgerEntry = SessionLedgerEntry(
+    ): FlashcardResult = FlashcardResult(
         cardId = cardId,
         subcategoryId = "sub-1",
         state = state,
@@ -19,7 +19,7 @@ class SessionResultTest {
         wasPreviouslyMastered = wasPreviouslyMastered,
     )
 
-    private fun result(ledger: List<SessionLedgerEntry>): SessionResult = SessionResult(
+    private fun result(cardResults: List<FlashcardResult>): SessionResult = SessionResult(
         id = "session-1",
         mode = StudyMode.Rated,
         startedAt = Instant.parse("2026-09-06T10:00:00Z"),
@@ -29,25 +29,25 @@ class SessionResultTest {
         categoryName = "Category",
         subcategoryIds = listOf("sub-1"),
         subcategoryNames = listOf("Subcategory"),
-        ledger = ledger,
+        cardResults = cardResults,
     )
 
     @Test
     fun `a Fast entry carries Seen with zero Attempts`() {
-        val entry = ledgerEntry(cardId = "card-1", state = FlashcardStudyProgressState.Seen)
+        val entry = cardResult(cardId = "card-1", state = FlashcardStudyProgressState.Seen)
 
         entry.state shouldBe FlashcardStudyProgressState.Seen
         entry.attemptsUsed shouldBe 0
     }
 
     @Test
-    fun `Mastered, Partial and Failed counts derive from the ledger and cannot disagree with it`() {
+    fun `Mastered, Partial and Failed counts derive from cardResults and cannot disagree with it`() {
         val session = result(
-            ledger = listOf(
-                ledgerEntry(cardId = "card-1", state = FlashcardStudyProgressState.Mastered, attemptsUsed = 1),
-                ledgerEntry(cardId = "card-2", state = FlashcardStudyProgressState.Mastered, attemptsUsed = 2),
-                ledgerEntry(cardId = "card-3", state = FlashcardStudyProgressState.Partial, attemptsUsed = 3),
-                ledgerEntry(cardId = "card-4", state = FlashcardStudyProgressState.Failed, attemptsUsed = 3),
+            cardResults = listOf(
+                cardResult(cardId = "card-1", state = FlashcardStudyProgressState.Mastered, attemptsUsed = 1),
+                cardResult(cardId = "card-2", state = FlashcardStudyProgressState.Mastered, attemptsUsed = 2),
+                cardResult(cardId = "card-3", state = FlashcardStudyProgressState.Partial, attemptsUsed = 3),
+                cardResult(cardId = "card-4", state = FlashcardStudyProgressState.Failed, attemptsUsed = 3),
             ),
         )
 
@@ -58,8 +58,8 @@ class SessionResultTest {
     }
 
     @Test
-    fun `an empty ledger reports every count as zero`() {
-        val session = result(ledger = emptyList())
+    fun `empty cardResults reports every count as zero`() {
+        val session = result(cardResults = emptyList())
 
         session.studiedCount shouldBe 0
         session.masteredCount shouldBe 0
