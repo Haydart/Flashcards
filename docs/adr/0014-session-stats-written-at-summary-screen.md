@@ -7,12 +7,21 @@
 No Firestore write occurs while a Study Session runs — not per card, not per Rating, not per voice
 grade. The session accumulates its outcome in memory and hands it forward.
 
-### The session record carries its own card results
+### The Session Result carries its own card results
 
 One collection holds every Study Session, Rated and Fast alike:
 `users/{uid}/sessions/{sessionId}`.
 
+**The document's shape depends on its own `studyMode` field.** Rated and Fast share most fields, but
+a Rated card has Ratings, Attempts and a Terminal State and a Fast card has none of that — only
+`Seen`. Rather than giving every Fast document zeroed-out mastery counters and every Fast card entry
+a meaningless `attemptsUsed: 0`, the fields that only apply to Rated are simply absent from a Fast
+document. A reader decides which shape to expect from `studyMode` alone — no second discriminant is
+stored anywhere, because a session has exactly one Study Mode for its whole life, so every entry in
+one session's `cardResults` is already known to be the same variant as the document itself.
+
 ```text
+// Shared by both Study Modes
 sessionId: String
 startTimestamp: Timestamp
 durationSeconds: Int
@@ -23,30 +32,45 @@ categoryName: String            // denormalized
 subcategoryIds: List<String>
 subcategoryNames: List<String>  // denormalized
 cardCount: Int
+newCardsStudied: Int            // both modes can study a card for the first time
+cardResults: {                  // keyed by cardId
+  <cardId>: {
+    subcategoryId: String
+    state: Mastered | Partial | Failed   // RATED documents only
+    state: Seen                          // FAST documents only — the one value a Fast card can have
+    attemptsUsed: Int                    // RATED entries only
+    wasPreviouslyMastered: Boolean       // RATED entries only
+  }
+}
+
+// RATED documents only — Fast has no Terminal States to tally
 cardsMastered: Int
 cardsPartial: Int
 cardsDefended: Int
 cardsDemastered: Int
-newCardsStudied: Int
-cardResults: {                  // keyed by cardId
-  <cardId>: {
-    subcategoryId: String
-    state: Mastered | Partial | Failed | Seen
-    attemptsUsed: Int
-    wasPreviouslyMastered: Boolean
-  }
-}
 ```
 
 **One session is one document.** The per-card results are embedded, not held in a subcollection.
 
-> **Scope note:** the schema above is the design's end state, once spec 05 (scoring) has also
-> landed. `cardsDefended`, `cardsDemastered` and `newCardsStudied` all exist as fields from spec 04
-> onward, but spec 04 writes `cardsDefended`/`cardsDemastered` as zero (spec 07 is what produces
-> defense cards) and computes `newCardsStudied` for real (ticket 02's own prior-state read). The
-> commit batch itself grows from **three** writes to **four** only once spec 05 adds
-> `users/{uid}/state/progression` — see "The commit is one batch" below. Building against spec 04's
-> tickets directly, rather than this ADR alone, is what tells you which of these is true today.
+**`newCardsStudied` is the one counter both variants keep.** Coverage — a card being **Studied** for
+the first time — is not a Rated-only idea: a Fast card seen for the first time is just as much a new
+card as a Rated one, and the "genuinely new card" scoring bonus reads for both modes alike. It
+is only *mastery* (`cardsMastered`/`cardsPartial`/`cardsDefended`/`cardsDemastered`, and the
+Terminal-State-derived `state` values above) that Fast has no concept of.
+
+> **Scope note:** `newCardsStudied`, `cardsDefended` and `cardsDemastered` are all present in the
+> schema above from the PR that introduces this collection, but not all computed for real from day
+> one. `newCardsStudied` is written as zero until the PR that adds card-progress persistence, which is
+> what reads prior state and can tell a new card from a returning one — the field exists from the
+> start so no later PR has to add a column, but the value is a placeholder until that read exists.
+> `cardsDefended`/`cardsDemastered` are written as zero the same way, until the PR that adds Mastery
+> Defense actually produces a defended or de-mastered card. Neither is the omission this ADR describes
+> above for a *Fast* document — that omission is permanent and structural (Fast has no mastery to
+> report, ever); this is a temporary zero on a field that will hold real Rated data once its
+> producing PR lands. The commit batch itself grows by one further write only once a later PR adds the
+> account-wide scoring state — see "The commit is one batch" below. Which of these compute for real at
+> any given point is a property of which PRs have landed, not of this ADR — check the current
+> implementation tickets, not this document alone, for what is true today.
 
 The names are denormalized so a Recents card renders from a single `orderBy(startTimestamp,
 DESCENDING).limit(n)` query with no joins. That query's cost is the limit, not the collection size,
@@ -96,10 +120,10 @@ batched write**:
 progress, summary, progression. A composite session commits one further `progress` write per
 additional Subcategory touched — three fixed writes plus one per Subcategory.
 
-**This is the end state, after spec 05.** Spec 04 alone — the PR that introduces this collection —
-builds only the first three of these four (session, progress, summary); `state/progression` does not
-exist until spec 05 adds it. A single-Subcategory session under spec 04 is three writes, not four.
-See the scope note above.
+**This four-write count is the end state.** The PR that introduces this collection builds only the
+first three of these four (session, progress, summary); `state/progression` does not exist until a
+later PR adds it. A single-Subcategory session is three writes until then, not four. See the scope
+note above.
 
 **This batch is atomic but not transactional.** It commits or fails as a unit, but it does not
 re-read `progress` or `state/progression` at commit time, so two sessions racing on the same
@@ -151,10 +175,13 @@ exit-confirmation both route to it.
 The Summary route carries the whole session result as route arguments, flattened into primitives and
 lists of primitives the same way `StudySessionRoute` already flattens `VoiceSettings` and
 `IntRange` — `androidx.navigation`'s typesafe routes only derive a `NavType` for primitives, enums
-and lists of those. `cardResults` becomes one parallel list per field (`cardIds`,
-`subcategoryIds`, `states`, `attemptsUsed`, `wasPreviouslyMastered`), all indexed together — no
-transcript field, since none is persisted (see above). A **past** session's detail view instead
-carries only `sessionId`, and the Summary reads
+and lists of those. `cardResults` becomes one parallel list per field, indexed together: `cardIds`,
+`subcategoryIds` and `states` are always present, for both modes. `attemptsUsed` and
+`wasPreviouslyMastered` are Rated-only — mirroring the document shape above, these two lists are
+`null` for a Fast route, not lists of zeroes and falses for cards that have neither concept. The
+route's own `studyMode` argument is what tells the Summary which shape to expect, same as the
+document. No transcript field, since none is persisted (see above). A **past** session's detail view
+instead carries only `sessionId`, and the Summary reads
 `sessions/{sessionId}` back from Firestore — one document, everything included — rather than
 receiving `cardResults` through the route.
 
@@ -231,8 +258,8 @@ the same data.
 ## Consequences
 
 - A session commit is a small, bounded number of writes — four for the common single-Subcategory
-  case once spec 05 has landed, three under spec 04 alone — independent of how many cards were
-  studied.
+  case in the end state, three until the account-wide scoring state exists — independent of how many
+  cards were studied.
 - Opening a past session's detail costs **one** read: the session document carries its own
   `cardResults`.
 - Home's Recents transfers `cardResults` data it does not render. Bounded at roughly 13 KB per

@@ -94,14 +94,14 @@ flowchart TD
     AnswerRevealed --> Rate[/Rate: Failed · Partial · Correct/]
     Rate --> RecordAttempt[Attempt consumed · card marked Studied\nbest-rating-so-far updated]
     RecordAttempt --> Resolve{Correct, attempts exhausted,\nor Partial-ends-card?}
-    Resolve -->|yes| Terminal[Terminal State = best rating achieved\nMastered · Partial · Failed\nheld in the session ledger]
+    Resolve -->|yes| Terminal[Terminal State = best rating achieved\nMastered · Partial · Failed\nheld in the session's cardResults]
     Resolve -->|no| Requeue[Re-insert at currentIndex + random gap\nFailed 2-4 · Partial 5-9 · seeded]
     Requeue --> RatedSession
     Terminal -.-> AttemptsNYI{{Attempt X of N label\nMastery Defense shield icon on defended cards\nNYI}}
 
     Terminal --> QueueCheck{Queue empty?}
     QueueCheck -->|no| RatedSession
-    QueueCheck -->|yes| HandOffFull[Seal ledger · stamp duration\nisPartial = false\nno Firestore write yet]
+    QueueCheck -->|yes| HandOffFull[Seal cardResults · stamp duration\nisAbandoned = false\nno Firestore write yet]
     HandOffFull --> Summary
 
     %% Extended context (Rated)
@@ -120,7 +120,7 @@ flowchart TD
     RatedSession --> TapX1[/Tap X — top-left/]
     TapX1 --> ExitConfirm1{Confirm exit?\nProgress so far will be saved}
     ExitConfirm1 -->|Cancel| RatedSession
-    ExitConfirm1 -->|Confirm| HandOffPartial1[Seal ledger with outcomes so far\nisPartial = true\na queued card with a completed Attempt is\nforce-resolved using its best rating so far\nunreached queued cards are absent]
+    ExitConfirm1 -->|Confirm| HandOffPartial1[Seal cardResults so far\nisAbandoned = true\na queued card with a completed Attempt is\nforce-resolved using its best rating so far\nunreached queued cards are absent]
     HandOffPartial1 --> Summary
 
     %% ── Fast Session ──────────────────────────────────────────────
@@ -135,7 +135,7 @@ flowchart TD
     FastSession -->|read-aloud on| TtsLoop[TTS: Q → 1.5s pause → A → 2.5s pause → auto-advance]
     TtsLoop --> MarkSeen
     FastQueueCheck -->|no| FastSession
-    FastQueueCheck -->|yes| HandOffFast[Seal ledger · stamp duration\nisPartial = false\nStudied cards only, no mastery]
+    FastQueueCheck -->|yes| HandOffFast[Seal cardResults · stamp duration\nisAbandoned = false\nStudied cards only — state Seen, no attemptsUsed/mastery fields]
     HandOffFast --> Summary
 
     %% Extended context (Fast — voice-aware)
@@ -154,12 +154,12 @@ flowchart TD
     FastSession --> TapX2[/Tap X — top-left/]
     TapX2 --> ExitConfirm2{Confirm exit?}
     ExitConfirm2 -->|Cancel| FastSession
-    ExitConfirm2 -->|Confirm| HandOffPartial2[Seal ledger with cards seen so far\nisPartial = true]
+    ExitConfirm2 -->|Confirm| HandOffPartial2[Seal cardResults with cards seen so far\nisAbandoned = true]
     HandOffPartial2 --> Summary
 
     %% ── Session Summary ───────────────────────────────────────────
     Summary(SESSION SUMMARY SCREEN\nfresh result: full payload via route args · past session: sessionId only, read from Firestore\nXP breakdown — animated line by line\nLevel-up celebration if applicable\n'Session Completed' +500 XP omitted on partial sessions)
-    Summary --> Commit[ONE atomic batch — 3 fixed writes + 1 per touched subcategory:\nsession doc with embedded outcomes map\npacked progress doc per subcategory\nstate/progressSummary increments\nstate/progression xp/level/streak]
+    Summary --> Commit[ONE atomic batch — 3 fixed writes + 1 per touched subcategory:\nsession doc with embedded cardResults map — Rated-only fields absent on Fast\npacked progress doc per subcategory\nstate/progressSummary increments\nstate/progression xp/level/streak]
 
     Commit --> StudyAgainAll[/Study Again — All/]
     Commit --> StudyAgainFailed[/Study Again — Failed\nshown only if ≥1 Terminal Failed\nRated sessions only/]

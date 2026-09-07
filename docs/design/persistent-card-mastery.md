@@ -124,7 +124,7 @@ Everything below happens in the **same batch** as the session document
 ([ADR-0014](../adr/0014-session-stats-written-at-summary-screen.md)), never separately, so the
 summary cannot drift from the progress it summarises.
 
-While the commit walks the session's ledger it groups entries by Subcategory. Per Subcategory it
+While the commit walks the session's `cardResults` it groups entries by Subcategory. Per Subcategory it
 builds one nested-key merge — touching only the cards this session studied, leaving every other entry
 in the document untouched — and accumulates two deltas:
 

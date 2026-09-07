@@ -172,10 +172,10 @@ Fast and Rated are **two separate screens, ViewModels and routes** — Study Mod
 
 **Not yet implemented — this whole section is target design.** Today `onRating()` does nothing but advance to the next card and discards the Rating (no re-insertion, no Attempt tracking — see Flashcard Mechanics above), and both natural end and premature exit resolve to the same `onNavigateBack()` call with **no Firestore write of any kind**.
 
-Designed. Both Study Modes terminate the same way: the session seals its ledger, stamps `durationSeconds`, hands the result to the Summary screen, and writes nothing itself.
+Designed. Both Study Modes terminate the same way: the session seals its `cardResults`, stamps `durationSeconds`, hands the result to the Summary screen, and writes nothing itself.
 
 - **Natural end**: Rated — the queue empties (every Flashcard reached a Terminal State). Fast — the last card's answer has been shown. Both navigate to the Session Summary screen
-- **Premature exit** (X button → confirm dialog): the result carries everything accumulated so far, flagged `isPartial`. A queued Flashcard the user never reached is simply absent from the ledger, but a queued Flashcard that already completed at least one Attempt is force-resolved into the ledger using its best rating so far (the same best-rating rule natural resolution uses) rather than discarded — it already satisfies **Studied**, so losing it at exit would contradict that definition. Also navigates to Summary
+- **Premature exit** (X button → confirm dialog): the result carries everything accumulated so far, flagged `isAbandoned`. A queued Flashcard the user never reached is simply absent from `cardResults`, but a queued Flashcard that already completed at least one Attempt is force-resolved into `cardResults` using its best rating so far (the same best-rating rule natural resolution uses) rather than discarded — it already satisfies **Studied**, so losing it at exit would contradict that definition. Also navigates to Summary
 - The exit-confirmation dialog **is already built** (`StudySessionDialog.ExitSession`); it currently pops the back stack instead of routing to Summary
 - App kill during session: session is lost, no data saved, no resumption
 
@@ -186,7 +186,7 @@ Designed. Both Study Modes terminate the same way: the session seals its ledger,
 Everything is written **once, at the Session Summary screen, in a single atomic batch** ([ADR-0014](docs/adr/0014-session-stats-written-at-summary-screen.md)). Nothing is written while a session runs.
 
 The batch contains:
-- `users/{uid}/sessions/{sessionId}` — the session record, with its per-card ledger embedded as an `outcomes` map
+- `users/{uid}/sessions/{sessionId}` — the Session Result, with its per-card `cardResults` map embedded. The document's own shape follows its `studyMode`: a Rated document carries Mastered/Partial/Defended/De-mastered counts and its `cardResults` entries carry Attempts used and a previously-mastered flag; a Fast document has none of those fields at all, not zeroed ones — Fast has no Ratings, Attempts or mastery to report
 - `users/{uid}/progress/{subcategoryId}` — one packed progress document per Subcategory touched ([ADR-0016](docs/adr/0016-card-progress-model.md))
 - `users/{uid}/state/progressSummary` — nested-key `masteredCount` / `studiedCount` increments
 - `users/{uid}/state/progression` — `xp`, `level`, `xpIntoCurrentLevel`, `currentStreak`, `bestStreak`, `lastStudyDate`, `goalMetDate`
@@ -199,7 +199,7 @@ A single-Subcategory session is **four writes**; a composite session adds one fu
 
 **Not yet implemented.** `StudySummaryRoute` exists as a route type but is never registered in the nav graph and no screen composable exists for it. Today, session end (natural or premature) just calls `onNavigateBack()` straight to whichever tab was active.
 
-It is the **mandatory exit path for every session**, partial included, and the only place XP is computed and persisted. A freshly-finished session's result arrives as route arguments — the per-card ledger flattened into parallel lists of primitives (`androidx.navigation`'s typesafe routes only derive a `NavType` for primitives, enums and lists of those, the same constraint `StudySessionRoute` already works around for its voice settings). A past session instead carries only `sessionId` and is read back from `sessions/{sessionId}` — one document, ledger included. Session length is capped at `StudySessionConfig.MAX_LENGTH` (50 cards), so the flattened ledger stays well within the platform's navigation argument size ceiling.
+It is the **mandatory exit path for every session**, partial included, and the only place XP is computed and persisted. A freshly-finished session's result arrives as route arguments — `cardResults` flattened into parallel lists of primitives (`androidx.navigation`'s typesafe routes only derive a `NavType` for primitives, enums and lists of those, the same constraint `StudySessionRoute` already works around for its voice settings). `cardIds`/`subcategoryIds`/`states` are always present; `attemptsUsed`/`wasPreviouslyMastered` are Rated-only lists, `null` on a Fast route rather than lists of zeroes and falses. A past session instead carries only `sessionId` and is read back from `sessions/{sessionId}` — one document, `cardResults` included. Session length is capped at `StudySessionConfig.MAX_LENGTH` (50 cards), so the flattened lists stay well within the platform's navigation argument size ceiling.
 
 Both Study Modes terminate here. Fast renders a reduced variant: time, streak, new cards and XP, with no mastered/failed counts, no mastery ring sweep and no "Study Again (Failed)".
 
@@ -320,15 +320,20 @@ users/{uid}                                           → {}  // no client-writa
 users/{uid}/entitlement/premium                       → { isPremium }  // Admin SDK only, functions/src/lib/entitlement.ts
 users/{uid}/favorites/{subcategoryId}                 → { createdAt }
 // Not yet written anywhere in code — see Session Termination / Data Saving above.
+// Shape follows studyMode: RATED carries the four counters and full cardResults entries below;
+// FAST has none of the RATED-only fields at all — not zeroed, genuinely absent.
 users/{uid}/sessions/{sessionId}                      → { sessionId, startTimestamp, durationSeconds,
-                                                          studyMode: "rated"|"fast", isPartial,
+                                                          studyMode: "rated"|"fast", isAbandoned,
                                                           categoryId, categoryName,
                                                           subcategoryIds[], subcategoryNames[],
-                                                          cardCount, cardsMastered, cardsPartial,
-                                                          cardsDefended, cardsDemastered,
-                                                          newCardsStudied }
-    ... plus embedded  outcomes: { <cardId>: { subcategoryId, state, attemptsUsed,
-                                                          wasPreviouslyMastered } }  // no transcript, ever
+                                                          cardCount, newCardsStudied,
+                                                          // RATED only:
+                                                          cardsMastered, cardsPartial,
+                                                          cardsDefended, cardsDemastered }
+    ... plus embedded  cardResults: { <cardId>: { subcategoryId, state,
+                                                          // RATED entries only:
+                                                          attemptsUsed, wasPreviouslyMastered
+                                                          } }  // no transcript, ever
 users/{uid}/progress/{subcategoryId}                  → { categoryId,
                                                           cards: { <cardId>: {
                                                             state: Seen|Failed|Partial|Mastered,
@@ -357,7 +362,7 @@ users/{uid}/curationRequests/{cardId}                       → { subcategoryId:
 - **`extendedContext` is nullable** on global Flashcard documents. Omitted on simple cards (difficulty 1–3) where the Q&A is fully self-explanatory. Present and progressively richer as difficulty rises: mid cards (4–6) carry a concrete example or short snippet; hard/expert cards (7–10) carry fuller context — edge cases, cross-concept relationships, pitfalls. Never duplicates the `answer` field.
 - **Tags are flat untyped strings** in `tags[]` on each Flashcard. No `tags/` collection. See [ADR-0006](docs/adr/0006-flat-denormalized-tags.md).
 - **Category `iconUrl`**: absolute HTTPS URL. No Firebase Storage SDK dependency in UI layer.
-- **`sessions` is the single session collection** for both Study Modes, and **one session is one document**: aggregates, denormalized names (`categoryName`, `subcategoryNames[]`, `cardCount`) and the per-card ledger embedded as an `outcomes` map. Home's Recents carousel renders from one `orderBy(startTimestamp).limit(n)` query with no joins. The ledger is embedded rather than split into a subcollection because Firestore bills per document read — splitting saved Recents no reads while costing a write per card. Rated-only counters are 0 for Fast. **Not yet written** — see Session Termination.
+- **`sessions` is the single session collection** for both Study Modes, and **one session is one document**: aggregates, denormalized names (`categoryName`, `subcategoryNames[]`, `cardCount`) and the per-card results embedded as a `cardResults` map. Home's Recents carousel renders from one `orderBy(startTimestamp).limit(n)` query with no joins. `cardResults` is embedded rather than split into a subcollection because Firestore bills per document read — splitting saved Recents no reads while costing a write per card. The document is sealed by `studyMode`: Rated-only counters (`cardsMastered`, `cardsPartial`, `cardsDefended`, `cardsDemastered`) and Rated-only `cardResults` fields (`attemptsUsed`, `wasPreviouslyMastered`) are **absent** on a Fast document, not written as 0 — Fast has no Ratings, Attempts or mastery to report. **Not yet written** — see Session Termination.
 - **`progress` is one packed document per Subcategory per User**, holding a `cards` map keyed by card id, and carries both progress sets: a key exists iff the Flashcard is **Studied**, and its `state == Mastered` iff it is in **Persistent Mastery**. De-mastery moves `state` down rather than removing the key, so coverage never regresses. Written by **both** Study Modes — Rated writes the Terminal State, Fast writes `Seen` only where no entry exists. **Private Flashcards never receive one.** Packing makes a session's progress cost one write per Subcategory instead of one per card, and makes any screen's progress read a single document. See [ADR-0016](docs/adr/0016-card-progress-model.md).
 - **`state/progressSummary` is a single document per User** holding every Subcategory's `masteredCount` and `studiedCount`, so Category Details draws every ring on the screen from **one read**. The denominator is `Subcategory.cardCount` from the taxonomy, already loaded by the screens that draw rings, so it is duplicated nowhere. The denominator excludes Private Flashcards, so the card count printed beside a ring must exclude them too.
 - Private Flashcard `status`: `"private" | "submitted" | "approved"` — promotion pipeline to global pool.
