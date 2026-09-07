@@ -213,7 +213,7 @@ This feature has several hard external dependencies an implementing agent won't 
 - Raw, unobfuscated voice audio never leaves the device.
 - Obfuscated audio is never persisted anywhere, client or server.
 - Premium entitlement is checked server-side per request, not trusted from the client.
-- Transcripts and grades are never written to Firestore — only shown transiently on screen during the session. Only the resulting outcome (Terminal State) is persisted, at the Summary commit.
+- Transcripts and grades are never written to Firestore — only shown transiently on screen during the session. Only the resulting `FlashcardResult.Rated` (Terminal State, Attempts used, previously-mastered flag) is persisted, at the Summary commit.
 
 ## Open decisions carried forward
 

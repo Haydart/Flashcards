@@ -57,7 +57,7 @@ Backgrounded time accrues **only while voice playback is active**. A backgrounde
 
 ## Firestore schema
 
-### Session record: `users/{uid}/sessions/{sessionId}`
+### Session Result: `users/{uid}/sessions/{sessionId}`
 
 **One session is one document.** Aggregates, denormalized names, and the per-card results embedded as a `cardResults` map. Home's Recents carousel is this collection's highest-traffic reader, and reads it with `orderBy(startTimestamp, DESCENDING).limit(n)`, whose cost is the limit rather than the collection size.
 
