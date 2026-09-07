@@ -1,0 +1,17 @@
+{
+  "name": "flashcards-firestore-rules-tests",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "test": "firebase emulators:exec --project flashcards-rules-test --only firestore --config ../firebase.json \"node --test\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "firebase": "^12.18.0",
+    "firebase-tools": "^15.29.0"
+  }
+}
