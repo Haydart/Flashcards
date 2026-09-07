@@ -13,7 +13,7 @@ RPG-style progression layer to improve user retention. XP is earned by studying 
 | Card Partial (Rated) | **25 XP per card** (flat) | Rated only. Terminal State Partial — never Correct, but Partial at least once. |
 | Mastery Defended (Correct on any Attempt) | **50 XP per card** (flat) | Rated only. See [Card Progress and Persistent Mastery](persistent-card-mastery.md). |
 | Card de-mastered (Failed Terminal State on a previously mastered card) | **−80 XP per card** (flat) | Rated only. A **Partial** Terminal State on a defended card is neutral — no bonus, no penalty. |
-| Session fully completed (deck end reached) | **+500 XP** | Both modes. Partial sessions do not earn this. |
+| Session fully completed (deck end reached) | **+500 XP** | Both modes. Abandoned sessions do not earn this. |
 | Daily goal met | **+1000 XP** | Awarded once per calendar day, when today's studied minutes first reach the goal. |
 | Streak continuation | `min(streakDays × 250, 2500)` XP | Day 1 = 250, Day 2 = 500, …, Day 10+ = 2500 (cap). Once per calendar day on which a session reaches the Summary screen. |
 | Time studied | **10 XP per minute** | Both modes. Session duration, first card shown → deck end or exit. |
@@ -77,7 +77,7 @@ XP is calculated **on the Session Summary screen**, from the session result and 
 
 - Items worth 0 XP are omitted entirely
 - De-mastery items use error color (red) for the equation and the pour
-- `Session Completed` omitted for partial sessions
+- `Session Completed` omitted for abandoned sessions
 - For Rated sessions, the mastery ring sweep plays **before** the XP pour begins
 - For Fast sessions, the pour begins immediately (no ring phase)
 

@@ -162,7 +162,7 @@ A User-configured target for minutes studied per calendar day. Default: 20 minut
 _Avoid_: Study target, Quota
 
 **Sessions Completed**:
-Count of Study Sessions in which the User reached deck end (last card completed). Partial sessions (exited before deck end) do not count. Tracked as a lifetime aggregate stat on the Progress screen.
+Count of Study Sessions in which the User reached deck end (last card completed). Abandoned sessions (exited before deck end) do not count. Tracked as a lifetime aggregate stat on the Progress screen.
 _Avoid_: Sessions finished, Sessions done
 
 
