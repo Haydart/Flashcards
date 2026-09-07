@@ -5,6 +5,7 @@ import com.rossomak.flashcards.core.domain.model.FlashcardResult
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
 import com.rossomak.flashcards.core.domain.model.SessionResult
 import com.rossomak.flashcards.core.domain.model.SubcategoryProgress
+import com.rossomak.flashcards.core.domain.model.SubcategoryProgressSummaryDelta
 import com.rossomak.flashcards.core.domain.repository.FakeCardProgressRepository
 import com.rossomak.flashcards.core.domain.repository.FakeStudySessionRepository
 import io.kotest.matchers.shouldBe
@@ -76,6 +77,9 @@ class CommitStudySessionUseCaseTest {
     ): CardProgressEntry = CardProgressEntry(state = state, firstStudiedAt = firstStudiedAt, masteredAt = masteredAt)
 
     private fun singleWrite() = studySessionRepository.committedSessionCommits.single().progressWrites.single()
+
+    private fun singleSummaryDelta(subcategoryId: String = "sub-1") =
+        studySessionRepository.committedSessionCommits.single().progressSummaryWrite.subcategoryDeltas.getValue(subcategoryId)
 
     @Test
     fun `a card ending Mastered with no prior entry sets state Mastered and stamps the mastered timestamp`() = runTest {
@@ -254,5 +258,123 @@ class CommitStudySessionUseCaseTest {
         }
 
         reported shouldBe error
+    }
+
+    @Test
+    fun `a newly mastered card increments the topic's mastered count`() = runTest {
+        val result = ratedSessionResult(cardResults = listOf(ratedEntry(state = FlashcardStudyProgressState.Mastered)))
+
+        createUseCase().invoke(result)
+
+        singleSummaryDelta() shouldBe SubcategoryProgressSummaryDelta(masteredDelta = 1, studiedDelta = 1)
+    }
+
+    @Test
+    fun `a de-mastered card decrements the mastered count and leaves the studied count untouched`() = runTest {
+        cardProgressRepository.seed(
+            SubcategoryProgress(subcategoryId = "sub-1", categoryId = "cat-1", cards = mapOf("card-1" to priorEntry(FlashcardStudyProgressState.Mastered))),
+        )
+        val result = ratedSessionResult(cardResults = listOf(ratedEntry(state = FlashcardStudyProgressState.Failed)))
+
+        createUseCase().invoke(result)
+
+        singleSummaryDelta() shouldBe SubcategoryProgressSummaryDelta(masteredDelta = -1, studiedDelta = 0)
+    }
+
+    @Test
+    fun `a Defended card produces no entry in the summary write`() = runTest {
+        cardProgressRepository.seed(
+            SubcategoryProgress(subcategoryId = "sub-1", categoryId = "cat-1", cards = mapOf("card-1" to priorEntry(FlashcardStudyProgressState.Mastered))),
+        )
+        val result = ratedSessionResult(cardResults = listOf(ratedEntry(state = FlashcardStudyProgressState.Mastered)))
+
+        createUseCase().invoke(result)
+
+        studySessionRepository.committedSessionCommits.single().progressSummaryWrite.subcategoryDeltas shouldBe emptyMap()
+    }
+
+    @Test
+    fun `a card ending Partial moves neither count`() = runTest {
+        cardProgressRepository.seed(
+            SubcategoryProgress(subcategoryId = "sub-1", categoryId = "cat-1", cards = mapOf("card-1" to priorEntry(FlashcardStudyProgressState.Failed))),
+        )
+        val result = ratedSessionResult(cardResults = listOf(ratedEntry(state = FlashcardStudyProgressState.Partial)))
+
+        createUseCase().invoke(result)
+
+        studySessionRepository.committedSessionCommits.single().progressSummaryWrite.subcategoryDeltas shouldBe emptyMap()
+    }
+
+    @Test
+    fun `a card with no prior entry increments the studied delta, a card with one does not`() = runTest {
+        cardProgressRepository.seed(
+            SubcategoryProgress(subcategoryId = "sub-1", categoryId = "cat-1", cards = mapOf("card-2" to priorEntry(FlashcardStudyProgressState.Partial))),
+        )
+        val result = ratedSessionResult(
+            cardResults = listOf(
+                ratedEntry(cardId = "card-1", state = FlashcardStudyProgressState.Failed),
+                ratedEntry(cardId = "card-2", state = FlashcardStudyProgressState.Failed),
+            ),
+        )
+
+        createUseCase().invoke(result)
+
+        singleSummaryDelta() shouldBe SubcategoryProgressSummaryDelta(masteredDelta = 0, studiedDelta = 1)
+    }
+
+    @Test
+    fun `a Fast card with no prior entry contributes to the studied delta only, never the mastered delta`() = runTest {
+        val result = fastSessionResult(cardResults = listOf(fastEntry(cardId = "card-1")))
+
+        createUseCase().invoke(result)
+
+        singleSummaryDelta() shouldBe SubcategoryProgressSummaryDelta(masteredDelta = 0, studiedDelta = 1)
+    }
+
+    @Test
+    fun `a Fast card revisiting an existing entry contributes nothing to the summary write`() = runTest {
+        cardProgressRepository.seed(
+            SubcategoryProgress(subcategoryId = "sub-1", categoryId = "cat-1", cards = mapOf("card-1" to priorEntry(FlashcardStudyProgressState.Seen))),
+        )
+        val result = fastSessionResult(cardResults = listOf(fastEntry(cardId = "card-1")))
+
+        createUseCase().invoke(result)
+
+        studySessionRepository.committedSessionCommits.single().progressSummaryWrite.subcategoryDeltas shouldBe emptyMap()
+    }
+
+    @Test
+    fun `a session spanning two subcategories produces one summary write carrying both topics' independent deltas`() = runTest {
+        val result = ratedSessionResult(
+            cardResults = listOf(
+                ratedEntry(cardId = "card-1", subcategoryId = "sub-1", state = FlashcardStudyProgressState.Mastered),
+                ratedEntry(cardId = "card-2", subcategoryId = "sub-2", state = FlashcardStudyProgressState.Failed),
+            ),
+        )
+
+        createUseCase().invoke(result)
+
+        val commits = studySessionRepository.committedSessionCommits
+        commits.size shouldBe 1
+        val deltas = commits.single().progressSummaryWrite.subcategoryDeltas
+        deltas.keys shouldBe setOf("sub-1", "sub-2")
+        deltas.getValue("sub-1") shouldBe SubcategoryProgressSummaryDelta(masteredDelta = 1, studiedDelta = 1)
+        deltas.getValue("sub-2") shouldBe SubcategoryProgressSummaryDelta(masteredDelta = 0, studiedDelta = 1)
+    }
+
+    @Test
+    fun `the sum of the write's studied deltas equals the session document's newCardsStudied count`() = runTest {
+        val result = ratedSessionResult(
+            cardResults = listOf(
+                ratedEntry(cardId = "card-1", subcategoryId = "sub-1", state = FlashcardStudyProgressState.Mastered),
+                ratedEntry(cardId = "card-2", subcategoryId = "sub-2", state = FlashcardStudyProgressState.Failed),
+            ),
+        )
+
+        createUseCase().invoke(result)
+
+        val commit = studySessionRepository.committedSessionCommits.single()
+        val studiedDeltaSum = commit.progressSummaryWrite.subcategoryDeltas.values.sumOf { it.studiedDelta }
+        studiedDeltaSum shouldBe commit.newCardsStudied
     }
 }

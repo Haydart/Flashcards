@@ -11,10 +11,10 @@ import java.util.concurrent.Executor
 import javax.inject.Inject
 
 /**
- * Writes the `sessions/{sessionId}` document (ADR-0014) and, since ticket 02, every
- * [SessionCommit.progressWrites] Subcategory progress document (ADR-0016) — as one Firestore batch.
- * Ticket 03 and spec 05 add the progress-summary increments and a further scoring-state write to
- * this same [FirebaseFirestore.batch], as further lines in [commitSession] rather than a restructure.
+ * Writes the `sessions/{sessionId}` document (ADR-0014), every [SessionCommit.progressWrites]
+ * Subcategory progress document, and the [SessionCommit.progressSummaryWrite] increments (all
+ * ADR-0016) — as one Firestore batch. Spec 05 adds a further scoring-state write to this same
+ * [FirebaseFirestore.batch], as a further line in [commitSession] rather than a restructure.
  *
  * **Not awaited on the success path.** Firestore's on-device persistence queues a batch locally and
  * only resolves [com.google.android.gms.tasks.Task] once connectivity returns and the backend
@@ -32,6 +32,7 @@ class StudySessionRemoteDataSource @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val firebaseAuth: FirebaseAuth,
     private val cardProgressRemoteDataSource: CardProgressRemoteDataSource,
+    private val progressSummaryRemoteDataSource: ProgressSummaryRemoteDataSource,
 ) {
 
     private val uid: String
@@ -48,6 +49,12 @@ class StudySessionRemoteDataSource @Inject constructor(
         sessionCommit.progressWrites.forEach { write ->
             val progressDocRef = cardProgressRemoteDataSource.documentReference(write.subcategoryId)
             batch.set(progressDocRef, cardProgressRemoteDataSource.toMergeFields(write), SetOptions.merge())
+        }
+        // A session whose deltas are all zero (e.g. every card defended) adds no line at all — the
+        // whole point of ticket 03's per-subcategory filtering is that there is nothing to write.
+        if (sessionCommit.progressSummaryWrite.subcategoryDeltas.isNotEmpty()) {
+            val summaryDocRef = progressSummaryRemoteDataSource.documentReference()
+            batch.set(summaryDocRef, progressSummaryRemoteDataSource.toMergeFields(sessionCommit.progressSummaryWrite), SetOptions.merge())
         }
         batch.commit().addOnFailureListener(DIRECT_EXECUTOR) { exception -> onRejected(exception) }
     }

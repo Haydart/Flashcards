@@ -13,8 +13,10 @@ import com.google.firebase.firestore.WriteBatch
 import com.rossomak.flashcards.core.domain.model.CardProgressUpdate
 import com.rossomak.flashcards.core.domain.model.FlashcardResult
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
+import com.rossomak.flashcards.core.domain.model.ProgressSummaryWrite
 import com.rossomak.flashcards.core.domain.model.SessionCommit
 import com.rossomak.flashcards.core.domain.model.SessionResult
+import com.rossomak.flashcards.core.domain.model.SubcategoryProgressSummaryDelta
 import com.rossomak.flashcards.core.domain.model.SubcategoryProgressWrite
 import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
@@ -40,11 +42,13 @@ class StudySessionRemoteDataSourceTest {
     private val collectionReference: CollectionReference = mockk()
     private val documentReference: DocumentReference = mockk()
     private val progressDocumentReference: DocumentReference = mockk()
+    private val progressSummaryDocumentReference: DocumentReference = mockk()
     private val writeBatch: WriteBatch = mockk()
     private val cardProgressRemoteDataSource: CardProgressRemoteDataSource = mockk()
+    private val progressSummaryRemoteDataSource: ProgressSummaryRemoteDataSource = mockk()
 
     private fun createDataSource(): StudySessionRemoteDataSource =
-        StudySessionRemoteDataSource(firestore, firebaseAuth, cardProgressRemoteDataSource)
+        StudySessionRemoteDataSource(firestore, firebaseAuth, cardProgressRemoteDataSource, progressSummaryRemoteDataSource)
 
     @Before
     fun setUp() {
@@ -57,6 +61,8 @@ class StudySessionRemoteDataSourceTest {
         every { writeBatch.commit() } returns Tasks.forResult(null)
         every { cardProgressRemoteDataSource.documentReference(any()) } returns progressDocumentReference
         every { cardProgressRemoteDataSource.toMergeFields(any()) } returns MERGE_FIELDS
+        every { progressSummaryRemoteDataSource.documentReference() } returns progressSummaryDocumentReference
+        every { progressSummaryRemoteDataSource.toMergeFields(any()) } returns SUMMARY_MERGE_FIELDS
     }
 
     private fun ratedResult(): SessionResult = SessionResult.Rated(
@@ -101,7 +107,8 @@ class StudySessionRemoteDataSourceTest {
         sessionResult: SessionResult = ratedResult(),
         newCardsStudied: Int = 0,
         progressWrites: List<SubcategoryProgressWrite> = emptyList(),
-    ): SessionCommit = SessionCommit(sessionResult, newCardsStudied, progressWrites)
+        progressSummaryWrite: ProgressSummaryWrite = ProgressSummaryWrite(emptyMap()),
+    ): SessionCommit = SessionCommit(sessionResult, newCardsStudied, progressWrites, progressSummaryWrite)
 
     @Test
     fun `commits to the session document keyed by session id under the user`() {
@@ -176,6 +183,25 @@ class StudySessionRemoteDataSourceTest {
     }
 
     @Test
+    fun `a non-empty progress-summary write joins the same batch as a merge set at the fixed document id`() {
+        val write = ProgressSummaryWrite(mapOf("sub-1" to SubcategoryProgressSummaryDelta(masteredDelta = 1, studiedDelta = 1)))
+
+        createDataSource().commitSession(commit(progressSummaryWrite = write), onRejected = {})
+
+        verify(exactly = 1) { progressSummaryRemoteDataSource.documentReference() }
+        verify(exactly = 1) { progressSummaryRemoteDataSource.toMergeFields(write) }
+        verify(exactly = 1) { writeBatch.set(progressSummaryDocumentReference, SUMMARY_MERGE_FIELDS, any<SetOptions>()) }
+        verify(exactly = 1) { writeBatch.commit() }
+    }
+
+    @Test
+    fun `a session with no progress-summary deltas adds no summary merge set to the batch`() {
+        createDataSource().commitSession(commit(progressSummaryWrite = ProgressSummaryWrite(emptyMap())), onRejected = {})
+
+        verify(exactly = 0) { progressSummaryRemoteDataSource.documentReference() }
+    }
+
+    @Test
     fun `a rejected commit invokes onRejected with the exception`() {
         val error = Exception("permission denied")
         every { writeBatch.commit() } returns Tasks.forException(error)
@@ -200,5 +226,6 @@ class StudySessionRemoteDataSourceTest {
     private companion object {
         const val UID = "user-1"
         val MERGE_FIELDS: Map<String, Any> = mapOf("categoryId" to "cat-1", "cards" to mapOf("card-1" to mapOf("state" to "Mastered")))
+        val SUMMARY_MERGE_FIELDS: Map<String, Any> = mapOf("subcategories" to mapOf("sub-1" to mapOf("masteredCount" to 1, "studiedCount" to 1)))
     }
 }

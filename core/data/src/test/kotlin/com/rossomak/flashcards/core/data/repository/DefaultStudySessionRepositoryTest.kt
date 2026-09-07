@@ -3,6 +3,7 @@ package com.rossomak.flashcards.core.data.repository
 import com.rossomak.flashcards.core.data.source.StudySessionRemoteDataSource
 import com.rossomak.flashcards.core.domain.model.FlashcardResult
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
+import com.rossomak.flashcards.core.domain.model.ProgressSummaryWrite
 import com.rossomak.flashcards.core.domain.model.SessionCommit
 import com.rossomak.flashcards.core.domain.model.SessionResult
 import io.kotest.matchers.shouldBe
@@ -46,6 +47,7 @@ class DefaultStudySessionRepositoryTest {
         ),
         newCardsStudied = 1,
         progressWrites = emptyList(),
+        progressSummaryWrite = ProgressSummaryWrite(emptyMap()),
     )
 
     @Test

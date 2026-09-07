@@ -8,8 +8,10 @@ import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState.Fai
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState.Mastered
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState.Partial
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState.Seen
+import com.rossomak.flashcards.core.domain.model.ProgressSummaryWrite
 import com.rossomak.flashcards.core.domain.model.SessionCommit
 import com.rossomak.flashcards.core.domain.model.SessionResult
+import com.rossomak.flashcards.core.domain.model.SubcategoryProgressSummaryDelta
 import com.rossomak.flashcards.core.domain.model.SubcategoryProgressWrite
 import com.rossomak.flashcards.core.domain.repository.CardProgressRepository
 import com.rossomak.flashcards.core.domain.repository.StudySessionRepository
@@ -20,8 +22,9 @@ import javax.inject.Inject
  * ViewModel on arrival. Reads each touched Subcategory's prior progress itself
  * ([ADR-0016](../../../../../../../docs/adr/0016-card-progress-model.md)) — never trusting
  * [FlashcardResult.Rated.wasPreviouslyMastered], which exists for in-session display only — and turns
- * the session's card results into the [SubcategoryProgressWrite]s and new-cards-studied count
- * [StudySessionRepository.commitSession] writes alongside the session document, in the same batch.
+ * the session's card results into the [SubcategoryProgressWrite]s, the [ProgressSummaryWrite] and the
+ * new-cards-studied count [StudySessionRepository.commitSession] writes alongside the session
+ * document, in the same batch.
  *
  * Not a [com.rossomak.flashcards.core.domain.usecase.base.UseCase]: [onRejected] is a side channel
  * for an async, after-the-fact failure report (see [StudySessionRepository.commitSession]), not a
@@ -35,6 +38,7 @@ class CommitStudySessionUseCase @Inject constructor(
     suspend operator fun invoke(sessionResult: SessionResult, onRejected: (Throwable) -> Unit = {}): Result<Unit> {
         var newCardsStudied = 0
         val progressWrites = mutableListOf<SubcategoryProgressWrite>()
+        val summaryDeltas = mutableMapOf<String, SubcategoryProgressSummaryDelta>()
 
         for ((subcategoryId, entries) in sessionResult.cardResults.groupBy(FlashcardResult::subcategoryId)) {
             val priorCards = cardProgressRepository.getProgress(subcategoryId)
@@ -43,9 +47,15 @@ class CommitStudySessionUseCase @Inject constructor(
                 .orEmpty()
 
             val cardUpdates = mutableMapOf<String, CardProgressUpdate>()
+            var masteredDelta = 0
+            var studiedDelta = 0
             entries.forEach { entry ->
                 val prior = priorCards[entry.cardId]
-                if (prior == null) newCardsStudied++
+                if (prior == null) {
+                    newCardsStudied++
+                    studiedDelta++
+                }
+                masteredDelta += resolveMasteredDelta(entry, prior)
 
                 resolveUpdate(entry, prior)?.let { update ->
                     cardUpdates[entry.cardId] = update
@@ -59,12 +69,16 @@ class CommitStudySessionUseCase @Inject constructor(
                     cards = cardUpdates,
                 )
             }
+            if (masteredDelta != 0 || studiedDelta != 0) {
+                summaryDeltas[subcategoryId] = SubcategoryProgressSummaryDelta(masteredDelta, studiedDelta)
+            }
         }
 
         val sessionCommit = SessionCommit(
             sessionResult = sessionResult,
             newCardsStudied = newCardsStudied,
             progressWrites = progressWrites,
+            progressSummaryWrite = ProgressSummaryWrite(summaryDeltas),
         )
         return studySessionRepository.commitSession(sessionCommit, onRejected)
     }
@@ -84,16 +98,34 @@ class CommitStudySessionUseCase @Inject constructor(
     private fun resolveFastUpdate(prior: CardProgressEntry?): CardProgressUpdate? =
         if (prior == null) CardProgressUpdate(state = Seen, stampFirstStudied = true, stampMastered = false) else null
 
+    /**
+     * The mastered-count half of ticket 03's progress-summary delta: `+1` for a newly mastered card,
+     * `-1` for a de-mastered one, `0` for a defended, Partial or otherwise unchanged card. A Fast
+     * result is always `0` — it has no mastery concept to report at all, not a mastery field that
+     * happens to stay zero (ADR-0016).
+     */
+    private fun resolveMasteredDelta(entry: FlashcardResult, prior: CardProgressEntry?): Int = when (entry) {
+        is FlashcardResult.Fast -> 0
+        is FlashcardResult.Rated -> when (entry.state) {
+            Mastered -> if (wasMastered(prior)) 0 else 1
+            Failed -> if (wasMastered(prior)) -1 else 0
+            Partial -> 0
+            Seen -> error("A Rated card result can never resolve to Seen")
+        }
+    }
+
     private fun resolveRatedUpdate(state: FlashcardStudyProgressState, prior: CardProgressEntry?): CardProgressUpdate? {
         if (prior == null) {
             return CardProgressUpdate(state = state, stampFirstStudied = true, stampMastered = state == Mastered)
         }
-        val wasMastered = prior.state == Mastered
         return when (state) {
-            Mastered -> if (wasMastered) null else CardProgressUpdate(state = Mastered, stampFirstStudied = false, stampMastered = true)
-            Partial -> if (wasMastered) null else CardProgressUpdate(state = Partial, stampFirstStudied = false, stampMastered = false)
+            Mastered -> if (wasMastered(prior)) null else CardProgressUpdate(state = Mastered, stampFirstStudied = false, stampMastered = true)
+            Partial -> if (wasMastered(prior)) null else CardProgressUpdate(state = Partial, stampFirstStudied = false, stampMastered = false)
             Failed -> CardProgressUpdate(state = Failed, stampFirstStudied = false, stampMastered = false)
             Seen -> error("A Rated card result can never resolve to Seen")
         }
     }
+
+    /** Shared by [resolveRatedUpdate] and [resolveMasteredDelta] so "was this card Mastered before this session touched it" has one definition. */
+    private fun wasMastered(prior: CardProgressEntry?): Boolean = prior?.state == Mastered
 }
