@@ -344,6 +344,26 @@ class RatedStudySessionViewModelTest {
         }
 
     @Test
+    fun `confirming the exit dialog after natural end already fired does not send a second Summary event`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            flashcardRepository.flashcardsBySubcategory[subcategoryId] = Result.success(listOf(flashcard("card-1")))
+            stubRoute(route.copy(cardIds = listOf("card-1")))
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            // The exit dialog was already open when the last (only) card's rating naturally
+            // completed the deck and sent its own Summary event.
+            viewModel.onDialogEvent(Open(ExitSession))
+
+            viewModel.events.test {
+                viewModel.onRating(FlashcardRating.Correct)
+                awaitItem().shouldBeInstanceOf<RatedStudySessionDestination.Summary>()
+
+                viewModel.onDialogEvent(Confirm)
+                expectNoEvents()
+            }
+        }
+
+    @Test
     fun `partialRatingCardRequeueingEnabled false ends a Partial rating immediately as Terminal Partial`() =
         runTest(mainDispatcherRule.testDispatcher) {
             flashcardRepository.flashcardsBySubcategory[subcategoryId] = Result.success(listOf(flashcard("card-1")))
@@ -1141,7 +1161,7 @@ class RatedStudySessionViewModelTest {
         }
 
     @Test
-    fun `backgrounding while voice-answering is idle pauses the clock, and foregrounding resumes it`() =
+    fun `a long real-world gap between first card shown and termination is counted in full — v1 never pauses the clock`() =
         runTest(mainDispatcherRule.testDispatcher) {
             loadThreeCards()
             val viewModel = createViewModel()
@@ -1149,41 +1169,16 @@ class RatedStudySessionViewModelTest {
             viewModel.now = { clockInstant }
             advanceUntilIdle()
 
-            clockInstant = FIXED_INSTANT.plusSeconds(10)
-            viewModel.onScreenBackgrounded()
-            clockInstant = FIXED_INSTANT.plusSeconds(100) // backgrounded gap must not accrue
-            viewModel.onScreenForegrounded()
-            clockInstant = FIXED_INSTANT.plusSeconds(115)
+            // Simulates a long backgrounded gap (a phone call, switching apps) with no lifecycle
+            // hook to react to it — v1 is deliberately simplistic: wall time only, no pausing.
+            clockInstant = FIXED_INSTANT.plusSeconds(1_200)
             viewModel.onDialogEvent(Open(ExitSession))
 
             viewModel.events.test {
                 viewModel.onDialogEvent(Confirm)
                 val destination = awaitItem().shouldBeInstanceOf<RatedStudySessionDestination.Summary>()
 
-                destination.route.durationSeconds shouldBe 25
-            }
-        }
-
-    @Test
-    fun `backgrounding while voice-answering is actively playing keeps the clock running`() =
-        runTest(mainDispatcherRule.testDispatcher) {
-            loadThreeCards()
-            val viewModel = createViewModel()
-            var clockInstant = FIXED_INSTANT
-            viewModel.now = { clockInstant }
-            advanceUntilIdle()
-            voiceGateway.stateFlow.value = VoicePlaybackState(isActive = true, isPlaying = true)
-            advanceUntilIdle()
-
-            viewModel.onScreenBackgrounded() // isVoicePlaying true, so this must be a no-op
-            clockInstant = FIXED_INSTANT.plusSeconds(30)
-            viewModel.onDialogEvent(Open(ExitSession))
-
-            viewModel.events.test {
-                viewModel.onDialogEvent(Confirm)
-                val destination = awaitItem().shouldBeInstanceOf<RatedStudySessionDestination.Summary>()
-
-                destination.route.durationSeconds shouldBe 30
+                destination.route.durationSeconds shouldBe 1_200
             }
         }
 

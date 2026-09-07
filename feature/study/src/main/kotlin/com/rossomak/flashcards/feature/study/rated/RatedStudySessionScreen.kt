@@ -60,7 +60,6 @@ import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import com.rossomak.flashcards.feature.study.R
 import com.rossomak.flashcards.feature.study.StudySessionSummaryRoute
-import com.rossomak.flashcards.feature.study.chrome.ObserveStudySessionLifecycle
 import com.rossomak.flashcards.feature.study.chrome.StudySessionBody
 import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.ExitSession
 import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.ExtendedContext
@@ -93,11 +92,6 @@ fun RatedStudySessionScreen(
         view.keepScreenOn = true
         onDispose { view.keepScreenOn = false }
     }
-
-    ObserveStudySessionLifecycle(
-        onBackgrounded = viewModel::onScreenBackgrounded,
-        onForegrounded = viewModel::onScreenForegrounded,
-    )
 
     val snackbarHostState = remember { SnackbarHostState() }
 

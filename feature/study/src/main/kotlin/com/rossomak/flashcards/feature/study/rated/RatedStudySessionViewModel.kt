@@ -17,7 +17,6 @@ import com.rossomak.flashcards.core.domain.model.requeueAfterSilence
 import com.rossomak.flashcards.core.domain.model.sealRatedLedger
 import com.rossomak.flashcards.core.domain.model.sealSessionResult
 import com.rossomak.flashcards.core.domain.model.startClock
-import com.rossomak.flashcards.core.domain.model.stopClock
 import com.rossomak.flashcards.core.domain.model.toFlashcardRating
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.ObserveUserPreferencesUseCase
@@ -117,17 +116,20 @@ class RatedStudySessionViewModel @Inject constructor(
     // after an app kill (spec 03 ticket 02: no in-progress persistence, by design).
     private val sessionId: String = UUID.randomUUID().toString()
 
+    // Started once, at first card shown, and never paused — v1 is deliberately simplistic: wall
+    // time from first card shown to termination, unconditional of backgrounding or playback state.
+    // Revisit if a richer policy (e.g. pausing on background) is needed later.
     private var clock: SessionClock = SessionClock()
 
-    // The instant the clock first started — SessionClock itself only remembers its *current*
-    // running span's start, which a background/foreground cycle overwrites; the result's startedAt
-    // needs the original instant regardless of how many such cycles happened since.
+    // The instant the clock started — carried separately because a session whose card load fails
+    // never starts it at all, and SessionResult.startedAt needs that distinction.
     private var sessionStartedAt: Instant? = null
 
-    // Guards onScreenForegrounded/onScreenBackgrounded against firing before the clock has ever
-    // started — e.g. a background/foreground cycle while flashcards are still loading must not
-    // bank time for a session that has not shown a card yet.
-    private var clockStarted = false
+    // Guards terminate() against firing twice — natural end (onRating) and a confirmed "Exit
+    // session?" can otherwise both fire if the dialog is already open the instant the last card
+    // resolves, sending a second Summary navigation event. Mirrors FastStudySessionViewModel's
+    // identical guard (spec 03 ticket 03).
+    private var terminated = false
 
     private var rewindJob: Job? = null
     private var isPastRewindThreshold = false
@@ -208,24 +210,6 @@ class RatedStudySessionViewModel @Inject constructor(
         val instant = now()
         sessionStartedAt = instant
         clock = startClock(clock, instant)
-        clockStarted = true
-    }
-
-    /**
-     * The screen tells the ViewModel its own lifecycle rather than the ViewModel observing one
-     * itself, so the clock stays testable without a device (spec 03 ticket 02). Backgrounding
-     * pauses the clock unless voice-answering is actively playing — the shared TTS engine reading a
-     * question or a graded turn's feedback is genuinely studying, phone-in-pocket
-     * (ADR-0025/ADR-0027/ADR-0028) — in which case it keeps running. [clockStarted] guards both
-     * against firing before the first card is shown.
-     */
-    fun onScreenBackgrounded() {
-        if (clockStarted && !_state.value.isVoicePlaying) clock = stopClock(clock, now())
-    }
-
-    /** Resumes the clock — a no-op if it never paused because voice was actively playing. */
-    fun onScreenForegrounded() {
-        if (clockStarted) clock = startClock(clock, now())
     }
 
     /**
@@ -728,11 +712,15 @@ class RatedStudySessionViewModel @Inject constructor(
      * Both terminal paths — the last card resolving and a confirmed "Exit session?" — run this,
      * [abandoned] the only thing differing (spec 03 ticket 02). Seals the ledger from whatever the
      * state machine has resolved so far, stamps the duration off [clock], and emits the one-time
-     * navigation event (ADR-0019) exactly once. A `null` [ratedSessionState] (abandoning before
+     * navigation event (ADR-0019) exactly once — [terminated] guards a stray second call, e.g. the
+     * exit dialog being confirmed the instant after the last card's rating already completed the
+     * deck and sent its own Summary event. A `null` [ratedSessionState] (abandoning before
      * flashcards ever finished loading) seals an empty ledger with zero duration rather than
      * crashing — there is nothing to have studied yet.
      */
     private fun terminate(abandoned: Boolean) {
+        if (terminated) return
+        terminated = true
         val at = now()
         val ledger = ratedSessionState?.let { sealRatedLedger(it, abandoned) } ?: emptyList()
         val placeholderResult = SessionResult(
