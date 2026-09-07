@@ -2,14 +2,19 @@ package com.rossomak.flashcards.feature.study.fast
 
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
+import com.rossomak.flashcards.core.domain.model.CardProgressEntry
 import com.rossomak.flashcards.core.domain.model.CurationAction
 import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
+import com.rossomak.flashcards.core.domain.model.SubcategoryProgress
 import com.rossomak.flashcards.core.domain.model.VoiceSettings
 import com.rossomak.flashcards.core.domain.repository.CurationRepository
+import com.rossomak.flashcards.core.domain.repository.FakeCardProgressRepository
 import com.rossomak.flashcards.core.domain.repository.FakeCurationRepository
 import com.rossomak.flashcards.core.domain.repository.FakeFlashcardRepository
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
+import com.rossomak.flashcards.core.domain.usecase.GetSessionStartDataUseCase
+import com.rossomak.flashcards.core.domain.usecase.GetSubcategoryProgressUseCase
 import com.rossomak.flashcards.core.domain.usecase.SubmitCurationReportUseCase
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Dismiss
@@ -29,6 +34,7 @@ import com.rossomak.flashcards.feature.study.voice.VoicePhase
 import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 import com.rossomak.flashcards.testutil.MainDispatcherRule
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -62,6 +68,9 @@ class FastStudySessionViewModelTest {
     private val savedStateHandle: SavedStateHandle = mockk()
     private val flashcardRepository = FakeFlashcardRepository()
     private val getFlashcards = GetFlashcardsUseCase(flashcardRepository)
+    private val cardProgressRepository = FakeCardProgressRepository()
+    private val getSubcategoryProgress = GetSubcategoryProgressUseCase(cardProgressRepository)
+    private val getSessionStartData = GetSessionStartDataUseCase(getFlashcards, getSubcategoryProgress)
     private val voiceGateway = FakeVoiceGateway()
     private val voiceSettingsController: VoiceSettingsController = mockk(relaxed = true)
 
@@ -95,7 +104,7 @@ class FastStudySessionViewModelTest {
     private fun createViewModel(curationRepository: CurationRepository = FakeCurationRepository()): FastStudySessionViewModel =
         FastStudySessionViewModel(
             savedStateHandle,
-            getFlashcards,
+            getSessionStartData,
             SubmitCurationReportUseCase(curationRepository),
             voiceGateway,
             voiceSettingsController,
@@ -152,6 +161,73 @@ class FastStudySessionViewModelTest {
         viewModel.state.value.error shouldBe R.string.study_session_load_error_message
         viewModel.state.value.isLoading shouldBe false
     }
+
+    @Test
+    fun `session start issues exactly one progress read for a one-subcategory session`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+
+            createViewModel()
+            advanceUntilIdle()
+
+            cardProgressRepository.requestedSubcategoryIds shouldBe listOf(subcategoryId)
+        }
+
+    @Test
+    fun `session start issues exactly three progress reads for a three-subcategory session, never chunked`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            val subcategoryIds = listOf("sub-1", "sub-2", "sub-3")
+            subcategoryIds.forEach { id -> flashcardRepository.flashcardsBySubcategory[id] = Result.success(listOf(flashcard("card-$id", subcategoryId = id))) }
+            stubRoute(route.copy(subcategoryIds = subcategoryIds, cardIds = subcategoryIds.map { "card-$it" }))
+
+            createViewModel()
+            advanceUntilIdle()
+
+            cardProgressRepository.requestedSubcategoryIds.toSet() shouldBe subcategoryIds.toSet()
+            cardProgressRepository.requestedSubcategoryIds.size shouldBe 3
+        }
+
+    @Test
+    fun `a card with no prior entry is identifiable as new`() = runTest(mainDispatcherRule.testDispatcher) {
+        loadThreeCards()
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.priorProgressByCardId.keys shouldNotContain "card-1"
+    }
+
+    @Test
+    fun `an existing entry for a card leaves it out of the new-card signal, either mode`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            cardProgressRepository.seed(
+                SubcategoryProgress(
+                    subcategoryId = subcategoryId,
+                    categoryId = "android",
+                    cards = mapOf("card-1" to CardProgressEntry(state = FlashcardStudyProgressState.Seen, firstStudiedAt = FIXED_INSTANT, masteredAt = null)),
+                ),
+            )
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.priorProgressByCardId.keys shouldContain "card-1"
+        }
+
+    @Test
+    fun `a failed progress read still produces a running session with no error shown`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            cardProgressRepository.resultToReturn = Result.failure(IllegalStateException("offline"))
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.state.value.error shouldBe null
+            viewModel.state.value.isLoading shouldBe false
+            viewModel.priorProgressByCardId shouldBe emptyMap()
+        }
 
     @Test
     fun `read-aloud off never marks voice auto start pending`() = runTest(mainDispatcherRule.testDispatcher) {
