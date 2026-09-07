@@ -39,7 +39,7 @@ data class StudySessionConfig(
 ) {
 
     companion object {
-        const val MIN_LENGTH = 10
+        const val MIN_LENGTH = 5
         const val MAX_LENGTH = 50
         const val LENGTH_STEP = 5
         const val DEFAULT_LENGTH = 20

@@ -869,15 +869,20 @@ class RatedStudySessionViewModelTest {
     }
 
     /**
-     * Two [MutableStateFlow] writes, each followed by [advanceUntilIdle], so the collector actually
-     * observes the intermediate phase — writing SpeakingNotice twice in a row without that would
-     * conflate into one emission (equal consecutive [VoiceAnswerState] values), silently dropping a
-     * silence timeout.
+     * Three [MutableStateFlow] writes, each followed by [advanceUntilIdle], so the collector
+     * actually observes every intermediate phase — writing SpeakingNotice twice in a row without
+     * that would conflate into one emission (equal consecutive [VoiceAnswerState] values), silently
+     * dropping a silence timeout. The final WaitingForQuestion write mirrors the real notice-finished
+     * transition ([VoiceAnswerController.onNoticeFinishedSpeaking]) — the screen's queue/currentCard
+     * sync is deferred until the phase actually leaves SpeakingNotice, so a test that stopped at
+     * SpeakingNotice would never see it applied.
      */
     private fun TestScope.emitSilenceTimeout() {
         voiceGateway.voiceAnswerStateFlow.value = VoiceAnswerState(isEnabled = true, phase = VoiceAnswerPhase.Listening)
         advanceUntilIdle()
         voiceGateway.voiceAnswerStateFlow.value = VoiceAnswerState(isEnabled = true, phase = VoiceAnswerPhase.SpeakingNotice)
+        advanceUntilIdle()
+        voiceGateway.voiceAnswerStateFlow.value = VoiceAnswerState(isEnabled = true, phase = VoiceAnswerPhase.WaitingForQuestion)
         advanceUntilIdle()
     }
 
@@ -887,6 +892,15 @@ class RatedStudySessionViewModelTest {
         voiceGateway.voiceAnswerStateFlow.value = VoiceAnswerState(
             isEnabled = true,
             phase = VoiceAnswerPhase.SpeakingNotice,
+            lastGrade = grade,
+            lastGradedCardId = cardId,
+        )
+        advanceUntilIdle()
+        // Notice-finished edge (see emitSilenceTimeout's kdoc) — this is what actually applies the
+        // deferred queue/currentCard sync in production.
+        voiceGateway.voiceAnswerStateFlow.value = VoiceAnswerState(
+            isEnabled = true,
+            phase = VoiceAnswerPhase.WaitingForQuestion,
             lastGrade = grade,
             lastGradedCardId = cardId,
         )
