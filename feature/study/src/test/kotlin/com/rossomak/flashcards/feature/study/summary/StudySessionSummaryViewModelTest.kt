@@ -3,6 +3,7 @@ package com.rossomak.flashcards.feature.study.summary
 import androidx.lifecycle.SavedStateHandle
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
 import com.rossomak.flashcards.core.domain.model.StudyMode
+import com.rossomak.flashcards.core.domain.repository.FakeCardProgressRepository
 import com.rossomak.flashcards.core.domain.repository.FakeStudySessionRepository
 import com.rossomak.flashcards.core.domain.usecase.CommitStudySessionUseCase
 import com.rossomak.flashcards.core.ui.navigation.RouteDecoder
@@ -34,9 +35,12 @@ class StudySessionSummaryViewModelTest {
 
     private val savedStateHandle: SavedStateHandle = mockk()
     private val studySessionRepository = FakeStudySessionRepository()
+    private val cardProgressRepository = FakeCardProgressRepository()
 
-    private fun createViewModel(): StudySessionSummaryViewModel =
-        StudySessionSummaryViewModel(savedStateHandle, CommitStudySessionUseCase(studySessionRepository))
+    private fun createViewModel(): StudySessionSummaryViewModel = StudySessionSummaryViewModel(
+        savedStateHandle,
+        CommitStudySessionUseCase(studySessionRepository, cardProgressRepository),
+    )
 
     @Before
     fun setUp() {
@@ -153,12 +157,12 @@ class StudySessionSummaryViewModelTest {
         val viewModel = createViewModel()
         advanceUntilIdle()
 
-        studySessionRepository.committedSessions.size shouldBe 1
-        studySessionRepository.committedSessions.single().id shouldBe route.sessionId
+        studySessionRepository.committedSessionCommits.size shouldBe 1
+        studySessionRepository.committedSessionCommits.single().sessionResult.id shouldBe route.sessionId
         // Configuration change re-observes the same ViewModel instance rather than recreating it,
         // so a second read of state must not trigger a second commit.
         viewModel.state.value
-        studySessionRepository.committedSessions.size shouldBe 1
+        studySessionRepository.committedSessionCommits.size shouldBe 1
     }
 
     @Test
