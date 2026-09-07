@@ -22,6 +22,9 @@ const sessionDoc = { sessionId: 'session-1', studyMode: 'Rated' };
 /** A minimal, syntactically valid progress document (ADR-0016) — rules don't inspect its shape. */
 const progressDoc = { categoryId: 'cat-1', cards: {} };
 
+/** A minimal, syntactically valid progress-summary document (ADR-0016) — rules don't inspect its shape. */
+const progressSummaryDoc = { subcategories: {} };
+
 let testEnv;
 
 before(async () => {
@@ -104,6 +107,38 @@ describe('users/{uid}/progress/{subcategoryId}', () => {
 
     await assertFails(getDoc(anonRef));
     await assertFails(setDoc(anonRef, progressDoc));
+  });
+});
+
+describe('users/{uid}/state/{stateDocId}', () => {
+  it('the owning user can read and write their own state document', async () => {
+    const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+    const ownRef = doc(ownerDb, `users/${OWNER_UID}/state/progressSummary`);
+
+    await assertSucceeds(setDoc(ownRef, progressSummaryDoc));
+    await assertSucceeds(getDoc(ownRef));
+  });
+
+  it('a different authenticated user cannot read or write it', async () => {
+    const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+    await setDoc(doc(ownerDb, `users/${OWNER_UID}/state/progressSummary`), progressSummaryDoc);
+
+    const otherDb = testEnv.authenticatedContext(OTHER_UID).firestore();
+    const foreignRef = doc(otherDb, `users/${OWNER_UID}/state/progressSummary`);
+
+    await assertFails(getDoc(foreignRef));
+    await assertFails(setDoc(foreignRef, progressSummaryDoc));
+  });
+
+  it('an unauthenticated request cannot read or write it', async () => {
+    const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+    await setDoc(doc(ownerDb, `users/${OWNER_UID}/state/progressSummary`), progressSummaryDoc);
+
+    const anonDb = testEnv.unauthenticatedContext().firestore();
+    const anonRef = doc(anonDb, `users/${OWNER_UID}/state/progressSummary`);
+
+    await assertFails(getDoc(anonRef));
+    await assertFails(setDoc(anonRef, progressSummaryDoc));
   });
 });
 
