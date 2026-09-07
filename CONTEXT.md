@@ -58,6 +58,14 @@ _Avoid_: Account, Player, Learner
 A focused learning instance scoped to one or more Subcategories within a single Category. Has exactly one **Study Mode**. Every Study Session records **Card Progress** for the eligible (non-Private) Flashcards it actually puts in front of the User; only a Rated Study Session records Ratings, Attempts and Terminal States. A session with exactly one Subcategory is a **single-subcategory session**; a session spanning multiple Subcategories is a **composite session** — the umbrella term, true of a Quick Session and a Custom Session alike. Composite is not itself an entry point: every Composite session is either Quick (system-selected) or Custom (user-selected) — see **Study Creation**.
 _Avoid_: Quiz, Session alone (ambiguous with auth session)
 
+**Session Result**:
+The complete record of what happened in one Study Session, of either Study Mode: session identity, Study Mode, start timestamp, duration, whether the session was abandoned before the deck was finished, denormalized Category/Subcategory ids and names, the shared `newCardsStudied` count, and the per-Flashcard `cardResults` map (see **Flashcard Result**). A Rated Session Result additionally carries the Mastered/Partial/Defended/De-mastered counts — a Fast one has no Terminal States to tally, so those fields are absent, not zero. Sealed once, at session termination, and persisted once, at the Session Summary screen ([ADR-0014](docs/adr/0014-session-stats-written-at-summary-screen.md)) — nothing is written while a session runs. Stored at `users/{uid}/sessions/{sessionId}`, with `studyMode` as the one field a reader needs to know which shape the rest of the document is in.
+_Avoid_: Ledger (retired name), Session outcome, Session record
+
+**Flashcard Result**:
+One entry in a Session Result's `cardResults` map: a Flashcard's Subcategory id and its Card Progress state. A Rated entry's state is one of `Failed`/`Partial`/`Mastered` (its Terminal State mapped across), plus the Attempts used and whether it was previously Mastered; a Fast entry's state is always `Seen`, with no Attempts and no mastery fields — Fast has neither concept, so those fields are absent from a Fast entry rather than written as `0`/`false`. Which shape an entry has is read off the Session Result's own `studyMode`, never a second per-entry tag. Never carries a transcript.
+_Avoid_: Outcome, Ledger entry (retired names), Card record (that name belongs to `RatedSessionCardRecord`, the in-flight per-card state the Rated state machine keeps *during* play — a different type at a different layer)
+
 **Study Mode**:
 The interaction mechanic of a Study Session. Two values:
 - **Rated**: user reveals each answer manually, then self-rates (Failed / Partial / Correct) — or enables **Voice Answering** in-session for hands-free listen-and-grade instead. Each Flashcard accumulates Attempts until it reaches a **Terminal State**.

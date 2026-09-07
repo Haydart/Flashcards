@@ -7,52 +7,84 @@
 No Firestore write occurs while a Study Session runs — not per card, not per Rating, not per voice
 grade. The session accumulates its outcome in memory and hands it forward.
 
-### The session record carries its own ledger
+### The Session Result carries its own card results
 
 One collection holds every Study Session, Rated and Fast alike:
 `users/{uid}/sessions/{sessionId}`.
 
+**The document's shape depends on its own `studyMode` field.** Rated and Fast share most fields, but
+a Rated card has Ratings, Attempts and a Terminal State and a Fast card has none of that — only
+`Seen`. Rather than giving every Fast document zeroed-out mastery counters and every Fast card entry
+a meaningless `attemptsUsed: 0`, the fields that only apply to Rated are simply absent from a Fast
+document. A reader decides which shape to expect from `studyMode` alone — no second discriminant is
+stored anywhere, because a session has exactly one Study Mode for its whole life, so every entry in
+one session's `cardResults` is already known to be the same variant as the document itself.
+
 ```text
+// Shared by both Study Modes
 sessionId: String
 startTimestamp: Timestamp
 durationSeconds: Int
 studyMode: RATED | FAST
-isPartial: Boolean
+isAbandoned: Boolean
 categoryId: String
 categoryName: String            // denormalized
 subcategoryIds: List<String>
 subcategoryNames: List<String>  // denormalized
 cardCount: Int
+newCardsStudied: Int            // both modes can study a card for the first time
+cardResults: {                  // keyed by cardId
+  <cardId>: {
+    subcategoryId: String
+    state: Mastered | Partial | Failed   // RATED documents only
+    state: Seen                          // FAST documents only — the one value a Fast card can have
+    attemptsUsed: Int                    // RATED entries only
+    wasPreviouslyMastered: Boolean       // RATED entries only
+  }
+}
+
+// RATED documents only — Fast has no Terminal States to tally
 cardsMastered: Int
 cardsPartial: Int
 cardsDefended: Int
 cardsDemastered: Int
-newCardsStudied: Int
-outcomes: {                     // keyed by cardId
-  <cardId>: {
-    subcategoryId: String
-    state: Mastered | Partial | Failed | Seen
-    attemptsUsed: Int
-    wasPreviouslyMastered: Boolean
-  }
-}
 ```
 
-**One session is one document.** The per-card ledger is embedded, not held in a subcollection.
+**One session is one document.** The per-card results are embedded, not held in a subcollection.
+
+**`newCardsStudied` is the one counter both variants keep.** Coverage — a card being **Studied** for
+the first time — is not a Rated-only idea: a Fast card seen for the first time is just as much a new
+card as a Rated one, and the "genuinely new card" scoring bonus reads for both modes alike. It
+is only *mastery* (`cardsMastered`/`cardsPartial`/`cardsDefended`/`cardsDemastered`, and the
+Terminal-State-derived `state` values above) that Fast has no concept of.
+
+> **Scope note:** `newCardsStudied`, `cardsDefended` and `cardsDemastered` are all present in the
+> schema above from the PR that introduces this collection, but not all computed for real from day
+> one. `newCardsStudied` is written as zero until the PR that adds card-progress persistence, which is
+> what reads prior state and can tell a new card from a returning one — the field exists from the
+> start so no later PR has to add a column, but the value is a placeholder until that read exists.
+> `cardsDefended`/`cardsDemastered` are written as zero the same way, until the PR that adds Mastery
+> Defense actually produces a defended or de-mastered card. Neither is the omission this ADR describes
+> above for a *Fast* document — that omission is permanent and structural (Fast has no mastery to
+> report, ever); this is a temporary zero on a field that will hold real Rated data once its
+> producing PR lands. The commit batch itself grows by one further write only once a later PR adds the
+> account-wide scoring state — see "The commit is one batch" below. Which of these compute for real at
+> any given point is a property of which PRs have landed, not of this ADR — check the current
+> implementation tickets, not this document alone, for what is true today.
 
 The names are denormalized so a Recents card renders from a single `orderBy(startTimestamp,
 DESCENDING).limit(n)` query with no joins. That query's cost is the limit, not the collection size,
 so the collection may grow without bound.
 
-The per-outcome counts are stored alongside the ledger rather than derived from it on read, so a
+The per-outcome counts are stored alongside `cardResults` rather than derived from it on read, so a
 session's scoring breakdown is reproducible from the record without walking every entry.
 
-### Why the ledger is embedded
+### Why `cardResults` is embedded
 
 Firestore bills **per document read**, not per byte. A Recents carousel showing ten sessions costs
-ten reads whether those documents are slim or fat, so splitting the ledger into a subcollection buys
-no read saving at all — it only halves the bytes on the wire, at the cost of doubling the writes on
-every commit and adding a second fetch whenever a past session is opened.
+ten reads whether those documents are slim or fat, so splitting `cardResults` into a subcollection
+buys no read saving at all — it only halves the bytes on the wire, at the cost of doubling the writes
+on every commit and adding a second fetch whenever a past session is opened.
 
 Size is bounded by construction: one entry per distinct card, and a session's length is capped at
 `StudySessionConfig.MAX_LENGTH`. Even a full 50-card session is a handful of scalar fields per entry,
@@ -61,14 +93,15 @@ nowhere near Firestore's 1 MiB document limit.
 **No transcript is persisted, anywhere.** A voice-answered card's sanitized transcript is surfaced
 only transiently, on screen during the Rated session itself, to show the user what was heard before
 grading it. Once the card is graded, only the resulting `state` and `attemptsUsed` carry forward into
-the ledger — the spoken content itself is not retained in Firestore, in the session ViewModel's
+`cardResults` — the spoken content itself is not retained in Firestore, in the session ViewModel's
 result, or on the Summary route. Nothing today reads a transcript back after the session ends; adding
 persistence for a hypothetical future revisit feature is deferred until that feature is actually
 designed (see `docs/design/premium-voice-grading-pipeline.md`).
 
-The one real cost is that the Android client SDK has no field projection, so Recents transfers a
-ledger it never renders. If that ever measures badly, the fix is a separate slim index document —
-an optimisation to make when it is needed, not a reason to pay two writes per session forever.
+The one real cost is that the Android client SDK has no field projection, so Recents transfers
+`cardResults` it never renders. If that ever measures badly, the fix is a separate slim index
+document — an optimisation to make when it is needed, not a reason to pay two writes per session
+forever.
 
 ### The commit is one batch, at the Summary screen
 
@@ -76,7 +109,7 @@ The Session Summary screen computes the XP breakdown from the session result and
 snapshot ([ADR-0047](0047-xp-values-behind-a-config-repository.md)), then performs a **single
 batched write**:
 
-- the `sessions/{sessionId}` document, ledger included
+- the `sessions/{sessionId}` document, `cardResults` included
 - `progress/{subcategoryId}` — one packed progress document per Subcategory touched
   ([ADR-0016](0016-card-progress-model.md))
 - `users/{uid}/state/progressSummary` — nested-key counter increments
@@ -86,6 +119,11 @@ batched write**:
 **A single-Subcategory session therefore commits four writes**, whatever its length: session,
 progress, summary, progression. A composite session commits one further `progress` write per
 additional Subcategory touched — three fixed writes plus one per Subcategory.
+
+**This four-write count is the end state.** The PR that introduces this collection builds only the
+first three of these four (session, progress, summary); `state/progression` does not exist until a
+later PR adds it. A single-Subcategory session is three writes until then, not four. See the scope
+note above.
 
 **This batch is atomic but not transactional.** It commits or fails as a unit, but it does not
 re-read `progress` or `state/progression` at commit time, so two sessions racing on the same
@@ -134,20 +172,20 @@ exit-confirmation both route to it.
 
 ### How the result reaches the Summary screen
 
-The Summary route carries the whole session result as route arguments, flattened into primitives
-and lists of primitives the same way `StudySessionRoute` already flattens `VoiceSettings` and
+The Summary route carries the whole session result as route arguments, flattened into primitives and
+lists of primitives the same way `StudySessionRoute` already flattens `VoiceSettings` and
 `IntRange` — `androidx.navigation`'s typesafe routes only derive a `NavType` for primitives, enums
-and lists of those. The per-card ledger becomes one parallel list per field (`cardIds`,
-`subcategoryIds`, `states`, `attemptsUsed`, `wasPreviouslyMastered`), all indexed together — no
-transcript field, since none is persisted (see above).
+and lists of those. `cardResults` becomes one parallel list per field, indexed together: `cardIds`,
+`subcategoryIds` and `states` are always present, for both modes. `attemptsUsed` and
+`wasPreviouslyMastered` are Rated-only — mirroring the document shape above, these two lists are
+`null` for a Fast route, not lists of zeroes and falses for cards that have neither concept. The
+route's own `studyMode` argument is what tells the Summary which shape to expect, same as the
+document. No transcript field, since none is persisted (see above). A **past** session's detail view
+instead carries only `sessionId`, and the Summary reads
+`sessions/{sessionId}` back from Firestore — one document, everything included — rather than
+receiving `cardResults` through the route.
 
-**This route is fresh-session egress only.** It is the mandatory exit for both Study Modes, natural
-end or premature exit, and nothing else — it is never used to view a past session. A past session's
-detail view, if it is ever built, is a wholly separate screen and route reading
-`sessions/{sessionId}` back from Firestore directly; it does not share this route, and this route's
-shape is not constrained by that hypothetical future screen at all.
-
-The session ViewModel therefore does not commit. It seals its ledger, stamps `durationSeconds`, and
+The session ViewModel therefore does not commit. It seals `cardResults`, stamps `durationSeconds`, and
 navigates to the Summary with the flattened result as route arguments.
 
 ## Context
@@ -167,13 +205,13 @@ window in which a session document exists with no XP applied to the user.
 It also raises *how many documents*. The original shape here — a slim parent plus a per-card
 `outcomes` subcollection, alongside a per-card progress collection — cost around a hundred writes
 for a full session. Since Firestore's billed unit is the operation, that number is the one that has
-to come down, and both halves of it come down by packing: the ledger into its session document, and
+to come down, and both halves of it come down by packing: `cardResults` into its session document, and
 card progress into one document per Subcategory.
 
 The result-handoff question is separate, and constrained by the navigation library.
 `androidx.navigation` derives a `NavType` only for primitives, enums and lists of primitives, which
 this codebase already discovered and worked around by flattening `VoiceSettings` and `IntRange` into
-primitive route fields. The per-card ledger follows the same convention: one parallel list per
+primitive route fields. `cardResults` follows the same convention: one parallel list per
 field, all indexed together, rather than one JSON blob. A session is capped at
 `StudySessionConfig.MAX_LENGTH` (50 cards), so the flattened lists stay small — nowhere near the
 route string's practical size limits — and the route needs no custom `NavType`.
@@ -207,10 +245,10 @@ outlives what the Summary screen actually needs (it survives configuration chang
 hosting Activity does, not just for the Summary's lifetime). Passing the result as route arguments
 keeps state visible in the one place — the back stack — that already has to represent it.
 
-**Custom `CollectionNavType` carrying the full ledger as one JSON blob in the route** — rejected in
-favor of flattening. It works and sizes fine, but it breaks the flattening convention this codebase
-already settled on for `VoiceSettings` and `IntRange`, trading one custom serializer for what
-parallel primitive lists already do natively.
+**Custom `CollectionNavType` carrying all of `cardResults` as one JSON blob in the route** —
+rejected in favor of flattening. It works and sizes fine, but it breaks the flattening convention
+this codebase already settled on for `VoiceSettings` and `IntRange`, trading one custom serializer
+for what parallel primitive lists already do natively.
 
 **A bare `data object StudySummaryRoute` with the fresh result read from some other source** —
 rejected for the same reason as the `@ActivityRetainedScoped` holder above: the fresh result would
@@ -224,13 +262,15 @@ unchanged; only this piece of the reasoning for it was corrected.)*
 ## Consequences
 
 - A session commit is a small, bounded number of writes — four for the common single-Subcategory
-  case — independent of how many cards were studied.
-- Opening a past session's detail costs **one** read: the session document carries its own ledger.
-- Home's Recents transfers ledger data it does not render. Bounded at roughly 13 KB per session and
-  served from Firestore's on-device cache after first load; revisit only if measured.
+  case in the end state, three until the account-wide scoring state exists — independent of how many
+  cards were studied.
+- Opening a past session's detail costs **one** read: the session document carries its own
+  `cardResults`.
+- Home's Recents transfers `cardResults` data it does not render. Bounded at roughly 13 KB per
+  session and served from Firestore's on-device cache after first load; revisit only if measured.
 - If the app is killed while the Summary screen is showing, the session is lost entirely. This is
   the same exposure as a mid-session crash and is accepted; a future mitigation could persist the
-  in-progress ledger to DataStore and recover on next launch.
+  in-progress `cardResults` to DataStore and recover on next launch.
 - `users/{uid}/state/progression` carries `lastStudyDate` and `goalMetDate`. Streak continuation and
   the once-per-day daily-goal award are both uncomputable without them — the first needs to know
   whether a session today has already been counted, the second whether today's goal was already met.

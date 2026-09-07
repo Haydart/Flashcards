@@ -6,7 +6,9 @@ All session statistics are written to Firestore **once, at the Session Summary s
 
 The batch contains, in one commit:
 
-- the session document, with its per-card ledger embedded
+- the session document, with its per-card `cardResults` embedded — sealed by `studyMode`: a Rated
+  document carries the mastery counters and full `cardResults` entries, a Fast document has none of
+  the Rated-only fields at all, not zeroed ones
 - one packed `progress/{subcategoryId}` document per Subcategory the session touched
 - `users/{uid}/state/progressSummary` counter increments
 - `users/{uid}/state/progression` — the scoring state
@@ -18,7 +20,7 @@ A single-Subcategory session is therefore **four writes**; a composite session a
 
 **Full session:** User reaches deck end. Session Summary is shown automatically.
 
-**Partial session:** User presses back or taps the X button mid-session. A confirmation dialog is shown. On confirmation the user is taken to the Session Summary screen, which triggers the write with everything accumulated up to that point. A queued card the user never reached is absent from the ledger; a queued card that already completed at least one Attempt is force-resolved into the ledger using its best rating so far, the same rule natural resolution uses — it already satisfies Studied, so exit does not discard it.
+**Partial session:** User presses back or taps the X button mid-session. A confirmation dialog is shown. On confirmation the user is taken to the Session Summary screen, which triggers the write with everything accumulated up to that point. A queued card the user never reached is absent from `cardResults`; a queued card that already completed at least one Attempt is force-resolved into `cardResults` using its best rating so far, the same rule natural resolution uses — it already satisfies Studied, so exit does not discard it.
 
 Partial sessions:
 - Count toward streak (the session reached the Summary screen)
@@ -27,7 +29,7 @@ Partial sessions:
 - Record card progress for every card that actually reached the user
 - Do **not** count toward "Sessions Completed" (deck end was not reached)
 - Do **not** earn session-completion XP
-- Are flagged `isPartial: true`
+- Are flagged `isAbandoned: true`
 
 There is no way to exit a Study Session without passing through the Session Summary screen. An app kill or crash is the exception, and records nothing at all — not a partial session, but no session.
 
@@ -57,56 +59,60 @@ Backgrounded time accrues **only while voice playback is active**. A backgrounde
 
 ### Session record: `users/{uid}/sessions/{sessionId}`
 
-**One session is one document.** Aggregates, denormalized names, and the per-card ledger embedded as a map. Home's Recents carousel is this collection's highest-traffic reader, and reads it with `orderBy(startTimestamp, DESCENDING).limit(n)`, whose cost is the limit rather than the collection size.
+**One session is one document.** Aggregates, denormalized names, and the per-card results embedded as a `cardResults` map. Home's Recents carousel is this collection's highest-traffic reader, and reads it with `orderBy(startTimestamp, DESCENDING).limit(n)`, whose cost is the limit rather than the collection size.
+
+**The document is sealed by its own `studyMode`.** Rated has Ratings, Attempts and Terminal States; Fast has none of that, only `Seen`. Rather than a Fast document carrying zeroed mastery counters, the four Rated-only fields below are **absent** on a Fast document — not written as 0. A reader decides which fields to expect from `studyMode` alone.
 
 | Field | Type | Notes |
 |---|---|---|
 | `sessionId` | String | Auto-generated |
 | `startTimestamp` | Timestamp | UTC; day attribution uses device local time |
 | `durationSeconds` | Int | See [Session duration](#session-duration) |
-| `studyMode` | Enum | `FAST` or `RATED` |
-| `isPartial` | Boolean | `true` if the user exited before deck end |
+| `studyMode` | Enum | `FAST` or `RATED` — also the discriminant for which of the fields below exist |
+| `isAbandoned` | Boolean | `true` if the user exited before deck end |
 | `categoryId` | String | |
 | `categoryName` | String | Denormalized — Recents renders it without a join |
 | `subcategoryIds` | List\<String\> | One or more |
 | `subcategoryNames` | List\<String\> | Denormalized, same reason |
 | `cardCount` | Int | Distinct Flashcards the session put in front of the user |
-| `cardsMastered` | Int | Rated only; 0 for Fast — cards entering mastery **this session**, not cards that were already mastered |
-| `cardsPartial` | Int | Rated only; 0 for Fast |
-| `cardsDefended` | Int | Rated only; mastery held under Mastery Defense — **disjoint from** `cardsMastered`: a card that was already mastered and stays mastered counts here, not there |
-| `cardsDemastered` | Int | Rated only; mastery lost |
-| `newCardsStudied` | Int | Both modes; Flashcards entering **Studied** for the first time |
+| `newCardsStudied` | Int | **Both modes** — Flashcards entering **Studied** for the first time; not a mastery concept |
+| `cardsMastered` | Int | **Rated only, absent on Fast** — cards entering mastery **this session**, not cards that were already mastered |
+| `cardsPartial` | Int | **Rated only, absent on Fast** |
+| `cardsDefended` | Int | **Rated only, absent on Fast** — mastery held under Mastery Defense — **disjoint from** `cardsMastered`: a card that was already mastered and stays mastered counts here, not there |
+| `cardsDemastered` | Int | **Rated only, absent on Fast** — mastery lost |
 | `xpBreakdown` | Map | Computed XP per category — see below |
 | `xpTotal` | Long | Sum of every entry in `xpBreakdown`; what the Summary's XP pour animates to |
 
-The four per-outcome counts exist so `xpBreakdown` is auditable against them, not so the breakdown has to be recomputed from them.
+The four Rated-only counts exist so `xpBreakdown` is auditable against them, not so the breakdown has to be recomputed from them.
 
 #### `xpBreakdown`: the computed award, not the config that produced it
 
 | Field | Type | Notes |
 |---|---|---|
-| `newCards` | Long | `newCardsStudied × XpConfig.newCardXp` at the time of this session |
-| `mastered` | Long | `cardsMastered × XpConfig.cardMasteredXp` |
-| `partial` | Long | `cardsPartial × XpConfig.cardPartialXp` |
-| `masteryDefenseBonus` | Long | `cardsDefended × XpConfig.cardDefendedXp` |
-| `demastered` | Long | `cardsDemastered × XpConfig.cardDemasteredXp` (negative) |
+| `newCards` | Long | **Both modes** — `newCardsStudied × XpConfig.newCardXp` at the time of this session |
+| `mastered` | Long | **Rated only, absent on Fast** — `cardsMastered × XpConfig.cardMasteredXp` |
+| `partial` | Long | **Rated only, absent on Fast** — `cardsPartial × XpConfig.cardPartialXp` |
+| `masteryDefenseBonus` | Long | **Rated only, absent on Fast** — `cardsDefended × XpConfig.cardDefendedXp` |
+| `demastered` | Long | **Rated only, absent on Fast** — `cardsDemastered × XpConfig.cardDemasteredXp` (negative) |
 | `timeStudied` | Long | Minutes studied × `XpConfig.xpPerMinute` |
 | `dailyGoalBonus` | Long | 0 unless this session is the one that met the calendar day's goal |
 | `sessionCompletionBonus` | Long | 0 for partial sessions |
 | `streakBonus` | Long | 0 unless this session extended the streak |
 
+The four Rated-only sub-fields follow the same rule as their source counters: absent on a Fast session's `xpBreakdown`, not present at 0. `xpTotal` sums whichever sub-fields actually exist.
+
 Each field is the **already-computed XP amount**, not a multiplier or a config reference. This is what makes a past Summary reproducible after `XpConfig` changes: the Summary screen renders `xpBreakdown` directly rather than re-deriving it from the outcome counts and the *current* config, so a later config change can never alter what an old session displays. `XpConfig`/`XpConfigRepository` are local and hardcoded today ([ADR-0047](../adr/0047-xp-values-behind-a-config-repository.md)); nothing here depends on that seam existing yet.
 
-#### The embedded ledger: `outcomes`
+#### The embedded results: `cardResults`
 
-A map on the session document, keyed by card id, holding one entry per card the session actually recorded.
+A map on the session document, keyed by card id, holding one entry per card the session actually recorded. Each entry is sealed by the same `studyMode` as its parent document — a Fast entry is not a Rated entry with its Rated-only fields zeroed, it simply doesn't have them.
 
 | Field | Type | Notes |
 |---|---|---|
 | `subcategoryId` | String | Which topic the card belongs to |
-| `state` | Enum | `Mastered` \| `Partial` \| `Failed` \| `Seen` (`Seen` for Fast) |
-| `attemptsUsed` | Int | Rated only; 0 for Fast |
-| `wasPreviouslyMastered` | Boolean | Whether this was a Mastery Defense card |
+| `state` | Enum | `Mastered` \| `Partial` \| `Failed` (Rated) or `Seen` (Fast — the only value a Fast entry can have) |
+| `attemptsUsed` | Int | **Rated entries only, absent on Fast** |
+| `wasPreviouslyMastered` | Boolean | **Rated entries only, absent on Fast** — whether this was a Mastery Defense card |
 
 No transcript field exists here. A voice-answered card's sanitized transcript is shown on screen
 transiently, during the Rated session, to display the grading feedback — it is never persisted, on
