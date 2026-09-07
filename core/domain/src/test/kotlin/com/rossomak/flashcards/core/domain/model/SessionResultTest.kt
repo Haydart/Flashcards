@@ -8,7 +8,7 @@ class SessionResultTest {
 
     private fun ledgerEntry(
         cardId: String,
-        state: FlashcardProgressState,
+        state: FlashcardStudyProgressState,
         attemptsUsed: Int = 0,
         wasPreviouslyMastered: Boolean = false,
     ): SessionLedgerEntry = SessionLedgerEntry(
@@ -34,9 +34,9 @@ class SessionResultTest {
 
     @Test
     fun `a Fast entry carries Seen with zero Attempts`() {
-        val entry = ledgerEntry(cardId = "card-1", state = FlashcardProgressState.Seen)
+        val entry = ledgerEntry(cardId = "card-1", state = FlashcardStudyProgressState.Seen)
 
-        entry.state shouldBe FlashcardProgressState.Seen
+        entry.state shouldBe FlashcardStudyProgressState.Seen
         entry.attemptsUsed shouldBe 0
     }
 
@@ -44,10 +44,10 @@ class SessionResultTest {
     fun `Mastered, Partial and Failed counts derive from the ledger and cannot disagree with it`() {
         val session = result(
             ledger = listOf(
-                ledgerEntry(cardId = "card-1", state = FlashcardProgressState.Mastered, attemptsUsed = 1),
-                ledgerEntry(cardId = "card-2", state = FlashcardProgressState.Mastered, attemptsUsed = 2),
-                ledgerEntry(cardId = "card-3", state = FlashcardProgressState.Partial, attemptsUsed = 3),
-                ledgerEntry(cardId = "card-4", state = FlashcardProgressState.Failed, attemptsUsed = 3),
+                ledgerEntry(cardId = "card-1", state = FlashcardStudyProgressState.Mastered, attemptsUsed = 1),
+                ledgerEntry(cardId = "card-2", state = FlashcardStudyProgressState.Mastered, attemptsUsed = 2),
+                ledgerEntry(cardId = "card-3", state = FlashcardStudyProgressState.Partial, attemptsUsed = 3),
+                ledgerEntry(cardId = "card-4", state = FlashcardStudyProgressState.Failed, attemptsUsed = 3),
             ),
         )
 

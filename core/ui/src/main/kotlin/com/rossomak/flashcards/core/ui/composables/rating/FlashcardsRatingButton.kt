@@ -25,7 +25,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.airbnb.android.showkase.annotation.ShowkaseComposable
-import com.rossomak.flashcards.core.domain.model.FlashcardRating
+import com.rossomak.flashcards.core.domain.model.FlashcardAttemptRating
 import com.rossomak.flashcards.core.ui.R
 import com.rossomak.flashcards.core.ui.theme.FlashcardsTheme
 import com.rossomak.flashcards.core.ui.theme.ratingColors
@@ -33,7 +33,7 @@ import com.rossomak.flashcards.core.ui.theme.sizes
 import com.rossomak.flashcards.core.ui.theme.spacing
 
 /**
- * A single [FlashcardRating] as a circular icon button with an optional caption.
+ * A single [FlashcardAttemptRating] as a circular icon button with an optional caption.
  *
  * Passing `null` for [onClick] renders the same visual as a non-interactive display — the read-only
  * form Voice Answering uses to show the grade it assigned, where the value is an outcome rather
@@ -42,7 +42,7 @@ import com.rossomak.flashcards.core.ui.theme.spacing
  */
 @Composable
 fun FlashcardsRatingButton(
-    rating: FlashcardRating,
+    rating: FlashcardAttemptRating,
     modifier: Modifier = Modifier,
     showLabel: Boolean = true,
     onClick: (() -> Unit)? = null,
@@ -93,7 +93,7 @@ fun FlashcardsRatingButton(
 }
 
 /**
- * The three [FlashcardRating] options side by side — the self-rating control of a Rated session.
+ * The three [FlashcardAttemptRating] options side by side — the self-rating control of a Rated session.
  *
  * [onRatingSelect] is nullable for the same reason [FlashcardsRatingButton.onClick] is: onboarding
  * shows this row purely to teach the mechanic, with nothing to tap.
@@ -102,13 +102,13 @@ fun FlashcardsRatingButton(
 fun FlashcardsRatingButtonRow(
     modifier: Modifier = Modifier,
     showLabels: Boolean = true,
-    onRatingSelect: ((FlashcardRating) -> Unit)? = null,
+    onRatingSelect: ((FlashcardAttemptRating) -> Unit)? = null,
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
-        FlashcardRating.entries.forEach { rating ->
+        FlashcardAttemptRating.entries.forEach { rating ->
             FlashcardsRatingButton(
                 rating = rating,
                 showLabel = showLabels,
@@ -118,18 +118,18 @@ fun FlashcardsRatingButtonRow(
     }
 }
 
-private val FlashcardRating.icon: ImageVector
+private val FlashcardAttemptRating.icon: ImageVector
     get() = when (this) {
-        FlashcardRating.Failed -> Icons.Default.Close
-        FlashcardRating.PartiallyCorrect -> Icons.Default.Remove
-        FlashcardRating.Correct -> Icons.Default.Check
+        FlashcardAttemptRating.Failed -> Icons.Default.Close
+        FlashcardAttemptRating.PartiallyCorrect -> Icons.Default.Remove
+        FlashcardAttemptRating.Correct -> Icons.Default.Check
     }
 
-private val FlashcardRating.labelRes: Int
+private val FlashcardAttemptRating.labelRes: Int
     get() = when (this) {
-        FlashcardRating.Failed -> R.string.common_rating_failed_label
-        FlashcardRating.PartiallyCorrect -> R.string.common_rating_partially_correct_label
-        FlashcardRating.Correct -> R.string.common_rating_correct_label
+        FlashcardAttemptRating.Failed -> R.string.common_rating_failed_label
+        FlashcardAttemptRating.PartiallyCorrect -> R.string.common_rating_partially_correct_label
+        FlashcardAttemptRating.Correct -> R.string.common_rating_correct_label
     }
 
 @ShowkaseComposable(name = "Rating buttons", group = "Rating")
@@ -157,7 +157,7 @@ fun FlashcardsRatingButtonRowReadOnlyShowcase() {
 fun FlashcardsRatingButtonBadgeShowcase() {
     FlashcardsTheme {
         Surface {
-            FlashcardsRatingButton(rating = FlashcardRating.Correct, showLabel = false)
+            FlashcardsRatingButton(rating = FlashcardAttemptRating.Correct, showLabel = false)
         }
     }
 }

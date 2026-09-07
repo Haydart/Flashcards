@@ -3,7 +3,7 @@ package com.rossomak.flashcards.feature.study.rated
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.rossomak.flashcards.core.domain.model.FlashcardRating
+import com.rossomak.flashcards.core.domain.model.FlashcardAttemptRating
 import com.rossomak.flashcards.core.domain.model.RatedSessionState
 import com.rossomak.flashcards.core.domain.model.SessionClock
 import com.rossomak.flashcards.core.domain.model.SessionResult
@@ -17,7 +17,7 @@ import com.rossomak.flashcards.core.domain.model.requeueAfterSilence
 import com.rossomak.flashcards.core.domain.model.sealRatedLedger
 import com.rossomak.flashcards.core.domain.model.sealSessionResult
 import com.rossomak.flashcards.core.domain.model.startClock
-import com.rossomak.flashcards.core.domain.model.toFlashcardRating
+import com.rossomak.flashcards.core.domain.model.toFlashcardAttemptRating
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.ObserveUserPreferencesUseCase
 import com.rossomak.flashcards.core.domain.usecase.SaveUserPreferenceUseCase
@@ -75,7 +75,7 @@ import kotlinx.coroutines.launch
  * Failed/Partial re-insert it further down the queue (or finish it, per
  * [RatedStudySessionRoute.partialRatingCardRequeueingEnabled] and the Attempts limit), and the
  * session's terminal navigation event fires once the queue empties (ticket 02 of the Rated session
- * state machine sequence). A voice grade drives the exact same [onRating] path as a manual tap; a
+ * state machine sequence). A voice grade drives the exact same [onAttemptRating] path as a manual tap; a
  * silence timeout instead consumes no Attempt, and three in a row pause the session rather than
  * finishing it (ticket 04).
  */
@@ -125,7 +125,7 @@ class RatedStudySessionViewModel @Inject constructor(
     // never starts it at all, and SessionResult.startedAt needs that distinction.
     private var sessionStartedAt: Instant? = null
 
-    // Guards terminate() against firing twice — natural end (onRating) and a confirmed "Exit
+    // Guards terminate() against firing twice — natural end (onAttemptRating) and a confirmed "Exit
     // session?" can otherwise both fire if the dialog is already open the instant the last card
     // resolves, sending a second Summary navigation event. Mirrors FastStudySessionViewModel's
     // identical guard (spec 03 ticket 03).
@@ -363,7 +363,7 @@ class RatedStudySessionViewModel @Inject constructor(
     }
 
     /**
-     * The one path a voice grade applies a Rating through — [onRating] itself, exactly like a
+     * The one path a voice grade applies a Rating through — [onAttemptRating] itself, exactly like a
      * manual tap, using the fixed grade-band mapping (ticket 04 of the Rated session state machine
      * sequence). An actual graded utterance is the only proof someone is there, so this is also the
      * one place [consecutiveSilenceCount] resets.
@@ -377,7 +377,7 @@ class RatedStudySessionViewModel @Inject constructor(
         val headCardId = ratedSessionState?.currentCard?.id
         if (gradedCardId != null && gradedCardId != headCardId) return
         consecutiveSilenceCount = 0
-        applyRating(grade.toFlashcardRating(), deferSync = true)
+        applyAttemptRating(grade.toFlashcardAttemptRating(), deferSync = true)
     }
 
     /**
@@ -385,7 +385,7 @@ class RatedStudySessionViewModel @Inject constructor(
      * gap range. Three in a row pauses the session rather than letting an unattended phone cycle
      * the deck indefinitely.
      *
-     * The reducer updates right away, but what the screen shows waits like [applyRating]'s deferred
+     * The reducer updates right away, but what the screen shows waits like [applyAttemptRating]'s deferred
      * path does — the "didn't hear you" notice is about the still-displayed card, so the queue's
      * next head must not appear until that notice finishes.
      */
@@ -490,7 +490,7 @@ class RatedStudySessionViewModel @Inject constructor(
      * Attempts limit and [RatedStudySessionRoute.partialRatingCardRequeueingEnabled]. The session
      * completes — and the terminal navigation event fires — exactly when the queue empties.
      */
-    fun onRating(rating: FlashcardRating) = applyRating(rating, deferSync = false)
+    fun onAttemptRating(rating: FlashcardAttemptRating) = applyAttemptRating(rating, deferSync = false)
 
     /**
      * [deferSync] is what separates a manual tap from a voice grade: a tap has no feedback playing
@@ -502,7 +502,7 @@ class RatedStudySessionViewModel @Inject constructor(
      * reset, and the terminal navigation event — is captured into [pendingSessionSync] and only
      * runs once that notice actually finishes (observeVoiceAnswerState's SpeakingNotice-exit edge).
      */
-    private fun applyRating(rating: FlashcardRating, deferSync: Boolean) {
+    private fun applyAttemptRating(rating: FlashcardAttemptRating, deferSync: Boolean) {
         val machine = ratedSessionState ?: return
         // A rapid second tap, or a late voice grade/silence timeout racing the terminal navigation
         // event, can still reach here after the queue has emptied — rate() assumes a head to rate.

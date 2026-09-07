@@ -4,7 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
 import com.rossomak.flashcards.core.domain.model.CurationAction
 import com.rossomak.flashcards.core.domain.model.Flashcard
-import com.rossomak.flashcards.core.domain.model.FlashcardProgressState
+import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
 import com.rossomak.flashcards.core.domain.model.VoiceSettings
 import com.rossomak.flashcards.core.domain.repository.CurationRepository
 import com.rossomak.flashcards.core.domain.repository.FakeCurationRepository
@@ -295,7 +295,7 @@ class FastStudySessionViewModelTest {
 
                 destination.route.abandoned shouldBe false
                 destination.route.cardIds shouldBe listOf("card-1", "card-2", "card-3")
-                destination.route.cardStates shouldBe List(3) { FlashcardProgressState.Seen }
+                destination.route.cardStates shouldBe List(3) { FlashcardStudyProgressState.Seen }
                 destination.route.cardAttemptsUsed shouldBe List(3) { 0 }
                 destination.route.cardWasPreviouslyMastered shouldBe List(3) { false }
             }

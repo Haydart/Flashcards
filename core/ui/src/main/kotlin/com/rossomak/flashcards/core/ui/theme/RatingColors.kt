@@ -2,10 +2,10 @@ package com.rossomak.flashcards.core.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Color
-import com.rossomak.flashcards.core.domain.model.FlashcardRating
+import com.rossomak.flashcards.core.domain.model.FlashcardAttemptRating
 
 /**
- * Container/content pair per [FlashcardRating]. Deliberately identical in both themes — like
+ * Container/content pair per [FlashcardAttemptRating]. Deliberately identical in both themes — like
  * [DifficultyColors], these encode a rating value rather than a themed surface, so they never flip
  * light/dark. Every surface that shows a rating (the self-rating buttons in a Rated session, the
  * onboarding illustration, the read-only grade badge in Voice Answering) reads them from here so
@@ -20,16 +20,16 @@ object RatingColors {
     private val correctContainer = Color(0xFFD3EBD6)
     private val correctContent = Color(0xFF38874E)
 
-    fun containerColorFor(rating: FlashcardRating): Color = when (rating) {
-        FlashcardRating.Failed -> failedContainer
-        FlashcardRating.PartiallyCorrect -> partiallyCorrectContainer
-        FlashcardRating.Correct -> correctContainer
+    fun containerColorFor(rating: FlashcardAttemptRating): Color = when (rating) {
+        FlashcardAttemptRating.Failed -> failedContainer
+        FlashcardAttemptRating.PartiallyCorrect -> partiallyCorrectContainer
+        FlashcardAttemptRating.Correct -> correctContainer
     }
 
-    fun contentColorFor(rating: FlashcardRating): Color = when (rating) {
-        FlashcardRating.Failed -> failedContent
-        FlashcardRating.PartiallyCorrect -> partiallyCorrectContent
-        FlashcardRating.Correct -> correctContent
+    fun contentColorFor(rating: FlashcardAttemptRating): Color = when (rating) {
+        FlashcardAttemptRating.Failed -> failedContent
+        FlashcardAttemptRating.PartiallyCorrect -> partiallyCorrectContent
+        FlashcardAttemptRating.Correct -> correctContent
     }
 }
 

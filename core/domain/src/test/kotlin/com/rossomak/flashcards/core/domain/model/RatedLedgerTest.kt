@@ -1,8 +1,8 @@
 package com.rossomak.flashcards.core.domain.model
 
-import com.rossomak.flashcards.core.domain.model.FlashcardRating.Correct
-import com.rossomak.flashcards.core.domain.model.FlashcardRating.Failed
-import com.rossomak.flashcards.core.domain.model.FlashcardRating.PartiallyCorrect
+import com.rossomak.flashcards.core.domain.model.FlashcardAttemptRating.Correct
+import com.rossomak.flashcards.core.domain.model.FlashcardAttemptRating.Failed
+import com.rossomak.flashcards.core.domain.model.FlashcardAttemptRating.PartiallyCorrect
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
@@ -32,18 +32,18 @@ class RatedLedgerTest {
     )
 
     @Test
-    fun `TerminalState Correct-only maps to Mastered via toAbandonedTerminalState`() {
-        Correct.toAbandonedTerminalState() shouldBe TerminalState.Mastered
+    fun `FlashcardTerminalRating Correct-only maps to Mastered via toAbandonedFlashcardTerminalRating`() {
+        Correct.toAbandonedFlashcardTerminalRating() shouldBe FlashcardTerminalRating.Mastered
     }
 
     @Test
-    fun `TerminalState PartiallyCorrect maps to Partial via toAbandonedTerminalState`() {
-        PartiallyCorrect.toAbandonedTerminalState() shouldBe TerminalState.Partial
+    fun `FlashcardTerminalRating PartiallyCorrect maps to Partial via toAbandonedFlashcardTerminalRating`() {
+        PartiallyCorrect.toAbandonedFlashcardTerminalRating() shouldBe FlashcardTerminalRating.Partial
     }
 
     @Test
-    fun `TerminalState Failed maps to Failed via toAbandonedTerminalState`() {
-        Failed.toAbandonedTerminalState() shouldBe TerminalState.Failed
+    fun `FlashcardTerminalRating Failed maps to Failed via toAbandonedFlashcardTerminalRating`() {
+        Failed.toAbandonedFlashcardTerminalRating() shouldBe FlashcardTerminalRating.Failed
     }
 
     @Test
@@ -57,14 +57,14 @@ class RatedLedgerTest {
             SessionLedgerEntry(
                 cardId = "card-1",
                 subcategoryId = "sub-1",
-                state = FlashcardProgressState.Mastered,
+                state = FlashcardStudyProgressState.Mastered,
                 attemptsUsed = 1,
                 wasPreviouslyMastered = false,
             ),
             SessionLedgerEntry(
                 cardId = "card-2",
                 subcategoryId = "sub-1",
-                state = FlashcardProgressState.Failed,
+                state = FlashcardStudyProgressState.Failed,
                 attemptsUsed = 1,
                 wasPreviouslyMastered = false,
             ),
@@ -90,7 +90,7 @@ class RatedLedgerTest {
     }
 
     @Test
-    fun `abandon force-resolves a card mid re-insertion using its best-rating-so-far, not the existing resolveTerminalState path`() {
+    fun `abandon force-resolves a card mid re-insertion using its best-rating-so-far, not the existing resolveFlashcardTerminalRating path`() {
         // Failed then Partial: still queued (attemptsLimit 3 not exhausted), best rating is Partial.
         val afterFailed = rate(state(cardCount = 1, attemptsLimit = 3), Failed)
         val afterPartial = rate(afterFailed.state, PartiallyCorrect)
@@ -102,7 +102,7 @@ class RatedLedgerTest {
             SessionLedgerEntry(
                 cardId = "card-1",
                 subcategoryId = "sub-1",
-                state = FlashcardProgressState.Partial,
+                state = FlashcardStudyProgressState.Partial,
                 attemptsUsed = 2,
                 wasPreviouslyMastered = false,
             ),

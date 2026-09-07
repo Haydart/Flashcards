@@ -4,14 +4,14 @@ import kotlinx.serialization.Serializable
 
 /**
  * A Flashcard's progress outcome as recorded in a [SessionResult]'s ledger — four-valued, unlike
- * the Rated state machine's three-valued [TerminalState]. A Rated card always resolves to Mastered,
+ * the Rated state machine's three-valued [FlashcardTerminalRating]. A Rated card always resolves to Mastered,
  * Partial or Failed and can never be merely Seen; a Fast card has no rating step at all and can only
- * ever produce Seen. Widening [TerminalState] to four values, or narrowing this type to three, would
+ * ever produce Seen. Widening [FlashcardTerminalRating] to four values, or narrowing this type to three, would
  * let one type express a state its mode can never actually produce
  * ([ADR-0016](../../../../../../../docs/adr/0016-card-progress-model.md),
  * [ADR-0044](../../../../../../../docs/adr/0044-three-valued-terminal-state.md)).
  *
- * [toFlashcardProgressState] is the one mapping between the two types — a Rated ledger entry is
+ * [toFlashcardStudyProgressState] is the one mapping between the two types — a Rated ledger entry is
  * never built from anything else.
  *
  * `@Serializable` so the Session Summary route can carry a ledger entry's outcome directly as a
@@ -19,23 +19,26 @@ import kotlinx.serialization.Serializable
  * primitives, enums and lists of those) — the same reason [StudyMode] carries the annotation.
  */
 @Serializable
-enum class FlashcardProgressState {
+enum class FlashcardStudyProgressState {
     /** Fast mode's only possible outcome: the card's answer was shown, nothing more is known. */
     Seen,
 
-    /** Rated, mapped from [TerminalState.Failed]. */
+    /** Rated, mapped from [FlashcardTerminalRating.Failed]. */
     Failed,
 
-    /** Rated, mapped from [TerminalState.Partial]. */
+    /** Rated, mapped from [FlashcardTerminalRating.Partial]. */
     Partial,
 
-    /** Rated, mapped from [TerminalState.Mastered]. */
+    /** Rated, mapped from [FlashcardTerminalRating.Mastered]. */
     Mastered,
 }
 
-/** Widens a Rated card's resolved [TerminalState] into the ledger's four-valued [FlashcardProgressState]. */
-fun TerminalState.toFlashcardProgressState(): FlashcardProgressState = when (this) {
-    TerminalState.Mastered -> FlashcardProgressState.Mastered
-    TerminalState.Partial -> FlashcardProgressState.Partial
-    TerminalState.Failed -> FlashcardProgressState.Failed
+/**
+ * Widens a Rated card's resolved [FlashcardTerminalRating] into the ledger's four-valued
+ * [FlashcardStudyProgressState].
+ */
+fun FlashcardTerminalRating.toFlashcardStudyProgressState(): FlashcardStudyProgressState = when (this) {
+    FlashcardTerminalRating.Mastered -> FlashcardStudyProgressState.Mastered
+    FlashcardTerminalRating.Partial -> FlashcardStudyProgressState.Partial
+    FlashcardTerminalRating.Failed -> FlashcardStudyProgressState.Failed
 }

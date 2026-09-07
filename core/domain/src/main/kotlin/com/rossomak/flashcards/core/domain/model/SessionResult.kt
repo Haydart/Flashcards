@@ -24,7 +24,7 @@ import java.time.Instant
 data class SessionLedgerEntry(
     val cardId: String,
     val subcategoryId: String,
-    val state: FlashcardProgressState,
+    val state: FlashcardStudyProgressState,
     val attemptsUsed: Int,
     val wasPreviouslyMastered: Boolean,
 )
@@ -64,12 +64,12 @@ data class SessionResult(
     /** How many cards were Studied. Both modes report this. */
     val studiedCount: Int get() = ledger.size
 
-    /** Always 0 for a Fast result — Fast never produces [FlashcardProgressState.Mastered]. */
-    val masteredCount: Int get() = ledger.count { it.state == FlashcardProgressState.Mastered }
+    /** Always 0 for a Fast result — Fast never produces [FlashcardStudyProgressState.Mastered]. */
+    val masteredCount: Int get() = ledger.count { it.state == FlashcardStudyProgressState.Mastered }
 
-    /** Always 0 for a Fast result — Fast never produces [FlashcardProgressState.Partial]. */
-    val partialCount: Int get() = ledger.count { it.state == FlashcardProgressState.Partial }
+    /** Always 0 for a Fast result — Fast never produces [FlashcardStudyProgressState.Partial]. */
+    val partialCount: Int get() = ledger.count { it.state == FlashcardStudyProgressState.Partial }
 
-    /** Always 0 for a Fast result — Fast never produces [FlashcardProgressState.Failed]. */
-    val failedCount: Int get() = ledger.count { it.state == FlashcardProgressState.Failed }
+    /** Always 0 for a Fast result — Fast never produces [FlashcardStudyProgressState.Failed]. */
+    val failedCount: Int get() = ledger.count { it.state == FlashcardStudyProgressState.Failed }
 }

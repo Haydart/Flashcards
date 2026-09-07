@@ -1,6 +1,6 @@
 package com.rossomak.flashcards.feature.study
 
-import com.rossomak.flashcards.core.domain.model.FlashcardProgressState
+import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
 import com.rossomak.flashcards.core.domain.model.SessionLedgerEntry
 import com.rossomak.flashcards.core.domain.model.SessionResult
 import com.rossomak.flashcards.core.domain.model.StudyMode
@@ -29,14 +29,14 @@ class SessionResultRouteMappingTest {
             SessionLedgerEntry(
                 cardId = "card-1",
                 subcategoryId = "sub-1",
-                state = FlashcardProgressState.Mastered,
+                state = FlashcardStudyProgressState.Mastered,
                 attemptsUsed = 1,
                 wasPreviouslyMastered = false,
             ),
             SessionLedgerEntry(
                 cardId = "card-2",
                 subcategoryId = "sub-2",
-                state = FlashcardProgressState.Partial,
+                state = FlashcardStudyProgressState.Partial,
                 attemptsUsed = 2,
                 wasPreviouslyMastered = true,
             ),

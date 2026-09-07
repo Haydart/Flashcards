@@ -51,7 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.rossomak.flashcards.core.domain.model.FlashcardRating
+import com.rossomak.flashcards.core.domain.model.FlashcardAttemptRating
 import com.rossomak.flashcards.core.ui.R as CoreUiR
 import com.rossomak.flashcards.core.ui.composables.FlashcardsAttemptIndicator
 import com.rossomak.flashcards.core.ui.composables.FlashcardsAttemptSlotState
@@ -167,7 +167,7 @@ fun RatedStudySessionScreen(
         state = state,
         snackbarHostState = snackbarHostState,
         onShowAnswer = viewModel::onShowAnswer,
-        onRating = viewModel::onRating,
+        onAttemptRating = viewModel::onAttemptRating,
         onVoicePlayPause = viewModel::onVoicePlayPause,
         onVoiceNext = viewModel::onVoiceNext,
         onVoicePrevious = viewModel::onVoicePrevious,
@@ -184,7 +184,7 @@ fun RatedStudySessionContent(
     state: RatedStudySessionScreenState,
     snackbarHostState: SnackbarHostState,
     onShowAnswer: () -> Unit,
-    onRating: (FlashcardRating) -> Unit,
+    onAttemptRating: (FlashcardAttemptRating) -> Unit,
     onVoicePlayPause: () -> Unit,
     onVoiceNext: () -> Unit,
     onVoicePrevious: () -> Unit,
@@ -230,7 +230,7 @@ fun RatedStudySessionContent(
             RatedStudySessionSheetContent(
                 state = state,
                 onShowAnswer = onShowAnswer,
-                onRating = onRating,
+                onAttemptRating = onAttemptRating,
                 onVoicePlayPause = onVoicePlayPause,
                 onVoiceNext = onVoiceNext,
                 onVoicePrevious = onVoicePrevious,
@@ -261,7 +261,7 @@ fun RatedStudySessionContent(
 private fun RatedStudySessionSheetContent(
     state: RatedStudySessionScreenState,
     onShowAnswer: () -> Unit,
-    onRating: (FlashcardRating) -> Unit,
+    onAttemptRating: (FlashcardAttemptRating) -> Unit,
     onVoicePlayPause: () -> Unit,
     onVoiceNext: () -> Unit,
     onVoicePrevious: () -> Unit,
@@ -319,7 +319,7 @@ private fun RatedStudySessionSheetContent(
                     Text(stringResource(R.string.study_session_show_answer_button))
                 }
             } else {
-                RatingButtons(slots = state.attemptSlots, onRating = onRating)
+                AttemptRatingButtons(slots = state.attemptSlots, onAttemptRating = onAttemptRating)
             }
         }
     }
@@ -515,9 +515,9 @@ private fun RatedVoiceTransportRow(
 }
 
 @Composable
-private fun RatingButtons(
+private fun AttemptRatingButtons(
     slots: List<FlashcardsAttemptSlotState>,
-    onRating: (FlashcardRating) -> Unit,
+    onAttemptRating: (FlashcardAttemptRating) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
@@ -531,7 +531,7 @@ private fun RatingButtons(
             textAlign = TextAlign.Center,
         )
         Spacer(modifier = Modifier.height(16.dp))
-        FlashcardsRatingButtonRow(onRatingSelect = onRating)
+        FlashcardsRatingButtonRow(onRatingSelect = onAttemptRating)
     }
 }
 
@@ -549,7 +549,7 @@ private fun RatedStudySessionVoiceActivePreview() {
         ),
         snackbarHostState = remember { SnackbarHostState() },
         onShowAnswer = {},
-        onRating = {},
+        onAttemptRating = {},
         onVoicePlayPause = {},
         onVoiceNext = {},
         onVoicePrevious = {},
@@ -586,7 +586,7 @@ private fun RatedStudySessionManualPreview() {
         ),
         snackbarHostState = remember { SnackbarHostState() },
         onShowAnswer = {},
-        onRating = {},
+        onAttemptRating = {},
         onVoicePlayPause = {},
         onVoiceNext = {},
         onVoicePrevious = {},

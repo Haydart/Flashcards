@@ -11,7 +11,7 @@ class SessionTerminationTest {
     private fun ledgerEntry(cardId: String): SessionLedgerEntry = SessionLedgerEntry(
         cardId = cardId,
         subcategoryId = "sub-1",
-        state = FlashcardProgressState.Seen,
+        state = FlashcardStudyProgressState.Seen,
         attemptsUsed = 0,
         wasPreviouslyMastered = false,
     )

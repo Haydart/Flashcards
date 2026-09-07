@@ -1,7 +1,7 @@
 package com.rossomak.flashcards.feature.study
 
-import com.rossomak.flashcards.core.domain.model.FlashcardProgressState
 import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
+import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.domain.model.VoiceSettings
@@ -144,7 +144,7 @@ data class StudySessionSummaryRoute(
     val subcategoryNames: List<String>,
     val cardIds: List<String>,
     val cardSubcategoryIds: List<String>,
-    val cardStates: List<FlashcardProgressState>,
+    val cardStates: List<FlashcardStudyProgressState>,
     val cardAttemptsUsed: List<Int>,
     val cardWasPreviouslyMastered: List<Boolean>,
 )

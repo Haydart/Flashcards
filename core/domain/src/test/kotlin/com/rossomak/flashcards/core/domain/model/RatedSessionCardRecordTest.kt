@@ -1,8 +1,8 @@
 package com.rossomak.flashcards.core.domain.model
 
-import com.rossomak.flashcards.core.domain.model.FlashcardRating.Correct
-import com.rossomak.flashcards.core.domain.model.FlashcardRating.Failed
-import com.rossomak.flashcards.core.domain.model.FlashcardRating.PartiallyCorrect
+import com.rossomak.flashcards.core.domain.model.FlashcardAttemptRating.Correct
+import com.rossomak.flashcards.core.domain.model.FlashcardAttemptRating.Failed
+import com.rossomak.flashcards.core.domain.model.FlashcardAttemptRating.PartiallyCorrect
 import io.kotest.matchers.shouldBe
 import org.junit.Test
 

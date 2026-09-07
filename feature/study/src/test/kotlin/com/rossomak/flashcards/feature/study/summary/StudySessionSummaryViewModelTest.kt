@@ -1,7 +1,7 @@
 package com.rossomak.flashcards.feature.study.summary
 
 import androidx.lifecycle.SavedStateHandle
-import com.rossomak.flashcards.core.domain.model.FlashcardProgressState
+import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.ui.navigation.RouteDecoder
 import com.rossomak.flashcards.feature.study.StudySessionSummaryRoute
@@ -38,11 +38,11 @@ class StudySessionSummaryViewModelTest {
 
     private fun ratedRoute(
         abandoned: Boolean = false,
-        cardStates: List<FlashcardProgressState> = listOf(
-            FlashcardProgressState.Mastered,
-            FlashcardProgressState.Mastered,
-            FlashcardProgressState.Partial,
-            FlashcardProgressState.Failed,
+        cardStates: List<FlashcardStudyProgressState> = listOf(
+            FlashcardStudyProgressState.Mastered,
+            FlashcardStudyProgressState.Mastered,
+            FlashcardStudyProgressState.Partial,
+            FlashcardStudyProgressState.Failed,
         ),
     ): StudySessionSummaryRoute {
         val cardIds = cardStates.indices.map { "card-$it" }
@@ -106,7 +106,7 @@ class StudySessionSummaryViewModelTest {
                 subcategoryNames = listOf("Subcategory"),
                 cardIds = cardIds,
                 cardSubcategoryIds = cardIds.map { "sub-1" },
-                cardStates = cardIds.map { FlashcardProgressState.Seen },
+                cardStates = cardIds.map { FlashcardStudyProgressState.Seen },
                 cardAttemptsUsed = cardIds.map { 0 },
                 cardWasPreviouslyMastered = cardIds.map { false },
             ),

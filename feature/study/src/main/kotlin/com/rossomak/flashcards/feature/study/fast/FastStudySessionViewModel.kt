@@ -4,7 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rossomak.flashcards.core.domain.model.Flashcard
-import com.rossomak.flashcards.core.domain.model.FlashcardProgressState
+import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
 import com.rossomak.flashcards.core.domain.model.SessionClock
 import com.rossomak.flashcards.core.domain.model.SessionLedgerEntry
 import com.rossomak.flashcards.core.domain.model.SessionResult
@@ -558,7 +558,7 @@ class FastStudySessionViewModel @Inject constructor(
 
     /**
      * One [SessionLedgerEntry] per [seenCardIds], in first-seen order — Fast's definition of
-     * Studied (spec 03 ticket 03). Every entry is [FlashcardProgressState.Seen] with zero Attempts
+     * Studied (spec 03 ticket 03). Every entry is [FlashcardStudyProgressState.Seen] with zero Attempts
      * and `wasPreviouslyMastered` unset — Fast has no `RatedSessionCardRecord` to read either from.
      */
     private fun sealFastLedger(): List<SessionLedgerEntry> {
@@ -568,7 +568,7 @@ class FastStudySessionViewModel @Inject constructor(
                 SessionLedgerEntry(
                     cardId = card.id,
                     subcategoryId = card.subcategoryId,
-                    state = FlashcardProgressState.Seen,
+                    state = FlashcardStudyProgressState.Seen,
                     attemptsUsed = 0,
                     wasPreviouslyMastered = false,
                 )
