@@ -41,6 +41,13 @@ service cloud.firestore {
         allow read, write: if request.auth != null && request.auth.uid == uid;
       }
 
+      // progress/{subcategoryId} (ADR-0016): one packed document per Subcategory, holding every
+      // card the User has studied in it. Written as part of the same session-commit batch as
+      // sessions/{sessionId} above.
+      match /progress/{subcategoryId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
       // entitlement: intentionally no rule here -> default deny.
       // Only the Cloud Function (Admin SDK) may read/write it.
     }
