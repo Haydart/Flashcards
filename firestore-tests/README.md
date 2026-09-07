@@ -19,5 +19,8 @@ needed).
 ## Coverage
 
 `users/{uid}/sessions/{sessionId}` (ADR-0014): owner can read/write their own session; a different
-authenticated user is denied; an unauthenticated request is denied. Tickets 02 and 03 extend this
-file with the same three cases for the packed progress collection and the user `state` collection.
+authenticated user is denied; an unauthenticated request is denied. Ticket 02 extends this file with
+the same three cases for `users/{uid}/progress/{subcategoryId}` (ADR-0016), plus one data test —
+not a rules case — proving Firestore's real nested-key `merge` write leaves an existing card's
+untouched entry intact, the one failure mode ticket 02 calls out as invisible to mocks. Ticket 03
+extends it again with the user `state` collection.
