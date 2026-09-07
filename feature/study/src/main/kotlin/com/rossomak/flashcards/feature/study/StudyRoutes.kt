@@ -60,8 +60,8 @@ data class FastStudySessionRoute(
     val readAloudEnabled: Boolean = false,
     val speechRate: Float = VoiceSettings().speechRate,
     val voiceId: String? = VoiceSettings().voiceId,
-    val categoryName: String = "",
-    val subcategoryNames: List<String> = emptyList(),
+    val categoryName: String,
+    val subcategoryNames: List<String>,
 ) {
     val voiceSettings: VoiceSettings
         get() = VoiceSettings(speechRate = speechRate, voiceId = voiceId)
@@ -104,8 +104,8 @@ data class RatedStudySessionRoute(
     val partialRatingCardRequeueingEnabled: Boolean = true,
     val speechRate: Float = VoiceSettings().speechRate,
     val voiceId: String? = VoiceSettings().voiceId,
-    val categoryName: String = "",
-    val subcategoryNames: List<String> = emptyList(),
+    val categoryName: String,
+    val subcategoryNames: List<String>,
 ) {
     val voiceSettings: VoiceSettings
         get() = VoiceSettings(speechRate = speechRate, voiceId = voiceId)
@@ -115,12 +115,17 @@ data class RatedStudySessionRoute(
  * The whole `SessionResult` (spec 03 ticket 01), flattened into primitives and parallel lists — the
  * same convention [RatedStudySessionRoute]/[FastStudySessionRoute] already use for [VoiceSettings]
  * and `IntRange`. `androidx.navigation`'s typesafe routes only derive a `NavType` for primitives,
- * enums and lists of those, so `SessionResult.ledger` becomes one parallel list per field, all
+ * enums and lists of those, so `SessionResult.cardResults` becomes one parallel list per field, all
  * indexed together: [cardIds], [cardSubcategoryIds], [cardStates], [cardAttemptsUsed],
  * [cardWasPreviouslyMastered]. The `card` prefix on those five is deliberate, not decorative: a
  * `SessionResult` already has its own session-scope [subcategoryIds]/[subcategoryNames] — the
  * Subcategories the session drew from — and that is a different thing from the one Subcategory each
  * individual *card* belongs to; without the prefix the two would collide on the same field name.
+ *
+ * [cardIds], [cardSubcategoryIds] and [cardStates] are always present, for both modes.
+ * [cardAttemptsUsed] and [cardWasPreviouslyMastered] are Rated-only — mirroring the persisted
+ * document shape (ADR-0014) — and `null` for a Fast route, not lists of zeroes and falses for cards
+ * that have neither concept.
  *
  * [startedAtEpochSecond] flattens `SessionResult.startedAt` (a `java.time.Instant`, not itself a
  * primitive `androidx.navigation` can carry) to the one `Long` that reconstructs it.
@@ -145,6 +150,6 @@ data class StudySessionSummaryRoute(
     val cardIds: List<String>,
     val cardSubcategoryIds: List<String>,
     val cardStates: List<FlashcardStudyProgressState>,
-    val cardAttemptsUsed: List<Int>,
-    val cardWasPreviouslyMastered: List<Boolean>,
+    val cardAttemptsUsed: List<Int>?,
+    val cardWasPreviouslyMastered: List<Boolean>?,
 )

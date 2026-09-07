@@ -73,6 +73,8 @@ class FastStudySessionViewModelTest {
         sessionTitle = sessionTitle,
         subcategoryIds = listOf(subcategoryId),
         cardIds = listOf("card-1", "card-2", "card-3"),
+        categoryName = "Android",
+        subcategoryNames = listOf("Compose"),
     )
 
     @Before
@@ -262,7 +264,7 @@ class FastStudySessionViewModelTest {
     }
 
     @Test
-    fun `a card skipped during its question is absent from the ledger`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `a card skipped during its question is absent from cardResults`() = runTest(mainDispatcherRule.testDispatcher) {
         loadThreeCards()
         val viewModel = createViewModel()
         advanceUntilIdle()
@@ -296,13 +298,14 @@ class FastStudySessionViewModelTest {
                 destination.route.abandoned shouldBe false
                 destination.route.cardIds shouldBe listOf("card-1", "card-2", "card-3")
                 destination.route.cardStates shouldBe List(3) { FlashcardStudyProgressState.Seen }
-                destination.route.cardAttemptsUsed shouldBe List(3) { 0 }
-                destination.route.cardWasPreviouslyMastered shouldBe List(3) { false }
+                // Rated-only (ADR-0014): null for a Fast route, not zero-filled lists.
+                destination.route.cardAttemptsUsed shouldBe null
+                destination.route.cardWasPreviouslyMastered shouldBe null
             }
         }
 
     @Test
-    fun `revisiting a card whose answer was already shown does not add a second ledger entry`() =
+    fun `revisiting a card whose answer was already shown does not add a second cardResults entry`() =
         runTest(mainDispatcherRule.testDispatcher) {
             loadThreeCards()
             val viewModel = createViewModel()
@@ -320,7 +323,7 @@ class FastStudySessionViewModelTest {
         }
 
     @Test
-    fun `an abandoned Fast session's ledger holds only cards seen up to that point`() =
+    fun `an abandoned Fast session's cardResults holds only cards seen up to that point`() =
         runTest(mainDispatcherRule.testDispatcher) {
             loadThreeCards()
             val viewModel = createViewModel()
@@ -437,7 +440,7 @@ class FastStudySessionViewModelTest {
         }
 
     @Test
-    fun `a session whose card load fails and is then abandoned reports zero duration and an empty ledger`() =
+    fun `a session whose card load fails and is then abandoned reports zero duration and empty cardResults`() =
         runTest(mainDispatcherRule.testDispatcher) {
             flashcardRepository.flashcardsBySubcategory[subcategoryId] = Result.failure(IllegalStateException("boom"))
             val viewModel = createViewModel()

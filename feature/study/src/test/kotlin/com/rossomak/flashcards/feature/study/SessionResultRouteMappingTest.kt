@@ -1,7 +1,7 @@
 package com.rossomak.flashcards.feature.study
 
+import com.rossomak.flashcards.core.domain.model.FlashcardResult
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
-import com.rossomak.flashcards.core.domain.model.SessionLedgerEntry
 import com.rossomak.flashcards.core.domain.model.SessionResult
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import io.kotest.matchers.shouldBe
@@ -25,15 +25,15 @@ class SessionResultRouteMappingTest {
         categoryName = "Category",
         subcategoryIds = listOf("sub-1", "sub-2"),
         subcategoryNames = listOf("Subcategory 1", "Subcategory 2"),
-        ledger = listOf(
-            SessionLedgerEntry(
+        cardResults = listOf(
+            FlashcardResult(
                 cardId = "card-1",
                 subcategoryId = "sub-1",
                 state = FlashcardStudyProgressState.Mastered,
                 attemptsUsed = 1,
                 wasPreviouslyMastered = false,
             ),
-            SessionLedgerEntry(
+            FlashcardResult(
                 cardId = "card-2",
                 subcategoryId = "sub-2",
                 state = FlashcardStudyProgressState.Partial,
@@ -51,9 +51,23 @@ class SessionResultRouteMappingTest {
     }
 
     @Test
-    fun `an empty ledger survives the round trip as an empty ledger`() {
-        val empty = result.copy(ledger = emptyList())
+    fun `empty cardResults survive the round trip as empty cardResults`() {
+        val empty = result.copy(cardResults = emptyList())
 
         empty.toSummaryRoute().toSessionResult() shouldBe empty
+    }
+
+    @Test
+    fun `a Fast SessionResult flattens attemptsUsed and wasPreviouslyMastered to null and reconstructs zero-value defaults`() {
+        val fastResult = result.copy(
+            mode = StudyMode.Fast,
+            cardResults = result.cardResults.map { it.copy(attemptsUsed = 0, wasPreviouslyMastered = false) },
+        )
+
+        val route = fastResult.toSummaryRoute()
+        route.cardAttemptsUsed shouldBe null
+        route.cardWasPreviouslyMastered shouldBe null
+
+        route.toSessionResult() shouldBe fastResult
     }
 }

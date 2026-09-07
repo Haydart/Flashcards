@@ -107,8 +107,9 @@ class StudySessionSummaryViewModelTest {
                 cardIds = cardIds,
                 cardSubcategoryIds = cardIds.map { "sub-1" },
                 cardStates = cardIds.map { FlashcardStudyProgressState.Seen },
-                cardAttemptsUsed = cardIds.map { 0 },
-                cardWasPreviouslyMastered = cardIds.map { false },
+                // Rated-only (ADR-0014): null for a Fast route, not zero-filled lists.
+                cardAttemptsUsed = null,
+                cardWasPreviouslyMastered = null,
             ),
         )
 
