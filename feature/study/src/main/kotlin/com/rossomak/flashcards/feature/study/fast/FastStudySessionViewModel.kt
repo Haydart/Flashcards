@@ -532,7 +532,10 @@ class FastStudySessionViewModel @Inject constructor(
      * [abandoned] the only thing differing (spec 03 tickets 02/03), calling the same shared
      * `core:domain` [sealSessionResult] Rated uses rather than duplicating its clock-stamping.
      * Seals the ledger from [seenCardIds], stamps the duration off [clock], and emits the one-time
-     * navigation event (ADR-0019) exactly once — [terminated] guards a stray second call.
+     * navigation event (ADR-0019) exactly once — [terminated] guards a stray second call. Confirming
+     * "Exit session?" before any card has loaded (the X button is reachable during `isLoading`/error
+     * too) seals an empty ledger with zero duration rather than crashing, mirroring
+     * `RatedStudySessionViewModel.terminate` — there is nothing to have studied yet.
      */
     private fun terminate(abandoned: Boolean) {
         if (terminated) return
