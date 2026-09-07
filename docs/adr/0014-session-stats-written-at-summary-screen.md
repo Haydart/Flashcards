@@ -181,7 +181,7 @@ and lists of those. `cardResults` becomes one parallel list per field, indexed t
 `null` for a Fast route, not lists of zeroes and falses for cards that have neither concept. The
 route's own `studyMode` argument is what tells the Summary which shape to expect, same as the
 document. No transcript field, since none is persisted (see above). A **past** session's detail view
-instead carries only `sessionId`, and the Summary reads
+instead carries only `sessionId`, and that separate screen reads
 `sessions/{sessionId}` back from Firestore — one document, everything included — rather than
 receiving `cardResults` through the route.
 
