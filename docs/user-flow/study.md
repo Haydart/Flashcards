@@ -158,8 +158,8 @@ flowchart TD
     HandOffPartial2 --> Summary
 
     %% ── Session Summary ───────────────────────────────────────────
-    Summary(SESSION SUMMARY SCREEN\nfresh result: full payload via route args · past session: sessionId only, read from Firestore\nXP breakdown — animated line by line\nLevel-up celebration if applicable\n'Session Completed' +500 XP omitted on abandoned sessions)
-    Summary --> Commit[ONE atomic batch — 3 fixed writes + 1 per touched subcategory:\nsession doc with embedded cardResults map — Rated-only fields absent on Fast\npacked progress doc per subcategory\nstate/progressSummary increments\nstate/progression xp/level/streak]
+    Summary(STUDY SESSION SUMMARY SCREEN\nmandatory egress for every session, natural end or premature exit — never used to view a past session\nfresh result: full payload via route args\nXP breakdown — animated line by line\nLevel-up celebration if applicable\n'Session Completed' +500 XP omitted on abandoned sessions)
+    Summary --> Commit[Current rollout: ONE atomic batch:\nsession doc with embedded cardResults map — Rated-only fields absent on Fast\npacked progress doc per subcategory\nstate/progressSummary increments\nstate/progression xp/level/streak — added by a later PR]
 
     Commit --> StudyAgainAll[/Study Again — All/]
     Commit --> StudyAgainFailed[/Study Again — Failed\nshown only if ≥1 Terminal Failed\nRated sessions only/]

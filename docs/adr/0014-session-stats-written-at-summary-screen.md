@@ -181,7 +181,7 @@ and lists of those. `cardResults` becomes one parallel list per field, indexed t
 `null` for a Fast route, not lists of zeroes and falses for cards that have neither concept. The
 route's own `studyMode` argument is what tells the Summary which shape to expect, same as the
 document. No transcript field, since none is persisted (see above). A **past** session's detail view
-instead carries only `sessionId`, and the Summary reads
+instead carries only `sessionId`, and that separate screen reads
 `sessions/{sessionId}` back from Firestore — one document, everything included — rather than
 receiving `cardResults` through the route.
 
@@ -251,9 +251,13 @@ this codebase already settled on for `VoiceSettings` and `IntRange`, trading one
 for what parallel primitive lists already do natively.
 
 **A bare `data object StudySummaryRoute` with the fresh result read from some other source** —
-rejected. It leaves no way to address a *past* session with the same route, so the future
-detailed-review screen would need a second route and a second screen for what is the same view over
-the same data.
+rejected for the same reason as the `@ActivityRetainedScoped` holder above: the fresh result would
+still need a side channel outside the navigation contract to reach the screen, just under a different
+name. *(An earlier version of this rationale also argued this shape blocks a future past-session
+detail view from sharing the same route. That turned out not to be the plan: the Summary route is
+fresh-session egress only, and a past-session detail view, if built, is a separate screen and route
+entirely — see "How the result reaches the Summary screen" above. The route-shape decision itself is
+unchanged; only this piece of the reasoning for it was corrected.)*
 
 ## Consequences
 
@@ -275,8 +279,10 @@ the same data.
 - `users/{uid}` stays admin-only, unreadable and unwritable by the client, exactly as it is today.
 - Day attribution uses the session's **start** timestamp, not the commit time, so a session that
   crosses midnight counts toward the day it began.
-- The Summary ViewModel has two load paths — fresh result from route arguments, past session from
-  Firestore — and must not commit on the second.
+- The Summary ViewModel has exactly **one** load path — the fresh result from route arguments. It is
+  never used to view a past session; a past session's detail view, if built later, is a separate
+  screen and route, reading `sessions/{sessionId}` back from Firestore on its own, not through this
+  ViewModel.
 - The route arguments carry the whole fresh-result payload, so the Summary needs nothing beyond what
   navigation already hands it, and a process death that survives via `SavedStateHandle` restores the
   same arguments rather than losing the result. Nothing sensitive rides in that payload: no transcript

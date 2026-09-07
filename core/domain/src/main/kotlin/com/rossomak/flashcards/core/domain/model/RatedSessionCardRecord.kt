@@ -10,7 +10,7 @@ package com.rossomak.flashcards.core.domain.model
  */
 data class RatedSessionCardRecord(
     val card: Flashcard,
-    val ratings: List<FlashcardRating> = emptyList(),
+    val ratings: List<FlashcardAttemptRating> = emptyList(),
     val wasPreviouslyMastered: Boolean = false,
 ) {
     val attemptsUsed: Int get() = ratings.size
@@ -20,17 +20,17 @@ data class RatedSessionCardRecord(
      * see [masteryRank] for why ([ADR-0044](../../../../../../../docs/adr/0044-three-valued-terminal-state.md)).
      * `null` only before the first Attempt.
      */
-    val bestRating: FlashcardRating? get() = ratings.maxByOrNull { it.masteryRank() }
+    val bestRating: FlashcardAttemptRating? get() = ratings.maxByOrNull { it.masteryRank() }
 }
 
 /**
- * Explicit best-rating-wins ranking, deliberately independent of [FlashcardRating]'s declaration
+ * Explicit best-rating-wins ranking, deliberately independent of [FlashcardAttemptRating]'s declaration
  * order: that order happens to run Failed → PartiallyCorrect → Correct today, which would make an
  * ordinal comparison work by coincidence, but reordering the enum must not silently invert
  * best-rating-wins (ADR-0044).
  */
-private fun FlashcardRating.masteryRank(): Int = when (this) {
-    FlashcardRating.Failed -> 0
-    FlashcardRating.PartiallyCorrect -> 1
-    FlashcardRating.Correct -> 2
+private fun FlashcardAttemptRating.masteryRank(): Int = when (this) {
+    FlashcardAttemptRating.Failed -> 0
+    FlashcardAttemptRating.PartiallyCorrect -> 1
+    FlashcardAttemptRating.Correct -> 2
 }

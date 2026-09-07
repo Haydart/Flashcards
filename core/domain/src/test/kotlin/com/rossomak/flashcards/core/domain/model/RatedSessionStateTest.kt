@@ -1,8 +1,8 @@
 package com.rossomak.flashcards.core.domain.model
 
-import com.rossomak.flashcards.core.domain.model.FlashcardRating.Correct
-import com.rossomak.flashcards.core.domain.model.FlashcardRating.Failed
-import com.rossomak.flashcards.core.domain.model.FlashcardRating.PartiallyCorrect
+import com.rossomak.flashcards.core.domain.model.FlashcardAttemptRating.Correct
+import com.rossomak.flashcards.core.domain.model.FlashcardAttemptRating.Failed
+import com.rossomak.flashcards.core.domain.model.FlashcardAttemptRating.PartiallyCorrect
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
@@ -46,7 +46,7 @@ class RatedSessionStateTest {
 
         val outcome = rate(session, Correct)
 
-        outcome.terminal shouldBe TerminalState.Mastered
+        outcome.terminal shouldBe FlashcardTerminalRating.Mastered
         outcome.state.isComplete shouldBe true
     }
 
@@ -58,7 +58,7 @@ class RatedSessionStateTest {
         afterFailed.terminal shouldBe null
         val afterCorrect = rate(afterFailed.state, Correct)
 
-        afterCorrect.terminal shouldBe TerminalState.Mastered
+        afterCorrect.terminal shouldBe FlashcardTerminalRating.Mastered
     }
 
     @Test
@@ -71,7 +71,7 @@ class RatedSessionStateTest {
         afterPartial.terminal shouldBe null
         val afterSecondFailed = rate(afterPartial.state, Failed)
 
-        afterSecondFailed.terminal shouldBe TerminalState.Partial
+        afterSecondFailed.terminal shouldBe FlashcardTerminalRating.Partial
     }
 
     @Test
@@ -82,7 +82,7 @@ class RatedSessionStateTest {
         afterFirstFailed.terminal shouldBe null
         val afterSecondFailed = rate(afterFirstFailed.state, Failed)
 
-        afterSecondFailed.terminal shouldBe TerminalState.Failed
+        afterSecondFailed.terminal shouldBe FlashcardTerminalRating.Failed
     }
 
     @Test
@@ -93,7 +93,7 @@ class RatedSessionStateTest {
         afterPartial.terminal shouldBe null
         val afterFailed = rate(afterPartial.state, Failed)
 
-        afterFailed.terminal shouldBe TerminalState.Partial
+        afterFailed.terminal shouldBe FlashcardTerminalRating.Partial
     }
 
     @Test
@@ -102,7 +102,7 @@ class RatedSessionStateTest {
 
         val outcome = rate(session, PartiallyCorrect)
 
-        outcome.terminal shouldBe TerminalState.Partial
+        outcome.terminal shouldBe FlashcardTerminalRating.Partial
         outcome.state.isComplete shouldBe true
     }
 

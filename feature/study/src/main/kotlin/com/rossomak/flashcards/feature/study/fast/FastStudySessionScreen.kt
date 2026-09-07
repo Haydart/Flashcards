@@ -3,6 +3,7 @@ package com.rossomak.flashcards.feature.study.fast
 import android.Manifest
 import android.content.Intent
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -52,6 +53,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Open
 import com.rossomak.flashcards.core.ui.navigation.observeAsEvents
 import com.rossomak.flashcards.feature.study.R
+import com.rossomak.flashcards.feature.study.StudySessionSummaryRoute
 import com.rossomak.flashcards.feature.study.chrome.StudySessionBody
 import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.ExitSession
 import com.rossomak.flashcards.feature.study.chrome.StudySessionDialog.ExtendedContext
@@ -66,13 +68,13 @@ import kotlinx.coroutines.launch
 fun FastStudySessionScreen(
     modifier: Modifier = Modifier,
     viewModel: FastStudySessionViewModel = hiltViewModel(),
-    onNavigateBack: () -> Unit,
+    onNavigateToSummary: (StudySessionSummaryRoute) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     observeAsEvents(viewModel.events) { destination ->
         when (destination) {
-            FastStudySessionDestination.Back -> onNavigateBack()
+            is FastStudySessionDestination.Summary -> onNavigateToSummary(destination.route)
         }
     }
 
@@ -82,6 +84,13 @@ fun FastStudySessionScreen(
     DisposableEffect(Unit) {
         view.keepScreenOn = true
         onDispose { view.keepScreenOn = false }
+    }
+
+    // System/predictive back must route through the same exit-confirmation flow as the top-bar X —
+    // otherwise it pops straight to Preview without sealing a result or showing the mandatory
+    // Summary screen.
+    BackHandler {
+        viewModel.onDialogEvent(Open(ExitSession))
     }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(

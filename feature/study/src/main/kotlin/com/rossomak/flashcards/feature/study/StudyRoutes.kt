@@ -1,6 +1,8 @@
 package com.rossomak.flashcards.feature.study
 
 import com.rossomak.flashcards.core.domain.model.FlashcardSortOrder
+import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
+import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.domain.model.VoiceSettings
 import kotlinx.serialization.Serializable
@@ -43,6 +45,11 @@ data class PreviewStudySessionRoute(
  * routes only derive a NavType for primitives and enums.
  * @param voiceId the Preview screen's confirmed `VoiceSettings.voiceId`, flattened for the same
  * reason as [speechRate].
+ * @param categoryName and [subcategoryNames]: not used inside the session itself, only carried so
+ * termination can build a complete `SessionResult` (spec 03 ticket 01) without a second lookup —
+ * the same denormalize-alongside-the-id idiom `Subcategory`/`Category` already use
+ * ([ADR-0014](../../../docs/adr/0014-session-stats-written-at-summary-screen.md)), and the same
+ * reason [RatedStudySessionRoute] carries them.
  */
 @Serializable
 data class FastStudySessionRoute(
@@ -53,6 +60,8 @@ data class FastStudySessionRoute(
     val readAloudEnabled: Boolean = false,
     val speechRate: Float = VoiceSettings().speechRate,
     val voiceId: String? = VoiceSettings().voiceId,
+    val categoryName: String,
+    val subcategoryNames: List<String>,
 ) {
     val voiceSettings: VoiceSettings
         get() = VoiceSettings(speechRate = speechRate, voiceId = voiceId)
@@ -79,6 +88,10 @@ data class FastStudySessionRoute(
  * androidx.navigation's typesafe routes only derive a NavType for primitives and enums.
  * @param voiceId the Preview screen's confirmed `VoiceSettings.voiceId`, flattened for the same
  * reason as [speechRate].
+ * @param categoryName and [subcategoryNames]: not used inside the session itself, only carried so
+ * termination can build a complete `SessionResult` (spec 03 ticket 01) without a second lookup —
+ * the same denormalize-alongside-the-id idiom `Subcategory`/`Category` already use
+ * ([ADR-0014](../../../docs/adr/0014-session-stats-written-at-summary-screen.md)).
  */
 @Serializable
 data class RatedStudySessionRoute(
@@ -91,10 +104,52 @@ data class RatedStudySessionRoute(
     val partialRatingCardRequeueingEnabled: Boolean = true,
     val speechRate: Float = VoiceSettings().speechRate,
     val voiceId: String? = VoiceSettings().voiceId,
+    val categoryName: String,
+    val subcategoryNames: List<String>,
 ) {
     val voiceSettings: VoiceSettings
         get() = VoiceSettings(speechRate = speechRate, voiceId = voiceId)
 }
 
+/**
+ * The whole `SessionResult` (spec 03 ticket 01), flattened into primitives and parallel lists — the
+ * same convention [RatedStudySessionRoute]/[FastStudySessionRoute] already use for [VoiceSettings]
+ * and `IntRange`. `androidx.navigation`'s typesafe routes only derive a `NavType` for primitives,
+ * enums and lists of those, so `SessionResult.cardResults` becomes one parallel list per field, all
+ * indexed together: [cardIds], [cardSubcategoryIds], [cardStates], [cardAttemptsUsed],
+ * [cardWasPreviouslyMastered]. The `card` prefix on those five is deliberate, not decorative: a
+ * `SessionResult` already has its own session-scope [subcategoryIds]/[subcategoryNames] — the
+ * Subcategories the session drew from — and that is a different thing from the one Subcategory each
+ * individual *card* belongs to; without the prefix the two would collide on the same field name.
+ *
+ * [cardIds], [cardSubcategoryIds] and [cardStates] are always present, for both modes.
+ * [cardAttemptsUsed] and [cardWasPreviouslyMastered] are Rated-only — mirroring the persisted
+ * document shape (ADR-0014) — and `null` for a Fast route, not lists of zeroes and falses for cards
+ * that have neither concept.
+ *
+ * [startedAtEpochSecond] flattens `SessionResult.startedAt` (a `java.time.Instant`, not itself a
+ * primitive `androidx.navigation` can carry) to the one `Long` that reconstructs it.
+ *
+ * This route is fresh-session egress only
+ * ([ADR-0014](../../../docs/adr/0014-session-stats-written-at-summary-screen.md)) — the mandatory
+ * exit for both Study Modes, natural end or premature exit, and nothing else. It is never used to
+ * view a past session, so it carries no `sessionId`-only variant and no transcript field: neither is
+ * persisted or carried past the session itself.
+ */
 @Serializable
-data object StudySummaryRoute
+data class StudySessionSummaryRoute(
+    val sessionId: String,
+    val mode: StudyMode,
+    val startedAtEpochSecond: Long,
+    val durationSeconds: Int,
+    val abandoned: Boolean,
+    val categoryId: String,
+    val categoryName: String,
+    val subcategoryIds: List<String>,
+    val subcategoryNames: List<String>,
+    val cardIds: List<String>,
+    val cardSubcategoryIds: List<String>,
+    val cardStates: List<FlashcardStudyProgressState>,
+    val cardAttemptsUsed: List<Int>?,
+    val cardWasPreviouslyMastered: List<Boolean>?,
+)

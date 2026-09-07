@@ -231,6 +231,8 @@ Commands (local only — CI wiring is a later PR):
 
 Burning down a baseline: fix the smells, then regenerate with `./gradlew detektBaseline` / `./gradlew updateLintBaseline`; delete a baseline file once it reaches empty to fully enforce that module. Deferred to follow-up PRs: detekt type-resolution + Compose ruleset, arg-order → Konsist migration, lint rule tightening, CI.
 
+`LargeClass` is excluded repo-wide for `*Test.kt` (`config/detekt/detekt.yml`) — test classes may grow unbounded rather than being split by concern; a new finding there is never baselined, it's already excluded by config.
+
 ## Testing Standards
 See [TESTING.md](./TESTING.md) for full conventions: file/method naming, MainDispatcherRule usage, MockK + Kotest patterns, the "extract repeated literals" rule, and coverage targets.
 
