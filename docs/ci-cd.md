@@ -49,6 +49,52 @@ No instrumented (`androidTest`) tests exist yet, so no emulator step is configur
 - Both apps' config lives in the single `google-services.json` (keyed internally by `package_name`) — one file, no per-build-type file swapping needed.
 - `app/src/debug/res/values/strings.xml` overrides `app_name` to "Flashcards Debug" so the two are visually distinguishable on-device too.
 
+## Local WIP debug distribution (dev-only, outside Bitrise)
+
+Separate from everything above — no Bitrise workflow, no git push required.
+Lets a dev build the *current, possibly-uncommitted* working tree and ship
+it straight to a device for a mid-feature progress check. No PR, no
+review, no static analysis; just "does it compile, ship it."
+
+- **Script**: `scripts/distribute-wip-debug.sh`. Standalone-runnable
+  (bare terminal, cron, or the skill below — zero args, same behavior).
+  Preflight (firebase CLI + service-account JSON present) →
+  `./gradlew compileDebugKotlin` (fail fast before wasting time on a full
+  build) → `./gradlew assembleDebug` → `firebase appdistribution:distribute`
+  to the `wip-debug` tester group. All build/upload output goes to stdout
+  (no separate logfile, no status file); the last line is always one
+  plain-English outcome (`SUCCESS: ...` / `FAILED: <stage> — see output
+  above`) that a caller reads off the tail of that same output.
+- **Skill**: `.claude/skills/distribute-wip-debug/SKILL.md` (untracked —
+  see note below) — thin wrapper, no business logic: runs the script via
+  `Bash(run_in_background: true)` so the calling session is never blocked
+  on the multi-minute Gradle build, then tails the background output for
+  the final `SUCCESS:`/`FAILED:` line and relays it verbatim via
+  `PushNotification` + in-session.
+- Uses the **same** debug app id / debug signing / `.debug`-suffixed
+  package as `deploy-internal` above, and the same
+  `firebase-app-distribution-service-account.json` — but its own tester
+  group (`wip-debug`, distinct from `internal-debug`) so ad-hoc WIP noise
+  never mixes with "latest clean push to main."
+- No `versionName`/`versionCode` change — distinguishing marker between
+  snapshots is the Firebase release notes (timestamp + short commit
+  hash), so `app/build.gradle.kts`'s versioning scheme above stays
+  untouched.
+- Install path: Firebase's tester client, **Firebase App Tester** (not on
+  Play Store — sideloaded via the tester-invite link itself). One-time
+  per device; subsequent `wip-debug` uploads notify inside that same app.
+- One-time setup: `firebase-tools` CLI + `firebase login` under a personal
+  Google account (not the service account, which is reserved for the
+  upload step); create the `wip-debug` tester group with
+  `firebase appdistribution:groups:create "wip-debug" wip-debug`
+  (`firebase-tools` ≥15.29).
+- The skill file above (`.claude/skills/distribute-wip-debug/SKILL.md`) is
+  local-only by design — `.claude/` is gitignored repo-wide, so it never
+  reaches git and won't exist for a fresh clone. The script itself is
+  fully standalone and doesn't need it; a new dev who wants the skill too
+  copies that one file by hand (e.g. from another dev, or recreates it
+  from this doc).
+
 ## GitHub integration
 
 - Bitrise GitHub App installed on `Haydart/Flashcards`.
