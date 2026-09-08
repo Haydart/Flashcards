@@ -16,7 +16,7 @@ data class CardProgressEntry(
 
 /**
  * One User's packed per-Subcategory progress document (ADR-0016):
- * `users/{uid}/progress/{subcategoryId}`. Only cards the User has actually studied appear in
+ * `users/{uid}/progress/details/subcategories/{subcategoryId}`. Only cards the User has actually studied appear in
  * [cards]. [categoryId] rides along denormalized, so a document identifies its own scope without a
  * further lookup.
  */

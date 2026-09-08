@@ -12,7 +12,7 @@ import kotlinx.coroutines.tasks.await
 
 /**
  * Reads and, via [toMergeFields], maps the write shape of the User's per-Subcategory progress-summary
- * singleton, `users/{uid}/state/progressSummary` (ADR-0016). Writing is not committed here — the
+ * singleton, `users/{uid}/progress/summary` (ADR-0016). Writing is not committed here — the
  * summary's increments must land in the same batch as the session document and every packed progress
  * write, so [documentReference] and [toMergeFields] are the seam
  * [StudySessionRemoteDataSource][com.rossomak.flashcards.core.data.source.StudySessionRemoteDataSource]
@@ -62,8 +62,8 @@ class ProgressSummaryRemoteDataSource @Inject constructor(
     )
 
     private companion object {
-        const val COLLECTION_PATH_TEMPLATE = "users/%s/state"
-        const val DOCUMENT_ID = "progressSummary"
+        const val COLLECTION_PATH_TEMPLATE = "users/%s/progress"
+        const val DOCUMENT_ID = "summary"
         const val FIELD_SUBCATEGORIES = "subcategories"
         const val FIELD_MASTERED_COUNT = "masteredCount"
         const val FIELD_STUDIED_COUNT = "studiedCount"

@@ -13,8 +13,13 @@ import javax.inject.Inject
 import kotlinx.coroutines.tasks.await
 
 /**
- * Reads and, via [toMergeFields], maps the write shape of `users/{uid}/progress/{subcategoryId}`
- * (ADR-0016). Writing is not committed here — a session commit's progress writes must land in the
+ * Reads and, via [toMergeFields], maps the write shape of
+ * `users/{uid}/progress/details/subcategories/{subcategoryId}` (ADR-0016). `details` is a fixed
+ * anchor document with no fields of its own — it exists only to host the real `subcategories`
+ * subcollection, since Firestore cannot nest a collection directly inside another collection; the
+ * sibling singletons `progress/summary` and `progress/user-stats` stay one hop shallower so
+ * `progress` itself holds only per-User singleton documents. Writing is not committed here — a
+ * session commit's progress writes must land in the
  * same batch as its session document, so [documentReference] and [toMergeFields] are the seam
  * [StudySessionRemoteDataSource][com.rossomak.flashcards.core.data.source.StudySessionRemoteDataSource]
  * uses to fold this collection's documents into that batch, rather than committing its own.
@@ -27,7 +32,10 @@ class CardProgressRemoteDataSource @Inject constructor(
     private val uid: String
         get() = requireNotNull(firebaseAuth.currentUser?.uid) { "No authenticated user" }
 
-    private fun collection() = firestore.collection(COLLECTION_PATH_TEMPLATE.format(uid))
+    private fun collection() = firestore
+        .collection(PROGRESS_COLLECTION_PATH_TEMPLATE.format(uid))
+        .document(DETAILS_DOCUMENT_ID)
+        .collection(SUBCATEGORIES_COLLECTION_ID)
 
     fun documentReference(subcategoryId: String): DocumentReference = collection().document(subcategoryId)
 
@@ -70,7 +78,9 @@ class CardProgressRemoteDataSource @Inject constructor(
     }
 
     private companion object {
-        const val COLLECTION_PATH_TEMPLATE = "users/%s/progress"
+        const val PROGRESS_COLLECTION_PATH_TEMPLATE = "users/%s/progress"
+        const val DETAILS_DOCUMENT_ID = "details"
+        const val SUBCATEGORIES_COLLECTION_ID = "subcategories"
         const val FIELD_CATEGORY_ID = "categoryId"
         const val FIELD_CARDS = "cards"
         const val FIELD_STATE = "state"

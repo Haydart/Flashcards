@@ -13,7 +13,7 @@ data class SubcategoryProgressSummary(
 
 /**
  * The User's per-Subcategory progress-summary singleton (ADR-0016):
- * `users/{uid}/state/progressSummary`. One document answers every ring on Category Details and the
+ * `users/{uid}/progress/summary`. One document answers every ring on Category Details and the
  * Home screen's progress displays (spec 06), whatever the Category — the alternative, reading each
  * Subcategory's packed [SubcategoryProgress], would cost one read per topic instead of one per
  * screen.
