@@ -85,6 +85,15 @@ sealed interface SessionResult {
     /** one [FlashcardResult] per Studied card. */
     val cardResults: List<FlashcardResult>
 
+    /**
+     * The XP configuration snapshot captured when this session started
+     * ([ADR-0047](../../../../../../../docs/adr/0047-xp-values-behind-a-config-repository.md)):
+     * fetched alongside [cardResults]' cards, never re-read here. Defaults to [XpConfig]'s own
+     * defaults so every existing call site outside spec 05 (persistence, Firestore mapping) is
+     * unaffected — this ticket adds the field and the snapshot rule, nothing computes against it yet.
+     */
+    val xpConfig: XpConfig
+
     /** Derived from the sealed branch — see the type's own KDoc for why this is never a stored field. */
     val mode: StudyMode
         get() = when (this) {
@@ -105,6 +114,7 @@ sealed interface SessionResult {
         override val subcategoryIds: List<String>,
         override val subcategoryNames: List<String>,
         override val cardResults: List<FlashcardResult.Rated>,
+        override val xpConfig: XpConfig = XpConfig(),
     ) : SessionResult {
         /**
          * The three Terminal State counts below are *derived* from [cardResults] rather than stored
@@ -128,5 +138,6 @@ sealed interface SessionResult {
         override val subcategoryIds: List<String>,
         override val subcategoryNames: List<String>,
         override val cardResults: List<FlashcardResult.Fast>,
+        override val xpConfig: XpConfig = XpConfig(),
     ) : SessionResult
 }

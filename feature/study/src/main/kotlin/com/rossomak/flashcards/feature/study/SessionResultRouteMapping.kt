@@ -32,6 +32,18 @@ fun SessionResult.toSummaryRoute(): StudySessionSummaryRoute = StudySessionSumma
         is SessionResult.Rated -> cardResults.map { it.wasPreviouslyMastered }
         is SessionResult.Fast -> null
     },
+    xpNewCardStudied = xpConfig.newCardStudied,
+    xpCardMastered = xpConfig.cardMastered,
+    xpCardPartial = xpConfig.cardPartial,
+    xpMasteryDefended = xpConfig.masteryDefended,
+    xpCardDemastered = xpConfig.cardDemastered,
+    xpSessionCompleted = xpConfig.sessionCompleted,
+    xpDailyGoalMet = xpConfig.dailyGoalMet,
+    xpStreakPerDay = xpConfig.streakPerDay,
+    xpStreakMaxPerDay = xpConfig.streakMaxPerDay,
+    xpMinuteStudied = xpConfig.minuteStudied,
+    xpLevelCurveBase = xpConfig.levelCurveBase,
+    xpLevelCurveExponent = xpConfig.levelCurveExponent,
 )
 
 /** The inverse of [toSummaryRoute] — how the Summary ViewModel reads the route back into a [SessionResult]. */
@@ -56,6 +68,7 @@ fun StudySessionSummaryRoute.toSessionResult(): SessionResult = when (mode) {
                 }[index],
             )
         },
+        xpConfig = xpConfig,
     )
     StudyMode.Fast -> SessionResult.Fast(
         id = sessionId,
@@ -73,5 +86,6 @@ fun StudySessionSummaryRoute.toSessionResult(): SessionResult = when (mode) {
                 state = cardStates[index],
             )
         },
+        xpConfig = xpConfig,
     )
 }
