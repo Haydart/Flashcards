@@ -36,9 +36,15 @@ service cloud.firestore {
       }
 
       // sessions/{sessionId} (ADR-0014): one document per finished Study Session, committed once
-      // at the Session Summary screen.
+      // at the Session Summary screen and never edited afterward — create-only, not update/delete,
+      // so a client can neither rewrite nor erase its own study history. This also closes CR-69 #6
+      // (duplicate-sessionId re-commit) as a side effect: Firestore batches are all-or-nothing
+      // against rules, so a retried commit's session-doc create fails the whole batch, including
+      // the summary increments that would otherwise double-apply — no separate idempotency guard
+      // needed.
       match /sessions/{sessionId} {
-        allow read, write: if request.auth != null && request.auth.uid == uid;
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow create: if request.auth != null && request.auth.uid == uid;
       }
 
       // progress/{docId} (ADR-0016): per-user singleton documents — the progress summary
@@ -46,6 +52,11 @@ service cloud.firestore {
       // alongside it in the same collection, so this one rule covers both without a further
       // change. progress/details is a fixed anchor document with no fields of its own; its rule
       // below covers the real subcollection it hosts.
+      //
+      // Deliberately not schema-validated (CR-69 #4): a modified client could in principle forge
+      // its own counts, card states or timestamps here. Accepted for now — this is a single-user
+      // personal app with no leaderboard, shared ranking or other trust surface a self-forged
+      // progress document would exploit. Revisit if a competitive or shared-progress feature ships.
       match /progress/{docId} {
         allow read, write: if request.auth != null && request.auth.uid == uid;
       }
