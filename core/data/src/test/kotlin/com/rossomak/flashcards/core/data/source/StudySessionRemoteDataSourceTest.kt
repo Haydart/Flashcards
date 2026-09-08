@@ -7,8 +7,10 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.DocumentReference
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import com.google.firebase.firestore.Transaction
 import com.google.firebase.firestore.WriteBatch
 import com.rossomak.flashcards.core.domain.model.CardProgressUpdate
 import com.rossomak.flashcards.core.domain.model.FlashcardResult
@@ -44,6 +46,8 @@ class StudySessionRemoteDataSourceTest {
     private val progressDocumentReference: DocumentReference = mockk()
     private val progressSummaryDocumentReference: DocumentReference = mockk()
     private val writeBatch: WriteBatch = mockk()
+    private val transaction: Transaction = mockk()
+    private val progressSnapshot: DocumentSnapshot = mockk()
     private val cardProgressRemoteDataSource: CardProgressRemoteDataSource = mockk()
     private val progressSummaryRemoteDataSource: ProgressSummaryRemoteDataSource = mockk()
 
@@ -63,6 +67,18 @@ class StudySessionRemoteDataSourceTest {
         every { cardProgressRemoteDataSource.toMergeFields(any()) } returns MERGE_FIELDS
         every { progressSummaryRemoteDataSource.documentReference() } returns progressSummaryDocumentReference
         every { progressSummaryRemoteDataSource.toMergeFields(any()) } returns SUMMARY_MERGE_FIELDS
+
+        // Fast's commit path runs a transaction instead of a batch (CR-69 #5): the production
+        // lambda is captured and invoked against a mocked Transaction so its own reads/writes are
+        // assertable exactly like the batch path above.
+        every { firestore.runTransaction<Any?>(any()) } answers {
+            val function = firstArg<Transaction.Function<Any?>>()
+            Tasks.forResult(function.apply(transaction))
+        }
+        every { transaction.get(any<DocumentReference>()) } returns progressSnapshot
+        every { transaction.set(any(), any()) } returns transaction
+        every { transaction.set(any(), any(), any<SetOptions>()) } returns transaction
+        every { cardProgressRemoteDataSource.existingCardIds(any()) } returns emptySet()
     }
 
     private fun ratedResult(): SessionResult = SessionResult.Rated(
@@ -142,7 +158,7 @@ class StudySessionRemoteDataSourceTest {
     @Test
     fun `a Fast document carries none of the four Rated-only aggregate fields`() {
         val fieldsSlot = slot<Map<String, Any>>()
-        every { writeBatch.set(documentReference, capture(fieldsSlot)) } returns writeBatch
+        every { transaction.set(documentReference, capture(fieldsSlot)) } returns transaction
 
         createDataSource().commitSession(commit(fastResult()), onRejected = {})
 
@@ -157,6 +173,47 @@ class StudySessionRemoteDataSourceTest {
         entry["state"] shouldBe "Seen"
         entry.keys shouldNotContain "attemptsUsed"
         entry.keys shouldNotContain "wasPreviouslyMastered"
+    }
+
+    @Test
+    fun `a Fast commit runs a transaction, never the batch`() {
+        createDataSource().commitSession(commit(fastResult()), onRejected = {})
+
+        verify(exactly = 1) { firestore.runTransaction<Any?>(any()) }
+        verify(exactly = 0) { firestore.batch() }
+    }
+
+    @Test
+    fun `a Fast commit re-checks each card against a fresh transactional read before writing it (CR-69 #5)`() {
+        val write = SubcategoryProgressWrite(
+            subcategoryId = "sub-1",
+            categoryId = "cat-1",
+            cards = mapOf("card-1" to CardProgressUpdate(FlashcardStudyProgressState.Seen, stampFirstStudied = true, stampMastered = false)),
+        )
+
+        createDataSource().commitSession(commit(fastResult(), progressWrites = listOf(write)), onRejected = {})
+
+        verify(exactly = 1) { transaction.get(progressDocumentReference) }
+        verify(exactly = 1) { cardProgressRemoteDataSource.existingCardIds(progressSnapshot) }
+        verify(exactly = 1) { cardProgressRemoteDataSource.toMergeFields(write) }
+        verify(exactly = 1) { transaction.set(progressDocumentReference, MERGE_FIELDS, any<SetOptions>()) }
+    }
+
+    @Test
+    fun `a Fast commit skips a card the fresh transactional read already finds present`() {
+        every { cardProgressRemoteDataSource.existingCardIds(progressSnapshot) } returns setOf("card-1")
+        val write = SubcategoryProgressWrite(
+            subcategoryId = "sub-1",
+            categoryId = "cat-1",
+            cards = mapOf("card-1" to CardProgressUpdate(FlashcardStudyProgressState.Seen, stampFirstStudied = true, stampMastered = false)),
+        )
+
+        createDataSource().commitSession(commit(fastResult(), progressWrites = listOf(write)), onRejected = {})
+
+        // card-1 already exists server-side by the time this transaction reads it — e.g. a
+        // concurrent Rated commit landed Mastered — so Fast must not merge Seen over it.
+        verify(exactly = 0) { transaction.set(progressDocumentReference, any(), any<SetOptions>()) }
+        verify(exactly = 0) { progressSummaryRemoteDataSource.documentReference() }
     }
 
     @Test
