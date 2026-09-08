@@ -9,11 +9,14 @@ import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState.Mas
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState.Partial
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState.Seen
 import com.rossomak.flashcards.core.domain.model.ProgressSummaryWrite
+import com.rossomak.flashcards.core.domain.model.ScoringState
 import com.rossomak.flashcards.core.domain.model.SessionCommit
 import com.rossomak.flashcards.core.domain.model.SessionResult
+import com.rossomak.flashcards.core.domain.model.SessionXpResult
 import com.rossomak.flashcards.core.domain.model.SubcategoryProgressSummaryDelta
 import com.rossomak.flashcards.core.domain.model.SubcategoryProgressWrite
 import com.rossomak.flashcards.core.domain.repository.CardProgressRepository
+import com.rossomak.flashcards.core.domain.repository.ScoringStateRepository
 import com.rossomak.flashcards.core.domain.repository.StudySessionRepository
 import javax.inject.Inject
 
@@ -26,6 +29,14 @@ import javax.inject.Inject
  * new-cards-studied count [StudySessionRepository.commitSession] writes alongside the session
  * document, in the same batch.
  *
+ * Spec 05 ticket 02 adds a further read of the account's prior [ScoringState], then hands
+ * [sessionResult], the resulting new-cards-studied count and that prior state to
+ * [CalculateSessionXpUseCase] to produce the [SessionXpResult] joining this same commit. A failed
+ * [ScoringStateRepository] read fails the whole commit, same as a failed [CardProgressRepository]
+ * read below — defaulting a real account's missing read to [ScoringState]'s zero defaults would
+ * silently overwrite its accumulated XP; only a genuinely absent document (a brand-new account) may
+ * default that way, and [ScoringStateRepository.getScoringState] already encodes that distinction.
+ *
  * Not a [com.rossomak.flashcards.core.domain.usecase.base.UseCase]: [onRejected] is a side channel
  * for an async, after-the-fact failure report (see [StudySessionRepository.commitSession]), not a
  * second input the single-param `UseCase<P, R>` shape is meant to carry.
@@ -33,9 +44,11 @@ import javax.inject.Inject
 class CommitStudySessionUseCase @Inject constructor(
     private val studySessionRepository: StudySessionRepository,
     private val cardProgressRepository: CardProgressRepository,
+    private val scoringStateRepository: ScoringStateRepository,
+    private val calculateSessionXp: CalculateSessionXpUseCase,
 ) {
 
-    suspend operator fun invoke(sessionResult: SessionResult, onRejected: (Throwable) -> Unit = {}): Result<Unit> {
+    suspend operator fun invoke(sessionResult: SessionResult, onRejected: (Throwable) -> Unit = {}): Result<SessionXpResult> {
         var newCardsStudied = 0
         val progressWrites = mutableListOf<SubcategoryProgressWrite>()
         val summaryDeltas = mutableMapOf<String, SubcategoryProgressSummaryDelta>()
@@ -74,13 +87,26 @@ class CommitStudySessionUseCase @Inject constructor(
             }
         }
 
+        val currentScoringState = scoringStateRepository.getScoringState()
+            .getOrElse { exception -> return Result.failure(exception) }
+            ?: ScoringState()
+        val xpResult = calculateSessionXp(
+            CalculateSessionXpUseCase.Params(
+                sessionResult = sessionResult,
+                newCardsStudied = newCardsStudied,
+                currentState = currentScoringState,
+            ),
+        )
+
         val sessionCommit = SessionCommit(
             sessionResult = sessionResult,
             newCardsStudied = newCardsStudied,
             progressWrites = progressWrites,
             progressSummaryWrite = ProgressSummaryWrite(summaryDeltas),
+            xpBreakdown = xpResult.breakdown,
+            newScoringState = xpResult.newScoringState,
         )
-        return studySessionRepository.commitSession(sessionCommit, onRejected)
+        return studySessionRepository.commitSession(sessionCommit, onRejected).map { xpResult }
     }
 
     /**

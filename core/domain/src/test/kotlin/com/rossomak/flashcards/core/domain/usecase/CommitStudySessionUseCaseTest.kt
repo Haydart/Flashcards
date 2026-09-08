@@ -3,10 +3,12 @@ package com.rossomak.flashcards.core.domain.usecase
 import com.rossomak.flashcards.core.domain.model.CardProgressEntry
 import com.rossomak.flashcards.core.domain.model.FlashcardResult
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
+import com.rossomak.flashcards.core.domain.model.ScoringState
 import com.rossomak.flashcards.core.domain.model.SessionResult
 import com.rossomak.flashcards.core.domain.model.SubcategoryProgress
 import com.rossomak.flashcards.core.domain.model.SubcategoryProgressSummaryDelta
 import com.rossomak.flashcards.core.domain.repository.FakeCardProgressRepository
+import com.rossomak.flashcards.core.domain.repository.FakeScoringStateRepository
 import com.rossomak.flashcards.core.domain.repository.FakeStudySessionRepository
 import io.kotest.matchers.shouldBe
 import java.time.Instant
@@ -17,9 +19,14 @@ class CommitStudySessionUseCaseTest {
 
     private val studySessionRepository = FakeStudySessionRepository()
     private val cardProgressRepository = FakeCardProgressRepository()
+    private val scoringStateRepository = FakeScoringStateRepository()
 
-    private fun createUseCase(): CommitStudySessionUseCase =
-        CommitStudySessionUseCase(studySessionRepository, cardProgressRepository)
+    private fun createUseCase(): CommitStudySessionUseCase = CommitStudySessionUseCase(
+        studySessionRepository,
+        cardProgressRepository,
+        scoringStateRepository,
+        CalculateSessionXpUseCase(),
+    )
 
     private fun ratedSessionResult(
         subcategoryId: String = "sub-1",
@@ -220,10 +227,10 @@ class CommitStudySessionUseCaseTest {
         cardProgressRepository.resultToReturn = Result.failure(error)
         val result = ratedSessionResult(cardResults = listOf(ratedEntry(state = FlashcardStudyProgressState.Mastered)))
 
-        val outcome = createUseCase().invoke(result)
+        val xpResult = createUseCase().invoke(result)
 
-        outcome.isFailure shouldBe true
-        outcome.exceptionOrNull() shouldBe error
+        xpResult.isFailure shouldBe true
+        xpResult.exceptionOrNull() shouldBe error
         studySessionRepository.committedSessionCommits shouldBe emptyList()
     }
 
@@ -231,9 +238,46 @@ class CommitStudySessionUseCaseTest {
     fun `returns the repository's result as-is on success`() = runTest {
         studySessionRepository.commitResultToReturn = Result.success(Unit)
 
-        val outcome = createUseCase().invoke(ratedSessionResult(cardResults = listOf(ratedEntry(state = FlashcardStudyProgressState.Mastered))))
+        val xpResult = createUseCase().invoke(ratedSessionResult(cardResults = listOf(ratedEntry(state = FlashcardStudyProgressState.Mastered))))
 
-        outcome.isSuccess shouldBe true
+        xpResult.isSuccess shouldBe true
+    }
+
+    @Test
+    fun `a failed scoring-state read reports failure and writes nothing`() = runTest {
+        val error = IllegalStateException("firestore down")
+        scoringStateRepository.resultToReturn = Result.failure(error)
+        val result = ratedSessionResult(cardResults = listOf(ratedEntry(state = FlashcardStudyProgressState.Mastered)))
+
+        val xpResult = createUseCase().invoke(result)
+
+        xpResult.isFailure shouldBe true
+        xpResult.exceptionOrNull() shouldBe error
+        studySessionRepository.committedSessionCommits shouldBe emptyList()
+    }
+
+    @Test
+    fun `a missing scoring-state document starts the calculation from defaults`() = runTest {
+        scoringStateRepository.resultToReturn = Result.success(null)
+        val result = ratedSessionResult(cardResults = listOf(ratedEntry(state = FlashcardStudyProgressState.Mastered)))
+
+        val xpResult = createUseCase().invoke(result).getOrThrow()
+
+        xpResult.newScoringState.xp shouldBe xpResult.breakdown.xpTotal.toLong()
+    }
+
+    @Test
+    fun `the commit carries the calculated xp breakdown and new scoring state`() = runTest {
+        val priorXp = 40L
+        scoringStateRepository.resultToReturn = Result.success(ScoringState(xp = priorXp))
+        val result = ratedSessionResult(cardResults = listOf(ratedEntry(state = FlashcardStudyProgressState.Mastered)))
+
+        val xpResult = createUseCase().invoke(result).getOrThrow()
+
+        val commit = studySessionRepository.committedSessionCommits.single()
+        commit.xpBreakdown shouldBe xpResult.breakdown
+        commit.newScoringState shouldBe xpResult.newScoringState
+        commit.newScoringState.xp shouldBe priorXp + xpResult.breakdown.xpTotal
     }
 
     @Test
@@ -241,10 +285,10 @@ class CommitStudySessionUseCaseTest {
         val error = IllegalStateException("no authenticated user")
         studySessionRepository.commitResultToReturn = Result.failure(error)
 
-        val outcome = createUseCase().invoke(ratedSessionResult(cardResults = listOf(ratedEntry(state = FlashcardStudyProgressState.Mastered))))
+        val xpResult = createUseCase().invoke(ratedSessionResult(cardResults = listOf(ratedEntry(state = FlashcardStudyProgressState.Mastered))))
 
-        outcome.isFailure shouldBe true
-        outcome.exceptionOrNull() shouldBe error
+        xpResult.isFailure shouldBe true
+        xpResult.exceptionOrNull() shouldBe error
     }
 
     @Test
