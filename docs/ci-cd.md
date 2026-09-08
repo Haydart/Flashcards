@@ -56,15 +56,22 @@ Lets a dev build the *current, possibly-uncommitted* working tree and ship
 it straight to a device for a mid-feature progress check. No PR, no
 review, no static analysis; just "does it compile, ship it."
 
-- **Script**: `scripts/distribute-wip-debug.sh`. Preflight (firebase CLI +
-  service-account JSON present) → `./gradlew compileDebugKotlin` (fail
-  fast before wasting time on a full build) → `./gradlew assembleDebug` →
-  `firebase appdistribution:distribute` to the `wip-debug` tester group.
-  Prints one `RESULT: SUCCESS|FAILURE` line, always last.
-- **Skill**: `.claude/skills/distribute-wip-debug/SKILL.md` — `/distribute-wip-debug`
-  runs the script via `Bash(run_in_background: true)` so the calling
-  session is never blocked on the multi-minute Gradle build, then reports
-  outcome via `PushNotification` + in-session.
+- **Script**: `scripts/distribute-wip-debug.sh`. Standalone-runnable
+  (bare terminal, cron, or the skill below — zero args, same behavior).
+  Preflight (firebase CLI + service-account JSON present) →
+  `./gradlew compileDebugKotlin` (fail fast before wasting time on a full
+  build) → `./gradlew assembleDebug` → `firebase appdistribution:distribute`
+  to the `wip-debug` tester group. All build/upload output goes to stdout
+  (no separate logfile); every exit path also writes a status JSON
+  (`success`, `stage`, `message`, `timestamp`) to a fixed, repo-derived
+  path under `/tmp/distribute-wip-debug/`, so a caller never has to parse
+  stdout.
+- **Skill**: `.claude/skills/distribute-wip-debug/SKILL.md` — thin
+  wrapper, no business logic: runs the script via
+  `Bash(run_in_background: true)` so the calling session is never blocked
+  on the multi-minute Gradle build, then reads the status JSON once the
+  harness re-invokes and relays its `message` verbatim via
+  `PushNotification` + in-session.
 - Uses the **same** debug app id / debug signing / `.debug`-suffixed
   package as `deploy-internal` above, and the same
   `firebase-app-distribution-service-account.json` — but its own tester
