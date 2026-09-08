@@ -63,8 +63,15 @@ if [[ ! -f "$APK_PATH" ]]; then
   fail "assemble"
 fi
 
+BRANCH_NAME="$(git rev-parse --abbrev-ref HEAD)"
+BUILT_FROM="built from ${BRANCH_NAME}"
+if [[ -n "$(git status --porcelain)" ]]; then
+  BUILT_FROM="${BUILT_FROM} with uncommitted changes"
+fi
+
 RELEASE_NOTES="wip build ${TIMESTAMP}
-$(git rev-parse --short HEAD)"
+$(git rev-parse --short HEAD)
+${BUILT_FROM}"
 
 echo "== uploading to Firebase App Distribution (${GROUP}) =="
 if ! GOOGLE_APPLICATION_CREDENTIALS="$SERVICE_ACCOUNT" firebase appdistribution:distribute \
