@@ -78,10 +78,10 @@ describe('users/{uid}/sessions/{sessionId}', () => {
   });
 });
 
-describe('users/{uid}/progress/{subcategoryId}', () => {
+describe('users/{uid}/progress/details/subcategories/{subcategoryId}', () => {
   it('the owning user can read and write their own progress document', async () => {
     const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
-    const ownRef = doc(ownerDb, `users/${OWNER_UID}/progress/sub-1`);
+    const ownRef = doc(ownerDb, `users/${OWNER_UID}/progress/details/subcategories/sub-1`);
 
     await assertSucceeds(setDoc(ownRef, progressDoc));
     await assertSucceeds(getDoc(ownRef));
@@ -89,10 +89,10 @@ describe('users/{uid}/progress/{subcategoryId}', () => {
 
   it('a different authenticated user cannot read or write it', async () => {
     const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
-    await setDoc(doc(ownerDb, `users/${OWNER_UID}/progress/sub-1`), progressDoc);
+    await setDoc(doc(ownerDb, `users/${OWNER_UID}/progress/details/subcategories/sub-1`), progressDoc);
 
     const otherDb = testEnv.authenticatedContext(OTHER_UID).firestore();
-    const foreignRef = doc(otherDb, `users/${OWNER_UID}/progress/sub-1`);
+    const foreignRef = doc(otherDb, `users/${OWNER_UID}/progress/details/subcategories/sub-1`);
 
     await assertFails(getDoc(foreignRef));
     await assertFails(setDoc(foreignRef, progressDoc));
@@ -100,20 +100,20 @@ describe('users/{uid}/progress/{subcategoryId}', () => {
 
   it('an unauthenticated request cannot read or write it', async () => {
     const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
-    await setDoc(doc(ownerDb, `users/${OWNER_UID}/progress/sub-1`), progressDoc);
+    await setDoc(doc(ownerDb, `users/${OWNER_UID}/progress/details/subcategories/sub-1`), progressDoc);
 
     const anonDb = testEnv.unauthenticatedContext().firestore();
-    const anonRef = doc(anonDb, `users/${OWNER_UID}/progress/sub-1`);
+    const anonRef = doc(anonDb, `users/${OWNER_UID}/progress/details/subcategories/sub-1`);
 
     await assertFails(getDoc(anonRef));
     await assertFails(setDoc(anonRef, progressDoc));
   });
 });
 
-describe('users/{uid}/state/{stateDocId}', () => {
-  it('the owning user can read and write their own state document', async () => {
+describe('users/{uid}/progress/{docId}', () => {
+  it('the owning user can read and write their own progress-summary document', async () => {
     const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
-    const ownRef = doc(ownerDb, `users/${OWNER_UID}/state/progressSummary`);
+    const ownRef = doc(ownerDb, `users/${OWNER_UID}/progress/summary`);
 
     await assertSucceeds(setDoc(ownRef, progressSummaryDoc));
     await assertSucceeds(getDoc(ownRef));
@@ -121,10 +121,10 @@ describe('users/{uid}/state/{stateDocId}', () => {
 
   it('a different authenticated user cannot read or write it', async () => {
     const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
-    await setDoc(doc(ownerDb, `users/${OWNER_UID}/state/progressSummary`), progressSummaryDoc);
+    await setDoc(doc(ownerDb, `users/${OWNER_UID}/progress/summary`), progressSummaryDoc);
 
     const otherDb = testEnv.authenticatedContext(OTHER_UID).firestore();
-    const foreignRef = doc(otherDb, `users/${OWNER_UID}/state/progressSummary`);
+    const foreignRef = doc(otherDb, `users/${OWNER_UID}/progress/summary`);
 
     await assertFails(getDoc(foreignRef));
     await assertFails(setDoc(foreignRef, progressSummaryDoc));
@@ -132,20 +132,20 @@ describe('users/{uid}/state/{stateDocId}', () => {
 
   it('an unauthenticated request cannot read or write it', async () => {
     const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
-    await setDoc(doc(ownerDb, `users/${OWNER_UID}/state/progressSummary`), progressSummaryDoc);
+    await setDoc(doc(ownerDb, `users/${OWNER_UID}/progress/summary`), progressSummaryDoc);
 
     const anonDb = testEnv.unauthenticatedContext().firestore();
-    const anonRef = doc(anonDb, `users/${OWNER_UID}/state/progressSummary`);
+    const anonRef = doc(anonDb, `users/${OWNER_UID}/progress/summary`);
 
     await assertFails(getDoc(anonRef));
     await assertFails(setDoc(anonRef, progressSummaryDoc));
   });
 });
 
-describe('users/{uid}/progress/{subcategoryId} nested-key merge (ADR-0016)', () => {
+describe('users/{uid}/progress/details/subcategories/{subcategoryId} nested-key merge (ADR-0016)', () => {
   it('a merge write touching one card leaves an existing untouched card byte-for-byte intact', async () => {
     const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
-    const progressRef = doc(ownerDb, `users/${OWNER_UID}/progress/sub-1`);
+    const progressRef = doc(ownerDb, `users/${OWNER_UID}/progress/details/subcategories/sub-1`);
     await setDoc(progressRef, {
       categoryId: 'cat-1',
       cards: { 'card-1': { state: 'Mastered', firstStudiedAt: new Date(0), masteredAt: new Date(0) } },
