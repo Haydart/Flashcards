@@ -1,5 +1,8 @@
 package com.rossomak.flashcards.core.domain.model
 
+import kotlin.math.ceil
+import kotlin.math.pow
+
 /**
  * Every tunable scoring number spec 05 (XP and leveling) needs, in one place — no point award, no
  * penalty, and no level-curve parameter is ever a constant in domain logic; the calculation that
@@ -56,3 +59,17 @@ data class XpConfig(
         const val CARD_DEMASTERED_MAGNITUDE = 80
     }
 }
+
+/**
+ * The total points needed to complete [level] and advance to the next one, per spec 05's curve
+ * shape: `ceil(base × level^exponent / 1000) × 1000`. A free function on [XpConfig] rather than a
+ * member, so [com.rossomak.flashcards.core.domain.usecase.CalculateSessionXpUseCase]'s level-up loop
+ * and the Session Summary's own progress-within-level display read the exact same formula — the one
+ * place a tuning change to the curve's shape, not just its parameters, would need to happen.
+ */
+fun XpConfig.levelThreshold(level: Int): Long {
+    val rounded = ceil(levelCurveBase * level.toDouble().pow(levelCurveExponent) / LEVEL_THRESHOLD_ROUNDING_UNIT)
+    return rounded.toLong() * LEVEL_THRESHOLD_ROUNDING_UNIT
+}
+
+private const val LEVEL_THRESHOLD_ROUNDING_UNIT = 1000L
