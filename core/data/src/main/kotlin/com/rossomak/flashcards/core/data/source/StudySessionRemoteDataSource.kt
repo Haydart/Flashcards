@@ -9,14 +9,17 @@ import com.rossomak.flashcards.core.domain.model.ProgressSummaryWrite
 import com.rossomak.flashcards.core.domain.model.SessionCommit
 import com.rossomak.flashcards.core.domain.model.SessionResult
 import com.rossomak.flashcards.core.domain.model.SubcategoryProgressSummaryDelta
+import com.rossomak.flashcards.core.domain.model.XpBreakdown
 import java.util.concurrent.Executor
 import javax.inject.Inject
 
 /**
  * Writes the `sessions/{sessionId}` document (ADR-0014), every [SessionCommit.progressWrites]
  * Subcategory progress document, and the [SessionCommit.progressSummaryWrite] increments (all
- * ADR-0016) — as one Firestore batch. Spec 05 adds a further scoring-state write to this same
- * [FirebaseFirestore.batch], as a further line in [commitSession] rather than a restructure.
+ * ADR-0016) — as one Firestore batch. Spec 05 ticket 02 adds the [SessionCommit.newScoringState]
+ * write (`progress/user-stats`) to this same [FirebaseFirestore.batch], as a further line in
+ * [commitSession] rather than a restructure, plus [SessionCommit.xpBreakdown] onto the session
+ * document itself via [toDocumentFields].
  *
  * **Not awaited on the success path.** Firestore's on-device persistence queues a batch locally and
  * only resolves [com.google.android.gms.tasks.Task] once connectivity returns and the backend
@@ -35,6 +38,7 @@ class StudySessionRemoteDataSource @Inject constructor(
     private val firebaseAuth: FirebaseAuth,
     private val cardProgressRemoteDataSource: CardProgressRemoteDataSource,
     private val progressSummaryRemoteDataSource: ProgressSummaryRemoteDataSource,
+    private val scoringStateRemoteDataSource: ScoringStateRemoteDataSource,
 ) {
 
     private val uid: String
@@ -62,7 +66,7 @@ class StudySessionRemoteDataSource @Inject constructor(
             .document(sessionResult.id)
 
         val batch = firestore.batch()
-        batch.set(sessionDocRef, sessionResult.toDocumentFields(sessionCommit.newCardsStudied))
+        batch.set(sessionDocRef, sessionResult.toDocumentFields(sessionCommit.newCardsStudied, sessionCommit.xpBreakdown))
         sessionCommit.progressWrites.forEach { write ->
             val progressDocRef = cardProgressRemoteDataSource.documentReference(write.subcategoryId)
             batch.set(progressDocRef, cardProgressRemoteDataSource.toMergeFields(write), SetOptions.merge())
@@ -73,6 +77,7 @@ class StudySessionRemoteDataSource @Inject constructor(
             val summaryDocRef = progressSummaryRemoteDataSource.documentReference()
             batch.set(summaryDocRef, progressSummaryRemoteDataSource.toMergeFields(sessionCommit.progressSummaryWrite), SetOptions.merge())
         }
+        batch.set(scoringStateRemoteDataSource.documentReference(), scoringStateRemoteDataSource.toSetFields(sessionCommit.newScoringState))
         batch.commit().addOnFailureListener(DIRECT_EXECUTOR) { exception -> onRejected(exception) }
     }
 
@@ -87,7 +92,11 @@ class StudySessionRemoteDataSource @Inject constructor(
      *
      * Every card this transaction still finds absent is re-derived here, from the transaction's own
      * fresh read — [SessionCommit.newCardsStudied] and its summary deltas are recomputed to match,
-     * rather than trusting the outer, possibly-stale count.
+     * rather than trusting the outer, possibly-stale count. [SessionCommit.xpBreakdown]'s `newCards`
+     * subtotal is **not** re-derived the same way: it was computed upstream from the outer count, so
+     * under the same rare race this re-verification guards against, the persisted `newCardsStudied`
+     * field can end up slightly ahead of the XP actually awarded for it. Accepted as the same class of
+     * drift as CR-69 #1, not a new hazard this ticket introduces.
      */
     private fun commitFastSession(sessionResult: SessionResult.Fast, sessionCommit: SessionCommit, onRejected: (Throwable) -> Unit) {
         val sessionDocRef = firestore
@@ -120,11 +129,12 @@ class StudySessionRemoteDataSource @Inject constructor(
                 }
             }
 
-            transaction.set(sessionDocRef, sessionResult.toDocumentFields(newCardsStudied))
+            transaction.set(sessionDocRef, sessionResult.toDocumentFields(newCardsStudied, sessionCommit.xpBreakdown))
             if (summaryDeltas.isNotEmpty()) {
                 val summaryDocRef = progressSummaryRemoteDataSource.documentReference()
                 transaction.set(summaryDocRef, progressSummaryRemoteDataSource.toMergeFields(ProgressSummaryWrite(summaryDeltas)), SetOptions.merge())
             }
+            transaction.set(scoringStateRemoteDataSource.documentReference(), scoringStateRemoteDataSource.toSetFields(sessionCommit.newScoringState))
             null
         }.addOnFailureListener(DIRECT_EXECUTOR) { exception -> onRejected(exception) }
     }
@@ -136,8 +146,13 @@ class StudySessionRemoteDataSource @Inject constructor(
      * and [FIELD_CARDS_DEMASTERED] are written as zero on every Rated document until spec 07 produces
      * a defended or de-mastered card. [newCardsStudied] comes from [CommitStudySessionUseCase][com.rossomak.flashcards.core.domain.usecase.CommitStudySessionUseCase]'s
      * read of prior progress — mode-agnostic, unlike the four counts above.
+     *
+     * [xpBreakdown]'s fields (spec 05 ticket 02), by contrast, are written for **both** modes, every
+     * one always present: unlike the Rated-only counts above, an [XpBreakdown] field a Fast session
+     * cannot earn is a genuine, always-true zero, not an undefined concept, so there is nothing to
+     * omit.
      */
-    private fun SessionResult.toDocumentFields(newCardsStudied: Int): Map<String, Any> = buildMap {
+    private fun SessionResult.toDocumentFields(newCardsStudied: Int, xpBreakdown: XpBreakdown): Map<String, Any> = buildMap {
         put(FIELD_SESSION_ID, id)
         put(FIELD_START_TIMESTAMP, Timestamp(startedAt.epochSecond, startedAt.nano))
         put(FIELD_DURATION_SECONDS, durationSeconds)
@@ -156,7 +171,21 @@ class StudySessionRemoteDataSource @Inject constructor(
             put(FIELD_CARDS_DEFENDED, 0) // spec 07 fills this in
             put(FIELD_CARDS_DEMASTERED, 0) // spec 07 fills this in
         }
+        putAll(xpBreakdown.toFields())
     }
+
+    private fun XpBreakdown.toFields(): Map<String, Any> = mapOf(
+        FIELD_XP_NEW_CARDS to newCards,
+        FIELD_XP_MASTERED to mastered,
+        FIELD_XP_PARTIAL to partial,
+        FIELD_XP_MASTERY_DEFENSE_BONUS to masteryDefenseBonus,
+        FIELD_XP_DEMASTERED to demastered,
+        FIELD_XP_TIME_STUDIED to timeStudied,
+        FIELD_XP_SESSION_COMPLETION_BONUS to sessionCompletionBonus,
+        FIELD_XP_DAILY_GOAL_BONUS to dailyGoalBonus,
+        FIELD_XP_STREAK_BONUS to streakBonus,
+        FIELD_XP_TOTAL to xpTotal,
+    )
 
     private fun FlashcardResult.toResultFields(): Map<String, Any> = buildMap {
         put(FIELD_CARD_SUBCATEGORY_ID, subcategoryId)
@@ -188,6 +217,18 @@ class StudySessionRemoteDataSource @Inject constructor(
         const val FIELD_CARDS_PARTIAL = "cardsPartial"
         const val FIELD_CARDS_DEFENDED = "cardsDefended"
         const val FIELD_CARDS_DEMASTERED = "cardsDemastered"
+
+        // spec 05 ticket 02's itemised XP breakdown, mirroring XpBreakdown's own field names 1:1.
+        const val FIELD_XP_NEW_CARDS = "newCards"
+        const val FIELD_XP_MASTERED = "mastered"
+        const val FIELD_XP_PARTIAL = "partial"
+        const val FIELD_XP_MASTERY_DEFENSE_BONUS = "masteryDefenseBonus"
+        const val FIELD_XP_DEMASTERED = "demastered"
+        const val FIELD_XP_TIME_STUDIED = "timeStudied"
+        const val FIELD_XP_SESSION_COMPLETION_BONUS = "sessionCompletionBonus"
+        const val FIELD_XP_DAILY_GOAL_BONUS = "dailyGoalBonus"
+        const val FIELD_XP_STREAK_BONUS = "streakBonus"
+        const val FIELD_XP_TOTAL = "xpTotal"
 
         const val FIELD_CARD_SUBCATEGORY_ID = "subcategoryId"
         const val FIELD_STATE = "state"

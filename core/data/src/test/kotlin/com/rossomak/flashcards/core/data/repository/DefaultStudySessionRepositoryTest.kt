@@ -4,8 +4,10 @@ import com.rossomak.flashcards.core.data.source.StudySessionRemoteDataSource
 import com.rossomak.flashcards.core.domain.model.FlashcardResult
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
 import com.rossomak.flashcards.core.domain.model.ProgressSummaryWrite
+import com.rossomak.flashcards.core.domain.model.ScoringState
 import com.rossomak.flashcards.core.domain.model.SessionCommit
 import com.rossomak.flashcards.core.domain.model.SessionResult
+import com.rossomak.flashcards.core.domain.model.XpBreakdown
 import io.kotest.matchers.shouldBe
 import io.mockk.Runs
 import io.mockk.every
@@ -48,6 +50,8 @@ class DefaultStudySessionRepositoryTest {
         newCardsStudied = 1,
         progressWrites = emptyList(),
         progressSummaryWrite = ProgressSummaryWrite(emptyMap()),
+        xpBreakdown = XpBreakdown(),
+        newScoringState = ScoringState(),
     )
 
     @Test

@@ -16,10 +16,12 @@ import com.rossomak.flashcards.core.domain.model.CardProgressUpdate
 import com.rossomak.flashcards.core.domain.model.FlashcardResult
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
 import com.rossomak.flashcards.core.domain.model.ProgressSummaryWrite
+import com.rossomak.flashcards.core.domain.model.ScoringState
 import com.rossomak.flashcards.core.domain.model.SessionCommit
 import com.rossomak.flashcards.core.domain.model.SessionResult
 import com.rossomak.flashcards.core.domain.model.SubcategoryProgressSummaryDelta
 import com.rossomak.flashcards.core.domain.model.SubcategoryProgressWrite
+import com.rossomak.flashcards.core.domain.model.XpBreakdown
 import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.mockk.every
@@ -45,14 +47,21 @@ class StudySessionRemoteDataSourceTest {
     private val documentReference: DocumentReference = mockk()
     private val progressDocumentReference: DocumentReference = mockk()
     private val progressSummaryDocumentReference: DocumentReference = mockk()
+    private val scoringStateDocumentReference: DocumentReference = mockk()
     private val writeBatch: WriteBatch = mockk()
     private val transaction: Transaction = mockk()
     private val progressSnapshot: DocumentSnapshot = mockk()
     private val cardProgressRemoteDataSource: CardProgressRemoteDataSource = mockk()
     private val progressSummaryRemoteDataSource: ProgressSummaryRemoteDataSource = mockk()
+    private val scoringStateRemoteDataSource: ScoringStateRemoteDataSource = mockk()
 
-    private fun createDataSource(): StudySessionRemoteDataSource =
-        StudySessionRemoteDataSource(firestore, firebaseAuth, cardProgressRemoteDataSource, progressSummaryRemoteDataSource)
+    private fun createDataSource(): StudySessionRemoteDataSource = StudySessionRemoteDataSource(
+        firestore,
+        firebaseAuth,
+        cardProgressRemoteDataSource,
+        progressSummaryRemoteDataSource,
+        scoringStateRemoteDataSource,
+    )
 
     @Before
     fun setUp() {
@@ -67,6 +76,8 @@ class StudySessionRemoteDataSourceTest {
         every { cardProgressRemoteDataSource.toMergeFields(any()) } returns MERGE_FIELDS
         every { progressSummaryRemoteDataSource.documentReference() } returns progressSummaryDocumentReference
         every { progressSummaryRemoteDataSource.toMergeFields(any()) } returns SUMMARY_MERGE_FIELDS
+        every { scoringStateRemoteDataSource.documentReference() } returns scoringStateDocumentReference
+        every { scoringStateRemoteDataSource.toSetFields(any()) } returns SCORING_STATE_FIELDS
 
         // Fast's commit path runs a transaction instead of a batch (CR-69 #5): the production
         // lambda is captured and invoked against a mocked Transaction so its own reads/writes are
@@ -124,7 +135,9 @@ class StudySessionRemoteDataSourceTest {
         newCardsStudied: Int = 0,
         progressWrites: List<SubcategoryProgressWrite> = emptyList(),
         progressSummaryWrite: ProgressSummaryWrite = ProgressSummaryWrite(emptyMap()),
-    ): SessionCommit = SessionCommit(sessionResult, newCardsStudied, progressWrites, progressSummaryWrite)
+        xpBreakdown: XpBreakdown = XpBreakdown(),
+        newScoringState: ScoringState = ScoringState(),
+    ): SessionCommit = SessionCommit(sessionResult, newCardsStudied, progressWrites, progressSummaryWrite, xpBreakdown, newScoringState)
 
     @Test
     fun `commits to the session document keyed by session id under the user`() {
@@ -259,6 +272,42 @@ class StudySessionRemoteDataSourceTest {
     }
 
     @Test
+    fun `the scoring-state write joins the same batch as a plain set at the fixed document id`() {
+        val newState = ScoringState(xp = 100, level = 1)
+
+        createDataSource().commitSession(commit(newScoringState = newState), onRejected = {})
+
+        verify(exactly = 1) { scoringStateRemoteDataSource.documentReference() }
+        verify(exactly = 1) { scoringStateRemoteDataSource.toSetFields(newState) }
+        verify(exactly = 1) { writeBatch.set(scoringStateDocumentReference, SCORING_STATE_FIELDS) }
+        verify(exactly = 1) { writeBatch.commit() }
+    }
+
+    @Test
+    fun `a Fast commit also writes the scoring state, inside the same transaction`() {
+        createDataSource().commitSession(commit(fastResult()), onRejected = {})
+
+        verify(exactly = 1) { scoringStateRemoteDataSource.documentReference() }
+        verify(exactly = 1) { transaction.set(scoringStateDocumentReference, SCORING_STATE_FIELDS) }
+    }
+
+    @Test
+    fun `the xp breakdown fields land on the session document alongside the aggregate counts`() {
+        val fieldsSlot = slot<Map<String, Any>>()
+        every { writeBatch.set(documentReference, capture(fieldsSlot)) } returns writeBatch
+        val breakdown = XpBreakdown(newCards = 10, mastered = 100, timeStudied = 20, sessionCompletionBonus = 500)
+
+        createDataSource().commitSession(commit(xpBreakdown = breakdown), onRejected = {})
+
+        val fields = fieldsSlot.captured
+        fields["newCards"] shouldBe 10
+        fields["mastered"] shouldBe 100
+        fields["timeStudied"] shouldBe 20
+        fields["sessionCompletionBonus"] shouldBe 500
+        fields["xpTotal"] shouldBe breakdown.xpTotal
+    }
+
+    @Test
     fun `a rejected commit invokes onRejected with the exception`() {
         val error = Exception("permission denied")
         every { writeBatch.commit() } returns Tasks.forException(error)
@@ -284,5 +333,6 @@ class StudySessionRemoteDataSourceTest {
         const val UID = "user-1"
         val MERGE_FIELDS: Map<String, Any> = mapOf("categoryId" to "cat-1", "cards" to mapOf("card-1" to mapOf("state" to "Mastered")))
         val SUMMARY_MERGE_FIELDS: Map<String, Any> = mapOf("subcategories" to mapOf("sub-1" to mapOf("masteredCount" to 1, "studiedCount" to 1)))
+        val SCORING_STATE_FIELDS: Map<String, Any> = mapOf("xp" to 100L, "level" to 1)
     }
 }
