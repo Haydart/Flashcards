@@ -2,8 +2,10 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
+    <ID>TooGenericExceptionCaught:DefaultCardProgressRepository.kt$DefaultCardProgressRepository$exception: Exception</ID>
     <ID>TooGenericExceptionCaught:DefaultCurationRepository.kt$DefaultCurationRepository$exception: Exception</ID>
     <ID>TooGenericExceptionCaught:DefaultFlashcardRepository.kt$DefaultFlashcardRepository$exception: Exception</ID>
+    <ID>TooGenericExceptionCaught:DefaultStudySessionRepository.kt$DefaultStudySessionRepository$exception: Exception</ID>
     <ID>TooGenericExceptionCaught:DefaultVoiceAnswerGradingRepository.kt$DefaultVoiceAnswerGradingRepository$exception: Exception</ID>
     <ID>TooGenericExceptionCaught:FirebaseAuthRemoteDataSource.kt$FirebaseAuthRemoteDataSource$exception: Exception</ID>
     <ID>TooGenericExceptionCaught:RealVoiceGradingApi.kt$RealVoiceGradingApi$exception: Exception</ID>

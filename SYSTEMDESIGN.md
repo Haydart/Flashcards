@@ -191,13 +191,13 @@ Everything is written **once, at the Session Summary screen, in a single atomic 
 
 The batch contains:
 - `users/{uid}/sessions/{sessionId}` — the Session Result, with its per-card `cardResults` map embedded. The document's own shape follows its `studyMode`: a Rated document carries Mastered/Partial/Defended/De-mastered counts and its `cardResults` entries carry Attempts used and a previously-mastered flag; a Fast document has none of those fields at all, not zeroed ones — Fast has no Ratings, Attempts or mastery to report
-- `users/{uid}/progress/{subcategoryId}` — one packed progress document per Subcategory touched ([ADR-0016](docs/adr/0016-card-progress-model.md))
-- `users/{uid}/state/progressSummary` — nested-key `masteredCount` / `studiedCount` increments
-- `users/{uid}/state/progression` — `xp`, `level`, `xpIntoCurrentLevel`, `currentStreak`, `bestStreak`, `lastStudyDate`, `goalMetDate`
+- `users/{uid}/progress/details/subcategories/{subcategoryId}` — one packed progress document per Subcategory touched ([ADR-0016](docs/adr/0016-card-progress-model.md))
+- `users/{uid}/progress/summary` — nested-key `masteredCount` / `studiedCount` increments
+- `users/{uid}/progress/user-stats` — `xp`, `level`, `xpIntoCurrentLevel`, `currentStreak`, `bestStreak`, `lastStudyDate`, `goalMetDate`
 
-**This four-write count is the end state**, once `state/progression` exists. Until then a single-Subcategory session is **three writes** — session, `progress`, `progressSummary` — and `state/progression` is not written at all. In the end state a single-Subcategory session is four writes; a composite session adds one further packed-progress write per additional Subcategory touched. Firestore bills per operation, so the write count is what the schema is shaped around. See [ADR-0014](docs/adr/0014-session-stats-written-at-summary-screen.md)'s scope note for which of these is true at any given point.
+**This four-write count is the end state**, once `progress/user-stats` exists. Until then a single-Subcategory session is **three writes** — session, `progress/details/subcategories/{subcategoryId}`, `progress/summary` — and `progress/user-stats` is not written at all. In the end state a single-Subcategory session is four writes; a composite session adds one further packed-progress write per additional Subcategory touched. Firestore bills per operation, so the write count is what the schema is shaped around. See [ADR-0014](docs/adr/0014-session-stats-written-at-summary-screen.md)'s scope note for which of these is true at any given point.
 
-**Concurrency is not addressed.** The batch is atomic but not transactional against concurrently-read state: two sessions racing on the same Subcategory (two devices, or two tabs) can both read the same pre-session `progress` document and both apply their `FieldValue.increment` deltas, double-counting `studiedCount`/`masteredCount` and XP. This is an accepted limitation for a single-account academic project, not a designed-around case — a future multi-device-concurrent design would need a transaction that re-reads `progress` and `state/progression` at commit time.
+**Concurrency is not addressed.** The batch is atomic but not transactional against concurrently-read state: two sessions racing on the same Subcategory (two devices, or two tabs) can both read the same pre-session `progress/details/subcategories/{subcategoryId}` document and both apply their `FieldValue.increment` deltas, double-counting `studiedCount`/`masteredCount` and XP. This is an accepted limitation for a single-account academic project, not a designed-around case — a future multi-device-concurrent design would need a transaction that re-reads that document and `progress/user-stats` at commit time.
 
 ### Study Session Summary Screen
 
@@ -319,7 +319,7 @@ subcategories/{categoryId-subSlug}/shards/{n}         → { flashcards: { "<card
 // Cache freshness signal (ADR-0039)
 meta/seed                                             → { value: Int }  // monotonic, bumped by seed_firestore.py
 
-// Per-user — admin-managed identity data only; scoring state lives under state/, not here
+// Per-user — admin-managed identity data only; scoring state lives under progress/, not here
 users/{uid}                                           → {}  // no client-writable fields today
 users/{uid}/entitlement/premium                       → { isPremium }  // Admin SDK only, functions/src/lib/entitlement.ts
 users/{uid}/favorites/{subcategoryId}                 → { createdAt }
@@ -338,13 +338,15 @@ users/{uid}/sessions/{sessionId}                      → { sessionId, startTime
                                                           // RATED entries only:
                                                           attemptsUsed, wasPreviouslyMastered
                                                           } }  // no transcript, ever
-users/{uid}/progress/{subcategoryId}                  → { categoryId,
+// progress/details is a fixed anchor doc with no fields of its own, hosting the real
+// subcategories subcollection — Firestore can't nest a collection directly inside a collection.
+users/{uid}/progress/details/subcategories/{subcategoryId} → { categoryId,
                                                           cards: { <cardId>: {
                                                             state: Seen|Failed|Partial|Mastered,
                                                             firstStudiedAt, masteredAt? } } }
-users/{uid}/state/progressSummary                     → { subcategories: { <subcategoryId>: {
+users/{uid}/progress/summary                          → { subcategories: { <subcategoryId>: {
                                                             masteredCount, studiedCount } } }
-users/{uid}/state/progression                         → { xp, level, xpIntoCurrentLevel,
+users/{uid}/progress/user-stats                       → { xp, level, xpIntoCurrentLevel,
                                                           currentStreak, bestStreak,
                                                           lastStudyDate, goalMetDate }
 users/{uid}/privateCards/{subcategoryId}/flashcards/{cardId} → { question, answer, tags[], difficulty, status, createdAt }
@@ -367,13 +369,13 @@ users/{uid}/curationRequests/{cardId}                       → { subcategoryId:
 - **Tags are flat untyped strings** in `tags[]` on each Flashcard. No `tags/` collection. See [ADR-0006](docs/adr/0006-flat-denormalized-tags.md).
 - **Category `iconUrl`**: absolute HTTPS URL. No Firebase Storage SDK dependency in UI layer.
 - **`sessions` is the single session collection** for both Study Modes, and **one session is one document**: aggregates, denormalized names (`categoryName`, `subcategoryNames[]`, `cardCount`) and the per-card results embedded as a `cardResults` map. Home's Recents carousel renders from one `orderBy(startTimestamp).limit(n)` query with no joins. `cardResults` is embedded rather than split into a subcollection because Firestore bills per document read — splitting saved Recents no reads while costing a write per card. The document is sealed by `studyMode`: Rated-only counters (`cardsMastered`, `cardsPartial`, `cardsDefended`, `cardsDemastered`) and Rated-only `cardResults` fields (`attemptsUsed`, `wasPreviouslyMastered`) are **absent** on a Fast document, not written as 0 — Fast has no Ratings, Attempts or mastery to report. **Not yet written** — see Session Termination.
-- **`progress` is one packed document per Subcategory per User**, holding a `cards` map keyed by card id, and carries both progress sets: a key exists iff the Flashcard is **Studied**, and its `state == Mastered` iff it is in **Persistent Mastery**. De-mastery moves `state` down rather than removing the key, so coverage never regresses. Written by **both** Study Modes — Rated writes the Terminal State, Fast writes `Seen` only where no entry exists. **Private Flashcards never receive one.** Packing makes a session's progress cost one write per Subcategory instead of one per card, and makes any screen's progress read a single document. See [ADR-0016](docs/adr/0016-card-progress-model.md).
-- **`state/progressSummary` is a single document per User** holding every Subcategory's `masteredCount` and `studiedCount`, so Category Details draws every ring on the screen from **one read**. The denominator is `Subcategory.cardCount` from the taxonomy, already loaded by the screens that draw rings, so it is duplicated nowhere. The denominator excludes Private Flashcards, so the card count printed beside a ring must exclude them too.
+- **`progress/details/subcategories/{subcategoryId}` is one packed document per Subcategory per User**, holding a `cards` map keyed by card id, and carries both progress sets: a key exists iff the Flashcard is **Studied**, and its `state == Mastered` iff it is in **Persistent Mastery**. De-mastery moves `state` down rather than removing the key, so coverage never regresses. Written by **both** Study Modes — Rated writes the Terminal State, Fast writes `Seen` only where no entry exists. **Private Flashcards never receive one.** Packing makes a session's progress cost one write per Subcategory instead of one per card, and makes any screen's progress read a single document. `details` is a fixed anchor document with no fields of its own, hosting the real `subcategories` subcollection — Firestore can't nest a collection directly inside a collection, so the packed documents sit one hop below the `progress` collection's own singletons. See [ADR-0016](docs/adr/0016-card-progress-model.md).
+- **`progress/summary` is a single document per User** holding every Subcategory's `masteredCount` and `studiedCount`, so Category Details draws every ring on the screen from **one read**. The denominator is `Subcategory.cardCount` from the taxonomy, already loaded by the screens that draw rings, so it is duplicated nowhere. The denominator excludes Private Flashcards, so the card count printed beside a ring must exclude them too.
 - Private Flashcard `status`: `"private" | "submitted" | "approved"` — promotion pipeline to global pool.
 - **`curationRequests/{cardId}` is a flat collection** keyed by globally-unique cardId. Stores structured content-fix directives raised by any user via the in-session "Report a problem" dialog, consumed by admin sync scripts — not surfaced back to users anywhere in the app. Actions are a map of `CurationAction` string → `{ flaggedAt }`. Doc is deleted when all actions are removed. See [ADR-0017](docs/adr/0017-curation-report-system.md).
 - Offline: Firestore Android SDK built-in persistence. No Room needed.
-- **`state` holds the User's singleton documents** — the progress summary and the scoring state. Firestore paths alternate collection and document, so each per-User singleton needs a fixed document id inside a collection; one security rule covers them all.
-- **Scoring state is deliberately NOT on `users/{uid}`.** Entitlement is a separate document, `users/{uid}/entitlement/premium` (`functions/src/lib/entitlement.ts`), written only by the Admin SDK and read server-side by the premium Cloud Function; that subcollection is default-denied regardless of any rule on the parent `users/{uid}` document. The real reason scoring state lives under `state/` instead is separation of concerns, not privilege escalation: `users/{uid}` is reserved for identity/admin-managed data, while `state/progression` is the one document a session commit needs to touch and nothing else. `dailyGoalMinutes` is likewise absent — it is device-scoped local state that Settings already owns.
+- **`progress` holds the User's singleton documents** — the progress summary (`summary`) and the scoring state (`user-stats`) — alongside the fixed `details` anchor document that hosts the packed per-Subcategory documents one hop deeper. Firestore paths alternate collection and document, so each per-User singleton needs a fixed document id inside a collection; one security rule covers them all.
+- **Scoring state is deliberately NOT on `users/{uid}`.** Entitlement is a separate document, `users/{uid}/entitlement/premium` (`functions/src/lib/entitlement.ts`), written only by the Admin SDK and read server-side by the premium Cloud Function; that subcollection is default-denied regardless of any rule on the parent `users/{uid}` document. The real reason scoring state lives under `progress/` instead is separation of concerns, not privilege escalation: `users/{uid}` is reserved for identity/admin-managed data, while `progress/user-stats` is the one document a session commit needs to touch and nothing else. `dailyGoalMinutes` is likewise absent — it is device-scoped local state that Settings already owns.
 - **Partial is a Terminal State**, written to Firestore as a card's progress `state` and counted on the session record — not an in-session mechanic only.
 
 ## Flashcard Selection Algorithm

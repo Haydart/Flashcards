@@ -9,69 +9,124 @@ import java.time.Instant
  * Attempt (a silence timeout consumes no Attempt and does not qualify); Fast means the card's answer
  * was shown.
  *
+ * Sealed by Study Mode, mirroring the persisted `sessions/{id}` document
+ * ([ADR-0014](../../../../../../../docs/adr/0014-session-stats-written-at-summary-screen.md)):
+ * [Rated] carries Attempts and the previously-mastered flag, [Fast] carries neither at all — not a
+ * zeroed or falsed placeholder, genuinely absent from the type, because Fast has no Ratings, no
+ * Attempts and no mastery concept to report. `state` stays the one field both variants share: both
+ * modes do have a genuine outcome, just one each variant's mode can actually produce.
+ *
  * Carries no transcript. A voice-answered card's sanitized transcript is shown on screen
  * transiently, during the session, to display grading feedback, and is discarded once the card is
  * graded — it never reaches this type.
  *
- * Private Flashcards must never appear in [SessionResult.cardResults] of either mode, and are
+ * Private Flashcards must never appear in [SessionResult.cardResults] of either variant, and are
  * excluded from all progress accounting. The `Flashcard` model has no privacy field yet, so that
  * exclusion is recorded here as an invariant for whichever change introduces one — no field or
  * filter exists for it today.
- *
- * @param wasPreviouslyMastered threaded from [RatedSessionCardRecord.wasPreviouslyMastered] for a
- * Rated card, always `false` for a Fast one — Fast has no such record to read one from. Spec 07's
- * Mastery Defense is what finally sets the upstream field to `true`; this type only carries it
- * through.
  */
-data class FlashcardResult(
-    val cardId: String,
-    val subcategoryId: String,
-    val state: FlashcardStudyProgressState,
-    val attemptsUsed: Int,
-    val wasPreviouslyMastered: Boolean,
-)
+sealed interface FlashcardResult {
+    val cardId: String
+    val subcategoryId: String
+    val state: FlashcardStudyProgressState
+
+    /** @param wasPreviouslyMastered threaded from [RatedSessionCardRecord.wasPreviouslyMastered]. Spec 07's
+     * Mastery Defense is what finally sets the upstream field to `true`; this type only carries it through. */
+    data class Rated(
+        override val cardId: String,
+        override val subcategoryId: String,
+        override val state: FlashcardStudyProgressState,
+        val attemptsUsed: Int,
+        val wasPreviouslyMastered: Boolean,
+    ) : FlashcardResult
+
+    /** Fast's only possible [state] is [FlashcardStudyProgressState.Seen] — there is no Attempts or mastery field to carry. */
+    data class Fast(
+        override val cardId: String,
+        override val subcategoryId: String,
+        override val state: FlashcardStudyProgressState,
+    ) : FlashcardResult
+}
 
 /**
  * What happened in one Study Session of either [StudyMode] — the complete record handed to the
  * Session Summary screen, and the one shape everything downstream (spec 04's persistence, spec 05's
- * scoring) reads, rather than a type per mode.
+ * scoring) reads, rather than a type per mode living outside this hierarchy.
  *
- * @param id the session's identity, generated when the session starts.
- * @param startedAt when the first card was actually shown, not route entry — a session whose card
- * load fails never banks time.
- * @param durationSeconds an `Int`, matching [ADR-0014](../../../../../../../docs/adr/0014-session-stats-written-at-summary-screen.md)'s
- * persisted `durationSeconds` field. Measured by a [SessionClock]; rounded exactly once, there.
- * @param abandoned `true` when the session ended via exit confirmation before the deck was
- * exhausted, `false` on a natural end.
- * @param categoryName and [subcategoryNames] are carried alongside their ids so a stored session
- * can be displayed later without a lookup (ADR-0014).
- * @param cardResults one [FlashcardResult] per Studied card. The Mastered/Partial/Failed counts
- * below are *derived* from it rather than stored alongside it, so they cannot disagree with it —
- * this governs this in-memory type only. ADR-0014's persisted `sessions/{id}` document separately
- * stores its own such counts, computed from this same list once, at commit time (spec 04); the two
- * rules apply to different layers and do not conflict.
+ * Sealed by Study Mode, same reasoning as [FlashcardResult]: [Rated]'s Mastered/Partial/Failed counts
+ * exist only on that variant, not as a zero on [Fast] — [Fast] structurally cannot tally outcomes it
+ * has no Terminal States to produce. [mode] is deliberately not a stored field on either
+ * variant — a stored `mode` alongside the sealed branch would be a second discriminant that could
+ * disagree with the branch itself; it is derived from `this` instead, so there is exactly one source
+ * of truth for which mode a result belongs to.
  */
-data class SessionResult(
-    val id: String,
-    val mode: StudyMode,
-    val startedAt: Instant,
-    val durationSeconds: Int,
-    val abandoned: Boolean,
-    val categoryId: String,
-    val categoryName: String,
-    val subcategoryIds: List<String>,
-    val subcategoryNames: List<String>,
-    val cardResults: List<FlashcardResult>,
-) {
-    /** How many cards were Studied. Both modes report this. */
+sealed interface SessionResult {
+    /** the session's identity, generated when the session starts. */
+    val id: String
+
+    /** when the first card was actually shown, not route entry — a session whose card load fails never banks time. */
+    val startedAt: Instant
+
+    /** an `Int`, matching [ADR-0014](../../../../../../../docs/adr/0014-session-stats-written-at-summary-screen.md)'s
+     * persisted `durationSeconds` field. Measured by a [SessionClock]; rounded exactly once, there. */
+    val durationSeconds: Int
+
+    /** `true` when the session ended via exit confirmation before the deck was exhausted, `false` on a natural end. */
+    val abandoned: Boolean
+    val categoryId: String
+
+    /** carried alongside its id so a stored session can be displayed later without a lookup (ADR-0014). */
+    val categoryName: String
+    val subcategoryIds: List<String>
+
+    /** carried alongside their ids, same reason as [categoryName] (ADR-0014). */
+    val subcategoryNames: List<String>
+
+    /** one [FlashcardResult] per Studied card. */
+    val cardResults: List<FlashcardResult>
+
+    /** Derived from the sealed branch — see the type's own KDoc for why this is never a stored field. */
+    val mode: StudyMode
+        get() = when (this) {
+            is Rated -> StudyMode.Rated
+            is Fast -> StudyMode.Fast
+        }
+
+    /** How many cards were Studied. Both variants report this. */
     val studiedCount: Int get() = cardResults.size
 
-    /** Always 0 for a Fast result — Fast never produces [FlashcardStudyProgressState.Mastered]. */
-    val masteredCount: Int get() = cardResults.count { it.state == FlashcardStudyProgressState.Mastered }
+    data class Rated(
+        override val id: String,
+        override val startedAt: Instant,
+        override val durationSeconds: Int,
+        override val abandoned: Boolean,
+        override val categoryId: String,
+        override val categoryName: String,
+        override val subcategoryIds: List<String>,
+        override val subcategoryNames: List<String>,
+        override val cardResults: List<FlashcardResult.Rated>,
+    ) : SessionResult {
+        /**
+         * The three Terminal State counts below are *derived* from [cardResults] rather than stored
+         * alongside it, so they cannot disagree with it — this governs this in-memory type only.
+         * ADR-0014's persisted `sessions/{id}` document separately stores its own such counts,
+         * computed from this same list once, at commit time (spec 04); the two rules apply to
+         * different layers and do not conflict.
+         */
+        val masteredCount: Int get() = cardResults.count { it.state == FlashcardStudyProgressState.Mastered }
+        val partialCount: Int get() = cardResults.count { it.state == FlashcardStudyProgressState.Partial }
+        val failedCount: Int get() = cardResults.count { it.state == FlashcardStudyProgressState.Failed }
+    }
 
-    /** Always 0 for a Fast result — Fast never produces [FlashcardStudyProgressState.Partial]. */
-    val partialCount: Int get() = cardResults.count { it.state == FlashcardStudyProgressState.Partial }
-
-    /** Always 0 for a Fast result — Fast never produces [FlashcardStudyProgressState.Failed]. */
-    val failedCount: Int get() = cardResults.count { it.state == FlashcardStudyProgressState.Failed }
+    data class Fast(
+        override val id: String,
+        override val startedAt: Instant,
+        override val durationSeconds: Int,
+        override val abandoned: Boolean,
+        override val categoryId: String,
+        override val categoryName: String,
+        override val subcategoryIds: List<String>,
+        override val subcategoryNames: List<String>,
+        override val cardResults: List<FlashcardResult.Fast>,
+    ) : SessionResult
 }

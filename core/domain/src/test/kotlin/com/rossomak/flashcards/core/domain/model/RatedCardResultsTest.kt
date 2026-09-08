@@ -54,14 +54,14 @@ class RatedCardResultsTest {
         val cardResults = sealRatedCardResults(afterCard2.state, abandoned = false)
 
         cardResults shouldContainExactlyInAnyOrder listOf(
-            FlashcardResult(
+            FlashcardResult.Rated(
                 cardId = "card-1",
                 subcategoryId = "sub-1",
                 state = FlashcardStudyProgressState.Mastered,
                 attemptsUsed = 1,
                 wasPreviouslyMastered = false,
             ),
-            FlashcardResult(
+            FlashcardResult.Rated(
                 cardId = "card-2",
                 subcategoryId = "sub-1",
                 state = FlashcardStudyProgressState.Failed,
@@ -99,7 +99,7 @@ class RatedCardResultsTest {
         val cardResults = sealRatedCardResults(afterPartial.state, abandoned = true)
 
         cardResults shouldContainExactlyInAnyOrder listOf(
-            FlashcardResult(
+            FlashcardResult.Rated(
                 cardId = "card-1",
                 subcategoryId = "sub-1",
                 state = FlashcardStudyProgressState.Partial,

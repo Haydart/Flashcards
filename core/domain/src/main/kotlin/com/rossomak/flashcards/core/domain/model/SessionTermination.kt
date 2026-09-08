@@ -13,5 +13,9 @@ import java.time.Instant
  */
 fun sealSessionResult(result: SessionResult, clock: SessionClock, at: Instant): SessionResult {
     val stoppedClock = stopClock(clock, at)
-    return result.copy(durationSeconds = elapsedSeconds(stoppedClock, at))
+    val durationSeconds = elapsedSeconds(stoppedClock, at)
+    return when (result) {
+        is SessionResult.Rated -> result.copy(durationSeconds = durationSeconds)
+        is SessionResult.Fast -> result.copy(durationSeconds = durationSeconds)
+    }
 }

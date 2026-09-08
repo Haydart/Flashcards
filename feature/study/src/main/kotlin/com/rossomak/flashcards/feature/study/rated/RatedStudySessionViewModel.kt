@@ -3,11 +3,12 @@ package com.rossomak.flashcards.feature.study.rated
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.rossomak.flashcards.core.domain.model.CardProgressEntry
 import com.rossomak.flashcards.core.domain.model.FlashcardAttemptRating
+import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
 import com.rossomak.flashcards.core.domain.model.RatedSessionState
 import com.rossomak.flashcards.core.domain.model.SessionClock
 import com.rossomak.flashcards.core.domain.model.SessionResult
-import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.UserPreference.VoiceAnswerConsent as VoiceAnswerConsentPreference
 import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
 import com.rossomak.flashcards.core.domain.model.VoiceOption
@@ -18,7 +19,7 @@ import com.rossomak.flashcards.core.domain.model.sealRatedCardResults
 import com.rossomak.flashcards.core.domain.model.sealSessionResult
 import com.rossomak.flashcards.core.domain.model.startClock
 import com.rossomak.flashcards.core.domain.model.toFlashcardAttemptRating
-import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
+import com.rossomak.flashcards.core.domain.usecase.GetSessionStartDataUseCase
 import com.rossomak.flashcards.core.domain.usecase.ObserveUserPreferencesUseCase
 import com.rossomak.flashcards.core.domain.usecase.SaveUserPreferenceUseCase
 import com.rossomak.flashcards.core.domain.usecase.SubmitCurationReportUseCase
@@ -48,10 +49,7 @@ import java.util.UUID
 import javax.inject.Inject
 import kotlin.random.Random
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -82,7 +80,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class RatedStudySessionViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val getFlashcards: GetFlashcardsUseCase,
+    private val getSessionStartData: GetSessionStartDataUseCase,
     private val submitCurationReport: SubmitCurationReportUseCase,
     private val observeUserPreferences: ObserveUserPreferencesUseCase,
     private val saveUserPreference: SaveUserPreferenceUseCase,
@@ -141,6 +139,18 @@ class RatedStudySessionViewModel @Inject constructor(
     // Seeded once the routed cards resolve (loadFlashcards); null only during that initial load.
     private var ratedSessionState: RatedSessionState? = null
 
+    // Session-start-only signal (ticket 04 of spec 04 session persistence): one packed progress
+    // document read per Subcategory in the route's scope, merged into cardId -> CardProgressEntry.
+    // Its scope is the session's scope, decided before anything is studied — it can end up strictly
+    // larger than what CommitStudySessionUseCase's own prior-state read later touches (an abandoned
+    // session, or a drawn Subcategory never reached), and that is not a bug to reconcile, just waste.
+    // A failed read (offline, permissions, ...) leaves this empty rather than blocking the session;
+    // every card is then simply not-previously-mastered / new, same as CommitStudySessionUseCase's
+    // KDoc already states for why the commit never trusts this signal and re-reads itself instead.
+    // Exposed internally only for test assertions — nothing in the UI reads it (not in this ticket).
+    internal var priorProgressByCardId: Map<String, CardProgressEntry> = emptyMap()
+        private set
+
     private val isExtendedContextDialogOpen: Boolean
         get() = _state.value.activeDialog is ExtendedContext
 
@@ -189,22 +199,27 @@ class RatedStudySessionViewModel @Inject constructor(
     private fun loadFlashcards() {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
-            val results = coroutineScope {
-                route.subcategoryIds
-                    .map { subcategoryId -> async { getFlashcards(subcategoryId) } }
-                    .awaitAll()
-            }
-            if (results.any { it.isFailure }) {
-                _state.update { it.copy(isLoading = false, error = "Could not load flashcards") }
+            val sessionStartData = getSessionStartData(route.subcategoryIds)
+            val flashcards = sessionStartData.flashcardsResult.getOrElse { _ ->
+                _state.update { state -> state.copy(isLoading = false, error = "Could not load flashcards") }
                 return@launch
             }
-            val cardsById = results.flatMap { it.getOrThrow() }.associateBy { it.id }
+            // A failed Subcategory progress read and a never-studied one are already folded into
+            // "no entries" by GetSessionStartDataUseCase — never fatal, never surfaced, exactly the
+            // graceful degradation ticket 04 asks for.
+            priorProgressByCardId = sessionStartData.priorProgressByCardId
+
+            val cardsById = flashcards.associateBy { it.id }
             val sessionCards = route.cardIds.mapNotNull(cardsById::get)
+            val previouslyMasteredCardIds = priorProgressByCardId
+                .filterValues { it.state == FlashcardStudyProgressState.Mastered }
+                .keys
             ratedSessionState = RatedSessionState.seed(
                 cards = sessionCards,
                 attemptsLimit = route.ratedAttempts,
                 partialRatingCardRequeueingEnabled = route.partialRatingCardRequeueingEnabled,
                 random = random,
+                previouslyMasteredCardIds = previouslyMasteredCardIds,
             )
             _state.update { it.copy(isLoading = false) }
             syncStateFromRatedSession()
@@ -778,9 +793,8 @@ class RatedStudySessionViewModel @Inject constructor(
         terminated = true
         val at = now()
         val cardResults = ratedSessionState?.let { sealRatedCardResults(it, abandoned) } ?: emptyList()
-        val placeholderResult = SessionResult(
+        val placeholderResult = SessionResult.Rated(
             id = sessionId,
-            mode = StudyMode.Rated,
             startedAt = sessionStartedAt ?: at,
             durationSeconds = 0, // overwritten by sealSessionResult below
             abandoned = abandoned,

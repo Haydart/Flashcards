@@ -26,7 +26,7 @@ single **progress summary** document per User (rollup counts, for cheap ring rea
 ### Packed progress, one document per Subcategory
 
 ```
-users/{uid}/progress/{subcategoryId}
+users/{uid}/progress/details/subcategories/{subcategoryId}
 
 categoryId: String
 cards: {                       // keyed by cardId; only studied cards appear
@@ -62,7 +62,7 @@ trivially farmable.
 ### Progress summary, one document per User
 
 ```
-users/{uid}/state/progressSummary
+users/{uid}/progress/summary
 
 subcategories: {               // keyed by subcategoryId
   <subcategoryId>: { masteredCount: Int, studiedCount: Int }
@@ -132,7 +132,7 @@ in the document untouched — and accumulates two deltas:
 - `studiedDelta`: +1 per Flashcard that had no entry before, 0 otherwise
 
 One `progress/{subcategoryId}` write joins the batch per touched Subcategory — in practice one, since
-a session is usually scoped to a single Subcategory — plus one `state/progressSummary` write carrying every
+a session is usually scoped to a single Subcategory — plus one `progress/summary` write carrying every
 Subcategory's increments as nested-key `FieldValue.increment`s.
 
 `FieldValue.increment()` on a missing field or document starts from 0 and creates it via merge, so
@@ -149,7 +149,7 @@ for a single-account project, same as noted in [ADR-0014](../adr/0014-session-st
 
 ## Reading progress
 
-- **Category Details** (all topics in one Category, rings for each): `state/progressSummary` — **one
+- **Category Details** (all topics in one Category, rings for each): `progress/summary` — **one
   document**, regardless of how many Subcategories are shown. Both ring perspectives render from it.
 - **Home progress displays**: the same single document.
 - **Subcategory Details** (per-card filtering by Mastered / Studied / Unseen): the packed
@@ -159,7 +159,7 @@ for a single-account project, same as noted in [ADR-0014](../adr/0014-session-st
   (for new-card XP) and which were previously mastered (for defense accounting). **The Firestore
   `whereIn` 30-id cap no longer applies to any progress read** — session length is irrelevant to the
   read count.
-- **Search results** (topics matched across Categories): `state/progressSummary` — one document, from which
+- **Search results** (topics matched across Categories): `progress/summary` — one document, from which
   the matched Subcategories' counts are picked out in memory.
 - **Browse default list**: no progress read — it shows a topic *count* per Category, not per-topic
   percentages.

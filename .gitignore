@@ -53,3 +53,12 @@ core/voice/build/
 # Firebase Cloud Functions
 functions/node_modules/
 functions/lib/
+
+# Firestore rules tests
+firestore-tests/node_modules/
+
+# Firebase emulator run artifacts
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+.firebase/

@@ -3,17 +3,17 @@ package com.rossomak.flashcards.feature.study.fast
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.rossomak.flashcards.core.domain.model.CardProgressEntry
 import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.core.domain.model.FlashcardResult
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
 import com.rossomak.flashcards.core.domain.model.SessionClock
 import com.rossomak.flashcards.core.domain.model.SessionResult
-import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.VoiceOption
 import com.rossomak.flashcards.core.domain.model.VoiceSettings as SavedVoiceSettings
 import com.rossomak.flashcards.core.domain.model.sealSessionResult
 import com.rossomak.flashcards.core.domain.model.startClock
-import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
+import com.rossomak.flashcards.core.domain.usecase.GetSessionStartDataUseCase
 import com.rossomak.flashcards.core.domain.usecase.SubmitCurationReportUseCase
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Confirm
 import com.rossomak.flashcards.core.ui.dialog.DialogEvent.Dismiss
@@ -40,10 +40,7 @@ import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -63,7 +60,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class FastStudySessionViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val getFlashcards: GetFlashcardsUseCase,
+    private val getSessionStartData: GetSessionStartDataUseCase,
     private val submitCurationReport: SubmitCurationReportUseCase,
     private val voiceGateway: VoiceGateway,
     private val voiceSettingsController: VoiceSettingsController,
@@ -132,6 +129,17 @@ class FastStudySessionViewModel @Inject constructor(
     // revisited card (skip-previous) a no-op, satisfying idempotency for free.
     private val seenCardIds = linkedSetOf<String>()
 
+    // Session-start-only signal (ticket 04 of spec 04 session persistence): one packed progress
+    // document read per Subcategory in the route's scope, merged into cardId -> CardProgressEntry.
+    // Fast has no mastery concept — only the new-entry half (a cardId absent here) matters, and even
+    // that is in-session-only, feeding spec 05's new-card scoring bonus, never written to
+    // FlashcardResult or any persisted document by this ticket. A failed read (offline, permissions,
+    // ...) leaves this empty rather than blocking the session; every card is then simply not-new for
+    // scoring purposes, an acceptable price for a session that still runs. Exposed internally only
+    // for test assertions — nothing in the UI reads it (not in this ticket).
+    internal var priorProgressByCardId: Map<String, CardProgressEntry> = emptyMap()
+        private set
+
     init {
         loadFlashcards()
         observeVoiceState()
@@ -142,16 +150,17 @@ class FastStudySessionViewModel @Inject constructor(
     private fun loadFlashcards() {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
-            val results = coroutineScope {
-                route.subcategoryIds
-                    .map { subcategoryId -> async { getFlashcards(subcategoryId) } }
-                    .awaitAll()
-            }
-            if (results.any { it.isFailure }) {
-                _state.update { it.copy(isLoading = false, error = R.string.study_session_load_error_message) }
+            val sessionStartData = getSessionStartData(route.subcategoryIds)
+            val flashcards = sessionStartData.flashcardsResult.getOrElse { _ ->
+                _state.update { state -> state.copy(isLoading = false, error = R.string.study_session_load_error_message) }
                 return@launch
             }
-            val cardsById = results.flatMap { it.getOrThrow() }.associateBy { it.id }
+            // A failed Subcategory progress read and a never-studied one are already folded into
+            // "no entries" by GetSessionStartDataUseCase — never fatal, never surfaced, exactly the
+            // graceful degradation ticket 04 asks for.
+            priorProgressByCardId = sessionStartData.priorProgressByCardId
+
+            val cardsById = flashcards.associateBy { it.id }
             val sessionCards = route.cardIds.mapNotNull(cardsById::get)
             _state.update {
                 it.copy(
@@ -541,9 +550,8 @@ class FastStudySessionViewModel @Inject constructor(
         if (terminated) return
         terminated = true
         val at = now()
-        val placeholderResult = SessionResult(
+        val placeholderResult = SessionResult.Fast(
             id = sessionId,
-            mode = StudyMode.Fast,
             startedAt = sessionStartedAt ?: at,
             durationSeconds = 0, // overwritten by sealSessionResult below
             abandoned = abandoned,
@@ -560,20 +568,18 @@ class FastStudySessionViewModel @Inject constructor(
     }
 
     /**
-     * One [FlashcardResult] per [seenCardIds], in first-seen order — Fast's definition of
-     * Studied (spec 03 ticket 03). Every entry is [FlashcardStudyProgressState.Seen] with zero Attempts
-     * and `wasPreviouslyMastered` unset — Fast has no `RatedSessionCardRecord` to read either from.
+     * One [FlashcardResult.Fast] per [seenCardIds], in first-seen order — Fast's definition of
+     * Studied (spec 03 ticket 03). Every entry is [FlashcardStudyProgressState.Seen] — Fast has no
+     * Attempts or `wasPreviouslyMastered` field to carry at all.
      */
-    private fun sealFastCardResults(): List<FlashcardResult> {
+    private fun sealFastCardResults(): List<FlashcardResult.Fast> {
         val cardsById = _state.value.flashcards.associateBy(Flashcard::id)
         return seenCardIds.mapNotNull { cardId ->
             cardsById[cardId]?.let { card ->
-                FlashcardResult(
+                FlashcardResult.Fast(
                     cardId = card.id,
                     subcategoryId = card.subcategoryId,
                     state = FlashcardStudyProgressState.Seen,
-                    attemptsUsed = 0,
-                    wasPreviouslyMastered = false,
                 )
             }
         }

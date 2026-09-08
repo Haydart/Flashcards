@@ -110,10 +110,10 @@ snapshot ([ADR-0047](0047-xp-values-behind-a-config-repository.md)), then perfor
 batched write**:
 
 - the `sessions/{sessionId}` document, `cardResults` included
-- `progress/{subcategoryId}` — one packed progress document per Subcategory touched
-  ([ADR-0016](0016-card-progress-model.md))
-- `users/{uid}/state/progressSummary` — nested-key counter increments
-- `users/{uid}/state/progression` — `xp`, `level`, `xpIntoCurrentLevel`, `currentStreak`,
+- `progress/details/subcategories/{subcategoryId}` — one packed progress document per Subcategory
+  touched ([ADR-0016](0016-card-progress-model.md))
+- `users/{uid}/progress/summary` — nested-key counter increments
+- `users/{uid}/progress/user-stats` — `xp`, `level`, `xpIntoCurrentLevel`, `currentStreak`,
   `bestStreak`, `lastStudyDate`, `goalMetDate`
 
 **A single-Subcategory session therefore commits four writes**, whatever its length: session,
@@ -121,12 +121,12 @@ progress, summary, progression. A composite session commits one further `progres
 additional Subcategory touched — three fixed writes plus one per Subcategory.
 
 **This four-write count is the end state.** The PR that introduces this collection builds only the
-first three of these four (session, progress, summary); `state/progression` does not exist until a
+first three of these four (session, progress, summary); `progress/user-stats` does not exist until a
 later PR adds it. A single-Subcategory session is three writes until then, not four. See the scope
 note above.
 
 **This batch is atomic but not transactional.** It commits or fails as a unit, but it does not
-re-read `progress` or `state/progression` at commit time, so two sessions racing on the same
+re-read `progress/details/subcategories/{subcategoryId}` or `progress/user-stats` at commit time, so two sessions racing on the same
 Subcategory can both read the same starting state and both apply their increments, double-counting
 `studiedCount`, mastery deltas and XP. This is an accepted limitation for a single-account project —
 a transactional, idempotency-checked commit is future work if genuine multi-device concurrency ever
@@ -139,17 +139,24 @@ dropped response, say — is straightforward to prevent: the batch includes a cr
 document already exists, the whole batch fails and nothing is double-applied. This needs no
 transaction, only that the session document's write in the batch uses `create` rather than `set`.
 
-### Per-User singletons live in a `state` collection
+### Per-User singletons live in the `progress` collection
 
 Both the progress summary and the scoring state are one document per User. Firestore paths alternate
 collection and document, so each needs a fixed document id inside a collection:
 
 ```text
-users/{uid}/state/progressSummary
-users/{uid}/state/progression
+users/{uid}/progress/summary
+users/{uid}/progress/user-stats
 ```
 
 One security rule covers the collection, and a future singleton needs no new rule.
+
+**The packed per-Subcategory progress documents ([ADR-0016](0016-card-progress-model.md)) are not
+siblings of these singletons**, even though they live under the same `progress` collection.
+Firestore cannot nest a collection directly inside another collection, so those documents sit one
+hop deeper, under a fixed `details` anchor document: `progress/details/subcategories/{subcategoryId}`.
+`progress` itself therefore holds only per-User singleton documents — `summary`, `user-stats`, and
+the anchor `details` — keeping the collection's own layer uniform.
 
 **Scoring state does not live on `users/{uid}` itself.** Entitlement is not a field on that
 document — it is the separate subcollection `users/{uid}/entitlement/premium`
@@ -158,7 +165,7 @@ premium Cloud Function; that subcollection stays default-denied regardless of an
 the parent document, so making `users/{uid}` client-writable would not by itself expose it. The real
 reason is simpler separation of concerns: `users/{uid}` is reserved for identity and admin-managed
 data, and a session commit should touch exactly the documents scoring needs and nothing that isn't
-scoring. A separate client-owned document under `state/` keeps that boundary clean and costs the
+scoring. A separate client-owned document under `progress/` keeps that boundary clean and costs the
 same single write.
 
 The summary and the scoring state stay **two** documents rather than one. The summary is a maintained
@@ -271,7 +278,7 @@ unchanged; only this piece of the reasoning for it was corrected.)*
 - If the app is killed while the Summary screen is showing, the session is lost entirely. This is
   the same exposure as a mid-session crash and is accepted; a future mitigation could persist the
   in-progress `cardResults` to DataStore and recover on next launch.
-- `users/{uid}/state/progression` carries `lastStudyDate` and `goalMetDate`. Streak continuation and
+- `users/{uid}/progress/user-stats` carries `lastStudyDate` and `goalMetDate`. Streak continuation and
   the once-per-day daily-goal award are both uncomputable without them — the first needs to know
   whether a session today has already been counted, the second whether today's goal was already met.
   Both are local calendar dates stored as `yyyy-MM-dd` strings rather than Timestamps: they are

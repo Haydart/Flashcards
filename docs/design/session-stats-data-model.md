@@ -9,9 +9,9 @@ The batch contains, in one commit:
 - the session document, with its per-card `cardResults` embedded — sealed by `studyMode`: a Rated
   document carries the mastery counters and full `cardResults` entries, a Fast document has none of
   the Rated-only fields at all, not zeroed ones
-- one packed `progress/{subcategoryId}` document per Subcategory the session touched
-- `users/{uid}/state/progressSummary` counter increments
-- `users/{uid}/state/progression` — the scoring state
+- one packed `progress/details/subcategories/{subcategoryId}` document per Subcategory the session touched
+- `users/{uid}/progress/summary` counter increments
+- `users/{uid}/progress/user-stats` — the scoring state
 
 A single-Subcategory session is therefore **four writes**; a composite session adds one further
 `progress` write per additional Subcategory touched — three fixed writes plus one per Subcategory.
@@ -124,7 +124,7 @@ It is embedded rather than held in a subcollection because Firestore bills per d
 
 Recents transfers this map without rendering it, since the Android client SDK has no field projection. Revisit only if measured.
 
-### Scoring state: `users/{uid}/state/progression`
+### Scoring state: `users/{uid}/progress/user-stats`
 
 | Field | Type | Notes |
 |---|---|---|
@@ -140,9 +140,9 @@ The two dates are strings rather than Timestamps: they are calendar days in the 
 
 **`dailyGoalMinutes` is not here.** It lives in local preferences alongside the other device-scoped settings, where Settings already writes it. A Firestore copy would be a second writable source with no sync story. The cost is that the goal does not follow a user to a new device — the same trade-off `hasSeenOnboarding` already makes explicitly.
 
-**Scoring state is not on `users/{uid}` itself.** Entitlement is not a field on that document — it is the separate subcollection `users/{uid}/entitlement/premium` (`functions/src/lib/entitlement.ts`), written only by the Admin SDK and read server-side by the premium Cloud Function; that subcollection stays default-denied regardless of any rule on the parent document. Scoring state lives under `state/` instead simply to keep `users/{uid}` reserved for identity and admin-managed data. See [ADR-0014](../adr/0014-session-stats-written-at-summary-screen.md).
+**Scoring state is not on `users/{uid}` itself.** Entitlement is not a field on that document — it is the separate subcollection `users/{uid}/entitlement/premium` (`functions/src/lib/entitlement.ts`), written only by the Admin SDK and read server-side by the premium Cloud Function; that subcollection stays default-denied regardless of any rule on the parent document. Scoring state lives under `progress/` instead simply to keep `users/{uid}` reserved for identity and admin-managed data. See [ADR-0014](../adr/0014-session-stats-written-at-summary-screen.md).
 
-### Card progress: `users/{uid}/progress/{subcategoryId}` and `users/{uid}/state/progressSummary`
+### Card progress: `users/{uid}/progress/details/subcategories/{subcategoryId}` and `users/{uid}/progress/summary`
 
 See [Card Progress and Persistent Mastery](persistent-card-mastery.md).
 
@@ -173,9 +173,9 @@ History chart data (7/30 days) and per-category breakdown are **not** cached —
 
 On fresh install or reinstall:
 
-1. Read `users/{uid}/state/progression` for `xp`, `level`, `xpIntoCurrentLevel`, `currentStreak`, `bestStreak`, `lastStudyDate`, `goalMetDate` — these are authoritative and are **not** replayed from history. `dailyGoalMinutes` is device-scoped local state and resets to its default on reinstall
+1. Read `users/{uid}/progress/user-stats` for `xp`, `level`, `xpIntoCurrentLevel`, `currentStreak`, `bestStreak`, `lastStudyDate`, `goalMetDate` — these are authoritative and are **not** replayed from history. `dailyGoalMinutes` is device-scoped local state and resets to its default on reinstall
 2. Fetch `users/{uid}/sessions` to recompute the time-windowed aggregates that genuinely need history (`todayMinutes`, `weeklyMinutes`, `totalMinutes`, `totalSessionsCompleted`)
-3. Read `state/progressSummary` — one document — to recompute `totalCardsMastered` and `totalCardsStudied`
+3. Read `progress/summary` — one document — to recompute `totalCardsMastered` and `totalCardsStudied`
 4. Write aggregates to DataStore
 5. Show Progress screen
 

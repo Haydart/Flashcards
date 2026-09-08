@@ -71,16 +71,22 @@ data class RatedSessionState(
 
     companion object {
         /**
-         * Seeds the first snapshot: one [RatedSessionCardRecord] per [cards], none previously
-         * mastered — spec 07's job.
+         * Seeds the first snapshot: one [RatedSessionCardRecord] per [cards], each stamped
+         * previously-mastered from [previouslyMasteredCardIds] — the ViewModel's session-start
+         * progress read (ticket 04 of spec 04 session persistence), never trusted any further than
+         * this: the flag rides along on the record for [sealRatedCardResults] to carry into
+         * [FlashcardResult.Rated.wasPreviouslyMastered], display and spec 07's Mastery Defense only.
          */
         fun seed(
             cards: List<Flashcard>,
             attemptsLimit: Int,
             partialRatingCardRequeueingEnabled: Boolean = true,
             random: Random = Random.Default,
+            previouslyMasteredCardIds: Set<String> = emptySet(),
         ): RatedSessionState = RatedSessionState(
-            queue = cards.map { card -> RatedSessionCardRecord(card = card) },
+            queue = cards.map { card ->
+                RatedSessionCardRecord(card = card, wasPreviouslyMastered = card.id in previouslyMasteredCardIds)
+            },
             distinctCardCount = cards.size,
             attemptsLimit = attemptsLimit,
             partialRatingCardRequeueingEnabled = partialRatingCardRequeueingEnabled,
@@ -195,7 +201,7 @@ private fun reinsertAt(
  * is no just-submitted rating at abandon time, and the remaining queue's Attempts may be well under
  * its limit, so neither of [resolveFlashcardTerminalRating]'s inputs apply.
  */
-fun sealRatedCardResults(state: RatedSessionState, abandoned: Boolean): List<FlashcardResult> {
+fun sealRatedCardResults(state: RatedSessionState, abandoned: Boolean): List<FlashcardResult.Rated> {
     val resolvedEntries = state.terminalStates.values.map { resolved ->
         resolved.record.toFlashcardResult(resolved.terminalState.toFlashcardStudyProgressState())
     }
@@ -222,8 +228,8 @@ fun FlashcardAttemptRating.toAbandonedFlashcardTerminalRating(): FlashcardTermin
     FlashcardAttemptRating.Failed -> FlashcardTerminalRating.Failed
 }
 
-private fun RatedSessionCardRecord.toFlashcardResult(state: FlashcardStudyProgressState): FlashcardResult =
-    FlashcardResult(
+private fun RatedSessionCardRecord.toFlashcardResult(state: FlashcardStudyProgressState): FlashcardResult.Rated =
+    FlashcardResult.Rated(
         cardId = card.id,
         subcategoryId = card.subcategoryId,
         state = state,

@@ -159,7 +159,7 @@ flowchart TD
 
     %% ── Session Summary ───────────────────────────────────────────
     Summary(STUDY SESSION SUMMARY SCREEN\nmandatory egress for every session, natural end or premature exit — never used to view a past session\nfresh result: full payload via route args\nXP breakdown — animated line by line\nLevel-up celebration if applicable\n'Session Completed' +500 XP omitted on abandoned sessions)
-    Summary --> Commit[Current rollout: ONE atomic batch:\nsession doc with embedded cardResults map — Rated-only fields absent on Fast\npacked progress doc per subcategory\nstate/progressSummary increments\nstate/progression xp/level/streak — added by a later PR]
+    Summary --> Commit[Current rollout: ONE atomic batch:\nsession doc with embedded cardResults map — Rated-only fields absent on Fast\npacked progress doc per subcategory\nprogress/summary increments\nprogress/user-stats xp/level/streak — added by a later PR]
 
     Commit --> StudyAgainAll[/Study Again — All/]
     Commit --> StudyAgainFailed[/Study Again — Failed\nshown only if ≥1 Terminal Failed\nRated sessions only/]
