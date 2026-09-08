@@ -13,6 +13,7 @@ import com.rossomak.flashcards.core.domain.model.UserPreference.VoiceAnswerConse
 import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
 import com.rossomak.flashcards.core.domain.model.VoiceOption
 import com.rossomak.flashcards.core.domain.model.VoiceSettings as SavedVoiceSettings
+import com.rossomak.flashcards.core.domain.model.XpConfig
 import com.rossomak.flashcards.core.domain.model.rate
 import com.rossomak.flashcards.core.domain.model.requeueAfterSilence
 import com.rossomak.flashcards.core.domain.model.sealRatedCardResults
@@ -151,6 +152,12 @@ class RatedStudySessionViewModel @Inject constructor(
     internal var priorProgressByCardId: Map<String, CardProgressEntry> = emptyMap()
         private set
 
+    // The XP configuration as of this session's start (ticket 01 of spec 05), fetched alongside
+    // sessionStartData and never re-read — ADR-0047's snapshot rule. Defaults to XpConfig()'s own
+    // defaults for the brief window before loadFlashcards' fetch resolves; abandoning before then
+    // seals a placeholderResult scored against that same default, same as an empty cardResults list.
+    private var sessionXpConfig: XpConfig = XpConfig()
+
     private val isExtendedContextDialogOpen: Boolean
         get() = _state.value.activeDialog is ExtendedContext
 
@@ -208,6 +215,7 @@ class RatedStudySessionViewModel @Inject constructor(
             // "no entries" by GetSessionStartDataUseCase — never fatal, never surfaced, exactly the
             // graceful degradation ticket 04 asks for.
             priorProgressByCardId = sessionStartData.priorProgressByCardId
+            sessionXpConfig = sessionStartData.xpConfig
 
             val cardsById = flashcards.associateBy { it.id }
             val sessionCards = route.cardIds.mapNotNull(cardsById::get)
@@ -803,6 +811,7 @@ class RatedStudySessionViewModel @Inject constructor(
             subcategoryIds = route.subcategoryIds,
             subcategoryNames = route.subcategoryNames,
             cardResults = cardResults,
+            xpConfig = sessionXpConfig,
         )
         val result = sealSessionResult(result = placeholderResult, clock = clock, at = at)
         viewModelScope.launch {

@@ -11,14 +11,17 @@ import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.domain.model.SubcategoryProgress
 import com.rossomak.flashcards.core.domain.model.VoiceAnswerGrade
 import com.rossomak.flashcards.core.domain.model.VoiceSettings
+import com.rossomak.flashcards.core.domain.model.XpConfig
 import com.rossomak.flashcards.core.domain.repository.CurationRepository
 import com.rossomak.flashcards.core.domain.repository.FakeCardProgressRepository
 import com.rossomak.flashcards.core.domain.repository.FakeCurationRepository
 import com.rossomak.flashcards.core.domain.repository.FakeFlashcardRepository
 import com.rossomak.flashcards.core.domain.repository.FakeUserPreferencesRepository
+import com.rossomak.flashcards.core.domain.repository.FakeXpConfigRepository
 import com.rossomak.flashcards.core.domain.usecase.GetFlashcardsUseCase
 import com.rossomak.flashcards.core.domain.usecase.GetSessionStartDataUseCase
 import com.rossomak.flashcards.core.domain.usecase.GetSubcategoryProgressUseCase
+import com.rossomak.flashcards.core.domain.usecase.GetXpConfigUseCase
 import com.rossomak.flashcards.core.domain.usecase.ObserveUserPreferencesUseCase
 import com.rossomak.flashcards.core.domain.usecase.SaveUserPreferenceUseCase
 import com.rossomak.flashcards.core.domain.usecase.SubmitCurationReportUseCase
@@ -80,7 +83,9 @@ class RatedStudySessionViewModelTest {
     private val getFlashcards = GetFlashcardsUseCase(flashcardRepository)
     private val cardProgressRepository = FakeCardProgressRepository()
     private val getSubcategoryProgress = GetSubcategoryProgressUseCase(cardProgressRepository)
-    private val getSessionStartData = GetSessionStartDataUseCase(getFlashcards, getSubcategoryProgress)
+    private val xpConfigRepository = FakeXpConfigRepository()
+    private val getXpConfig = GetXpConfigUseCase(xpConfigRepository)
+    private val getSessionStartData = GetSessionStartDataUseCase(getFlashcards, getSubcategoryProgress, getXpConfig)
     private val userPreferencesRepository = FakeUserPreferencesRepository()
     private val voiceGateway = FakeVoiceGateway()
     private val voiceSettingsController: VoiceSettingsController = mockk(relaxed = true)
@@ -304,6 +309,64 @@ class RatedStudySessionViewModelTest {
                 val destination = awaitItem().shouldBeInstanceOf<RatedStudySessionDestination.Summary>()
 
                 destination.route.cardWasPreviouslyMastered?.all { it == false } shouldBe true
+            }
+        }
+
+    @Test
+    fun `the xp configuration is fetched at session start and appears in the session result`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            xpConfigRepository.resultToReturn = Result.success(CUSTOM_XP_CONFIG)
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onAttemptRating(FlashcardAttemptRating.Failed)
+            viewModel.onDialogEvent(Open(ExitSession))
+
+            viewModel.events.test {
+                viewModel.onDialogEvent(Confirm)
+                val destination = awaitItem().shouldBeInstanceOf<RatedStudySessionDestination.Summary>()
+
+                destination.route.xpConfig shouldBe CUSTOM_XP_CONFIG
+            }
+        }
+
+    @Test
+    fun `an xp configuration change after the session has started does not change what the result carries`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            xpConfigRepository.resultToReturn = Result.success(CUSTOM_XP_CONFIG)
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            xpConfigRepository.resultToReturn = Result.success(CUSTOM_XP_CONFIG.copy(newCardStudied = 12345))
+            viewModel.onAttemptRating(FlashcardAttemptRating.Failed)
+            viewModel.onDialogEvent(Open(ExitSession))
+
+            viewModel.events.test {
+                viewModel.onDialogEvent(Confirm)
+                val destination = awaitItem().shouldBeInstanceOf<RatedStudySessionDestination.Summary>()
+
+                destination.route.xpConfig shouldBe CUSTOM_XP_CONFIG
+            }
+        }
+
+    @Test
+    fun `a failed xp configuration fetch still starts the session, carrying defaults, with no error shown`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            loadThreeCards()
+            xpConfigRepository.resultToReturn = Result.failure(IllegalStateException("offline"))
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.state.value.error shouldBe null
+            viewModel.state.value.isLoading shouldBe false
+            viewModel.onAttemptRating(FlashcardAttemptRating.Failed)
+            viewModel.onDialogEvent(Open(ExitSession))
+
+            viewModel.events.test {
+                viewModel.onDialogEvent(Confirm)
+                val destination = awaitItem().shouldBeInstanceOf<RatedStudySessionDestination.Summary>()
+
+                destination.route.xpConfig shouldBe XpConfig()
             }
         }
 
@@ -1320,6 +1383,23 @@ class RatedStudySessionViewModelTest {
     private companion object {
         const val FIXED_SEED = 42L
         val FIXED_INSTANT: Instant = Instant.parse("2026-09-06T10:00:00Z")
+
+        // Distinct from XpConfig()'s defaults in every field, so a test asserting this exact value
+        // landed can't accidentally pass against the untouched default instead.
+        val CUSTOM_XP_CONFIG = XpConfig(
+            newCardStudied = 1,
+            cardMastered = 2,
+            cardPartial = 3,
+            masteryDefended = 4,
+            cardDemastered = -5,
+            sessionCompleted = 6,
+            dailyGoalMet = 7,
+            streakPerDay = 8,
+            streakMaxPerDay = 9,
+            minuteStudied = 11,
+            levelCurveBase = 13.0,
+            levelCurveExponent = 14.0,
+        )
     }
 }
 
