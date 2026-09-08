@@ -83,7 +83,7 @@ XP is calculated **on the Session Summary screen**, from the session result and 
 
 ## Firestore storage
 
-Stored on a client-owned per-user singleton, `users/{uid}/state/progression`:
+Stored on a client-owned per-user singleton, `users/{uid}/progress/user-stats`:
 
 - `xp`: total XP currently held
 - `level`: current level (denormalized for fast reads)

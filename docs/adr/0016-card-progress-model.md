@@ -7,7 +7,7 @@
 A User's per-card progress lives in one document per Subcategory:
 
 ```
-users/{uid}/progress/{subcategoryId}
+users/{uid}/progress/details/subcategories/{subcategoryId}
 
 categoryId: String                  // denormalized, so a document identifies its own scope
 cards: {                            // keyed by cardId
@@ -95,7 +95,7 @@ thirteen reads and several hundred kilobytes for a heavy User.
 So a single document per User holds the rollup:
 
 ```
-users/{uid}/state/progressSummary
+users/{uid}/progress/summary
 
 subcategories: {                    // keyed by subcategoryId
   <subcategoryId>: { masteredCount: Int, studiedCount: Int }
@@ -107,8 +107,8 @@ displays read the same document.
 
 | Screen | Reads |
 |---|---|
-| Category Details (a ring per Subcategory), Home progress | `state/progressSummary` — **one document** |
-| Subcategory Details (per-card filtering), Preview (defense selection), Study Session (new-card and defense accounting) | the packed `progress` document for each Subcategory in scope |
+| Category Details (a ring per Subcategory), Home progress | `progress/summary` — **one document** |
+| Subcategory Details (per-card filtering), Preview (defense selection), Study Session (new-card and defense accounting) | the packed `progress/details/subcategories/{subcategoryId}` document for each Subcategory in scope |
 
 Counter deltas are applied as nested-key `FieldValue.increment`s inside the single session-commit
 batch ([ADR-0014](0014-session-stats-written-at-summary-screen.md)), never separately.
@@ -208,8 +208,14 @@ private card to, showing a permanent ceiling with no visible cause.
 - `CardProgressRepository` exposes both read shapes — the packed Subcategory document and the
   summary — and serves three screens, so it belongs in `core:domain` rather than inside
   `feature:study`.
-- The summary is a per-User singleton and therefore lives at a fixed document id inside a
-  `state` collection, alongside the scoring state ([ADR-0014](0014-session-stats-written-at-summary-screen.md)). A path like `users/{uid}/progressSummary` names a *collection*, not a document.
+- The summary is a per-User singleton and therefore lives at a fixed document id (`summary`)
+  inside the `progress` collection, alongside the scoring state ([ADR-0014](0014-session-stats-written-at-summary-screen.md)).
+  A path like `users/{uid}/progressSummary` names a *collection*, not a document.
+- `progress` holds only per-User singleton documents (`summary`, and `user-stats` once
+  ADR-0014's scoring state exists) — the packed per-Subcategory documents above are not siblings
+  of those singletons. Firestore cannot nest a collection directly inside another collection, so
+  `progress/details` is a fixed anchor document with no fields of its own, existing only to host
+  the real `subcategories` subcollection each packed document lives in.
 - A Subcategory's ring denominator is its **global** card count, taken from the taxonomy. The
   card-count label printed beside a ring must use the same figure, or the percentage cannot be
   reconciled against the number next to it.
