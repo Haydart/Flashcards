@@ -3,12 +3,17 @@ package com.rossomak.flashcards.feature.study.summary
 import androidx.lifecycle.SavedStateHandle
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
 import com.rossomak.flashcards.core.domain.model.StudyMode
+import com.rossomak.flashcards.core.domain.model.XpConfig
+import com.rossomak.flashcards.core.domain.model.levelThreshold
 import com.rossomak.flashcards.core.domain.repository.FakeCardProgressRepository
+import com.rossomak.flashcards.core.domain.repository.FakeScoringStateRepository
 import com.rossomak.flashcards.core.domain.repository.FakeStudySessionRepository
+import com.rossomak.flashcards.core.domain.usecase.CalculateSessionXpUseCase
 import com.rossomak.flashcards.core.domain.usecase.CommitStudySessionUseCase
 import com.rossomak.flashcards.core.ui.navigation.RouteDecoder
 import com.rossomak.flashcards.feature.study.StudySessionSummaryRoute
 import com.rossomak.flashcards.testutil.MainDispatcherRule
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
@@ -36,10 +41,11 @@ class StudySessionSummaryViewModelTest {
     private val savedStateHandle: SavedStateHandle = mockk()
     private val studySessionRepository = FakeStudySessionRepository()
     private val cardProgressRepository = FakeCardProgressRepository()
+    private val scoringStateRepository = FakeScoringStateRepository()
 
     private fun createViewModel(): StudySessionSummaryViewModel = StudySessionSummaryViewModel(
         savedStateHandle,
-        CommitStudySessionUseCase(studySessionRepository, cardProgressRepository),
+        CommitStudySessionUseCase(studySessionRepository, cardProgressRepository, scoringStateRepository, CalculateSessionXpUseCase()),
     )
 
     @Before
@@ -197,6 +203,41 @@ class StudySessionSummaryViewModelTest {
             viewModel.state.value.studiedCount shouldBe 4
             collectJob.cancel()
         }
+
+    @Test
+    fun `arriving at the summary computes and exposes the xp breakdown, total, level and progress`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            stubRoute(ratedRoute())
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            // 4 new cards × 10 + 2 mastered × 100 + 1 partial × 25 + 2 minutes × 10 + 500 completion = 785.
+            val config = XpConfig()
+            with(viewModel.state.value) {
+                xpTotal shouldBe 785
+                level shouldBe 1
+                xpIntoCurrentLevel shouldBe 785L
+                xpForNextLevel shouldBe config.levelThreshold(1)
+                xpLines.map { it.source } shouldNotContain XpAwardSource.MasteryDefended
+                xpLines.map { it.source } shouldNotContain XpAwardSource.MasteryLost
+            }
+        }
+
+    @Test
+    fun `a failed scoring-state read leaves the xp fields at their defaults`() = runTest(mainDispatcherRule.testDispatcher) {
+        scoringStateRepository.resultToReturn = Result.failure(IllegalStateException("firestore down"))
+        stubRoute(ratedRoute())
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        with(viewModel.state.value) {
+            xpTotal shouldBe 0
+            level shouldBe 1
+            xpLines shouldBe emptyList()
+        }
+    }
 
     @Test
     fun `a later async rejection surfaces the same non-blocking message`() =

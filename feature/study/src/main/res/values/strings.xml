@@ -73,6 +73,17 @@
     <string name="study_session_summary_back_button">Back to Home</string>
     <string name="study_session_summary_save_failed_message">Couldn\'t save this session</string>
 
+    <string name="study_session_summary_xp_new_cards_label">New cards: %1$d × %2$d = %3$d</string>
+    <string name="study_session_summary_xp_mastered_label">Mastered: %1$d × %2$d = %3$d</string>
+    <string name="study_session_summary_xp_partial_label">Partial: %1$d × %2$d = %3$d</string>
+    <string name="study_session_summary_xp_mastery_defended_label">Mastery defended: %1$d × %2$d = %3$d</string>
+    <string name="study_session_summary_xp_mastery_lost_label">Mastery lost: %1$d × %2$d = %3$d</string>
+    <string name="study_session_summary_xp_time_studied_label">Time studied: %1$d × %2$d = %3$d</string>
+    <string name="study_session_summary_xp_session_completed_label">Session completed: %1$d × %2$d = %3$d</string>
+    <string name="study_session_summary_xp_total_label">Total: %1$d</string>
+    <string name="study_session_summary_xp_level_label">Level %1$d</string>
+    <string name="study_session_summary_xp_progress_label">%1$d / %2$d to next level</string>
+
     <string name="preview_session_mode_label">Mode</string>
     <string name="preview_session_voice_answering_label">Voice answering</string>
     <string name="preview_session_attempts_label">Attempts</string>
