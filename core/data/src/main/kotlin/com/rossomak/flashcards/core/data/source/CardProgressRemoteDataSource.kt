@@ -3,6 +3,7 @@ package com.rossomak.flashcards.core.data.source
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentReference
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.rossomak.flashcards.core.data.model.CardProgressEntryDto
@@ -70,6 +71,22 @@ class CardProgressRemoteDataSource @Inject constructor(
         FIELD_CATEGORY_ID to write.categoryId,
         FIELD_CARDS to write.cards.mapValues { (_, update) -> update.toEntryFields() },
     )
+
+    /**
+     * The card ids already present in [snapshot]'s packed `cards` map. Used from inside a Firestore
+     * transaction to re-verify, against a fresh server read, which of a proposed
+     * [SubcategoryProgressWrite]'s cards are still actually absent before writing them — a Fast
+     * session's create-if-absent rule (ADR-0016) must hold against the *current* server state, not
+     * the read [com.rossomak.flashcards.core.domain.usecase.CommitStudySessionUseCase] took earlier,
+     * or a concurrent Rated commit's Mastered write can be clobbered back to Seen.
+     */
+    fun existingCardIds(snapshot: DocumentSnapshot): Set<String> {
+        if (!snapshot.exists()) return emptySet()
+
+        @Suppress("UNCHECKED_CAST")
+        val cardsRaw = snapshot.get(FIELD_CARDS) as? Map<String, Any> ?: emptyMap()
+        return cardsRaw.keys
+    }
 
     private fun CardProgressUpdate.toEntryFields(): Map<String, Any> = buildMap {
         put(FIELD_STATE, state.name)

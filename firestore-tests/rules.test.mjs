@@ -9,7 +9,7 @@ import { dirname, join } from 'node:path';
 import { after, afterEach, before, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { assertFails, assertSucceeds, initializeTestEnvironment } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { deleteDoc, doc, getDoc, setDoc } from 'firebase/firestore';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ID = 'flashcards-rules-test';
@@ -47,12 +47,21 @@ afterEach(async () => {
 });
 
 describe('users/{uid}/sessions/{sessionId}', () => {
-  it('the owning user can read and write their own session', async () => {
+  it('the owning user can create and read their own session', async () => {
     const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
     const ownRef = doc(ownerDb, `users/${OWNER_UID}/sessions/session-1`);
 
     await assertSucceeds(setDoc(ownRef, sessionDoc));
     await assertSucceeds(getDoc(ownRef));
+  });
+
+  it('the owning user cannot update or delete their own session once created (CR-69 #3)', async () => {
+    const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+    const ownRef = doc(ownerDb, `users/${OWNER_UID}/sessions/session-1`);
+    await setDoc(ownRef, sessionDoc);
+
+    await assertFails(setDoc(ownRef, { ...sessionDoc, studyMode: 'Fast' }));
+    await assertFails(deleteDoc(ownRef));
   });
 
   it('a different authenticated user cannot read or write it', async () => {
@@ -162,6 +171,7 @@ describe('users/{uid}/progress/details/subcategories/{subcategoryId} nested-key 
     const cards = (await getDoc(progressRef)).data().cards;
     assert.equal(cards['card-1'].state, 'Mastered');
     assert.ok(cards['card-1'].masteredAt, 'card-1 must keep its masteredAt untouched');
+    assert.equal(cards['card-1'].firstStudiedAt.toMillis(), 0, 'card-1 must keep its original firstStudiedAt untouched');
     assert.equal(cards['card-2'].state, 'Seen');
   });
 });

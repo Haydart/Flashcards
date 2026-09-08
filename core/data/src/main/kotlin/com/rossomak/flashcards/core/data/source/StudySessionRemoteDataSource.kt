@@ -5,8 +5,10 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.rossomak.flashcards.core.domain.model.FlashcardResult
+import com.rossomak.flashcards.core.domain.model.ProgressSummaryWrite
 import com.rossomak.flashcards.core.domain.model.SessionCommit
 import com.rossomak.flashcards.core.domain.model.SessionResult
+import com.rossomak.flashcards.core.domain.model.SubcategoryProgressSummaryDelta
 import java.util.concurrent.Executor
 import javax.inject.Inject
 
@@ -40,6 +42,21 @@ class StudySessionRemoteDataSource @Inject constructor(
 
     fun commitSession(sessionCommit: SessionCommit, onRejected: (Throwable) -> Unit) {
         val sessionResult = sessionCommit.sessionResult
+        if (sessionResult is SessionResult.Fast) {
+            commitFastSession(sessionResult, sessionCommit, onRejected)
+        } else {
+            commitBatchedSession(sessionResult, sessionCommit, onRejected)
+        }
+    }
+
+    /**
+     * Rated's commit path — one fire-and-forget batch, as before. A concurrent commit racing the
+     * same card's `masteredCount` delta is a known, accepted drift (ADR-0016; the CR-69 #1 thread),
+     * not fixed here: a transaction would need a live round trip, which conflicts with this batch
+     * being deliberately un-awaited so an offline session can still commit (see [commitSession]'s
+     * class doc).
+     */
+    private fun commitBatchedSession(sessionResult: SessionResult, sessionCommit: SessionCommit, onRejected: (Throwable) -> Unit) {
         val sessionDocRef = firestore
             .collection(COLLECTION_PATH_TEMPLATE.format(uid))
             .document(sessionResult.id)
@@ -57,6 +74,59 @@ class StudySessionRemoteDataSource @Inject constructor(
             batch.set(summaryDocRef, progressSummaryRemoteDataSource.toMergeFields(sessionCommit.progressSummaryWrite), SetOptions.merge())
         }
         batch.commit().addOnFailureListener(DIRECT_EXECUTOR) { exception -> onRejected(exception) }
+    }
+
+    /**
+     * Fast's commit path — a transaction, not a batch. [SessionCommit.progressWrites] was built by
+     * [com.rossomak.flashcards.core.domain.usecase.CommitStudySessionUseCase] from a plain, possibly
+     * stale, read of prior progress; Fast's create-if-absent rule (ADR-0016) only actually holds if
+     * "absent" is re-checked against the server at write time. Without this, a concurrent Rated
+     * commit landing `Mastered` between that stale read and this write gets clobbered back to `Seen`
+     * (CR-69 #5) — a real state regression, unlike #1's self-healing count drift, so it is worth the
+     * transaction's offline cost: a Fast session touching this path needs connectivity to commit.
+     *
+     * Every card this transaction still finds absent is re-derived here, from the transaction's own
+     * fresh read — [SessionCommit.newCardsStudied] and its summary deltas are recomputed to match,
+     * rather than trusting the outer, possibly-stale count.
+     */
+    private fun commitFastSession(sessionResult: SessionResult.Fast, sessionCommit: SessionCommit, onRejected: (Throwable) -> Unit) {
+        val sessionDocRef = firestore
+            .collection(COLLECTION_PATH_TEMPLATE.format(uid))
+            .document(sessionResult.id)
+
+        firestore.runTransaction { transaction ->
+            // Every transaction.get() must run before any transaction.set() — Firestore rejects a
+            // transaction that interleaves them — so the fresh reads are all taken first, and only
+            // then is it safe to decide and issue the writes.
+            val stillAbsentCardsBySubcategory = sessionCommit.progressWrites.associate { write ->
+                val progressDocRef = cardProgressRemoteDataSource.documentReference(write.subcategoryId)
+                val existingCardIds = cardProgressRemoteDataSource.existingCardIds(transaction.get(progressDocRef))
+                write.subcategoryId to write.cards.filterKeys { cardId -> cardId !in existingCardIds }
+            }
+
+            var newCardsStudied = 0
+            val summaryDeltas = mutableMapOf<String, SubcategoryProgressSummaryDelta>()
+            sessionCommit.progressWrites.forEach { write ->
+                val stillAbsentCards = stillAbsentCardsBySubcategory.getValue(write.subcategoryId)
+                if (stillAbsentCards.isNotEmpty()) {
+                    val progressDocRef = cardProgressRemoteDataSource.documentReference(write.subcategoryId)
+                    transaction.set(
+                        progressDocRef,
+                        cardProgressRemoteDataSource.toMergeFields(write.copy(cards = stillAbsentCards)),
+                        SetOptions.merge(),
+                    )
+                    newCardsStudied += stillAbsentCards.size
+                    summaryDeltas[write.subcategoryId] = SubcategoryProgressSummaryDelta(masteredDelta = 0, studiedDelta = stillAbsentCards.size)
+                }
+            }
+
+            transaction.set(sessionDocRef, sessionResult.toDocumentFields(newCardsStudied))
+            if (summaryDeltas.isNotEmpty()) {
+                val summaryDocRef = progressSummaryRemoteDataSource.documentReference()
+                transaction.set(summaryDocRef, progressSummaryRemoteDataSource.toMergeFields(ProgressSummaryWrite(summaryDeltas)), SetOptions.merge())
+            }
+            null
+        }.addOnFailureListener(DIRECT_EXECUTOR) { exception -> onRejected(exception) }
     }
 
     /**
