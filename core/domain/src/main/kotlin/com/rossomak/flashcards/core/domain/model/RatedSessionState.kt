@@ -107,10 +107,10 @@ data class ResolvedRatedCard(val record: RatedSessionCardRecord, val terminalSta
  * One [rate] call's result: the next snapshot, alongside the [FlashcardTerminalRating] the rated card
  * resolved to, or `null` when it was re-inserted rather than finished.
  */
-data class RatedSessionAttemptRatingOutcome(val state: RatedSessionState, val terminal: FlashcardTerminalRating?)
+data class RatedSessionAttemptRatingResult(val state: RatedSessionState, val terminal: FlashcardTerminalRating?)
 
-/** Applies [rating] to [state]'s current (head) card, returning the next snapshot and its outcome. */
-fun rate(state: RatedSessionState, rating: FlashcardAttemptRating): RatedSessionAttemptRatingOutcome {
+/** Applies [rating] to [state]'s current (head) card, returning the next snapshot and its result. */
+fun rate(state: RatedSessionState, rating: FlashcardAttemptRating): RatedSessionAttemptRatingResult {
     val record = state.queue.first()
     val remainingQueue = state.queue.drop(1)
     val ratedRecord = record.copy(ratings = record.ratings + rating)
@@ -118,12 +118,12 @@ fun rate(state: RatedSessionState, rating: FlashcardAttemptRating): RatedSession
     val terminal = resolveFlashcardTerminalRating(state, ratedRecord, rating)
     if (terminal == null) {
         val nextQueue = reinsert(state, remainingQueue, ratedRecord, rating)
-        return RatedSessionAttemptRatingOutcome(state = state.copy(queue = nextQueue), terminal = null)
+        return RatedSessionAttemptRatingResult(state = state.copy(queue = nextQueue), terminal = null)
     }
     val resolved = ResolvedRatedCard(record = ratedRecord, terminalState = terminal)
     val nextFlashcardTerminalRatings = state.terminalStates + (ratedRecord.card.id to resolved)
     val nextState = state.copy(queue = remainingQueue, terminalStates = nextFlashcardTerminalRatings)
-    return RatedSessionAttemptRatingOutcome(state = nextState, terminal = terminal)
+    return RatedSessionAttemptRatingResult(state = nextState, terminal = terminal)
 }
 
 /**
