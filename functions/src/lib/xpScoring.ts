@@ -95,14 +95,9 @@ export interface XpBreakdown {
   xpTotal: number;
 }
 
-function xpBreakdown(fields: Omit<XpBreakdown, "xpTotal" | "dailyGoalBonus" | "streakBonus">): XpBreakdown {
-  // dailyGoalBonus/streakBonus stay zero until spec 05 ticket 03 — same as XpBreakdown.kt's doc comment.
-  const dailyGoalBonus = 0;
-  const streakBonus = 0;
+function xpBreakdown(fields: Omit<XpBreakdown, "xpTotal">): XpBreakdown {
   return {
     ...fields,
-    dailyGoalBonus,
-    streakBonus,
     xpTotal:
       fields.newCards +
       fields.mastered +
@@ -111,8 +106,8 @@ function xpBreakdown(fields: Omit<XpBreakdown, "xpTotal" | "dailyGoalBonus" | "s
       fields.demastered +
       fields.timeStudied +
       fields.sessionCompletionBonus +
-      dailyGoalBonus +
-      streakBonus,
+      fields.dailyGoalBonus +
+      fields.streakBonus,
   };
 }
 
@@ -167,7 +162,13 @@ function calculateRatedCardAwards(cardResults: ScoredCardResult[], config: XpCon
   return { mastered, partial, masteryDefenseBonus, demastered };
 }
 
-function calculateBreakdown(session: ScoredSession, newCardsStudied: number, config: XpConfig): XpBreakdown {
+function calculateBreakdown(
+  session: ScoredSession,
+  newCardsStudied: number,
+  config: XpConfig,
+  dailyGoalBonus: number,
+  streakBonus: number,
+): XpBreakdown {
   const newCards = newCardsStudied * config.newCardStudied;
   const timeStudied = Math.floor(session.durationSeconds / SECONDS_PER_MINUTE) * config.minuteStudied;
   const sessionCompletionBonus = session.abandoned ? 0 : config.sessionCompleted;
@@ -184,7 +185,72 @@ function calculateBreakdown(session: ScoredSession, newCardsStudied: number, con
     demastered: cardAwards.demastered,
     timeStudied,
     sessionCompletionBonus,
+    dailyGoalBonus,
+    streakBonus,
   });
+}
+
+/**
+ * The two new-in-spec-05-ticket-03 awards: a growing streak bonus for consecutive study days, and a
+ * flat once-per-day bonus for meeting the Daily Goal. Pure — no Firestore, no clock; `state`/`input`/
+ * `config` are all plain parameters, mirroring [computeSessionXp]'s own purity.
+ */
+export interface StreakAndGoalInput {
+  /** this submission's local calendar day, `yyyy-MM-dd`, computed client-side from the session's `startedAt`. */
+  studyDate: string;
+  /** the Daily Goal (minutes/day) in effect when this session ended. */
+  dailyGoalMinutes: number;
+  /** every session's `durationSeconds` summed for this local day, THIS session's included, floored to whole minutes. */
+  todayTotalMinutes: number;
+}
+
+export interface StreakAndGoalResult {
+  streakBonus: number;
+  dailyGoalBonus: number;
+  currentStreak: number;
+  bestStreak: number;
+  lastStudyDate: string;
+  goalMetDate: string;
+}
+
+/**
+ * Both awards are forward-only: a submission whose `studyDate` is not strictly later than the stored
+ * date never advances the streak and never regresses `lastStudyDate`/`goalMetDate` — covers same-day
+ * resubmission (no double-count) and out-of-order offline delivery (an old session arriving after a
+ * later one already committed) alike. See this ticket's spec file for the full rules.
+ */
+export function computeStreakAndGoalAwards(state: ScoringState, input: StreakAndGoalInput, config: XpConfig): StreakAndGoalResult {
+  let currentStreak = state.currentStreak;
+  let bestStreak = state.bestStreak;
+  let lastStudyDate = state.lastStudyDate;
+  let streakBonus = 0;
+
+  if (input.studyDate > state.lastStudyDate) {
+    const gapDays = state.lastStudyDate === "" ? null : daysBetween(state.lastStudyDate, input.studyDate);
+    currentStreak = gapDays === 1 ? state.currentStreak + 1 : 1;
+    bestStreak = Math.max(state.bestStreak, currentStreak);
+    lastStudyDate = input.studyDate;
+    streakBonus = Math.min(currentStreak * config.streakPerDay, config.streakMaxPerDay);
+  }
+
+  let goalMetDate = state.goalMetDate;
+  let dailyGoalBonus = 0;
+  const alreadyMetToday = input.studyDate === state.goalMetDate;
+  if (!alreadyMetToday && input.studyDate >= state.goalMetDate && input.todayTotalMinutes >= input.dailyGoalMinutes) {
+    dailyGoalBonus = config.dailyGoalMet;
+    goalMetDate = input.studyDate;
+  }
+
+  return { streakBonus, dailyGoalBonus, currentStreak, bestStreak, lastStudyDate, goalMetDate };
+}
+
+// yyyy-MM-dd strings, both anchored to UTC midnight purely as a calendar-arithmetic device — these
+// are calendar days, not instants, so there is no real timezone here to get wrong.
+function daysBetween(earlier: string, later: string): number {
+  const [ey, em, ed] = earlier.split("-").map(Number);
+  const [ly, lm, ld] = later.split("-").map(Number);
+  const millisPerDay = 24 * 60 * 60 * 1000;
+  return Math.round((Date.UTC(ly, lm - 1, ld) - Date.UTC(ey, em - 1, ed)) / millisPerDay);
 }
 
 /**
@@ -217,14 +283,28 @@ export interface SessionXpResult {
   levelsCrossed: number[];
 }
 
-/** Mirrors `CalculateSessionXpUseCase.invoke`: computes the breakdown, then applies its total to `currentState`. */
+/**
+ * Mirrors `CalculateSessionXpUseCase.invoke`: computes the breakdown, then applies its total to
+ * `currentState`. The streak/goal result's `currentStreak`/`bestStreak`/`lastStudyDate`/`goalMetDate`
+ * are merged onto the returned `newScoringState` after `applyDelta` — independent of whether
+ * `applyDelta`'s own XP-delta clamping had anything to do with this session's XP total.
+ */
 export function computeSessionXp(
   session: ScoredSession,
   newCardsStudied: number,
   currentState: ScoringState,
   config: XpConfig,
+  streakAndGoalInput: StreakAndGoalInput,
 ): SessionXpResult {
-  const breakdown = calculateBreakdown(session, newCardsStudied, config);
+  const streakAndGoal = computeStreakAndGoalAwards(currentState, streakAndGoalInput, config);
+  const breakdown = calculateBreakdown(session, newCardsStudied, config, streakAndGoal.dailyGoalBonus, streakAndGoal.streakBonus);
   const { newState, levelsCrossed } = applyDelta(currentState, breakdown.xpTotal, config);
-  return { breakdown, newScoringState: newState, levelsCrossed };
+  const newScoringState: ScoringState = {
+    ...newState,
+    currentStreak: streakAndGoal.currentStreak,
+    bestStreak: streakAndGoal.bestStreak,
+    lastStudyDate: streakAndGoal.lastStudyDate,
+    goalMetDate: streakAndGoal.goalMetDate,
+  };
+  return { breakdown, newScoringState, levelsCrossed };
 }
