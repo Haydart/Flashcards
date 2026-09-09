@@ -99,6 +99,10 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.android.compiler)
     implementation(libs.androidx.hilt.lifecycle.viewmodel.compose)
+    // work-runtime-ktx for Configuration.Provider, hilt-work for HiltWorkerFactory — :app wires
+    // WorkManager to Hilt but defines no @HiltWorker class itself, so no ksp(hilt-compiler) here.
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.hilt.work)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.junit)
