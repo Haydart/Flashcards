@@ -51,6 +51,8 @@ class RemoteSessionSubmissionRepositoryTest {
                 wasPreviouslyMastered = false,
             ),
         ),
+        studyDate = "2026-09-08",
+        dailyGoalMinutes = 20,
     )
 
     private fun fastSessionResult(): SessionResult.Fast = SessionResult.Fast(
@@ -63,6 +65,8 @@ class RemoteSessionSubmissionRepositoryTest {
         subcategoryIds = listOf("sub-1"),
         subcategoryNames = listOf("Subcategory"),
         cardResults = listOf(FlashcardResult.Fast(cardId = "card-1", subcategoryId = "sub-1", state = FlashcardStudyProgressState.Seen)),
+        studyDate = "2026-09-08",
+        dailyGoalMinutes = 20,
     )
 
     @Test
@@ -84,6 +88,8 @@ class RemoteSessionSubmissionRepositoryTest {
         payload["categoryName"] shouldBe session.categoryName
         payload["subcategoryIds"] shouldBe session.subcategoryIds
         payload["subcategoryNames"] shouldBe session.subcategoryNames
+        payload["studyDate"] shouldBe session.studyDate
+        payload["dailyGoalMinutes"] shouldBe session.dailyGoalMinutes
 
         @Suppress("UNCHECKED_CAST")
         val payloadCardResult = (payload["cardResults"] as List<Map<String, Any>>).single()

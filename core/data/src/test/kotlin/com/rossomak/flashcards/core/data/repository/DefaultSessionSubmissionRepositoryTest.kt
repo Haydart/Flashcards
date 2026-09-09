@@ -61,6 +61,8 @@ class DefaultSessionSubmissionRepositoryTest {
                 wasPreviouslyMastered = false,
             ),
         ),
+        studyDate = "2026-09-08",
+        dailyGoalMinutes = 20,
     )
 
     @Test

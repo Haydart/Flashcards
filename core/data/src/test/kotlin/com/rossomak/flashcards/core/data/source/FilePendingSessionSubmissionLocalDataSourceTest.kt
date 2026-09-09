@@ -56,6 +56,8 @@ class FilePendingSessionSubmissionLocalDataSourceTest {
         cardResults = listOf(
             PendingFlashcardResultDto(cardId = "card-1", subcategoryId = "sub-1", state = "Mastered", attemptsUsed = 1, wasPreviouslyMastered = false),
         ),
+        studyDate = "2026-09-08",
+        dailyGoalMinutes = 20,
         xpConfig = PendingXpConfigDto(
             newCardStudied = 10,
             cardMastered = 100,
