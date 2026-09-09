@@ -1,7 +1,7 @@
 package com.rossomak.flashcards.core.domain.model
 
 /**
- * One session's itemised XP award list (spec 05 ticket 02) — one field per source, matching the
+ * One session's itemised XP award list — one field per source, matching the
  * `sessions/{sessionId}` document's own persisted field names 1:1, plus [xpTotal] as their sum, never
  * stored separately so it cannot disagree with them.
  *
@@ -10,7 +10,7 @@ package com.rossomak.flashcards.core.domain.model
  * [SessionResult.Fast] card: an award this session simply did not produce is honestly zero, whichever
  * mode ran, so a Fast session's document carries `mastered: 0` rather than omitting the field.
  *
- * [dailyGoalBonus] and [streakBonus] (spec 05 ticket 03) split by *where* an [XpBreakdown] came
+ * [dailyGoalBonus] and [streakBonus] split by *where* an [XpBreakdown] came
  * from: a **server-computed** one — what the `submitStudySession` Cloud Function actually persists —
  * is non-zero once earned; a **client-computed** one — [CalculateSessionXpUseCase]'s optimistic
  * preview — stays zero permanently, by design (that use case never computes either award; see its own
@@ -24,10 +24,10 @@ package com.rossomak.flashcards.core.domain.model
  * Rated only.
  * @param masteryDefenseBonus [XpConfig.masteryDefended] × cards ending Mastered that were already
  * Mastered — replaces [mastered] for that card, a smaller reward for defending rather than a bonus
- * stacked on top of a fresh mastery. Rated only; structurally zero until spec 07's Mastery Defense can
+ * stacked on top of a fresh mastery. Rated only; structurally zero until Mastery Defense can
  * ever re-select an already-mastered card.
  * @param demastered [XpConfig.cardDemastered] (negative) × cards ending Failed that were previously
- * Mastered. Rated only; same spec 07 dependency as [masteryDefenseBonus].
+ * Mastered. Rated only; same dependency as [masteryDefenseBonus].
  * @param timeStudied [XpConfig.minuteStudied] × whole minutes studied. Both modes.
  * @param sessionCompletionBonus [XpConfig.sessionCompleted], flat, only for a session that finished
  * its deck rather than being abandoned. Both modes.

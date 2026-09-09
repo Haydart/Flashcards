@@ -11,9 +11,10 @@ import com.rossomak.flashcards.core.data.repository.RemoteSessionSubmissionRepos
 import com.rossomak.flashcards.core.data.source.PendingSessionSubmissionLocalDataSource
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import java.io.IOException
 
 /**
- * Drains the pending-session-submission queue (ticket 03). See
+ * Drains the pending-session-submission queue. See
  * [com.rossomak.flashcards.core.data.repository.DefaultSessionSubmissionRepository]'s class doc for
  * the append side of this same queue, and
  * [com.rossomak.flashcards.core.data.source.FilePendingSessionSubmissionLocalDataSource]'s for the
@@ -53,11 +54,29 @@ import dagger.assisted.AssistedInject
  * count for itself: it isn't the same request attempt, and [ExistingWorkPolicy][androidx.work.ExistingWorkPolicy.KEEP]
  * only reuses the still-running/enqueued request, never a completed one.
  *
+ * **Known limitation**: [runAttemptCount] is still a property of the *WorkRequest*, not of any one
+ * entry, so an entry's own count of real delivery attempts isn't tracked precisely once it stops being
+ * the head partway through a shared-cause outage. Concretely: if the head is dropped on attempt 5 and a
+ * later entry also fails that same run, that later entry's [Result.retry] carries the request forward —
+ * on the *next* run it becomes the new head with [runAttemptCount] already past the bound, so it can be
+ * dropped after fewer than [MAX_DELIVERY_ATTEMPTS] attempts of its own. This is accepted as a rare,
+ * bounded edge case (it only bites during a multi-entry, multi-run shared-cause outage, and even then
+ * drops at most one entry early rather than the whole queue) rather than fixed by giving
+ * [com.rossomak.flashcards.core.data.model.PendingSessionSubmissionDto] its own durable per-entry
+ * attempt counter.
+ *
  * A queue entry that fails to convert back to a domain [com.rossomak.flashcards.core.domain.model.SessionResult]
  * (unknown `mode`/`state`, or a `Rated` card result missing `attemptsUsed`/`wasPreviouslyMastered`) is
  * malformed beyond repair, not a delivery failure: [doWork] catches that conversion, logs the invalid
  * entry, removes it from the queue, and continues to the next entry rather than stalling every entry
  * behind it or retrying something that can never succeed.
+ *
+ * [localDataSource]'s [PendingSessionSubmissionLocalDataSource.remove] can itself throw an
+ * [IOException] if the queue file exists but genuinely can't be read (see its implementation's own
+ * doc for why that's deliberately not swallowed there). [doWork] catches that around each entry's
+ * submit-then-remove step and returns [Result.retry] — the entry that was just successfully delivered
+ * (or dropped) simply gets processed again next run rather than the queue file being silently
+ * overwritten with a stale or empty read.
  *
  * Recovery after the app (or the process WorkManager was running in) is killed mid-drain needs no
  * separate code path: [com.rossomak.flashcards.FlashcardsApplication] unconditionally calls
@@ -76,36 +95,41 @@ class SessionSubmissionDeliveryWorker @AssistedInject constructor(
     override suspend fun doWork(): Result {
         val pendingEntries = localDataSource.listAll().sortedBy { it.startedAtEpochMillis }
         Log.d(TAG, "Drain started: ${pendingEntries.size} pending entr${if (pendingEntries.size == 1) "y" else "ies"} (attempt ${runAttemptCount + 1})")
-        pendingEntries.forEachIndexed { index, entry ->
-            Log.d(TAG, "Submitting session ${entry.id} (${index + 1}/${pendingEntries.size})")
-            val domainSessionResult = try {
-                entry.toDomain()
-            } catch (exception: IllegalArgumentException) {
-                Log.e(TAG, "Session ${entry.id} is malformed and cannot be converted, dropping it from the queue", exception)
-                localDataSource.remove(entry.id)
-                return@forEachIndexed
-            }
-            val submissionResult = remoteSessionSubmissionRepository.submitSession(domainSessionResult)
-            if (submissionResult.isFailure) {
-                if (index == 0 && runAttemptCount + 1 >= MAX_DELIVERY_ATTEMPTS) {
-                    Log.e(
-                        TAG,
-                        "Session ${entry.id} failed to deliver after $MAX_DELIVERY_ATTEMPTS attempts, " +
-                            "dropping it from the queue so later entries can proceed",
-                        submissionResult.exceptionOrNull(),
-                    )
+        try {
+            pendingEntries.forEachIndexed { index, entry ->
+                Log.d(TAG, "Submitting session ${entry.id} (${index + 1}/${pendingEntries.size})")
+                val domainSessionResult = try {
+                    entry.toDomain()
+                } catch (exception: IllegalArgumentException) {
+                    Log.e(TAG, "Session ${entry.id} is malformed and cannot be converted, dropping it from the queue", exception)
                     localDataSource.remove(entry.id)
                     return@forEachIndexed
                 }
-                Log.w(
-                    TAG,
-                    "Submission failed for session ${entry.id} (attempt ${runAttemptCount + 1}/$MAX_DELIVERY_ATTEMPTS), stopping drain and returning retry",
-                    submissionResult.exceptionOrNull(),
-                )
-                return Result.retry()
+                val submissionResult = remoteSessionSubmissionRepository.submitSession(domainSessionResult)
+                if (submissionResult.isFailure) {
+                    if (index == 0 && runAttemptCount + 1 >= MAX_DELIVERY_ATTEMPTS) {
+                        Log.e(
+                            TAG,
+                            "Session ${entry.id} failed to deliver after $MAX_DELIVERY_ATTEMPTS attempts, " +
+                                "dropping it from the queue so later entries can proceed",
+                            submissionResult.exceptionOrNull(),
+                        )
+                        localDataSource.remove(entry.id)
+                        return@forEachIndexed
+                    }
+                    Log.w(
+                        TAG,
+                        "Submission failed for session ${entry.id} (attempt ${runAttemptCount + 1}/$MAX_DELIVERY_ATTEMPTS), stopping drain and returning retry",
+                        submissionResult.exceptionOrNull(),
+                    )
+                    return Result.retry()
+                }
+                localDataSource.remove(entry.id)
+                Log.d(TAG, "Session ${entry.id} delivered and removed from queue")
             }
-            localDataSource.remove(entry.id)
-            Log.d(TAG, "Session ${entry.id} delivered and removed from queue")
+        } catch (exception: IOException) {
+            Log.e(TAG, "Pending session submission queue file could not be read while removing an entry, retrying the drain", exception)
+            return Result.retry()
         }
         Log.d(TAG, "Drain finished: all ${pendingEntries.size} entr${if (pendingEntries.size == 1) "y" else "ies"} resolved")
         return Result.success()

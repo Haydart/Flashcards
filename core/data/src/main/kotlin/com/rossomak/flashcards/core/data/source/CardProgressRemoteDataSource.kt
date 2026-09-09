@@ -15,7 +15,7 @@ import kotlinx.coroutines.tasks.await
  * sibling singletons `progress/summary` and `progress/user-stats` stay one hop shallower so
  * `progress` itself holds only per-User singleton documents.
  *
- * Read-only: the server-authoritative `submitStudySession` Cloud Function (spec 08) is the sole
+ * Read-only: the server-authoritative `submitStudySession` Cloud Function is the sole
  * writer of this collection now — this client never composes a write for it.
  */
 class CardProgressRemoteDataSource @Inject constructor(

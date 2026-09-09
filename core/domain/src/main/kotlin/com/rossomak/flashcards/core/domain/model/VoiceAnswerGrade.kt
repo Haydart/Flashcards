@@ -18,7 +18,7 @@ data class VoiceAnswerGrade(
  * unified onto the Rating pipeline by
  * [ADR-0026](../../../../../../../docs/adr/0026-voice-grade-unifies-with-rating-reveal-tied-to-speech-end.md).
  * The one place this mapping is defined, so the voice pipeline and the Rating write path it feeds
- * (ticket 04 of the Rated session state machine sequence) can't drift apart.
+ * can't drift apart.
  */
 fun VoiceAnswerGrade.toFlashcardAttemptRating(): FlashcardAttemptRating = when {
     gradePercent >= VOICE_GRADE_CORRECT_THRESHOLD -> FlashcardAttemptRating.Correct

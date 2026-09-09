@@ -34,7 +34,7 @@ import org.junit.Test
 
 /**
  * There is no past-session fallback path to test here — this route only ever carries a fresh
- * result (spec 03 ticket 02), so every case below is the same single load path.
+ * result, so every case below is the same single load path.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class StudySessionSummaryViewModelTest {
@@ -204,9 +204,9 @@ class StudySessionSummaryViewModelTest {
             val collectJob = launch { viewModel.messages.collect { messageReceived = true } }
             advanceUntilIdle()
 
-            // Spec 08: submission to the server carries no further authority here and is never
-            // reconciled against — a failed submission is not surfaced to the user at all (ticket 03
-            // is what makes delivery durable against exactly this kind of failure).
+            // Submission to the server carries no further authority here and is never
+            // reconciled against — a failed submission is not surfaced to the user at all (the
+            // delivery queue is what makes delivery durable against exactly this kind of failure).
             messageReceived shouldBe false
             viewModel.state.value.studiedCount shouldBe 4
             viewModel.state.value.xpTotal shouldBe 785

@@ -12,14 +12,14 @@ import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 
 /**
  * Everything a Rated Study Session screen renders. No Study Mode field — the type itself is the
- * mode (ticket 03 of
- * [ADR-0045](../../../../../../../../docs/adr/0045-separate-fast-and-rated-session-screens.md)),
+ * mode
+ * ([ADR-0045](../../../../../../../../docs/adr/0045-separate-fast-and-rated-session-screens.md)),
  * and no voice-auto-start-pending flag — that is Fast's; Rated never auto-starts playback, only
  * voice answering switches the gateway on.
  *
  * Deliberately duplicates the shape of `FastStudySessionScreenState` rather than sharing a base
  * type with it: this screen carries a mastered-out-of-distinct counter and a per-card Rating ledger
- * that Fast has no concept of (ticket 03 of the Rated session state machine sequence), and a shared
+ * that Fast has no concept of, and a shared
  * base would need a `when` on mode to stay useful — exactly the branching this split exists to
  * remove.
  */
@@ -53,7 +53,7 @@ data class RatedStudySessionScreenState(
     // The routed Attempts limit (RatedStudySessionRoute.ratedAttempts): the Attempt indicator's
     // total slot count, independent of how many attempts this card has used so far.
     val attemptsLimit: Int = StudySessionConfig.DEFAULT_RATED_ATTEMPTS,
-    // Three consecutive silence timeouts (ticket 04 of the Rated session state machine sequence):
+    // Three consecutive silence timeouts:
     // playback and the microphone are stopped and only the resume affordance is live. Distinct
     // from the transient Listening/SpeechDetected/Grading/SpeakingNotice disable windows below —
     // those stay load-bearing and unchanged by this flag.
@@ -64,8 +64,7 @@ data class RatedStudySessionScreenState(
     /**
      * The current card's Rating history mapped to [FlashcardsAttemptIndicator] slots: one filled
      * slot per past Attempt in order, one [FlashcardsAttemptSlotState.Current] slot, and the rest
-     * [FlashcardsAttemptSlotState.Future] — always [attemptsLimit] slots in total, per ticket 03 of
-     * the Rated session state machine sequence.
+     * [FlashcardsAttemptSlotState.Future] — always [attemptsLimit] slots in total.
      */
     val attemptSlots: List<FlashcardsAttemptSlotState>
         get() {

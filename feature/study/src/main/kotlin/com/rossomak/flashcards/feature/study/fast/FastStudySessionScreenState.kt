@@ -7,8 +7,8 @@ import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 
 /**
  * Everything a Fast Study Session screen renders. No Study Mode field — the type itself is the
- * mode (ticket 02 of
- * [ADR-0045](../../../../../../../../docs/adr/0045-separate-fast-and-rated-session-screens.md)).
+ * mode
+ * ([ADR-0045](../../../../../../../../docs/adr/0045-separate-fast-and-rated-session-screens.md)).
  *
  * Deliberately duplicates the shape of `RatedStudySessionScreenState` rather than sharing a base
  * type with it: Rated gains an attempt counter and a per-card ledger in the next spec in the

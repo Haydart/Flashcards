@@ -4,7 +4,7 @@ import kotlin.math.ceil
 import kotlin.math.pow
 
 /**
- * Every tunable scoring number spec 05 (XP and leveling) needs, in one place — no point award, no
+ * Every tunable scoring number XP and leveling needs, in one place — no point award, no
  * penalty, and no level-curve parameter is ever a constant in domain logic; the calculation that
  * eventually consumes this reads every value from here instead
  * ([ADR-0047](../../../../../../../docs/adr/0047-xp-values-behind-a-config-repository.md)).
@@ -24,9 +24,9 @@ import kotlin.math.pow
  * @param cardMastered per card ending Mastered. Rated only — Fast has no mastery concept.
  * @param cardPartial per card ending Partial. Rated only.
  * @param masteryDefended per card that keeps a previously-mastered card Mastered again. Rated only,
- * and structurally unreachable until spec 07's Mastery Defense selection exists.
+ * and structurally unreachable until Mastery Defense selection exists.
  * @param cardDemastered per card that loses a previously-mastered card's mastery — negative. Rated
- * only, same spec 07 dependency as [masteryDefended].
+ * only, same dependency as [masteryDefended].
  * @param sessionCompleted flat, once, only for a session that finishes its deck rather than being
  * abandoned. Both modes.
  * @param dailyGoalMet flat, once per calendar day the daily study-minutes goal is met. Both modes.
@@ -34,7 +34,7 @@ import kotlin.math.pow
  * @param streakMaxPerDay the ceiling [streakPerDay] × streak-length is clamped to.
  * @param minuteStudied per minute of session time. Both modes.
  * @param levelCurveBase the level curve's `base` in `ceil(base × level^exponent / 1000) × 1000` —
- * a tuning value, not yet chosen for real (spec 05's stated shape: early levels reachable in one or
+ * a tuning value, not yet chosen for real (the intended shape: early levels reachable in one or
  * two good sessions, the middle range demanding multi-day effort, the high levels long-term).
  * @param levelCurveExponent the curve's `exponent`, same formula, same tuning status as
  * [levelCurveBase].
@@ -61,7 +61,7 @@ data class XpConfig(
 }
 
 /**
- * The total points needed to complete [level] and advance to the next one, per spec 05's curve
+ * The total points needed to complete [level] and advance to the next one, per the curve
  * shape: `ceil(base × level^exponent / 1000) × 1000`. A free function on [XpConfig] rather than a
  * member, so [com.rossomak.flashcards.core.domain.usecase.CalculateSessionXpUseCase]'s level-up loop
  * and the Session Summary's own progress-within-level display read the exact same formula — the one

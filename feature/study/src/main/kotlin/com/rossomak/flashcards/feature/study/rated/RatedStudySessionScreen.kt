@@ -411,7 +411,7 @@ private fun RatedVoiceTranscript(state: RatedStudySessionScreenState) {
 
 /**
  * Shown instead of [RatedVoiceTransportRow] once three consecutive silence timeouts have paused
- * the session (ticket 04 of the Rated session state machine sequence): playback and the microphone
+ * the session: playback and the microphone
  * are already stopped, and this is the only live control until the user taps Resume.
  */
 @Composable

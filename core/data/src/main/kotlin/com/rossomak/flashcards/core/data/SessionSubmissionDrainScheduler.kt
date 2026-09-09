@@ -10,7 +10,7 @@ import com.rossomak.flashcards.core.data.worker.SessionSubmissionDeliveryWorker
 import javax.inject.Inject
 
 /**
- * The one place [SessionSubmissionDeliveryWorker] gets enqueued from (ticket 03). Two call sites
+ * The one place [SessionSubmissionDeliveryWorker] gets enqueued from. Two call sites
  * share this single class rather than each building their own [androidx.work.OneTimeWorkRequest]:
  * [com.rossomak.flashcards.core.data.repository.DefaultSessionSubmissionRepository] (right after
  * appending a freshly finished session to the local queue) and

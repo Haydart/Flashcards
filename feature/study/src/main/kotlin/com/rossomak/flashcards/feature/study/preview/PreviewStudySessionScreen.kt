@@ -121,12 +121,12 @@ fun PreviewStudySessionScreen(
  * with the unbuilt category icon-and-colour feature, and no route change is needed here to prepare
  * for it.
  *
- * Settings live behind a sheet hidden until asked for (ticket 07). Its open/closed value
+ * Settings live behind a sheet hidden until asked for. Its open/closed value
  * ([settingsSheetOpen]) is screen-local view state, owned flat in this function rather than in
  * [ReadyContent] or a separate hoisted controller — see this function's own `@Suppress` for why a
  * prior extraction was dropped — because [SessionSettingsSheet] renders as a **plain, unaligned
  * sibling of [Scaffold]** in the outer [Box] below, not nested inside [ReadyContent] or Scaffold's
- * content slot at all. See that [Box]'s own comment for why. A settings badge (ticket 09) opens the
+ * content slot at all. See that [Box]'s own comment for why. A settings badge opens the
  * sheet *and* the dialog for the value it names — but staggered, not together: the sheet slides up
  * first, the dialog fades in a beat later, since the reveal is how a user discovers the sheet
  * exists at all. `onOpenSettingsDialog` below sets the sheet open immediately and only delays the
@@ -169,7 +169,7 @@ fun PreviewStudySessionContent(
         if (settingsSheetOpen) settingsSheetState.sheetState.show() else settingsSheetState.sheetState.hide()
     }
 
-    // The badge-tap-to-dialog stagger (ticket 09) — see this function's own doc for why a
+    // The badge-tap-to-dialog stagger — see this function's own doc for why a
     // LaunchedEffect keyed on this, not a manually-tracked Job, is what makes it cancellable.
     var pendingBadgeDialog by remember { mutableStateOf<PreviewDialog?>(null) }
     LaunchedEffect(pendingBadgeDialog) {
@@ -457,13 +457,13 @@ private fun ScopeHeroBody(
 
 /**
  * Mode and interaction, tappable — a new user's only on-screen evidence that either is a choice at
- * all, now that the settings sheet defaults to hidden (ticket 07). Kept off the read-only scope
+ * all, now that the settings sheet defaults to hidden. Kept off the read-only scope
  * badges' own row: a tappable pill sitting among read-only ones is poor affordance and worse
- * accessibility (ticket 09). Each [FlashcardsMetadataBadge] gets a non-null `onClick`, which is what
+ * accessibility. Each [FlashcardsMetadataBadge] gets a non-null `onClick`, which is what
  * makes it announce itself as a button rather than static text — the scope badges above pass none.
  *
  * The second badge always names a behaviour, never its absence — "Manual", not "Off" — a deliberate
- * reversal of the usual rule against badging negatives (ticket 09).
+ * reversal of the usual rule against badging negatives.
  */
 @Composable
 private fun SettingsBadgeRow(
@@ -528,7 +528,7 @@ private fun interactionBadgeContent(isRated: Boolean, enabled: Boolean): Interac
 }
 
 /**
- * Ticket 10's nothing-matches state: [FlashcardsEmptyState] replaces the *whole* hero above it (no
+ * The nothing-matches state: [FlashcardsEmptyState] replaces the *whole* hero above it (no
  * play circle, no title, no scope sentence, no badges — [AdaptiveHero] never even composes
  * [HeroTop] when [ReadyContent] finds the pool empty), with a single Reset filters action that
  * restores what the screen was originally handed. Settings remains reachable from an empty pool via
@@ -557,7 +557,7 @@ private fun EmptyHeroBody(modifier: Modifier = Modifier, onResetFilters: () -> U
 
 /**
  * **Start session** plus the unlabelled settings toggle, with **Reshuffle topics** for Quick
- * sessions only — except when nothing matches (ticket 10): reshuffling there is offered nowhere,
+ * sessions only — except when nothing matches: reshuffling there is offered nowhere,
  * not just left off the empty state's own two actions, since a stale sample and a fresh one look
  * identical until reshuffled. Custom never offers it, single- or multi-subcategory alike: its
  * subcategories are hand-picked by the user, not sampled, so there is nothing to reshuffle
@@ -667,9 +667,9 @@ private fun SettingsToggleButton(settingsSheetOpen: Boolean, onToggleSettings: (
 }
 
 /**
- * How long a settings badge tap waits after opening the sheet before opening its dialog (ticket
- * 09) — long enough that the sheet's own slide-up reads as a distinct event before the dialog (and
- * its ticket 04 background blur) covers it, short enough that the tap still feels like one action.
+ * How long a settings badge tap waits after opening the sheet before opening its dialog
+ * — long enough that the sheet's own slide-up reads as a distinct event before the dialog (and
+ * its background blur) covers it, short enough that the tap still feels like one action.
  * `BottomSheet`'s expand animation is spring-driven (see M3's `BottomSheet.kt`), not a fixed-duration
  * tween, so there is no single number to sync exactly against — this is tuned with headroom above a
  * typical settle, not measured from one.

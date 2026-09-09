@@ -3,7 +3,7 @@ package com.rossomak.flashcards.core.data.source
 import com.rossomak.flashcards.core.data.model.PendingSessionSubmissionDto
 
 /**
- * The local durable delivery queue's read/write surface (ticket 03) — matches this codebase's
+ * The local durable delivery queue's read/write surface — matches this codebase's
  * `XxxLocalDataSource` convention (cf. [StudySessionPreferencesLocalDataSource] /
  * [DataStoreStudySessionPreferencesLocalDataSource]), extended here to a list-shaped store: every
  * other local data source in this app is DataStore's key-value Preferences, this is the first one

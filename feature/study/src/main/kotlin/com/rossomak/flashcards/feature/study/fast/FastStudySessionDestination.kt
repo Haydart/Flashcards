@@ -12,7 +12,7 @@ sealed interface FastStudySessionDestination : NavigationEvent {
 
     /**
      * The session ended — the deck was exhausted, or the user confirmed "Exit session?" — carrying
-     * the sealed result on to the Session Summary (spec 03 ticket 03). The session's only
+     * the sealed result on to the Session Summary. The session's only
      * destination now; there is no longer a plain "go back" outcome.
      */
     data class Summary(val route: StudySessionSummaryRoute) : FastStudySessionDestination

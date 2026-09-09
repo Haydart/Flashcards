@@ -15,7 +15,7 @@ can write them.
 
 ## Context
 
-Two findings drove this, against the prior design (ADR-0014, spec 05 ticket 02): a code-review finding
+Two findings drove this, against the prior design (ADR-0014): a code-review finding
 that the client-issued scoring-state write was a fire-and-forget batch, not a transaction, so two
 sessions committing close together — two devices, or a Fast and a Rated session finishing near-
 simultaneously — could silently clobber each other's XP and level with no error and no record it
@@ -62,6 +62,6 @@ owns, so trust moves from "whatever the client says" to "whatever the function c
   tampering and race-condition exploits; it does not close a client lying about which cards it answered
   correctly. Basic plausibility bounds-checking on submitted ratings is a natural, low-cost follow-up,
   not built here.
-- Spec 05 ticket 03 (streak and daily-goal awarding) was designed against this architecture rather than
+- Streak and daily-goal awarding was designed against this architecture rather than
   its own original client-side plan, once this landed — see
   [ADR-0048](0048-streak-and-daily-goal-ride-the-session-payload.md).

@@ -1,7 +1,7 @@
 package com.rossomak.flashcards.core.domain.model
 
 /**
- * The User's account-wide scoring state (spec 05 ticket 02): a client-owned per-user singleton,
+ * The User's account-wide scoring state: a client-owned per-user singleton,
  * `users/{uid}/progress/user-stats`, alongside the progress summary (`progress/summary`) and the
  * packed per-Subcategory documents already living under `progress/` (ADR-0014, ADR-0016). Read once,
  * on arrival at the Session Summary, by [com.rossomak.flashcards.core.domain.repository.ScoringStateRepository] —
@@ -9,8 +9,8 @@ package com.rossomak.flashcards.core.domain.model
  * [com.rossomak.flashcards.core.domain.usecase.CalculateSessionXpUseCase] into the state this same
  * commit writes back, in the same batch as everything else.
  *
- * [currentStreak], [bestStreak], [lastStudyDate] and [goalMetDate] exist from this ticket but stay at
- * their defaults until spec 05 ticket 03 makes them move — declaring them now means this document's
+ * [currentStreak], [bestStreak], [lastStudyDate] and [goalMetDate] exist already but stay at
+ * their defaults until a later change makes them move — declaring them now means this document's
  * shape never has to change later. The two dates are calendar days in the device's local zone
  * (`yyyy-MM-dd`), not instants; an empty string means "no study day recorded yet".
  *

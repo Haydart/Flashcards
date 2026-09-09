@@ -9,6 +9,7 @@ import com.rossomak.flashcards.core.data.model.PendingSessionSubmissionDto
 import com.rossomak.flashcards.core.data.model.PendingXpConfigDto
 import com.rossomak.flashcards.core.data.repository.RemoteSessionSubmissionRepository
 import com.rossomak.flashcards.core.data.source.FakePendingSessionSubmissionLocalDataSource
+import com.rossomak.flashcards.core.data.source.PendingSessionSubmissionLocalDataSource
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -17,6 +18,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
+import java.io.IOException
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Before
@@ -225,6 +227,30 @@ class SessionSubmissionDeliveryWorkerTest {
         localDataSource.listAll().map { it.id } shouldBe listOf("session-2", "session-3")
         coVerify(exactly = 1) { remoteSessionSubmissionRepository.submitSession(match { it.id == "session-2" }) }
         coVerify(exactly = 0) { remoteSessionSubmissionRepository.submitSession(match { it.id == "session-3" }) }
+    }
+
+    @Test
+    fun `a remove() that throws IOException retries the drain instead of losing track of the queue`() = runTest {
+        // remove() propagates an IOException rather than silently rewriting the queue file as empty
+        // (see FilePendingSessionSubmissionLocalDataSource's own doc) — doWork() must retry, not crash
+        // the run as Result.failure() and stop being rescheduled by WorkManager's own backoff.
+        val unreliableLocalDataSource: PendingSessionSubmissionLocalDataSource = mockk()
+        val entry = pendingSubmission("session-1", startedAtEpochMillis = 1_000L)
+        coEvery { unreliableLocalDataSource.listAll() } returns listOf(entry)
+        coEvery { unreliableLocalDataSource.remove(any()) } throws IOException("queue file unreadable")
+        coEvery { remoteSessionSubmissionRepository.submitSession(any()) } returns kotlin.Result.success(Unit)
+        val workerParameters: WorkerParameters = mockk()
+        every { workerParameters.runAttemptCount } returns 0
+        val worker = SessionSubmissionDeliveryWorker(
+            mockk<Context>(),
+            workerParameters,
+            remoteSessionSubmissionRepository,
+            unreliableLocalDataSource,
+        )
+
+        val result = worker.doWork()
+
+        result shouldBe Result.retry()
     }
 
     @Test

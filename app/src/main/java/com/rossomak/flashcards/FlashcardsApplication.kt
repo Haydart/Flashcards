@@ -9,7 +9,7 @@ import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
 /**
- * [Configuration.Provider] wires WorkManager to Hilt's [HiltWorkerFactory] (ticket 03): the default,
+ * [Configuration.Provider] wires WorkManager to Hilt's [HiltWorkerFactory]: the default,
  * reflection-based factory can only build a `Worker` with a no-arg constructor, and
  * [com.rossomak.flashcards.core.data.worker.SessionSubmissionDeliveryWorker] has none — its real
  * dependencies are constructor-injected. This replaces WorkManager's own `androidx.startup`
@@ -18,7 +18,7 @@ import javax.inject.Inject
  * `Configuration.Provider` implementation and that manifest removal must always land together.
  *
  * [scheduleDrain] runs unconditionally on every app start: the sole recovery mechanism for a session
- * a previous process queued locally but never got to drain (ticket 03) — no separate "check for
+ * a previous process queued locally but never got to drain — no separate "check for
  * leftover records" path exists or is needed, since [SessionSubmissionDrainScheduler]'s own
  * `enqueueUniqueWork(..., KEEP, ...)` call is itself a safe no-op to issue redundantly.
  */

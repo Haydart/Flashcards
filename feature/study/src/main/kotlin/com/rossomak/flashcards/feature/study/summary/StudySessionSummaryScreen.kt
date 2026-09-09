@@ -27,9 +27,9 @@ import com.rossomak.flashcards.feature.study.R
 import kotlinx.coroutines.launch
 
 /**
- * A Rated or Fast Study Session's mandatory egress — natural end or premature exit alike (spec 03
- * ticket 02). Deliberately plain: no scoring, no animation, no "Study Again" actions. Those land
- * once the content they depend on actually exists (spec 05), so this screen is not designed twice.
+ * A Rated or Fast Study Session's mandatory egress — natural end or premature exit alike.
+ * Deliberately plain: no scoring, no animation, no "Study Again" actions. Those land
+ * once the content they depend on actually exists, so this screen is not designed twice.
  *
  * [onNavigateBack] is this screen's one action, and system back from it does the same thing — both
  * pop straight to the tab the user started from, since `NavGraph.kt` already replaced everything
@@ -136,8 +136,8 @@ fun StudySessionSummaryContent(
 }
 
 /**
- * Spec 05 ticket 02's plain itemised breakdown: no animation and no bespoke styling beyond the
- * design system's defaults — the real visual design lands in ticket 04. Empty until the commit
+ * The plain itemised breakdown: no animation and no bespoke styling beyond the
+ * design system's defaults — the real visual design lands in a future redesign. Empty until the commit
  * resolves ([StudySessionSummaryViewModel.applyXpResult]); zero-amount lines are already excluded
  * from [StudySessionSummaryScreenState.xpLines], never filtered here.
  */

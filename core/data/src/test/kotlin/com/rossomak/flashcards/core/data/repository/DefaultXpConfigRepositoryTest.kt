@@ -5,7 +5,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
-/** The documented defaults from spec 05's table, pinned so a change is deliberate, not accidental. */
+/** The documented defaults, pinned so a change is deliberate, not accidental. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class DefaultXpConfigRepositoryTest {
 

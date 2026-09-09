@@ -145,8 +145,8 @@ private fun NavHostController.navigateToPreviewStudySessionForCategory(
 }
 
 /**
- * Terminating a Rated or Fast session lands here — natural end or a confirmed exit alike (spec 03
- * ticket 02). One `popUpTo` does both jobs the spec calls out separately: the just-finished session
+ * Terminating a Rated or Fast session lands here — natural end or a confirmed exit alike.
+ * One `popUpTo` does both jobs that would otherwise be handled separately: the just-finished session
  * sits above [Main] on the back stack, so popping up to [Main] removes it (the session can never be
  * swiped or backed into again) *and* leaves the Summary sitting directly on top of [Main] — so both
  * the Summary's own action and a plain system back land on the tab the user started from, with no

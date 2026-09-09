@@ -52,8 +52,8 @@ import kotlinx.coroutines.launch
 
 /**
  * Runs a Fast Study Session end to end. Knows nothing about Ratings, Attempts or voice answering —
- * those are Rated concepts (ticket 02 of
- * [ADR-0045](../../../../../../../../docs/adr/0045-separate-fast-and-rated-session-screens.md)).
+ * those are Rated concepts
+ * ([ADR-0045](../../../../../../../../docs/adr/0045-separate-fast-and-rated-session-screens.md)).
  *
  * No user-preferences use cases: their only current purpose is the voice-answering consent flag,
  * and voice answering is Rated-only (ADR-0025). Fast has no path to it.
@@ -103,7 +103,7 @@ class FastStudySessionViewModel @Inject constructor(
 
     // Generated once per session and carried on the ViewModel rather than SavedStateHandle — the
     // ViewModel instance itself already survives rotation, and there is nothing to restore it from
-    // after an app kill (spec 03 ticket 02: no in-progress persistence, by design).
+    // after an app kill (no in-progress persistence, by design).
     private val sessionId: String = UUID.randomUUID().toString()
 
     // Started once, at first card shown, and never paused — v1 is deliberately simplistic: wall
@@ -124,24 +124,24 @@ class FastStudySessionViewModel @Inject constructor(
     // navigation event.
     private var terminated = false
 
-    // A Fast card's answer being shown is the Studied criterion (spec 03 ticket 03), tracked here
+    // A Fast card's answer being shown is the Studied criterion, tracked here
     // rather than in core:domain — Fast has no state-machine record the way Rated does, just this
     // set. A LinkedHashSet keeps first-seen order for the sealed cardResults and makes re-recording a
     // revisited card (skip-previous) a no-op, satisfying idempotency for free.
     private val seenCardIds = linkedSetOf<String>()
 
-    // Session-start-only signal (ticket 04 of spec 04 session persistence): one packed progress
+    // Session-start-only signal: one packed progress
     // document read per Subcategory in the route's scope, merged into cardId -> CardProgressEntry.
     // Fast has no mastery concept — only the new-entry half (a cardId absent here) matters, and even
-    // that is in-session-only, feeding spec 05's new-card scoring bonus, never written to
-    // FlashcardResult or any persisted document by this ticket. A failed read (offline, permissions,
+    // that is in-session-only, feeding the new-card scoring bonus, never written to
+    // FlashcardResult or any persisted document. A failed read (offline, permissions,
     // ...) leaves this empty rather than blocking the session; every card is then simply not-new for
     // scoring purposes, an acceptable price for a session that still runs. Exposed internally only
-    // for test assertions — nothing in the UI reads it (not in this ticket).
+    // for test assertions — nothing in the UI reads it.
     internal var priorProgressByCardId: Map<String, CardProgressEntry> = emptyMap()
         private set
 
-    // The XP configuration as of this session's start (ticket 01 of spec 05), fetched alongside
+    // The XP configuration as of this session's start, fetched alongside
     // sessionStartData and never re-read — ADR-0047's snapshot rule. Defaults to XpConfig()'s own
     // defaults for the brief window before loadFlashcards' fetch resolves; abandoning before then
     // seals a placeholderResult scored against that same default, same as an empty cardResults list.
@@ -164,7 +164,7 @@ class FastStudySessionViewModel @Inject constructor(
             }
             // A failed Subcategory progress read and a never-studied one are already folded into
             // "no entries" by GetSessionStartDataUseCase — never fatal, never surfaced, exactly the
-            // graceful degradation ticket 04 asks for.
+            // graceful degradation this design calls for.
             priorProgressByCardId = sessionStartData.priorProgressByCardId
             sessionXpConfig = sessionStartData.xpConfig
 
@@ -181,7 +181,7 @@ class FastStudySessionViewModel @Inject constructor(
                 )
             }
             // The clock starts here, once a card is actually on screen — never at route entry, so
-            // a session whose card load fails never banks time (spec 03 ticket 02/03).
+            // a session whose card load fails never banks time.
             if (sessionCards.isNotEmpty()) startStudyClock()
         }
     }
@@ -201,7 +201,7 @@ class FastStudySessionViewModel @Inject constructor(
                     return@collect
                 }
                 // The answer phase for the current index is Fast's Studied criterion under
-                // read-aloud (spec 03 ticket 03) — recorded before the natural-end check below,
+                // read-aloud — recorded before the natural-end check below,
                 // which relies on the last card already being marked Seen.
                 if (voice.isActive && voice.phase == VoicePhase.Answer) {
                     markSeen(voice.currentIndex)
@@ -234,7 +234,7 @@ class FastStudySessionViewModel @Inject constructor(
                     viewModelScope.launch { voiceGateway.togglePlayPause() }
                 }
                 // The final card's answer is read in full before this fires — never at the moment
-                // it merely started (spec 03 ticket 03: "do not confuse answer shown with session
+                // it merely started ("do not confuse answer shown with session
                 // over").
                 if (readAloudNaturalEnd) terminate(abandoned = false)
             }
@@ -255,7 +255,7 @@ class FastStudySessionViewModel @Inject constructor(
             voice.currentIndex == voice.totalCards - 1 &&
             seenCardIds.contains(_state.value.flashcards.getOrNull(voice.currentIndex)?.id)
 
-    /** Idempotent per card (spec 03 ticket 03) — a [linkedSetOf] no-ops a revisit via skip-previous. */
+    /** Idempotent per card — a [linkedSetOf] no-ops a revisit via skip-previous. */
     private fun markSeen(cardIndex: Int) {
         _state.value.flashcards.getOrNull(cardIndex)?.let { seenCardIds.add(it.id) }
     }
@@ -461,8 +461,8 @@ class FastStudySessionViewModel @Inject constructor(
     /**
      * The caller hands over the dialog it wants shown, already seeded from what it was rendering.
      * [VoiceAnswerConsent] is unreachable here — Fast never toggles voice answering (ADR-0025) —
-     * but the `when` still names it: the dialog type is shared with Rated rather than split
-     * (ticket 01), so this screen simply never constructs that case.
+     * but the `when` still names it: the dialog type is shared with Rated rather than split,
+     * so this screen simply never constructs that case.
      */
     private fun onDialogOpen(dialog: StudySessionDialog) {
         when (dialog) {
@@ -546,7 +546,7 @@ class FastStudySessionViewModel @Inject constructor(
 
     /**
      * Both terminal paths — the deck exhausted and a confirmed "Exit session?" — run this,
-     * [abandoned] the only thing differing (spec 03 tickets 02/03), calling the same shared
+     * [abandoned] the only thing differing, calling the same shared
      * `core:domain` [sealSessionResult] Rated uses rather than duplicating its clock-stamping.
      * Seals cardResults from [seenCardIds], stamps the duration off [clock], and emits the one-time
      * navigation event (ADR-0019) exactly once — [terminated] guards a stray second call. Confirming
@@ -570,7 +570,7 @@ class FastStudySessionViewModel @Inject constructor(
             cardResults = sealFastCardResults(),
             // Never read: toSummaryRoute() (below) deliberately does not carry either field — the
             // Summary ViewModel computes real values when it reconstructs its own SessionResult from
-            // the route (spec 05 ticket 03).
+            // the route.
             studyDate = "",
             dailyGoalMinutes = 0,
             xpConfig = sessionXpConfig,
@@ -583,7 +583,7 @@ class FastStudySessionViewModel @Inject constructor(
 
     /**
      * One [FlashcardResult.Fast] per [seenCardIds], in first-seen order — Fast's definition of
-     * Studied (spec 03 ticket 03). Every entry is [FlashcardStudyProgressState.Seen] — Fast has no
+     * Studied. Every entry is [FlashcardStudyProgressState.Seen] — Fast has no
      * Attempts or `wasPreviouslyMastered` field to carry at all.
      */
     private fun sealFastCardResults(): List<FlashcardResult.Fast> {

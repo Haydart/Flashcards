@@ -48,8 +48,8 @@ fun SessionResult.toSummaryRoute(): StudySessionSummaryRoute = StudySessionSumma
 
 /**
  * The inverse of [toSummaryRoute] — how the Summary ViewModel reads the route back into a
- * [SessionResult]. [studyDate]/[dailyGoalMinutes] are supplied by the caller rather than derived here
- * (spec 05 ticket 03): [studyDate] is purely derived from [StudySessionSummaryRoute.startedAtEpochSecond],
+ * [SessionResult]. [studyDate]/[dailyGoalMinutes] are supplied by the caller rather than derived here:
+ * [studyDate] is purely derived from [StudySessionSummaryRoute.startedAtEpochSecond],
  * and [dailyGoalMinutes] is a fresh preferences read that has no business surviving process death via
  * `SavedStateHandle` the way the route's other fields do — this mapping function stays pure either way.
  */

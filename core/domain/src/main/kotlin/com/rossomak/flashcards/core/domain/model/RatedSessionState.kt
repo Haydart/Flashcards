@@ -64,7 +64,7 @@ data class RatedSessionState(
     val remainingCards: List<Flashcard> get() = queue.map { it.card }
 
     /**
-     * The current (head) card's own Rating history, in order — ticket 03's `FlashcardsAttemptIndicator`
+     * The current (head) card's own Rating history, in order — `FlashcardsAttemptIndicator`'s
      * source. Empty once [isComplete], since there is no head left.
      */
     val currentCardRatings: List<FlashcardAttemptRating> get() = queue.firstOrNull()?.ratings ?: emptyList()
@@ -73,9 +73,9 @@ data class RatedSessionState(
         /**
          * Seeds the first snapshot: one [RatedSessionCardRecord] per [cards], each stamped
          * previously-mastered from [previouslyMasteredCardIds] — the ViewModel's session-start
-         * progress read (ticket 04 of spec 04 session persistence), never trusted any further than
+         * progress read, never trusted any further than
          * this: the flag rides along on the record for [sealRatedCardResults] to carry into
-         * [FlashcardResult.Rated.wasPreviouslyMastered], display and spec 07's Mastery Defense only.
+         * [FlashcardResult.Rated.wasPreviouslyMastered], display and Mastery Defense only.
          */
         fun seed(
             cards: List<Flashcard>,
@@ -129,7 +129,7 @@ fun rate(state: RatedSessionState, rating: FlashcardAttemptRating): RatedSession
 /**
  * A silence timeout on [state]'s current (head) card: no Attempt, no Rating — the record comes back
  * unchanged, using the Failed gap range. A card nobody answered still needs asking, and Failed's gap
- * is the shortest one available (ticket 04 of the Rated session state machine sequence). Never
+ * is the shortest one available. Never
  * terminal — an un-rated card cannot exhaust its Attempts.
  */
 fun requeueAfterSilence(state: RatedSessionState): RatedSessionState {
