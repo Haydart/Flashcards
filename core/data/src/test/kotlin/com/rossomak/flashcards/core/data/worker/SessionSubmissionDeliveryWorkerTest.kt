@@ -204,4 +204,42 @@ class SessionSubmissionDeliveryWorkerTest {
         localDataSource.listAll() shouldBe emptyList()
         coVerify(exactly = 1) { remoteSessionSubmissionRepository.submitSession(match { it.id == "session-2" }) }
     }
+
+    @Test
+    fun `a shared-cause failure at the attempt limit drops only the head entry, keeping later entries queued`() = runTest {
+        // Every entry fails for the same reason (e.g. backend outage) — only the head entry has
+        // actually been retried MAX_DELIVERY_ATTEMPTS times; the rest must stay queued, not get wiped.
+        val first = pendingSubmission("session-1", startedAtEpochMillis = 1_000L)
+        val second = pendingSubmission("session-2", startedAtEpochMillis = 2_000L)
+        val third = pendingSubmission("session-3", startedAtEpochMillis = 3_000L)
+        localDataSource.seed(first)
+        localDataSource.seed(second)
+        localDataSource.seed(third)
+        coEvery { remoteSessionSubmissionRepository.submitSession(any()) } returns
+            kotlin.Result.failure(IllegalStateException("backend unavailable"))
+
+        // Attempt 5 of 5 (runAttemptCount 4, 0-indexed) — the limit.
+        val result = createWorker(runAttemptCount = 4).doWork()
+
+        result shouldBe Result.retry()
+        localDataSource.listAll().map { it.id } shouldBe listOf("session-2", "session-3")
+        coVerify(exactly = 1) { remoteSessionSubmissionRepository.submitSession(match { it.id == "session-2" }) }
+        coVerify(exactly = 0) { remoteSessionSubmissionRepository.submitSession(match { it.id == "session-3" }) }
+    }
+
+    @Test
+    fun `a malformed entry that fails domain conversion is dropped and does not block later entries`() = runTest {
+        val malformed = pendingSubmission("session-1", startedAtEpochMillis = 1_000L).copy(mode = "NotARealStudyMode")
+        val valid = pendingSubmission("session-2", startedAtEpochMillis = 2_000L)
+        localDataSource.seed(malformed)
+        localDataSource.seed(valid)
+        coEvery { remoteSessionSubmissionRepository.submitSession(any()) } returns kotlin.Result.success(Unit)
+
+        val result = createWorker().doWork()
+
+        result shouldBe Result.success()
+        localDataSource.listAll() shouldBe emptyList()
+        coVerify(exactly = 0) { remoteSessionSubmissionRepository.submitSession(match { it.id == "session-1" }) }
+        coVerify(exactly = 1) { remoteSessionSubmissionRepository.submitSession(match { it.id == "session-2" }) }
+    }
 }

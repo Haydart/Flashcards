@@ -12,6 +12,8 @@ import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import java.io.File
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -140,23 +142,38 @@ class FilePendingSessionSubmissionLocalDataSourceTest {
     }
 
     @Test
-    fun `a corrupted queue file is treated as empty rather than crashing`() = runTest {
-        val context: Context = mockk()
-        every { context.filesDir } returns temporaryFolder.root
-        File(temporaryFolder.root, "pending_session_submissions.json").writeText("{ not valid json ][")
+    fun `a corrupted line is skipped rather than crashing, leaving the other entries intact`() = runTest {
+        val dataSource = createDataSource()
+        val first = pendingSubmission("session-1")
+        val third = pendingSubmission("session-3")
+        dataSource.append(first)
+        File(temporaryFolder.root, "pending_session_submissions.jsonl").appendText("{ not valid json ][\n")
+        dataSource.append(third)
 
-        val dataSource = FilePendingSessionSubmissionLocalDataSource(context)
+        dataSource.listAll() shouldBe listOf(first, third)
+    }
 
-        dataSource.listAll() shouldBe emptyList()
+    @Test
+    fun `a corrupted line disappears from disk once the queue is next mutated`() = runTest {
+        val dataSource = createDataSource()
+        val first = pendingSubmission("session-1")
+        dataSource.append(first)
+        File(temporaryFolder.root, "pending_session_submissions.jsonl").appendText("{ not valid json ][\n")
+
+        // remove() rewrites the file from whatever listAll() (which already dropped the bad line) returns.
+        dataSource.remove("session-does-not-exist")
+
+        File(temporaryFolder.root, "pending_session_submissions.jsonl").readText() shouldBe
+            "${Json.encodeToString(first)}\n"
     }
 
     @Test
     fun `a queue file that fails to read with an IOException is treated as empty rather than crashing`() = runTest {
         val context: Context = mockk()
         every { context.filesDir } returns temporaryFolder.root
-        // A directory at the expected path exists (so file.exists() is true) but readText() throws
+        // A directory at the expected path exists (so file.exists() is true) but readLines() throws
         // FileNotFoundException — an IOException — rather than returning content.
-        File(temporaryFolder.root, "pending_session_submissions.json").mkdir()
+        File(temporaryFolder.root, "pending_session_submissions.jsonl").mkdir()
 
         val dataSource = FilePendingSessionSubmissionLocalDataSource(context)
 
@@ -164,11 +181,25 @@ class FilePendingSessionSubmissionLocalDataSourceTest {
     }
 
     @Test
-    fun `append does not leave a stray temp file behind after its atomic write`() = runTest {
+    fun `remove does not leave a stray temp file behind after its atomic rewrite`() = runTest {
         val dataSource = createDataSource()
-
         dataSource.append(pendingSubmission("session-1"))
 
-        File(temporaryFolder.root, "pending_session_submissions.json.tmp").exists() shouldBe false
+        dataSource.remove("session-1")
+
+        File(temporaryFolder.root, "pending_session_submissions.jsonl.tmp").exists() shouldBe false
+    }
+
+    @Test
+    fun `append opens the file in append mode, keeping earlier entries after a process restart`() = runTest {
+        val context: Context = mockk()
+        every { context.filesDir } returns temporaryFolder.root
+        val first = pendingSubmission("session-1")
+        val second = pendingSubmission("session-2")
+        FilePendingSessionSubmissionLocalDataSource(context).append(first)
+
+        FilePendingSessionSubmissionLocalDataSource(context).append(second)
+
+        FilePendingSessionSubmissionLocalDataSource(context).listAll() shouldBe listOf(first, second)
     }
 }

@@ -41,15 +41,23 @@ import dagger.assisted.AssistedInject
  * failed to clear locally before a crash gets resent on the next run — harmless, since
  * `submitStudySession` is idempotent per session id.
  *
- * Retries are bounded by [runAttemptCount] against [MAX_DELIVERY_ATTEMPTS]: since every entry ahead
- * of a failing one always clears first (success removes it before moving on), a failing entry is
- * always the head of the sorted list on every subsequent attempt of the *same* enqueued request, so
- * [runAttemptCount] tracks that head entry's own attempt count in practice. Once it's exhausted,
- * [doWork] drops that one entry — logging it as a permanent failure rather than silently losing it —
- * and moves on to the rest of the queue in the *same* run, instead of retrying it forever and blocking
- * every entry behind it. A fresh entry appended later resets the count for itself: it isn't the same
- * request attempt, and [ExistingWorkPolicy][androidx.work.ExistingWorkPolicy.KEEP] only reuses the
- * still-running/enqueued request, never a completed one.
+ * Retries are bounded by [runAttemptCount] against [MAX_DELIVERY_ATTEMPTS], but only for the *head*
+ * entry of a run: [runAttemptCount] counts this enqueued request's own attempts, not any individual
+ * entry's — when every entry fails for the same shared-cause reason (backend outage, rejected auth
+ * token), every entry hits the bound on the same attempt, and only the head one has actually been
+ * retried that many times. Once the head is exhausted, [doWork] drops that one entry — logging it as a
+ * permanent failure rather than silently losing it — and moves on to the rest of the queue in the
+ * *same* run, instead of retrying it forever and blocking every entry behind it. Every later entry in
+ * that same run still returns [Result.retry] on failure, no matter [runAttemptCount], so a shared-cause
+ * outage cannot drop more than one entry per exhausted run. A fresh entry appended later resets the
+ * count for itself: it isn't the same request attempt, and [ExistingWorkPolicy][androidx.work.ExistingWorkPolicy.KEEP]
+ * only reuses the still-running/enqueued request, never a completed one.
+ *
+ * A queue entry that fails to convert back to a domain [com.rossomak.flashcards.core.domain.model.SessionResult]
+ * (unknown `mode`/`state`, or a `Rated` card result missing `attemptsUsed`/`wasPreviouslyMastered`) is
+ * malformed beyond repair, not a delivery failure: [doWork] catches that conversion, logs the invalid
+ * entry, removes it from the queue, and continues to the next entry rather than stalling every entry
+ * behind it or retrying something that can never succeed.
  *
  * Recovery after the app (or the process WorkManager was running in) is killed mid-drain needs no
  * separate code path: [com.rossomak.flashcards.FlashcardsApplication] unconditionally calls
@@ -70,9 +78,16 @@ class SessionSubmissionDeliveryWorker @AssistedInject constructor(
         Log.d(TAG, "Drain started: ${pendingEntries.size} pending entr${if (pendingEntries.size == 1) "y" else "ies"} (attempt ${runAttemptCount + 1})")
         pendingEntries.forEachIndexed { index, entry ->
             Log.d(TAG, "Submitting session ${entry.id} (${index + 1}/${pendingEntries.size})")
-            val submissionResult = remoteSessionSubmissionRepository.submitSession(entry.toDomain())
+            val domainSessionResult = try {
+                entry.toDomain()
+            } catch (exception: IllegalArgumentException) {
+                Log.e(TAG, "Session ${entry.id} is malformed and cannot be converted, dropping it from the queue", exception)
+                localDataSource.remove(entry.id)
+                return@forEachIndexed
+            }
+            val submissionResult = remoteSessionSubmissionRepository.submitSession(domainSessionResult)
             if (submissionResult.isFailure) {
-                if (runAttemptCount + 1 >= MAX_DELIVERY_ATTEMPTS) {
+                if (index == 0 && runAttemptCount + 1 >= MAX_DELIVERY_ATTEMPTS) {
                     Log.e(
                         TAG,
                         "Session ${entry.id} failed to deliver after $MAX_DELIVERY_ATTEMPTS attempts, " +
@@ -99,7 +114,7 @@ class SessionSubmissionDeliveryWorker @AssistedInject constructor(
     private companion object {
         const val TAG = "SessionSubmissionDrainWorker"
 
-        /** See this class's own doc for why [runAttemptCount] is a valid proxy for a single failing entry's attempt count. */
+        /** See this class's own doc for why the attempt bound only ever applies to the head entry of a run. */
         const val MAX_DELIVERY_ATTEMPTS = 5
     }
 }
