@@ -16,8 +16,8 @@ import kotlinx.serialization.Serializable
  * unsurprising encoding this whole data layer already uses elsewhere.
  *
  * See [PendingSessionSubmissionMapper] for the `toDto()`/`toDomain()` conversions, and
- * [com.rossomak.flashcards.core.data.source.FilePendingSessionSubmissionLocalDataSource] for where a
- * JSON array of these gets persisted.
+ * [com.rossomak.flashcards.core.data.source.FilePendingSessionSubmissionLocalDataSource] for where
+ * these get persisted, one JSON-encoded entry per line.
  *
  * **A field added to [com.rossomak.flashcards.core.domain.model.SessionResult] needs updating in two
  * independent places, not just one**: here (plus [PendingSessionSubmissionMapper]) for the durable
