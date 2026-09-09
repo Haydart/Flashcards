@@ -9,7 +9,7 @@ import kotlinx.coroutines.tasks.await
 
 /**
  * Reads the User's per-Subcategory progress-summary singleton, `users/{uid}/progress/summary`
- * (ADR-0016). Read-only: the server-authoritative `submitStudySession` Cloud Function (spec 08) is
+ * (ADR-0016). Read-only: the server-authoritative `submitStudySession` Cloud Function is
  * the sole writer of this document now — this client never composes an increment for it.
  */
 class ProgressSummaryRemoteDataSource @Inject constructor(

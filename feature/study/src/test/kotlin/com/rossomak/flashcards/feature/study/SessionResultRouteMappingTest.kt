@@ -15,8 +15,8 @@ import org.junit.Test
  */
 class SessionResultRouteMappingTest {
 
-    // studyDate/dailyGoalMinutes are deliberately not carried by StudySessionSummaryRoute (spec 05
-    // ticket 03) — toSessionResult() takes them as fresh parameters instead of reading them off the
+    // studyDate/dailyGoalMinutes are deliberately not carried by StudySessionSummaryRoute
+    // — toSessionResult() takes them as fresh parameters instead of reading them off the
     // route. Extracted once (TESTING.md §7) so the fixtures below and the toSessionResult(...) calls
     // can never drift apart.
     private val studyDate = "2026-09-06"

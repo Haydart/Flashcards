@@ -40,7 +40,7 @@ import com.rossomak.flashcards.feature.study.preview.PreviewDialog.VoiceSettings
 
 /**
  * The settings sheet itself: [FlashcardsBottomSheet] docked over the ready screen, hidden until
- * the top bar's settings button opens it (ticket 07). [sheetState] is owned by the caller — this
+ * the top bar's settings button opens it. [sheetState] is owned by the caller — this
  * composable only renders what's inside.
  *
  * Every row renders at once — no manual pagination or lazy list here — and
@@ -219,7 +219,7 @@ private fun voicePlaybackSummary(state: PreviewStudySessionScreenState): String 
 
 /**
  * The Filters row's value slot: a tag summary beside [FlashcardsDifficultyRangePill], rather than
- * the plain text every other row uses (ticket 07). Difficulty always renders; the tag summary only
+ * the plain text every other row uses. Difficulty always renders; the tag summary only
  * joins it when [PreviewStudySessionScreenState.availableTags] is non-empty — multi-subcategory
  * sessions filter by difficulty only (ADR-0030) and offer no tag vocabulary to summarize.
  *

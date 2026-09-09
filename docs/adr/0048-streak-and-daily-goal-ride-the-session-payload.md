@@ -22,9 +22,9 @@ accepted as a silent no-op for these two awards specifically, not reconciled.
 
 ## Context
 
-Spec 05 ticket 03 originally designed streak and daily-goal entirely client-side, and rejected storing
-the Daily Goal in Firestore ("a second writable source with no sync story"). Spec 08 then moved all
-scoring computation server-side, reopening the question: a server-side calculation needs to see the goal
+The original design planned streak and daily-goal entirely client-side, and rejected storing
+the Daily Goal in Firestore ("a second writable source with no sync story"). Moving all
+scoring computation server-side then reopened the question: a server-side calculation needs to see the goal
 to gate the bonus on it, but the objection to a synced Firestore copy — routing every Settings-screen
 edit through a second write path — holds regardless of where the calculation runs.
 
@@ -43,7 +43,7 @@ day's `dailyGoalMet` award.
 ## Considered Options
 
 - **Firestore-stored Daily Goal, client-writable field** — rejected. Reopens the exact "second writable
-  source" objection spec 05 raised, now with a live-read requirement on top.
+  source" objection raised originally, now with a live-read requirement on top.
 - **Firestore-stored Daily Goal, dedicated doc, day-locked read** — rejected for the same write-plumbing
   cost; still needs the function to remember which value was locked, so it relocates state-tracking
   rather than removing it.
@@ -60,8 +60,7 @@ day's `dailyGoalMet` award.
   the session document's own stored breakdown.
 - `studyDate` becomes a new field on both the `submitStudySession` payload and the persisted
   `sessions/{sessionId}` document — needed for streak/goal day comparison and for querying "today's
-  sessions" without server-side timezone math (see spec 05 ticket 03,
-  `.scratch/05-xp-and-leveling/issues/03-streak-and-daily-goal.md`).
+  sessions" without server-side timezone math.
 - Out-of-order submission delivery (multi-device, or a long-queued offline backlog crossing a streak
   boundary) can silently under-award streak/goal — the same class of accepted drift as `XpConfig`'s own
   redeploy-mid-queue gap (ADR-0047).

@@ -3,9 +3,9 @@ package com.rossomak.flashcards.core.domain.repository
 import com.rossomak.flashcards.core.domain.model.ScoringState
 
 /**
- * Reads the User's account-wide [ScoringState] singleton, `progress/user-stats` (spec 05 ticket 02).
+ * Reads the User's account-wide [ScoringState] singleton, `progress/user-stats`.
  * Writing is not exposed here, nor anywhere else on the client: the server-authoritative
- * `submitStudySession` Cloud Function (spec 08) is the sole writer of this document, computing and
+ * `submitStudySession` Cloud Function is the sole writer of this document, computing and
  * overwriting the whole next [ScoringState] itself inside its own Firestore transaction.
  * [getScoringState] only ever feeds
  * [com.rossomak.flashcards.core.domain.usecase.SubmitStudySessionUseCase]'s optimistic preview now.

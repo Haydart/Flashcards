@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 /**
  * Full-fidelity, lossless mirror of a domain
  * [com.rossomak.flashcards.core.domain.model.SessionResult] for the local durable delivery queue
- * (ticket 03) — carries every field the domain type carries, both `Rated`/`Fast` variants, including
+ * — carries every field the domain type carries, both `Rated`/`Fast` variants, including
  * [xpConfig]. **Independent of** [com.rossomak.flashcards.core.data.repository.RemoteSessionSubmissionRepository]'s
  * own wire payload: that one is a network-wire subset (no `xpConfig`); this DTO's job is a lossless
  * round trip through an app restart, not matching what the network call sends.
@@ -38,7 +38,7 @@ data class PendingSessionSubmissionDto(
     val subcategoryIds: List<String>,
     val subcategoryNames: List<String>,
     val cardResults: List<PendingFlashcardResultDto>,
-    // Defaulted, not required: an entry queued by an app version before spec 05 ticket 03 has neither
+    // Defaulted, not required: an entry queued by an older app version has neither
     // field in its persisted JSON. kotlinx.serialization only tolerates a *missing* field when it has
     // a default, so without one, one stale entry throws on decode and takes the whole array with it
     // (readAll() catches SerializationException by discarding every queued session, not just the bad

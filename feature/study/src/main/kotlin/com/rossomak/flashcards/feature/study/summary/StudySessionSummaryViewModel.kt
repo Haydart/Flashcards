@@ -28,8 +28,8 @@ import kotlinx.coroutines.launch
 
 /**
  * Reads the terminated session's result straight from the route arguments — the only load path this
- * route ever carries (spec 03 ticket 02: fresh-session egress only, never a past session) — and
- * submits it once, on arrival (ADR-0014, superseded for the write path by spec 08).
+ * route ever carries (fresh-session egress only, never a past session) — and
+ * submits it once, on arrival (ADR-0014, superseded for the write path by the server-authoritative session commit).
  *
  * The submission fires from `init`, which Hilt/Compose Navigation only run once per back-stack entry:
  * this ViewModel survives configuration change, so there is no separate "have I already submitted"
@@ -60,12 +60,12 @@ class StudySessionSummaryViewModel @Inject constructor(
 
     /**
      * Reconstructs the terminated session's [SessionResult] from the route arguments — the only load
-     * path this route ever carries (spec 03 ticket 02: fresh-session egress only, never a past
-     * session) — and submits it once, on arrival (ADR-0014, superseded for the write path by spec 08).
+     * path this route ever carries (fresh-session egress only, never a past
+     * session) — and submits it once, on arrival (ADR-0014, superseded for the write path by the server-authoritative session commit).
      * `init` only runs once per back-stack entry (this ViewModel survives configuration change), so
      * there is no separate "have I already submitted" flag to maintain.
      *
-     * [studyDate] and [dailyGoalMinutes] (spec 05 ticket 03) are captured **here**, once, right before
+     * [studyDate] and [dailyGoalMinutes] are captured **here**, once, right before
      * [toSessionResult] — not derived inside that now-still-pure mapping function, and not re-read at
      * eventual delivery time if the session sits in the offline queue (ADR-0048): [studyDate] is pure,
      * derived from the route's own [StudySessionSummaryRoute.startedAtEpochSecond]; [dailyGoalMinutes]
@@ -73,7 +73,7 @@ class StudySessionSummaryViewModel @Inject constructor(
      *
      * [SubmitStudySessionUseCase] hands back the optimistic preview immediately, decoupled from
      * whatever its own submission to the server-authoritative `submitStudySession` Cloud Function
-     * (spec 08) returns — that call's own outcome carries no further authority here and is never
+     * returns — that call's own outcome carries no further authority here and is never
      * inspected (see that use case's own KDoc). Only a failed local read behind the preview itself —
      * this account's prior card progress or scoring state — surfaces [StudySessionSummaryMessage.SaveFailed]
      * and leaves [state]'s XP fields at their zero defaults; the counts derived from [SessionResult]
@@ -133,7 +133,7 @@ class StudySessionSummaryViewModel @Inject constructor(
 private const val SECONDS_PER_MINUTE = 60
 
 /**
- * The plain itemised breakdown (spec 05 ticket 02): one [XpBreakdownLine] per source [xpResult]
+ * The plain itemised breakdown: one [XpBreakdownLine] per source [xpResult]
  * actually awarded XP for, in the same order as the awards table, zero-[XpBreakdownLine.amount] sources
  * dropped entirely. [SessionXpResult.newCardsStudied], [SessionResult.Rated.partialCount] and counts
  * derived from `cardResults` here (mirroring [CalculateSessionXpUseCase][com.rossomak.flashcards.core.domain.usecase.CalculateSessionXpUseCase]'s

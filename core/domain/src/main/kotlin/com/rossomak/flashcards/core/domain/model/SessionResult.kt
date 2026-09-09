@@ -30,8 +30,8 @@ sealed interface FlashcardResult {
     val subcategoryId: String
     val state: FlashcardStudyProgressState
 
-    /** @param wasPreviouslyMastered threaded from [RatedSessionCardRecord.wasPreviouslyMastered]. Spec 07's
-     * Mastery Defense is what finally sets the upstream field to `true`; this type only carries it through. */
+    /** @param wasPreviouslyMastered threaded from [RatedSessionCardRecord.wasPreviouslyMastered]. Mastery Defense
+     * is what finally sets the upstream field to `true`; this type only carries it through. */
     data class Rated(
         override val cardId: String,
         override val subcategoryId: String,
@@ -50,7 +50,7 @@ sealed interface FlashcardResult {
 
 /**
  * What happened in one Study Session of either [StudyMode] — the complete record handed to the
- * Session Summary screen, and the one shape everything downstream (spec 04's persistence, spec 05's
+ * Session Summary screen, and the one shape everything downstream (persistence,
  * scoring) reads, rather than a type per mode living outside this hierarchy.
  *
  * Sealed by Study Mode, same reasoning as [FlashcardResult]: [Rated]'s Mastered/Partial/Failed counts
@@ -89,14 +89,14 @@ sealed interface SessionResult {
      * The local calendar day [startedAt] falls on, `yyyy-MM-dd`, in the device's timezone — computed
      * once by the Summary ViewModel and carried through unchanged, never re-derived server-side (the
      * server only ever sees a UTC instant). Drives the streak and Daily Goal awards
-     * (spec 05 ticket 03, [ADR-0048](../../../../../../../docs/adr/0048-streak-and-daily-goal-ride-the-session-payload.md)).
+     * ([ADR-0048](../../../../../../../docs/adr/0048-streak-and-daily-goal-ride-the-session-payload.md)).
      */
     val studyDate: String
 
     /**
      * The Daily Goal (minutes/day) in effect when this session ended, read fresh from local
      * preferences at Summary time — never stored in Firestore (ADR-0048): a synced copy would reopen
-     * the "second writable source with no sync story" spec 05 raised for this value originally.
+     * the "second writable source with no sync story" concern raised for this value originally.
      */
     val dailyGoalMinutes: Int
 
@@ -104,7 +104,7 @@ sealed interface SessionResult {
      * The XP configuration snapshot captured when this session started
      * ([ADR-0047](../../../../../../../docs/adr/0047-xp-values-behind-a-config-repository.md)):
      * fetched alongside [cardResults]' cards, never re-read here. Defaults to [XpConfig]'s own
-     * defaults so every existing call site outside spec 05 (persistence, Firestore mapping) is
+     * defaults so every existing call site outside the new scoring path (persistence, Firestore mapping) is
      * unaffected — this ticket adds the field and the snapshot rule, nothing computes against it yet.
      */
     val xpConfig: XpConfig
@@ -137,7 +137,7 @@ sealed interface SessionResult {
          * The three Terminal State counts below are *derived* from [cardResults] rather than stored
          * alongside it, so they cannot disagree with it — this governs this in-memory type only.
          * ADR-0014's persisted `sessions/{id}` document separately stores its own such counts,
-         * computed from this same list once, at commit time (spec 04); the two rules apply to
+         * computed from this same list once, at commit time; the two rules apply to
          * different layers and do not conflict.
          */
         val masteredCount: Int get() = cardResults.count { it.state == FlashcardStudyProgressState.Mastered }

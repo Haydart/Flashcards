@@ -9,7 +9,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
-/** Provides the app's [WorkManager] singleton — introduced for ticket 03's delivery queue. */
+/** Provides the app's [WorkManager] singleton — introduced for the delivery queue. */
 @Module
 @InstallIn(SingletonComponent::class)
 object WorkManagerModule {

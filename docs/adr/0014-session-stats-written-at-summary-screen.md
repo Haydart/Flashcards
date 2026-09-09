@@ -1,22 +1,22 @@
 # Session results are committed once, at the Session Summary screen
 
-> Status: superseded by spec 08 (`docs/temp/spec-08-server-authoritative-session-commit.md`) for
+> Status: superseded (`docs/temp/spec-08-server-authoritative-session-commit.md`) for
 > everything downstream of the write path; this document's collection layout and field shapes remain
 > current.
 
-> **Superseded in part by spec 08** (`docs/temp/spec-08-server-authoritative-session-commit.md`): the
+> **Superseded in part** (`docs/temp/spec-08-server-authoritative-session-commit.md`): the
 > single client-issued commit batch/transaction described below — `CommitStudySessionUseCase` and
 > `StudySessionRemoteDataSource`'s commit methods — is removed. A server-authoritative `submitStudySession`
 > Cloud Function becomes the sole writer of `sessions/{sessionId}`, the packed per-Subcategory progress
 > documents, `progress/summary` and `progress/user-stats`, inside its own Firestore transaction; the
 > client only submits what happened and shows an optimistic, non-authoritative preview. What stands:
 > this document's collection layout and field shapes (`sessions/{sessionId}`'s own document shape,
-> `progress/summary`, `progress/user-stats`, the per-Subcategory singleton path) — spec 08 relocates who
+> `progress/summary`, `progress/user-stats`, the per-Subcategory singleton path) — the newer design relocates who
 > writes them, not what they look like.
 >
-> **Further extended by spec 05 ticket 03** (`.scratch/05-xp-and-leveling/issues/03-streak-and-daily-goal.md`,
+> **Further extended** (`.scratch/05-xp-and-leveling/issues/03-streak-and-daily-goal.md`,
 > [ADR-0048](0048-streak-and-daily-goal-ride-the-session-payload.md)): `sessions/{sessionId}` gains one
-> more field beyond what either this document or spec 08 lists, `studyDate` (`yyyy-MM-dd`, the session's
+> more field beyond what either this document or the newer design lists, `studyDate` (`yyyy-MM-dd`, the session's
 > local calendar day) — needed for server-side streak/daily-goal evaluation, computed client-side and
 > submitted alongside everything else in the payload.
 

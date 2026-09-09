@@ -8,9 +8,9 @@ import javax.inject.Inject
 import kotlinx.coroutines.tasks.await
 
 /**
- * Reads the User's account-wide scoring-state singleton, `users/{uid}/progress/user-stats`
- * (spec 05 ticket 02). Read-only: the server-authoritative `submitStudySession` Cloud Function
- * (spec 08) is the sole writer of this document now — it recomputes and overwrites the whole
+ * Reads the User's account-wide scoring-state singleton, `users/{uid}/progress/user-stats`.
+ * Read-only: the server-authoritative `submitStudySession` Cloud Function
+ * is the sole writer of this document now — it recomputes and overwrites the whole
  * [com.rossomak.flashcards.core.domain.model.ScoringState] itself, so this client never composes a
  * write for it; [getScoringState] only ever feeds
  * [com.rossomak.flashcards.core.domain.usecase.SubmitStudySessionUseCase]'s optimistic preview.

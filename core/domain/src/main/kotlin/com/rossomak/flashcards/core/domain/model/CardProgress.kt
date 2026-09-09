@@ -20,7 +20,7 @@ data class CardProgressEntry(
  * [cards]. [categoryId] rides along denormalized, so a document identifies its own scope without a
  * further lookup.
  *
- * Written only by the server-authoritative `submitStudySession` Cloud Function (spec 08) — this
+ * Written only by the server-authoritative `submitStudySession` Cloud Function — this
  * client only ever reads it, via [com.rossomak.flashcards.core.domain.repository.CardProgressRepository.getProgress].
  */
 data class SubcategoryProgress(
