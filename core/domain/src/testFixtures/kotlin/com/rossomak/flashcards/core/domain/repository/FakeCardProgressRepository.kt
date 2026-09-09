@@ -2,6 +2,7 @@ package com.rossomak.flashcards.core.domain.repository
 
 import com.rossomak.flashcards.core.domain.model.ProgressSummary
 import com.rossomak.flashcards.core.domain.model.SubcategoryProgress
+import kotlinx.coroutines.yield
 
 class FakeCardProgressRepository : CardProgressRepository {
     private val progressBySubcategoryId: MutableMap<String, SubcategoryProgress> = mutableMapOf()
@@ -24,10 +25,19 @@ class FakeCardProgressRepository : CardProgressRepository {
         this.summary = summary
     }
 
+    /**
+     * [yield]s once before returning, mirroring [com.rossomak.flashcards.core.data.repository.DefaultCardProgressRepository]'s
+     * genuine `withContext(Dispatchers.IO)` dispatcher hop — the same reasoning as
+     * [FakeSessionSubmissionRepository]'s own [yield].
+     */
     override suspend fun getProgress(subcategoryId: String): Result<SubcategoryProgress?> {
         requestedSubcategoryIds.add(subcategoryId)
+        yield()
         return resultToReturn ?: Result.success(progressBySubcategoryId[subcategoryId])
     }
 
-    override suspend fun getProgressSummary(): Result<ProgressSummary?> = summaryResultToReturn ?: Result.success(summary)
+    override suspend fun getProgressSummary(): Result<ProgressSummary?> {
+        yield()
+        return summaryResultToReturn ?: Result.success(summary)
+    }
 }
