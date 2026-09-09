@@ -1,6 +1,7 @@
 package com.rossomak.flashcards.core.data.worker
 
 import android.content.Context
+import android.util.Log
 import androidx.work.ListenableWorker.Result
 import androidx.work.WorkerParameters
 import com.rossomak.flashcards.core.data.model.PendingFlashcardResultDto
@@ -12,8 +13,13 @@ import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifySequence
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.test.runTest
+import org.junit.After
+import org.junit.Before
 import org.junit.Test
 
 /**
@@ -30,12 +36,32 @@ class SessionSubmissionDeliveryWorkerTest {
     private val remoteSessionSubmissionRepository: RemoteSessionSubmissionRepository = mockk()
     private val localDataSource = FakePendingSessionSubmissionLocalDataSource()
 
-    private fun createWorker(): SessionSubmissionDeliveryWorker = SessionSubmissionDeliveryWorker(
-        mockk<Context>(),
-        mockk<WorkerParameters>(),
-        remoteSessionSubmissionRepository,
-        localDataSource,
-    )
+    @Before
+    fun setUp() {
+        // Drain progress logs via android.util.Log, unavailable outside instrumented/Robolectric
+        // tests — stub it rather than pull in either just for this.
+        mockkStatic(Log::class)
+        every { Log.d(any(), any()) } returns 0
+        every { Log.w(any(), any(), any()) } returns 0
+        every { Log.e(any(), any(), any()) } returns 0
+    }
+
+    @After
+    fun tearDown() {
+        unmockkStatic(Log::class)
+    }
+
+    /** [runAttemptCount] defaults to 0 — WorkManager's own count for "this is the first attempt". */
+    private fun createWorker(runAttemptCount: Int = 0): SessionSubmissionDeliveryWorker {
+        val workerParameters: WorkerParameters = mockk()
+        every { workerParameters.runAttemptCount } returns runAttemptCount
+        return SessionSubmissionDeliveryWorker(
+            mockk<Context>(),
+            workerParameters,
+            remoteSessionSubmissionRepository,
+            localDataSource,
+        )
+    }
 
     private fun pendingSubmission(sessionId: String, startedAtEpochMillis: Long): PendingSessionSubmissionDto = PendingSessionSubmissionDto(
         id = sessionId,
@@ -144,5 +170,36 @@ class SessionSubmissionDeliveryWorkerTest {
 
         result shouldBe Result.success()
         coVerify(exactly = 0) { remoteSessionSubmissionRepository.submitSession(any()) }
+    }
+
+    @Test
+    fun `a failure below the attempt limit still retries without dropping the entry`() = runTest {
+        val entry = pendingSubmission("session-1", startedAtEpochMillis = 1_000L)
+        localDataSource.seed(entry)
+        coEvery { remoteSessionSubmissionRepository.submitSession(any()) } returns kotlin.Result.failure(IllegalStateException("offline"))
+
+        // Attempt 4 of 5 (runAttemptCount is 0-indexed) — still under the limit.
+        val result = createWorker(runAttemptCount = 3).doWork()
+
+        result shouldBe Result.retry()
+        localDataSource.listAll() shouldBe listOf(entry)
+    }
+
+    @Test
+    fun `a failure at the attempt limit drops the entry and lets the rest of the queue proceed`() = runTest {
+        val first = pendingSubmission("session-1", startedAtEpochMillis = 1_000L)
+        val second = pendingSubmission("session-2", startedAtEpochMillis = 2_000L)
+        localDataSource.seed(first)
+        localDataSource.seed(second)
+        coEvery { remoteSessionSubmissionRepository.submitSession(match { it.id == "session-1" }) } returns
+            kotlin.Result.failure(IllegalStateException("permanently rejected"))
+        coEvery { remoteSessionSubmissionRepository.submitSession(match { it.id == "session-2" }) } returns kotlin.Result.success(Unit)
+
+        // Attempt 5 of 5 (runAttemptCount 4, 0-indexed) — the limit.
+        val result = createWorker(runAttemptCount = 4).doWork()
+
+        result shouldBe Result.success()
+        localDataSource.listAll() shouldBe emptyList()
+        coVerify(exactly = 1) { remoteSessionSubmissionRepository.submitSession(match { it.id == "session-2" }) }
     }
 }
