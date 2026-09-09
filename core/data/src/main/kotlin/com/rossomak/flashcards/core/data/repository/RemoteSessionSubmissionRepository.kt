@@ -71,6 +71,7 @@ class RemoteSessionSubmissionRepository @Inject constructor(
         FIELD_SUBCATEGORY_NAMES to subcategoryNames,
         FIELD_CARD_RESULTS to cardResults.map { entry -> entry.toPayload() },
         FIELD_STUDY_DATE to studyDate,
+        FIELD_STUDY_DATE_UTC_OFFSET_MINUTES to studyDateUtcOffsetMinutes,
         FIELD_DAILY_GOAL_MINUTES to dailyGoalMinutes,
     )
 
@@ -104,6 +105,7 @@ class RemoteSessionSubmissionRepository @Inject constructor(
         const val FIELD_ATTEMPTS_USED = "attemptsUsed"
         const val FIELD_WAS_PREVIOUSLY_MASTERED = "wasPreviouslyMastered"
         const val FIELD_STUDY_DATE = "studyDate"
+        const val FIELD_STUDY_DATE_UTC_OFFSET_MINUTES = "studyDateUtcOffsetMinutes"
         const val FIELD_DAILY_GOAL_MINUTES = "dailyGoalMinutes"
     }
 }

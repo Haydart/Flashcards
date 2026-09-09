@@ -196,7 +196,10 @@ function calculateBreakdown(
  * `config` are all plain parameters, mirroring [computeSessionXp]'s own purity.
  */
 export interface StreakAndGoalInput {
-  /** this submission's local calendar day, `yyyy-MM-dd`, computed client-side from the session's `startedAt`. */
+  /**
+   * This submission's local calendar day, `yyyy-MM-dd` — server-derived (spec 09) from the session's
+   * `startedAtEpochMillis` and the client-reported UTC offset, not trusted directly from the client.
+   */
   studyDate: string;
   /** the Daily Goal (minutes/day) in effect when this session ended. */
   dailyGoalMinutes: number;

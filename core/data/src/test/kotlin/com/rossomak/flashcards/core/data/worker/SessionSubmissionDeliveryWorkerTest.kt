@@ -80,6 +80,7 @@ class SessionSubmissionDeliveryWorkerTest {
         ),
         studyDate = "2026-09-08",
         dailyGoalMinutes = 20,
+        studyDateUtcOffsetMinutes = 0,
         xpConfig = PendingXpConfigDto(
             newCardStudied = 10,
             cardMastered = 100,
@@ -251,6 +252,28 @@ class SessionSubmissionDeliveryWorkerTest {
         val result = worker.doWork()
 
         result shouldBe Result.retry()
+    }
+
+    @Test
+    fun `an initial listAll() that throws IOException retries the drain instead of reporting a false success`() = runTest {
+        // listAll() now propagates a whole-file IOException (see FilePendingSessionSubmissionLocalDataSource's
+        // own doc) instead of swallowing it into emptyList() — doWork() must see this and retry, rather
+        // than mistake the failure for a genuinely empty, already-drained queue.
+        val unreliableLocalDataSource: PendingSessionSubmissionLocalDataSource = mockk()
+        coEvery { unreliableLocalDataSource.listAll() } throws IOException("queue file unreadable")
+        val workerParameters: WorkerParameters = mockk()
+        every { workerParameters.runAttemptCount } returns 0
+        val worker = SessionSubmissionDeliveryWorker(
+            mockk<Context>(),
+            workerParameters,
+            remoteSessionSubmissionRepository,
+            unreliableLocalDataSource,
+        )
+
+        val result = worker.doWork()
+
+        result shouldBe Result.retry()
+        coVerify(exactly = 0) { remoteSessionSubmissionRepository.submitSession(any()) }
     }
 
     @Test

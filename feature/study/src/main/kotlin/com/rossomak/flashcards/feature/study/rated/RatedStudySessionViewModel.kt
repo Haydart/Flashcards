@@ -810,10 +810,11 @@ class RatedStudySessionViewModel @Inject constructor(
             subcategoryIds = route.subcategoryIds,
             subcategoryNames = route.subcategoryNames,
             cardResults = cardResults,
-            // Never read: toSummaryRoute() (below) deliberately does not carry either field — the
-            // Summary ViewModel computes real values when it reconstructs its own SessionResult from
-            // the route.
+            // Never read: toSummaryRoute() (below) deliberately does not carry any of these three
+            // fields — the Summary ViewModel computes real values when it reconstructs its own
+            // SessionResult from the route.
             studyDate = "",
+            studyDateUtcOffsetMinutes = 0,
             dailyGoalMinutes = 0,
             xpConfig = sessionXpConfig,
         )

@@ -37,6 +37,7 @@ class CalculateSessionXpUseCaseTest {
         cardResults = cardResults,
         studyDate = "2026-09-06",
         dailyGoalMinutes = 20,
+        studyDateUtcOffsetMinutes = 0,
         xpConfig = config,
     )
 
@@ -57,6 +58,7 @@ class CalculateSessionXpUseCaseTest {
         cardResults = cardResults,
         studyDate = "2026-09-06",
         dailyGoalMinutes = 20,
+        studyDateUtcOffsetMinutes = 0,
         xpConfig = config,
     )
 

@@ -48,12 +48,17 @@ fun SessionResult.toSummaryRoute(): StudySessionSummaryRoute = StudySessionSumma
 
 /**
  * The inverse of [toSummaryRoute] — how the Summary ViewModel reads the route back into a
- * [SessionResult]. [studyDate]/[dailyGoalMinutes] are supplied by the caller rather than derived here:
- * [studyDate] is purely derived from [StudySessionSummaryRoute.startedAtEpochSecond],
- * and [dailyGoalMinutes] is a fresh preferences read that has no business surviving process death via
- * `SavedStateHandle` the way the route's other fields do — this mapping function stays pure either way.
+ * [SessionResult]. [studyDate]/[studyDateUtcOffsetMinutes]/[dailyGoalMinutes] are supplied by the
+ * caller rather than derived here: the first two are purely derived from
+ * [StudySessionSummaryRoute.startedAtEpochSecond], and [dailyGoalMinutes] is a fresh preferences read
+ * that has no business surviving process death via `SavedStateHandle` the way the route's other fields
+ * do — this mapping function stays pure either way.
  */
-fun StudySessionSummaryRoute.toSessionResult(studyDate: String, dailyGoalMinutes: Int): SessionResult = when (mode) {
+fun StudySessionSummaryRoute.toSessionResult(
+    studyDate: String,
+    studyDateUtcOffsetMinutes: Int,
+    dailyGoalMinutes: Int,
+): SessionResult = when (mode) {
     StudyMode.Rated -> SessionResult.Rated(
         id = sessionId,
         startedAt = Instant.ofEpochSecond(startedAtEpochSecond),
@@ -75,6 +80,7 @@ fun StudySessionSummaryRoute.toSessionResult(studyDate: String, dailyGoalMinutes
             )
         },
         studyDate = studyDate,
+        studyDateUtcOffsetMinutes = studyDateUtcOffsetMinutes,
         dailyGoalMinutes = dailyGoalMinutes,
         xpConfig = xpConfig,
     )
@@ -95,6 +101,7 @@ fun StudySessionSummaryRoute.toSessionResult(studyDate: String, dailyGoalMinutes
             )
         },
         studyDate = studyDate,
+        studyDateUtcOffsetMinutes = studyDateUtcOffsetMinutes,
         dailyGoalMinutes = dailyGoalMinutes,
         xpConfig = xpConfig,
     )

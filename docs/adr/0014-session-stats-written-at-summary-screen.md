@@ -1,10 +1,10 @@
 # Session results are committed once, at the Session Summary screen
 
-> Status: superseded (`docs/temp/spec-08-server-authoritative-session-commit.md`) for
+> Status: superseded ([ADR-0049](0049-server-authoritative-session-commit.md)) for
 > everything downstream of the write path; this document's collection layout and field shapes remain
 > current.
 
-> **Superseded in part** (`docs/temp/spec-08-server-authoritative-session-commit.md`): the
+> **Superseded in part** ([ADR-0049](0049-server-authoritative-session-commit.md)): the
 > single client-issued commit batch/transaction described below — `CommitStudySessionUseCase` and
 > `StudySessionRemoteDataSource`'s commit methods — is removed. A server-authoritative `submitStudySession`
 > Cloud Function becomes the sole writer of `sessions/{sessionId}`, the packed per-Subcategory progress
@@ -14,11 +14,12 @@
 > `progress/summary`, `progress/user-stats`, the per-Subcategory singleton path) — the newer design relocates who
 > writes them, not what they look like.
 >
-> **Further extended** (`.scratch/05-xp-and-leveling/issues/03-streak-and-daily-goal.md`,
-> [ADR-0048](0048-streak-and-daily-goal-ride-the-session-payload.md)): `sessions/{sessionId}` gains one
-> more field beyond what either this document or the newer design lists, `studyDate` (`yyyy-MM-dd`, the session's
-> local calendar day) — needed for server-side streak/daily-goal evaluation, computed client-side and
-> submitted alongside everything else in the payload.
+> **Further extended** ([ADR-0048](0048-streak-and-daily-goal-ride-the-session-payload.md)):
+> `sessions/{sessionId}` gains one more field beyond what either this document or the newer design
+> lists, `studyDate` (`yyyy-MM-dd`, the session's local calendar day) — needed for server-side
+> streak/daily-goal evaluation. Submitted alongside everything else in the payload, but no longer
+> trusted as-is: the server derives its own authoritative value from the session's start timestamp and
+> a client-reported UTC offset (ADR-0049).
 
 ## Decision
 

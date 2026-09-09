@@ -62,6 +62,7 @@ class FilePendingSessionSubmissionLocalDataSourceTest {
         ),
         studyDate = "2026-09-08",
         dailyGoalMinutes = 20,
+        studyDateUtcOffsetMinutes = 0,
         xpConfig = PendingXpConfigDto(
             newCardStudied = 10,
             cardMastered = 100,
@@ -171,7 +172,7 @@ class FilePendingSessionSubmissionLocalDataSourceTest {
     }
 
     @Test
-    fun `listAll on a queue file that fails to read with an IOException reports it as empty rather than crashing`() = runTest {
+    fun `listAll propagates an IOException instead of reporting an unreadable queue as empty`() = runTest {
         val context: Context = mockk()
         every { context.filesDir } returns temporaryFolder.root
         // A directory at the expected path exists (so file.exists() is true) but readLines() throws
@@ -180,7 +181,9 @@ class FilePendingSessionSubmissionLocalDataSourceTest {
 
         val dataSource = FilePendingSessionSubmissionLocalDataSource(context)
 
-        dataSource.listAll() shouldBe emptyList()
+        // Swallowing this into emptyList() would make SessionSubmissionDeliveryWorker.doWork() see a
+        // drained queue and return Result.success() for a run that never actually read it.
+        shouldThrow<IOException> { dataSource.listAll() }
     }
 
     @Test

@@ -179,7 +179,7 @@ class StudySessionSummaryViewModelTest {
     }
 
     @Test
-    fun `the submitted session carries studyDate derived from the route's startedAt and dailyGoalMinutes read fresh from preferences`() =
+    fun `the submitted session carries studyDate and studyDateUtcOffsetMinutes derived from the route's startedAt, and dailyGoalMinutes read fresh from preferences`() =
         runTest(mainDispatcherRule.testDispatcher) {
             userPreferencesRepository.preferences.value = userPreferencesRepository.preferences.value.copy(dailyGoalMinutes = 45)
             val route = ratedRoute()
@@ -189,8 +189,11 @@ class StudySessionSummaryViewModelTest {
             advanceUntilIdle()
 
             val submitted = sessionSubmissionRepository.submittedSessionResults.single()
+            val startedAtInstant = Instant.ofEpochSecond(route.startedAtEpochSecond)
+            val zone = ZoneId.systemDefault()
             submitted.dailyGoalMinutes shouldBe 45
-            submitted.studyDate shouldBe Instant.ofEpochSecond(route.startedAtEpochSecond).atZone(ZoneId.systemDefault()).toLocalDate().toString()
+            submitted.studyDate shouldBe startedAtInstant.atZone(zone).toLocalDate().toString()
+            submitted.studyDateUtcOffsetMinutes shouldBe zone.rules.getOffset(startedAtInstant).totalSeconds / 60
         }
 
     @Test

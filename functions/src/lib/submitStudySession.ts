@@ -59,8 +59,9 @@ const FIELD_CARD_SUBCATEGORY_ID = "subcategoryId";
 const FIELD_ATTEMPTS_USED = "attemptsUsed";
 const FIELD_WAS_PREVIOUSLY_MASTERED = "wasPreviouslyMastered";
 
-// Doubles as both a request-body field and a `sessions/{sessionId}` document field: the "today's
-// total minutes" query below filters the session collection on this same name.
+// A `sessions/{sessionId}` document field only, no longer a trusted request-body field (spec 09):
+// the "today's total minutes" query below filters the session collection on this same name, but the
+// value written here is always server-derived — see `deriveLocalStudyDate`.
 const FIELD_STUDY_DATE = "studyDate";
 
 // Additive fields spec 08 adds to the session document, beyond what StudySessionRemoteDataSource.kt
@@ -124,8 +125,13 @@ export interface ValidatedSubmitStudySessionRequest {
   subcategoryIds: string[];
   subcategoryNames: string[];
   cardResults: SubmitStudySessionCardResult[];
-  /** local calendar day this session's `startedAt` falls on, `yyyy-MM-dd`, the device's timezone. */
-  studyDate: string;
+  /**
+   * Minutes east of UTC for the device's timezone offset at `startedAtEpochMillis` (spec 09) — the
+   * server derives the session's local calendar day from this and `startedAtEpochMillis` itself
+   * (`deriveLocalStudyDate`), rather than trusting a client-supplied date string for streak/Daily-Goal
+   * scoring.
+   */
+  studyDateUtcOffsetMinutes: number;
   /** the Daily Goal (minutes/day) in effect when this session ended — never persisted, see ADR-0048. */
   dailyGoalMinutes: number;
 }
@@ -160,16 +166,34 @@ const RESERVED_FIRESTORE_NAME = /^__.*__$/;
 const MAX_CARD_RESULTS = 50;
 
 const SECONDS_PER_MINUTE = 60;
+const MILLIS_PER_MINUTE = 60_000;
 
-const STUDY_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+// The real-world extremes of a UTC offset (Baker Island UTC-12:00 to Kiritimati/Line Islands
+// UTC+14:00) — a request outside this range cannot be a genuine device timezone, whatever
+// startedAtEpochMillis claims.
+const MAX_UTC_OFFSET_MINUTES = 14 * 60;
 
-/** Rejects a syntactically-shaped but impossible date (e.g. "2026-02-30") that the pattern alone lets through. */
-function isRealCalendarDate(match: RegExpMatchArray): boolean {
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+/**
+ * Derives `startedAtEpochMillis`'s local calendar day (`yyyy-MM-dd`) from the client-reported UTC
+ * offset, instead of trusting a client-supplied date string directly (CWE-20, spec 09): shifting the
+ * instant by the offset and reading its UTC-anchored date fields is the standard offset-only idiom for
+ * "what date is it on the wall clock at this instant" without a timezone database. A forged offset can
+ * only move the derived day by as much as [MAX_UTC_OFFSET_MINUTES] ever allows, never further —
+ * unlike an arbitrary date string, which had no relationship to the timestamp at all.
+ */
+function deriveLocalStudyDate(startedAtEpochMillis: number, utcOffsetMinutes: number): string {
+  const shifted = new Date(startedAtEpochMillis + utcOffsetMinutes * MILLIS_PER_MINUTE);
+  const year = shifted.getUTCFullYear();
+  const month = String(shifted.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(shifted.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function requireFiniteNumberInRange(value: unknown, field: string, minimum: number, maximum: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < minimum || value > maximum) {
+    fail(`${field} must be a number between ${minimum} and ${maximum}`);
+  }
+  return value as number;
 }
 
 function requireFirestoreSafeId(value: unknown, field: string): string {
@@ -243,9 +267,12 @@ export function validateSubmitStudySessionRequest(data: unknown): ValidatedSubmi
   if (body.cardResults.length > MAX_CARD_RESULTS) fail(`cardResults must not exceed ${MAX_CARD_RESULTS} entries`);
   const cardResults = (body.cardResults as unknown[]).map((raw, index) => validateCardResult(raw, studyMode, index));
 
-  const studyDateRaw = requireNonEmptyString(body.studyDate, FIELD_STUDY_DATE);
-  const studyDateMatch = studyDateRaw.match(STUDY_DATE_PATTERN);
-  if (!studyDateMatch || !isRealCalendarDate(studyDateMatch)) fail(`${FIELD_STUDY_DATE} must be a real calendar date in yyyy-MM-dd format`);
+  const studyDateUtcOffsetMinutes = requireFiniteNumberInRange(
+    body.studyDateUtcOffsetMinutes,
+    "studyDateUtcOffsetMinutes",
+    -MAX_UTC_OFFSET_MINUTES,
+    MAX_UTC_OFFSET_MINUTES,
+  );
   const dailyGoalMinutes = requireFiniteNumber(body.dailyGoalMinutes, "dailyGoalMinutes", 1);
 
   const cardIds = new Set<string>();
@@ -272,7 +299,7 @@ export function validateSubmitStudySessionRequest(data: unknown): ValidatedSubmi
     subcategoryIds,
     subcategoryNames,
     cardResults,
-    studyDate: studyDateRaw,
+    studyDateUtcOffsetMinutes,
     dailyGoalMinutes,
   };
 }
@@ -434,12 +461,14 @@ export async function submitStudySession(uid: string, request: ValidatedSubmitSt
       };
     }
 
+    const derivedStudyDate = deriveLocalStudyDate(request.startedAtEpochMillis, request.studyDateUtcOffsetMinutes);
+
     const touchedSubcategoryIds = [...new Set(request.cardResults.map((entry) => entry.subcategoryId))];
     const subcategorySnapshots = await Promise.all(touchedSubcategoryIds.map((id) => transaction.get(subcategoryProgressDocRef(db, uid, id))));
     const scoringRef = scoringStateDocRef(db, uid);
     const scoringSnapshot = await transaction.get(scoringRef);
     const todaySessionsSnapshot = await transaction.get(
-      usersDoc(db, uid).collection(SESSIONS_COLLECTION).where(FIELD_STUDY_DATE, "==", request.studyDate),
+      usersDoc(db, uid).collection(SESSIONS_COLLECTION).where(FIELD_STUDY_DATE, "==", derivedStudyDate),
     );
 
     const priorCardsBySubcategory = new Map<string, Map<string, CardState>>();
@@ -509,7 +538,7 @@ export async function submitStudySession(uid: string, request: ValidatedSubmitSt
     const currentScoringState = readScoringState(scoringSnapshot);
     const config = DEFAULT_XP_CONFIG;
     const streakAndGoalInput: StreakAndGoalInput = {
-      studyDate: request.studyDate,
+      studyDate: derivedStudyDate,
       dailyGoalMinutes: request.dailyGoalMinutes,
       todayTotalMinutes,
     };
@@ -537,7 +566,7 @@ export async function submitStudySession(uid: string, request: ValidatedSubmitSt
       [FIELD_CATEGORY_NAME]: request.categoryName,
       [FIELD_SUBCATEGORY_IDS]: request.subcategoryIds,
       [FIELD_SUBCATEGORY_NAMES]: request.subcategoryNames,
-      [FIELD_STUDY_DATE]: request.studyDate,
+      [FIELD_STUDY_DATE]: derivedStudyDate,
       [FIELD_CARD_COUNT]: request.cardResults.length,
       [FIELD_NEW_CARDS_STUDIED]: newCardsStudied,
       [FIELD_CARD_RESULTS]: Object.fromEntries(

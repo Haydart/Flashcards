@@ -31,15 +31,22 @@ after(async () => {
 // below is that award, added into every xpTotal assertion a first submission's test still makes.
 // dailyGoalMinutes defaults far out of reach so no test here accidentally also earns dailyGoalBonus;
 // the streak-and-goal describe block below exercises that award on its own, deliberately.
+//
+// studyDate is no longer a request field (spec 09): the server derives it from startedAtEpochMillis
+// and studyDateUtcOffsetMinutes (deriveLocalStudyDate). DEFAULT_STARTED_AT_EPOCH_MILLIS is fixed —
+// not Date.now() — precisely so it derives to the fixed DEFAULT_STUDY_DATE below at offset 0,
+// regardless of which real-world date the test suite happens to run on.
+const DEFAULT_STARTED_AT_EPOCH_MILLIS = Date.UTC(2026, 8, 1, 12, 0, 0); // noon UTC, 2026-09-01
 const DEFAULT_STUDY_DATE = "2026-09-01";
 const DEFAULT_DAILY_GOAL_MINUTES = 999999;
 const DEFAULT_STREAK_BONUS = 250; // 1 * DEFAULT_XP_CONFIG.streakPerDay
+const MAX_UTC_OFFSET_MINUTES = 14 * 60;
 
 function rawRatedRequest(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     sessionId: randomUUID(),
     studyMode: "Rated",
-    startedAtEpochMillis: Date.now(),
+    startedAtEpochMillis: DEFAULT_STARTED_AT_EPOCH_MILLIS,
     durationSeconds: 60,
     abandoned: false,
     categoryId: "cat-1",
@@ -47,7 +54,7 @@ function rawRatedRequest(overrides: Record<string, unknown> = {}): Record<string
     subcategoryIds: ["sub-1"],
     subcategoryNames: ["Subcategory One"],
     cardResults: [{ cardId: "card-1", subcategoryId: "sub-1", state: "Mastered", attemptsUsed: 1, wasPreviouslyMastered: false }],
-    studyDate: DEFAULT_STUDY_DATE,
+    studyDateUtcOffsetMinutes: 0,
     dailyGoalMinutes: DEFAULT_DAILY_GOAL_MINUTES,
     ...overrides,
   };
@@ -121,14 +128,31 @@ describe("validateSubmitStudySessionRequest", () => {
     assert.throws(() => validateSubmitStudySessionRequest(request), /not a valid Firestore id/);
   });
 
-  it("rejects a studyDate not matching yyyy-MM-dd", () => {
-    assert.throws(() => validateSubmitStudySessionRequest(rawRatedRequest({ studyDate: "2026-9-1" })), /studyDate/);
-    assert.throws(() => validateSubmitStudySessionRequest(rawRatedRequest({ studyDate: "09/01/2026" })), /studyDate/);
+  it("rejects a missing studyDateUtcOffsetMinutes", () => {
+    const { studyDateUtcOffsetMinutes, ...withoutOffset } = rawRatedRequest();
+    assert.throws(() => validateSubmitStudySessionRequest(withoutOffset), /studyDateUtcOffsetMinutes/);
   });
 
-  it("rejects a studyDate matching the pattern but not a real calendar date", () => {
-    assert.throws(() => validateSubmitStudySessionRequest(rawRatedRequest({ studyDate: "2026-02-30" })), /studyDate/);
-    assert.throws(() => validateSubmitStudySessionRequest(rawRatedRequest({ studyDate: "2026-13-01" })), /studyDate/);
+  it("rejects a studyDateUtcOffsetMinutes outside the real-world UTC offset range", () => {
+    assert.throws(
+      () => validateSubmitStudySessionRequest(rawRatedRequest({ studyDateUtcOffsetMinutes: MAX_UTC_OFFSET_MINUTES + 1 })),
+      /studyDateUtcOffsetMinutes/,
+    );
+    assert.throws(
+      () => validateSubmitStudySessionRequest(rawRatedRequest({ studyDateUtcOffsetMinutes: -MAX_UTC_OFFSET_MINUTES - 1 })),
+      /studyDateUtcOffsetMinutes/,
+    );
+  });
+
+  it("accepts a studyDateUtcOffsetMinutes at either real-world extreme", () => {
+    assert.equal(
+      validateSubmitStudySessionRequest(rawRatedRequest({ studyDateUtcOffsetMinutes: MAX_UTC_OFFSET_MINUTES })).studyDateUtcOffsetMinutes,
+      MAX_UTC_OFFSET_MINUTES,
+    );
+    assert.equal(
+      validateSubmitStudySessionRequest(rawRatedRequest({ studyDateUtcOffsetMinutes: -MAX_UTC_OFFSET_MINUTES })).studyDateUtcOffsetMinutes,
+      -MAX_UTC_OFFSET_MINUTES,
+    );
   });
 
   it("rejects a missing dailyGoalMinutes", () => {
@@ -145,7 +169,7 @@ describe("validateSubmitStudySessionRequest", () => {
     const validated = validateSubmitStudySessionRequest(rawRatedRequest());
     assert.equal(validated.studyMode, "Rated");
     assert.equal(validated.cardResults.length, 1);
-    assert.equal(validated.studyDate, DEFAULT_STUDY_DATE);
+    assert.equal(validated.studyDateUtcOffsetMinutes, 0);
     assert.equal(validated.dailyGoalMinutes, DEFAULT_DAILY_GOAL_MINUTES);
   });
 });
@@ -307,6 +331,24 @@ describe("submitStudySession", () => {
         "the user still saw and studied that card",
     );
     assert.equal(summaryDoc.data()?.subcategories?.["sub-1"]?.masteredCount, 0);
+  });
+
+  it("derives the persisted studyDate from startedAtEpochMillis and studyDateUtcOffsetMinutes, not a client-claimed date string (CWE-20 regression, spec 09)", async () => {
+    const uid = randomUUID();
+    // Noon UTC on 2026-09-01 shifted by a -14h offset lands on 2026-08-31 local — an offset at the
+    // real-world extreme, deliberately chosen so the derived day differs from the UTC-instant day.
+    const request = validateSubmitStudySessionRequest(
+      rawRatedRequest({ startedAtEpochMillis: DEFAULT_STARTED_AT_EPOCH_MILLIS, studyDateUtcOffsetMinutes: -MAX_UTC_OFFSET_MINUTES }),
+    );
+
+    const result = await submitStudySession(uid, request);
+
+    const sessionDoc = await admin.firestore().doc(`users/${uid}/sessions/${request.sessionId}`).get();
+    assert.equal(sessionDoc.data()?.studyDate, "2026-08-31", "the offset must shift the derived day, not just be stored inertly");
+    // ValidatedSubmitStudySessionRequest itself carries no client-claimed date string any more — the
+    // type, not just this assertion, is what closes the original finding.
+    assert.equal("studyDate" in request, false);
+    assert.equal(result.breakdown.streakBonus, DEFAULT_STREAK_BONUS, "still a fresh account's first-ever submission");
   });
 });
 

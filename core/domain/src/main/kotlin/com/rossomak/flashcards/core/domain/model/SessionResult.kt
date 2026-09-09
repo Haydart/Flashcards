@@ -87,11 +87,23 @@ sealed interface SessionResult {
 
     /**
      * The local calendar day [startedAt] falls on, `yyyy-MM-dd`, in the device's timezone — computed
-     * once by the Summary ViewModel and carried through unchanged, never re-derived server-side (the
-     * server only ever sees a UTC instant). Drives the streak and Daily Goal awards
+     * once by the Summary ViewModel and carried through unchanged. No longer trusted server-side for
+     * scoring: the server derives its own authoritative calendar day from [startedAt] and
+     * [studyDateUtcOffsetMinutes] instead ([ADR-0049](../../../../../../../docs/adr/0049-server-authoritative-session-commit.md)),
+     * this field only along for the ride. Drives the streak and Daily Goal awards
      * ([ADR-0048](../../../../../../../docs/adr/0048-streak-and-daily-goal-ride-the-session-payload.md)).
      */
     val studyDate: String
+
+    /**
+     * Minutes east of UTC for the device's timezone offset at [startedAt] (e.g. `-300` for US Eastern
+     * Standard Time), read from [java.time.ZoneId.systemDefault]'s rules for that exact instant — DST
+     * is already baked in, not a fixed zone id. Lets the server derive [startedAt]'s local calendar
+     * day itself rather than trust [studyDate] directly (a client-supplied date string, disconnected
+     * from any timestamp, could otherwise forge scoring-relevant days — [ADR-0049]): a forged offset
+     * can only shift the day by as much as a real-world UTC offset ever does (±14h), never further.
+     */
+    val studyDateUtcOffsetMinutes: Int
 
     /**
      * The Daily Goal (minutes/day) in effect when this session ended, read fresh from local
@@ -130,6 +142,7 @@ sealed interface SessionResult {
         override val subcategoryNames: List<String>,
         override val cardResults: List<FlashcardResult.Rated>,
         override val studyDate: String,
+        override val studyDateUtcOffsetMinutes: Int,
         override val dailyGoalMinutes: Int,
         override val xpConfig: XpConfig = XpConfig(),
     ) : SessionResult {
@@ -156,6 +169,7 @@ sealed interface SessionResult {
         override val subcategoryNames: List<String>,
         override val cardResults: List<FlashcardResult.Fast>,
         override val studyDate: String,
+        override val studyDateUtcOffsetMinutes: Int,
         override val dailyGoalMinutes: Int,
         override val xpConfig: XpConfig = XpConfig(),
     ) : SessionResult
