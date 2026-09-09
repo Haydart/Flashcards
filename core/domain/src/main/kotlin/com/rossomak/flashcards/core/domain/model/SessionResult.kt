@@ -86,6 +86,21 @@ sealed interface SessionResult {
     val cardResults: List<FlashcardResult>
 
     /**
+     * The local calendar day [startedAt] falls on, `yyyy-MM-dd`, in the device's timezone — computed
+     * once by the Summary ViewModel and carried through unchanged, never re-derived server-side (the
+     * server only ever sees a UTC instant). Drives the streak and Daily Goal awards
+     * (spec 05 ticket 03, [ADR-0048](../../../../../../../docs/adr/0048-streak-and-daily-goal-ride-the-session-payload.md)).
+     */
+    val studyDate: String
+
+    /**
+     * The Daily Goal (minutes/day) in effect when this session ended, read fresh from local
+     * preferences at Summary time — never stored in Firestore (ADR-0048): a synced copy would reopen
+     * the "second writable source with no sync story" spec 05 raised for this value originally.
+     */
+    val dailyGoalMinutes: Int
+
+    /**
      * The XP configuration snapshot captured when this session started
      * ([ADR-0047](../../../../../../../docs/adr/0047-xp-values-behind-a-config-repository.md)):
      * fetched alongside [cardResults]' cards, never re-read here. Defaults to [XpConfig]'s own
@@ -114,6 +129,8 @@ sealed interface SessionResult {
         override val subcategoryIds: List<String>,
         override val subcategoryNames: List<String>,
         override val cardResults: List<FlashcardResult.Rated>,
+        override val studyDate: String,
+        override val dailyGoalMinutes: Int,
         override val xpConfig: XpConfig = XpConfig(),
     ) : SessionResult {
         /**
@@ -138,6 +155,8 @@ sealed interface SessionResult {
         override val subcategoryIds: List<String>,
         override val subcategoryNames: List<String>,
         override val cardResults: List<FlashcardResult.Fast>,
+        override val studyDate: String,
+        override val dailyGoalMinutes: Int,
         override val xpConfig: XpConfig = XpConfig(),
     ) : SessionResult
 }
