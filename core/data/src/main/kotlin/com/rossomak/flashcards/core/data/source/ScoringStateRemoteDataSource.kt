@@ -1,26 +1,19 @@
 package com.rossomak.flashcards.core.data.source
 
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.FirebaseFirestore
 import com.rossomak.flashcards.core.data.model.ScoringStateDto
-import com.rossomak.flashcards.core.domain.model.ScoringState
 import com.rossomak.flashcards.core.domain.model.ScoringState.Companion.STARTING_LEVEL
 import javax.inject.Inject
 import kotlinx.coroutines.tasks.await
 
 /**
- * Reads and, via [toSetFields], maps the write shape of the User's account-wide scoring-state
- * singleton, `users/{uid}/progress/user-stats` (spec 05 ticket 02). Writing is not committed
- * here — the new state must land in the same batch as the session document and every other write, so
- * [documentReference] and [toSetFields] are the seam
- * [StudySessionRemoteDataSource][com.rossomak.flashcards.core.data.source.StudySessionRemoteDataSource]
- * uses to fold this document into that batch, rather than committing its own.
- *
- * Unlike [ProgressSummaryRemoteDataSource.toMergeFields]'s nested-key increments,
- * [toSetFields] is a **wholesale overwrite**: [CalculateSessionXpUseCase][com.rossomak.flashcards.core.domain.usecase.CalculateSessionXpUseCase]
- * already produces the complete next [ScoringState] from the complete prior one, so there is nothing
- * partial to merge — every field is rewritten every commit.
+ * Reads the User's account-wide scoring-state singleton, `users/{uid}/progress/user-stats`
+ * (spec 05 ticket 02). Read-only: the server-authoritative `submitStudySession` Cloud Function
+ * (spec 08) is the sole writer of this document now — it recomputes and overwrites the whole
+ * [com.rossomak.flashcards.core.domain.model.ScoringState] itself, so this client never composes a
+ * write for it; [getScoringState] only ever feeds
+ * [com.rossomak.flashcards.core.domain.usecase.SubmitStudySessionUseCase]'s optimistic preview.
  */
 class ScoringStateRemoteDataSource @Inject constructor(
     private val firestore: FirebaseFirestore,
@@ -30,11 +23,8 @@ class ScoringStateRemoteDataSource @Inject constructor(
     private val uid: String
         get() = requireNotNull(firebaseAuth.currentUser?.uid) { "No authenticated user" }
 
-    fun documentReference(): DocumentReference =
-        firestore.collection(COLLECTION_PATH_TEMPLATE.format(uid)).document(DOCUMENT_ID)
-
     suspend fun getScoringState(): ScoringStateDto? {
-        val document = documentReference().get().await()
+        val document = firestore.collection(COLLECTION_PATH_TEMPLATE.format(uid)).document(DOCUMENT_ID).get().await()
         if (!document.exists()) return null
 
         return ScoringStateDto(
@@ -47,16 +37,6 @@ class ScoringStateRemoteDataSource @Inject constructor(
             goalMetDate = document.getString(FIELD_GOAL_MET_DATE) ?: "",
         )
     }
-
-    fun toSetFields(newState: ScoringState): Map<String, Any> = mapOf(
-        FIELD_XP to newState.xp,
-        FIELD_LEVEL to newState.level,
-        FIELD_XP_INTO_CURRENT_LEVEL to newState.xpIntoCurrentLevel,
-        FIELD_CURRENT_STREAK to newState.currentStreak,
-        FIELD_BEST_STREAK to newState.bestStreak,
-        FIELD_LAST_STUDY_DATE to newState.lastStudyDate,
-        FIELD_GOAL_MET_DATE to newState.goalMetDate,
-    )
 
     private companion object {
         const val COLLECTION_PATH_TEMPLATE = "users/%s/progress"
