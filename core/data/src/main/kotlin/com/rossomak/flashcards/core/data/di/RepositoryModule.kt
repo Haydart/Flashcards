@@ -5,7 +5,7 @@ import com.rossomak.flashcards.core.data.repository.DefaultCardProgressRepositor
 import com.rossomak.flashcards.core.data.repository.DefaultCurationRepository
 import com.rossomak.flashcards.core.data.repository.DefaultFlashcardRepository
 import com.rossomak.flashcards.core.data.repository.DefaultScoringStateRepository
-import com.rossomak.flashcards.core.data.repository.DefaultStudySessionRepository
+import com.rossomak.flashcards.core.data.repository.DefaultSessionSubmissionRepository
 import com.rossomak.flashcards.core.data.repository.DefaultXpConfigRepository
 import com.rossomak.flashcards.core.data.source.AuthRemoteDataSource
 import com.rossomak.flashcards.core.data.source.FirebaseAuthRemoteDataSource
@@ -14,7 +14,7 @@ import com.rossomak.flashcards.core.domain.repository.CardProgressRepository
 import com.rossomak.flashcards.core.domain.repository.CurationRepository
 import com.rossomak.flashcards.core.domain.repository.FlashcardRepository
 import com.rossomak.flashcards.core.domain.repository.ScoringStateRepository
-import com.rossomak.flashcards.core.domain.repository.StudySessionRepository
+import com.rossomak.flashcards.core.domain.repository.SessionSubmissionRepository
 import com.rossomak.flashcards.core.domain.repository.XpConfigRepository
 import dagger.Binds
 import dagger.Module
@@ -44,7 +44,7 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindStudySessionRepository(defaultStudySessionRepository: DefaultStudySessionRepository): StudySessionRepository
+    abstract fun bindSessionSubmissionRepository(defaultSessionSubmissionRepository: DefaultSessionSubmissionRepository): SessionSubmissionRepository
 
     @Binds
     @Singleton
