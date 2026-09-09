@@ -21,6 +21,8 @@ object PendingSessionSubmissionMapper {
         subcategoryIds = subcategoryIds,
         subcategoryNames = subcategoryNames,
         cardResults = cardResults.map { it.toDto() },
+        studyDate = studyDate,
+        dailyGoalMinutes = dailyGoalMinutes,
         xpConfig = xpConfig.toDto(),
     )
 
@@ -35,6 +37,8 @@ object PendingSessionSubmissionMapper {
             subcategoryIds = subcategoryIds,
             subcategoryNames = subcategoryNames,
             cardResults = cardResults.map { it.toRatedDomain() },
+            studyDate = studyDate,
+            dailyGoalMinutes = dailyGoalMinutes,
             xpConfig = xpConfig.toDomain(),
         )
         StudyMode.Fast -> SessionResult.Fast(
@@ -47,6 +51,8 @@ object PendingSessionSubmissionMapper {
             subcategoryIds = subcategoryIds,
             subcategoryNames = subcategoryNames,
             cardResults = cardResults.map { it.toFastDomain() },
+            studyDate = studyDate,
+            dailyGoalMinutes = dailyGoalMinutes,
             xpConfig = xpConfig.toDomain(),
         )
     }
