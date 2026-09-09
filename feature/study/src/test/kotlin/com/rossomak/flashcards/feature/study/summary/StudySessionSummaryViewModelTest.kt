@@ -8,7 +8,9 @@ import com.rossomak.flashcards.core.domain.model.levelThreshold
 import com.rossomak.flashcards.core.domain.repository.FakeCardProgressRepository
 import com.rossomak.flashcards.core.domain.repository.FakeScoringStateRepository
 import com.rossomak.flashcards.core.domain.repository.FakeSessionSubmissionRepository
+import com.rossomak.flashcards.core.domain.repository.FakeUserPreferencesRepository
 import com.rossomak.flashcards.core.domain.usecase.CalculateSessionXpUseCase
+import com.rossomak.flashcards.core.domain.usecase.ObserveUserPreferencesUseCase
 import com.rossomak.flashcards.core.domain.usecase.SubmitStudySessionUseCase
 import com.rossomak.flashcards.core.ui.navigation.RouteDecoder
 import com.rossomak.flashcards.feature.study.StudySessionSummaryRoute
@@ -19,6 +21,8 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
+import java.time.Instant
+import java.time.ZoneId
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -42,9 +46,11 @@ class StudySessionSummaryViewModelTest {
     private val sessionSubmissionRepository = FakeSessionSubmissionRepository()
     private val cardProgressRepository = FakeCardProgressRepository()
     private val scoringStateRepository = FakeScoringStateRepository()
+    private val userPreferencesRepository = FakeUserPreferencesRepository()
 
     private fun createViewModel(): StudySessionSummaryViewModel = StudySessionSummaryViewModel(
         savedStateHandle,
+        ObserveUserPreferencesUseCase(userPreferencesRepository),
         SubmitStudySessionUseCase(cardProgressRepository, scoringStateRepository, CalculateSessionXpUseCase(), sessionSubmissionRepository),
     )
 
@@ -171,6 +177,21 @@ class StudySessionSummaryViewModelTest {
         viewModel.state.value
         sessionSubmissionRepository.submittedSessionResults.size shouldBe 1
     }
+
+    @Test
+    fun `the submitted session carries studyDate derived from the route's startedAt and dailyGoalMinutes read fresh from preferences`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            userPreferencesRepository.preferences.value = userPreferencesRepository.preferences.value.copy(dailyGoalMinutes = 45)
+            val route = ratedRoute()
+            stubRoute(route)
+
+            createViewModel()
+            advanceUntilIdle()
+
+            val submitted = sessionSubmissionRepository.submittedSessionResults.single()
+            submitted.dailyGoalMinutes shouldBe 45
+            submitted.studyDate shouldBe Instant.ofEpochSecond(route.startedAtEpochSecond).atZone(ZoneId.systemDefault()).toLocalDate().toString()
+        }
 
     @Test
     fun `a failed session submission leaves the displayed preview intact and emits no message`() =

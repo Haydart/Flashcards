@@ -15,6 +15,13 @@ import org.junit.Test
  */
 class SessionResultRouteMappingTest {
 
+    // studyDate/dailyGoalMinutes are deliberately not carried by StudySessionSummaryRoute (spec 05
+    // ticket 03) — toSessionResult() takes them as fresh parameters instead of reading them off the
+    // route. Extracted once (TESTING.md §7) so the fixtures below and the toSessionResult(...) calls
+    // can never drift apart.
+    private val studyDate = "2026-09-06"
+    private val dailyGoalMinutes = 20
+
     private val ratedResult = SessionResult.Rated(
         id = "session-1",
         startedAt = Instant.parse("2026-09-06T10:00:00Z"),
@@ -40,6 +47,8 @@ class SessionResultRouteMappingTest {
                 wasPreviouslyMastered = true,
             ),
         ),
+        studyDate = studyDate,
+        dailyGoalMinutes = dailyGoalMinutes,
     )
 
     private val fastResult = SessionResult.Fast(
@@ -55,11 +64,13 @@ class SessionResultRouteMappingTest {
             FlashcardResult.Fast(cardId = "card-1", subcategoryId = "sub-1", state = FlashcardStudyProgressState.Seen),
             FlashcardResult.Fast(cardId = "card-2", subcategoryId = "sub-2", state = FlashcardStudyProgressState.Seen),
         ),
+        studyDate = studyDate,
+        dailyGoalMinutes = dailyGoalMinutes,
     )
 
     @Test
     fun `a Rated SessionResult survives a round trip through StudySessionSummaryRoute unchanged`() {
-        val roundTripped = ratedResult.toSummaryRoute().toSessionResult()
+        val roundTripped = ratedResult.toSummaryRoute().toSessionResult(studyDate, dailyGoalMinutes)
 
         roundTripped shouldBe ratedResult
     }
@@ -68,7 +79,7 @@ class SessionResultRouteMappingTest {
     fun `empty cardResults survive the round trip as empty cardResults`() {
         val empty = ratedResult.copy(cardResults = emptyList())
 
-        empty.toSummaryRoute().toSessionResult() shouldBe empty
+        empty.toSummaryRoute().toSessionResult(studyDate, dailyGoalMinutes) shouldBe empty
     }
 
     @Test
@@ -77,7 +88,7 @@ class SessionResultRouteMappingTest {
 
         route.cardAttemptsUsed shouldBe null
         route.cardWasPreviouslyMastered shouldBe null
-        route.toSessionResult() shouldBe fastResult
+        route.toSessionResult(studyDate, dailyGoalMinutes) shouldBe fastResult
     }
 
     @Test
@@ -88,6 +99,6 @@ class SessionResultRouteMappingTest {
         val route = withCustomConfig.toSummaryRoute()
 
         route.xpConfig shouldBe customConfig
-        route.toSessionResult() shouldBe withCustomConfig
+        route.toSessionResult(studyDate, dailyGoalMinutes) shouldBe withCustomConfig
     }
 }
