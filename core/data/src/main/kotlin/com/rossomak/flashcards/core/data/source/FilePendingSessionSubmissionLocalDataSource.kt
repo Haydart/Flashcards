@@ -5,6 +5,7 @@ import android.util.Log
 import com.rossomak.flashcards.core.data.model.PendingSessionSubmissionDto
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import java.io.IOException
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -29,12 +30,19 @@ import kotlinx.serialization.json.Json
  * one [mutex], held for the full read-modify-write — without it, an interleaved write risks a lost
  * update or a corrupted JSON array.
  *
- * A file that fails to parse (corrupted, or simply absent on first run) is treated as an empty queue
- * rather than a crash — [readAll] logs the failure non-fatally and returns `emptyList()`. This mirrors
+ * A file that fails to parse (corrupted, or simply absent on first run) or fails to read at all (an
+ * [IOException] off the raw file access itself) is treated as an empty queue rather than a crash —
+ * [readAll] logs the failure non-fatally and returns `emptyList()`. This mirrors
  * [DataStoreStudySessionPreferencesLocalDataSource]'s own `IOException` fallback: a local cache that
  * can't be read is not worth crashing a launch over, and a genuinely lost entry here is not silent —
- * ticket 03 accepts that a corrupted file drops its queued sessions, since nothing else can recover
- * them either.
+ * ticket 03 accepts that a corrupted or unreadable file drops its queued sessions, since nothing else
+ * can recover them either.
+ *
+ * [writeAll] writes to a sibling temp file first, then atomically renames it over [file]: a process
+ * death mid-write leaves either the old complete file or the new complete file on disk, never a
+ * half-written one — [readAll]'s [SerializationException] fallback exists for genuine corruption
+ * upstream of this class (a hand-edited file, a future format change), not for this class's own
+ * writes tearing the file in half.
  *
  * **App-start recovery**: this class has no init-time logic of its own. [com.rossomak.flashcards.FlashcardsApplication]
  * unconditionally re-enqueues the drain worker on every app start (via
@@ -52,17 +60,25 @@ class FilePendingSessionSubmissionLocalDataSource @Inject constructor(
 
     override suspend fun append(pendingSessionSubmission: PendingSessionSubmissionDto) = withContext(Dispatchers.IO) {
         mutex.withLock {
-            writeAll(readAll() + pendingSessionSubmission)
+            val updated = readAll() + pendingSessionSubmission
+            writeAll(updated)
+            Log.d(TAG, "Appended session ${pendingSessionSubmission.id} to queue file, now ${updated.size} entries")
+            Unit
         }
     }
 
     override suspend fun listAll(): List<PendingSessionSubmissionDto> = withContext(Dispatchers.IO) {
-        mutex.withLock { readAll() }
+        mutex.withLock {
+            readAll().also { Log.d(TAG, "Read queue file: ${it.size} entries") }
+        }
     }
 
     override suspend fun remove(sessionId: String) = withContext(Dispatchers.IO) {
         mutex.withLock {
-            writeAll(readAll().filterNot { it.id == sessionId })
+            val updated = readAll().filterNot { it.id == sessionId }
+            writeAll(updated)
+            Log.d(TAG, "Removed session $sessionId from queue file, ${updated.size} entries remain")
+            Unit
         }
     }
 
@@ -74,12 +90,21 @@ class FilePendingSessionSubmissionLocalDataSource @Inject constructor(
         } catch (exception: SerializationException) {
             Log.e(TAG, "Pending session submission queue file is corrupted, treating it as empty", exception)
             emptyList()
+        } catch (exception: IOException) {
+            Log.e(TAG, "Pending session submission queue file could not be read, treating it as empty", exception)
+            emptyList()
         }
     }
 
-    /** Must only be called while holding [mutex]. */
+    /** Must only be called while holding [mutex]. Atomic: never leaves [file] half-written. */
     private fun writeAll(entries: List<PendingSessionSubmissionDto>) {
-        file.writeText(Json.encodeToString(entries))
+        val tempFile = File(context.filesDir, "$FILE_NAME.tmp")
+        tempFile.writeText(Json.encodeToString(entries))
+        if (!tempFile.renameTo(file)) {
+            // Same filesystem, same directory — practically always succeeds; this is a hard failure
+            // if it doesn't, since the caller's mutation would otherwise silently vanish.
+            error("Failed to atomically replace $FILE_NAME with its updated contents")
+        }
     }
 
     private companion object {

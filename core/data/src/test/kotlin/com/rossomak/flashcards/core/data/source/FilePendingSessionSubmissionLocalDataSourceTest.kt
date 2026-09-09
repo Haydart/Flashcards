@@ -25,9 +25,10 @@ class FilePendingSessionSubmissionLocalDataSourceTest {
 
     @Before
     fun setUp() {
-        // A corrupted queue file logs via android.util.Log, unavailable outside instrumented/
-        // Robolectric tests — stub it rather than pull in either just for this one test.
+        // Debug logging and a corrupted queue file both go through android.util.Log, unavailable
+        // outside instrumented/Robolectric tests — stub it rather than pull in either just for this.
         mockkStatic(Log::class)
+        every { Log.d(any(), any()) } returns 0
         every { Log.e(any(), any(), any()) } returns 0
     }
 
@@ -145,5 +146,27 @@ class FilePendingSessionSubmissionLocalDataSourceTest {
         val dataSource = FilePendingSessionSubmissionLocalDataSource(context)
 
         dataSource.listAll() shouldBe emptyList()
+    }
+
+    @Test
+    fun `a queue file that fails to read with an IOException is treated as empty rather than crashing`() = runTest {
+        val context: Context = mockk()
+        every { context.filesDir } returns temporaryFolder.root
+        // A directory at the expected path exists (so file.exists() is true) but readText() throws
+        // FileNotFoundException — an IOException — rather than returning content.
+        File(temporaryFolder.root, "pending_session_submissions.json").mkdir()
+
+        val dataSource = FilePendingSessionSubmissionLocalDataSource(context)
+
+        dataSource.listAll() shouldBe emptyList()
+    }
+
+    @Test
+    fun `append does not leave a stray temp file behind after its atomic write`() = runTest {
+        val dataSource = createDataSource()
+
+        dataSource.append(pendingSubmission("session-1"))
+
+        File(temporaryFolder.root, "pending_session_submissions.json.tmp").exists() shouldBe false
     }
 }
