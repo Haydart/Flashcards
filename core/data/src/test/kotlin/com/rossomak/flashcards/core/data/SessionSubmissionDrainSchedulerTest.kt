@@ -1,0 +1,47 @@
+package com.rossomak.flashcards.core.data
+
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequest
+import androidx.work.WorkManager
+import com.rossomak.flashcards.core.data.worker.SessionSubmissionDeliveryWorker
+import io.kotest.matchers.shouldBe
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.slot
+import io.mockk.verify
+import org.junit.Test
+
+class SessionSubmissionDrainSchedulerTest {
+
+    private val workManager: WorkManager = mockk()
+
+    private fun createScheduler(): SessionSubmissionDrainScheduler = SessionSubmissionDrainScheduler(workManager)
+
+    @Test
+    fun `scheduleDrain enqueues the drain worker as unique work with KEEP policy`() {
+        val requestSlot = slot<OneTimeWorkRequest>()
+        every { workManager.enqueueUniqueWork(any(), any(), capture(requestSlot)) } returns mockk()
+
+        createScheduler().scheduleDrain()
+
+        verify(exactly = 1) {
+            workManager.enqueueUniqueWork(
+                SessionSubmissionDrainScheduler.UNIQUE_WORK_NAME,
+                ExistingWorkPolicy.KEEP,
+                any<OneTimeWorkRequest>(),
+            )
+        }
+        requestSlot.captured.workSpec.workerClassName shouldBe SessionSubmissionDeliveryWorker::class.java.name
+    }
+
+    @Test
+    fun `scheduleDrain called twice is idempotent-safe to issue redundantly`() {
+        every { workManager.enqueueUniqueWork(any(), any(), any<OneTimeWorkRequest>()) } returns mockk()
+
+        val scheduler = createScheduler()
+        scheduler.scheduleDrain()
+        scheduler.scheduleDrain()
+
+        verify(exactly = 2) { workManager.enqueueUniqueWork(any(), ExistingWorkPolicy.KEEP, any<OneTimeWorkRequest>()) }
+    }
+}
