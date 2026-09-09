@@ -812,6 +812,11 @@ class RatedStudySessionViewModel @Inject constructor(
             subcategoryIds = route.subcategoryIds,
             subcategoryNames = route.subcategoryNames,
             cardResults = cardResults,
+            // Never read: toSummaryRoute() (below) deliberately does not carry either field — the
+            // Summary ViewModel computes real values when it reconstructs its own SessionResult from
+            // the route (spec 05 ticket 03).
+            studyDate = "",
+            dailyGoalMinutes = 0,
             xpConfig = sessionXpConfig,
         )
         val result = sealSessionResult(result = placeholderResult, clock = clock, at = at)
