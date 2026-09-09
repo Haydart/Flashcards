@@ -30,6 +30,8 @@ class PendingSessionSubmissionMapperTest {
                 wasPreviouslyMastered = false,
             ),
         ),
+        studyDate = "2026-09-08",
+        dailyGoalMinutes = 20,
         xpConfig = XpConfig(newCardStudied = 42),
     )
 
@@ -43,6 +45,8 @@ class PendingSessionSubmissionMapperTest {
         subcategoryIds = listOf("sub-1"),
         subcategoryNames = listOf("Subcategory"),
         cardResults = listOf(FlashcardResult.Fast(cardId = "card-1", subcategoryId = "sub-1", state = FlashcardStudyProgressState.Seen)),
+        studyDate = "2026-09-08",
+        dailyGoalMinutes = 20,
     )
 
     @Test
