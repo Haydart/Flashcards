@@ -1,6 +1,9 @@
 package com.rossomak.flashcards.core.data
 
+import android.util.Log
+import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.rossomak.flashcards.core.data.worker.SessionSubmissionDeliveryWorker
@@ -23,17 +26,25 @@ import javax.inject.Inject
  * after a run has already started its read simply waits for the *next* [scheduleDrain] call (the next
  * session finishing, or the next app start) — by then the previous run has completed and the unique
  * work slot is free again, so `KEEP` no longer blocks the new enqueue.
+ *
+ * [NetworkType.CONNECTED]: WorkManager itself holds the request unstarted until a network is
+ * present, instead of letting it run offline, fail immediately, and burn its first retry/backoff
+ * slot for nothing — the request only starts once connectivity is actually plausible.
  */
 class SessionSubmissionDrainScheduler @Inject constructor(
     private val workManager: WorkManager,
 ) {
 
     fun scheduleDrain() {
-        val request = OneTimeWorkRequestBuilder<SessionSubmissionDeliveryWorker>().build()
+        Log.d(TAG, "Scheduling drain worker (unique work=$UNIQUE_WORK_NAME, policy=KEEP, requires network)")
+        val request = OneTimeWorkRequestBuilder<SessionSubmissionDeliveryWorker>()
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .build()
         workManager.enqueueUniqueWork(UNIQUE_WORK_NAME, ExistingWorkPolicy.KEEP, request)
     }
 
     companion object {
         const val UNIQUE_WORK_NAME = "session_submission_drain"
+        private const val TAG = "SessionSubmissionDrainScheduler"
     }
 }
