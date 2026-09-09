@@ -5,6 +5,7 @@ import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
 import com.rossomak.flashcards.core.domain.model.StudyMode
 import com.rossomak.flashcards.core.domain.model.StudySessionConfig
 import com.rossomak.flashcards.core.domain.model.VoiceSettings
+import com.rossomak.flashcards.core.domain.model.XpConfig
 import kotlinx.serialization.Serializable
 
 /**
@@ -130,6 +131,12 @@ data class RatedStudySessionRoute(
  * [startedAtEpochSecond] flattens `SessionResult.startedAt` (a `java.time.Instant`, not itself a
  * primitive `androidx.navigation` can carry) to the one `Long` that reconstructs it.
  *
+ * `SessionResult.xpConfig` (ADR-0047's snapshot rule, ticket 01 of spec 05) is flattened the same
+ * way, one `xp`-prefixed field per [XpConfig] property — [xpConfig] reassembles them. Each field
+ * defaults to [XpConfig]'s own default so a call site with no scoring stake in the route (this
+ * ticket adds no new one, but existing tests construct this route directly) does not need to spell
+ * every value out.
+ *
  * This route is fresh-session egress only
  * ([ADR-0014](../../../docs/adr/0014-session-stats-written-at-summary-screen.md)) — the mandatory
  * exit for both Study Modes, natural end or premature exit, and nothing else. It is never used to
@@ -152,4 +159,32 @@ data class StudySessionSummaryRoute(
     val cardStates: List<FlashcardStudyProgressState>,
     val cardAttemptsUsed: List<Int>?,
     val cardWasPreviouslyMastered: List<Boolean>?,
-)
+    val xpNewCardStudied: Int = XpConfig().newCardStudied,
+    val xpCardMastered: Int = XpConfig().cardMastered,
+    val xpCardPartial: Int = XpConfig().cardPartial,
+    val xpMasteryDefended: Int = XpConfig().masteryDefended,
+    val xpCardDemastered: Int = XpConfig().cardDemastered,
+    val xpSessionCompleted: Int = XpConfig().sessionCompleted,
+    val xpDailyGoalMet: Int = XpConfig().dailyGoalMet,
+    val xpStreakPerDay: Int = XpConfig().streakPerDay,
+    val xpStreakMaxPerDay: Int = XpConfig().streakMaxPerDay,
+    val xpMinuteStudied: Int = XpConfig().minuteStudied,
+    val xpLevelCurveBase: Double = XpConfig().levelCurveBase,
+    val xpLevelCurveExponent: Double = XpConfig().levelCurveExponent,
+) {
+    val xpConfig: XpConfig
+        get() = XpConfig(
+            newCardStudied = xpNewCardStudied,
+            cardMastered = xpCardMastered,
+            cardPartial = xpCardPartial,
+            masteryDefended = xpMasteryDefended,
+            cardDemastered = xpCardDemastered,
+            sessionCompleted = xpSessionCompleted,
+            dailyGoalMet = xpDailyGoalMet,
+            streakPerDay = xpStreakPerDay,
+            streakMaxPerDay = xpStreakMaxPerDay,
+            minuteStudied = xpMinuteStudied,
+            levelCurveBase = xpLevelCurveBase,
+            levelCurveExponent = xpLevelCurveExponent,
+        )
+}

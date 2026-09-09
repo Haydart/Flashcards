@@ -1,5 +1,15 @@
 # Session results are committed once, at the Session Summary screen
 
+> **Superseded in part by spec 08** (`docs/temp/spec-08-server-authoritative-session-commit.md`): the
+> single client-issued commit batch/transaction described below — `CommitStudySessionUseCase` and
+> `StudySessionRemoteDataSource`'s commit methods — is removed. A server-authoritative `submitStudySession`
+> Cloud Function becomes the sole writer of `sessions/{sessionId}`, the packed per-Subcategory progress
+> documents, `progress/summary` and `progress/user-stats`, inside its own Firestore transaction; the
+> client only submits what happened and shows an optimistic, non-authoritative preview. What stands:
+> this document's collection layout and field shapes (`sessions/{sessionId}`'s own document shape,
+> `progress/summary`, `progress/user-stats`, the per-Subcategory singleton path) — spec 08 relocates who
+> writes them, not what they look like.
+
 ## Decision
 
 ### Nothing is written during a session

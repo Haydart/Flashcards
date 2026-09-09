@@ -2,28 +2,21 @@ package com.rossomak.flashcards.core.data.source
 
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.DocumentReference
-import com.google.firebase.firestore.DocumentSnapshot
-import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.rossomak.flashcards.core.data.model.CardProgressEntryDto
 import com.rossomak.flashcards.core.data.model.SubcategoryProgressDto
-import com.rossomak.flashcards.core.domain.model.CardProgressUpdate
-import com.rossomak.flashcards.core.domain.model.SubcategoryProgressWrite
 import javax.inject.Inject
 import kotlinx.coroutines.tasks.await
 
 /**
- * Reads and, via [toMergeFields], maps the write shape of
- * `users/{uid}/progress/details/subcategories/{subcategoryId}` (ADR-0016). `details` is a fixed
+ * Reads `users/{uid}/progress/details/subcategories/{subcategoryId}` (ADR-0016). `details` is a fixed
  * anchor document with no fields of its own — it exists only to host the real `subcategories`
  * subcollection, since Firestore cannot nest a collection directly inside another collection; the
  * sibling singletons `progress/summary` and `progress/user-stats` stay one hop shallower so
- * `progress` itself holds only per-User singleton documents. Writing is not committed here — a
- * session commit's progress writes must land in the
- * same batch as its session document, so [documentReference] and [toMergeFields] are the seam
- * [StudySessionRemoteDataSource][com.rossomak.flashcards.core.data.source.StudySessionRemoteDataSource]
- * uses to fold this collection's documents into that batch, rather than committing its own.
+ * `progress` itself holds only per-User singleton documents.
+ *
+ * Read-only: the server-authoritative `submitStudySession` Cloud Function (spec 08) is the sole
+ * writer of this collection now — this client never composes a write for it.
  */
 class CardProgressRemoteDataSource @Inject constructor(
     private val firestore: FirebaseFirestore,
@@ -37,8 +30,6 @@ class CardProgressRemoteDataSource @Inject constructor(
         .collection(PROGRESS_COLLECTION_PATH_TEMPLATE.format(uid))
         .document(DETAILS_DOCUMENT_ID)
         .collection(SUBCATEGORIES_COLLECTION_ID)
-
-    fun documentReference(subcategoryId: String): DocumentReference = collection().document(subcategoryId)
 
     suspend fun getProgress(subcategoryId: String): SubcategoryProgressDto? {
         val document = collection().document(subcategoryId).get().await()
@@ -59,39 +50,6 @@ class CardProgressRemoteDataSource @Inject constructor(
         }.toMap()
 
         return SubcategoryProgressDto(categoryId = categoryId, cards = cards)
-    }
-
-    /**
-     * The nested-map shape a `set(merge)` writes back onto what [getProgress] reads. Only
-     * [SubcategoryProgressWrite.cards] appears here — the whole point of a merge write is that
-     * every card this session did not touch is left alone (ADR-0016), so nothing wholesale is ever
-     * built.
-     */
-    fun toMergeFields(write: SubcategoryProgressWrite): Map<String, Any> = mapOf(
-        FIELD_CATEGORY_ID to write.categoryId,
-        FIELD_CARDS to write.cards.mapValues { (_, update) -> update.toEntryFields() },
-    )
-
-    /**
-     * The card ids already present in [snapshot]'s packed `cards` map. Used from inside a Firestore
-     * transaction to re-verify, against a fresh server read, which of a proposed
-     * [SubcategoryProgressWrite]'s cards are still actually absent before writing them — a Fast
-     * session's create-if-absent rule (ADR-0016) must hold against the *current* server state, not
-     * the read [com.rossomak.flashcards.core.domain.usecase.CommitStudySessionUseCase] took earlier,
-     * or a concurrent Rated commit's Mastered write can be clobbered back to Seen.
-     */
-    fun existingCardIds(snapshot: DocumentSnapshot): Set<String> {
-        if (!snapshot.exists()) return emptySet()
-
-        @Suppress("UNCHECKED_CAST")
-        val cardsRaw = snapshot.get(FIELD_CARDS) as? Map<String, Any> ?: emptyMap()
-        return cardsRaw.keys
-    }
-
-    private fun CardProgressUpdate.toEntryFields(): Map<String, Any> = buildMap {
-        put(FIELD_STATE, state.name)
-        if (stampFirstStudied) put(FIELD_FIRST_STUDIED_AT, FieldValue.serverTimestamp())
-        if (stampMastered) put(FIELD_MASTERED_AT, FieldValue.serverTimestamp())
     }
 
     private companion object {

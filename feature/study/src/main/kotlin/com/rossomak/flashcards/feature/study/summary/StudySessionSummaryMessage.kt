@@ -8,8 +8,12 @@ package com.rossomak.flashcards.feature.study.summary
 sealed interface StudySessionSummaryMessage {
 
     /**
-     * The session commit was rejected — a genuine failure, not a queued offline write. A queued
-     * write shows no message at all: it will land once connectivity returns.
+     * The optimistic XP preview could not be computed — a failed read of this account's prior card
+     * progress or scoring state (spec 08: [com.rossomak.flashcards.core.domain.usecase.SubmitStudySessionUseCase]'s
+     * own local reads, not the server-authoritative `submitStudySession` Cloud Function call, which
+     * this message says nothing about — see that use case's own KDoc for why the two are decoupled).
+     * The screen's counts stay populated regardless; only the XP fields fall back to their zero
+     * defaults.
      */
     data object SaveFailed : StudySessionSummaryMessage
 }

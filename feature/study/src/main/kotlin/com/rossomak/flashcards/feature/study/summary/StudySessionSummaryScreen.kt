@@ -127,11 +127,54 @@ fun StudySessionSummaryContent(
                     style = MaterialTheme.typography.bodyLarge,
                 )
             }
+            XpBreakdownSection(state)
             Button(onClick = onNavigateBack) {
                 Text(stringResource(R.string.study_session_summary_back_button))
             }
         }
     }
+}
+
+/**
+ * Spec 05 ticket 02's plain itemised breakdown: no animation and no bespoke styling beyond the
+ * design system's defaults — the real visual design lands in ticket 04. Empty until the commit
+ * resolves ([StudySessionSummaryViewModel.applyXpResult]); zero-amount lines are already excluded
+ * from [StudySessionSummaryScreenState.xpLines], never filtered here.
+ */
+@Composable
+private fun XpBreakdownSection(state: StudySessionSummaryScreenState) {
+    state.xpLines.forEach { line ->
+        Text(text = xpBreakdownLineText(line), style = MaterialTheme.typography.bodyLarge)
+    }
+    if (state.xpLines.isNotEmpty()) {
+        Text(
+            text = stringResource(R.string.study_session_summary_xp_total_label, state.xpTotal),
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        Text(
+            text = stringResource(R.string.study_session_summary_xp_level_label, state.level),
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        Text(
+            text = stringResource(R.string.study_session_summary_xp_progress_label, state.xpIntoCurrentLevel, state.xpForNextLevel),
+            style = MaterialTheme.typography.bodyLarge,
+        )
+    }
+}
+
+/** One [R.string]-templated arithmetic line per [XpAwardSource] (ADR-0023: positional placeholders, no concatenation). */
+@Composable
+private fun xpBreakdownLineText(line: XpBreakdownLine): String {
+    val labelRes = when (line.source) {
+        XpAwardSource.NewCards -> R.string.study_session_summary_xp_new_cards_label
+        XpAwardSource.Mastered -> R.string.study_session_summary_xp_mastered_label
+        XpAwardSource.Partial -> R.string.study_session_summary_xp_partial_label
+        XpAwardSource.MasteryDefended -> R.string.study_session_summary_xp_mastery_defended_label
+        XpAwardSource.MasteryLost -> R.string.study_session_summary_xp_mastery_lost_label
+        XpAwardSource.TimeStudied -> R.string.study_session_summary_xp_time_studied_label
+        XpAwardSource.SessionCompleted -> R.string.study_session_summary_xp_session_completed_label
+    }
+    return stringResource(labelRes, line.count, line.rate, line.amount)
 }
 
 private const val SECONDS_PER_MINUTE = 60

@@ -25,6 +25,9 @@ const progressDoc = { categoryId: 'cat-1', cards: {} };
 /** A minimal, syntactically valid progress-summary document (ADR-0016) — rules don't inspect its shape. */
 const progressSummaryDoc = { subcategories: {} };
 
+/** A minimal, syntactically valid scoring-state document (spec 05 ticket 02) — rules don't inspect its shape. */
+const scoringStateDoc = { xp: 0, level: 1, xpIntoCurrentLevel: 0, currentStreak: 0, bestStreak: 0, lastStudyDate: '', goalMetDate: '' };
+
 let testEnv;
 
 before(async () => {
@@ -148,6 +151,38 @@ describe('users/{uid}/progress/{docId}', () => {
 
     await assertFails(getDoc(anonRef));
     await assertFails(setDoc(anonRef, progressSummaryDoc));
+  });
+});
+
+describe('users/{uid}/progress/user-stats (spec 05 ticket 02)', () => {
+  it('the owning user can read and write their own scoring-state document', async () => {
+    const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+    const ownRef = doc(ownerDb, `users/${OWNER_UID}/progress/user-stats`);
+
+    await assertSucceeds(setDoc(ownRef, scoringStateDoc));
+    await assertSucceeds(getDoc(ownRef));
+  });
+
+  it('a different authenticated user cannot read or write it', async () => {
+    const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+    await setDoc(doc(ownerDb, `users/${OWNER_UID}/progress/user-stats`), scoringStateDoc);
+
+    const otherDb = testEnv.authenticatedContext(OTHER_UID).firestore();
+    const foreignRef = doc(otherDb, `users/${OWNER_UID}/progress/user-stats`);
+
+    await assertFails(getDoc(foreignRef));
+    await assertFails(setDoc(foreignRef, scoringStateDoc));
+  });
+
+  it('an unauthenticated request cannot read or write it', async () => {
+    const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+    await setDoc(doc(ownerDb, `users/${OWNER_UID}/progress/user-stats`), scoringStateDoc);
+
+    const anonDb = testEnv.unauthenticatedContext().firestore();
+    const anonRef = doc(anonDb, `users/${OWNER_UID}/progress/user-stats`);
+
+    await assertFails(getDoc(anonRef));
+    await assertFails(setDoc(anonRef, scoringStateDoc));
   });
 });
 
