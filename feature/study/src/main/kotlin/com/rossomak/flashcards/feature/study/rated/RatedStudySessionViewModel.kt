@@ -143,11 +143,12 @@ class RatedStudySessionViewModel @Inject constructor(
     // Session-start-only signal (ticket 04 of spec 04 session persistence): one packed progress
     // document read per Subcategory in the route's scope, merged into cardId -> CardProgressEntry.
     // Its scope is the session's scope, decided before anything is studied — it can end up strictly
-    // larger than what CommitStudySessionUseCase's own prior-state read later touches (an abandoned
+    // larger than what SubmitStudySessionUseCase's own prior-state read later touches (an abandoned
     // session, or a drawn Subcategory never reached), and that is not a bug to reconcile, just waste.
     // A failed read (offline, permissions, ...) leaves this empty rather than blocking the session;
-    // every card is then simply not-previously-mastered / new, same as CommitStudySessionUseCase's
-    // KDoc already states for why the commit never trusts this signal and re-reads itself instead.
+    // every card is then simply not-previously-mastered / new — the server-authoritative
+    // `submitStudySession` Cloud Function (spec 08) never trusts this signal either, re-reading prior
+    // progress itself before deciding what actually gets written.
     // Exposed internally only for test assertions — nothing in the UI reads it (not in this ticket).
     internal var priorProgressByCardId: Map<String, CardProgressEntry> = emptyMap()
         private set

@@ -7,9 +7,9 @@ import com.rossomak.flashcards.core.domain.model.XpConfig
 import com.rossomak.flashcards.core.domain.model.levelThreshold
 import com.rossomak.flashcards.core.domain.repository.FakeCardProgressRepository
 import com.rossomak.flashcards.core.domain.repository.FakeScoringStateRepository
-import com.rossomak.flashcards.core.domain.repository.FakeStudySessionRepository
+import com.rossomak.flashcards.core.domain.repository.FakeSessionSubmissionRepository
 import com.rossomak.flashcards.core.domain.usecase.CalculateSessionXpUseCase
-import com.rossomak.flashcards.core.domain.usecase.CommitStudySessionUseCase
+import com.rossomak.flashcards.core.domain.usecase.SubmitStudySessionUseCase
 import com.rossomak.flashcards.core.ui.navigation.RouteDecoder
 import com.rossomak.flashcards.feature.study.StudySessionSummaryRoute
 import com.rossomak.flashcards.testutil.MainDispatcherRule
@@ -39,13 +39,13 @@ class StudySessionSummaryViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     private val savedStateHandle: SavedStateHandle = mockk()
-    private val studySessionRepository = FakeStudySessionRepository()
+    private val sessionSubmissionRepository = FakeSessionSubmissionRepository()
     private val cardProgressRepository = FakeCardProgressRepository()
     private val scoringStateRepository = FakeScoringStateRepository()
 
     private fun createViewModel(): StudySessionSummaryViewModel = StudySessionSummaryViewModel(
         savedStateHandle,
-        CommitStudySessionUseCase(studySessionRepository, cardProgressRepository, scoringStateRepository, CalculateSessionXpUseCase()),
+        SubmitStudySessionUseCase(cardProgressRepository, scoringStateRepository, CalculateSessionXpUseCase(), sessionSubmissionRepository),
     )
 
     @Before
@@ -157,50 +157,38 @@ class StudySessionSummaryViewModelTest {
         }
 
     @Test
-    fun `arriving at the summary commits the session exactly once`() = runTest(mainDispatcherRule.testDispatcher) {
+    fun `arriving at the summary submits the session exactly once`() = runTest(mainDispatcherRule.testDispatcher) {
         val route = ratedRoute()
         stubRoute(route)
 
         val viewModel = createViewModel()
         advanceUntilIdle()
 
-        studySessionRepository.committedSessionCommits.size shouldBe 1
-        studySessionRepository.committedSessionCommits.single().sessionResult.id shouldBe route.sessionId
+        sessionSubmissionRepository.submittedSessionResults.size shouldBe 1
+        sessionSubmissionRepository.submittedSessionResults.single().id shouldBe route.sessionId
         // Configuration change re-observes the same ViewModel instance rather than recreating it,
-        // so a second read of state must not trigger a second commit.
+        // so a second read of state must not trigger a second submission.
         viewModel.state.value
-        studySessionRepository.committedSessionCommits.size shouldBe 1
+        sessionSubmissionRepository.submittedSessionResults.size shouldBe 1
     }
 
     @Test
-    fun `a queued offline commit emits no message and leaves the displayed results intact`() =
+    fun `a failed session submission leaves the displayed preview intact and emits no message`() =
         runTest(mainDispatcherRule.testDispatcher) {
             stubRoute(ratedRoute())
-            studySessionRepository.commitResultToReturn = Result.success(Unit)
+            sessionSubmissionRepository.resultToReturn = Result.failure(IllegalStateException("unauthenticated"))
             var messageReceived = false
 
             val viewModel = createViewModel()
             val collectJob = launch { viewModel.messages.collect { messageReceived = true } }
             advanceUntilIdle()
 
+            // Spec 08: submission to the server carries no further authority here and is never
+            // reconciled against — a failed submission is not surfaced to the user at all (ticket 03
+            // is what makes delivery durable against exactly this kind of failure).
             messageReceived shouldBe false
             viewModel.state.value.studiedCount shouldBe 4
-            collectJob.cancel()
-        }
-
-    @Test
-    fun `a synchronously rejected commit surfaces a non-blocking message without clearing results`() =
-        runTest(mainDispatcherRule.testDispatcher) {
-            stubRoute(ratedRoute())
-            studySessionRepository.commitResultToReturn = Result.failure(IllegalStateException("no authenticated user"))
-            var receivedMessage: StudySessionSummaryMessage? = null
-
-            val viewModel = createViewModel()
-            val collectJob = launch { viewModel.messages.collect { message -> receivedMessage = message } }
-            advanceUntilIdle()
-
-            receivedMessage shouldBe StudySessionSummaryMessage.SaveFailed
-            viewModel.state.value.studiedCount shouldBe 4
+            viewModel.state.value.xpTotal shouldBe 785
             collectJob.cancel()
         }
 
@@ -240,11 +228,23 @@ class StudySessionSummaryViewModelTest {
     }
 
     @Test
-    fun `a later async rejection surfaces the same non-blocking message`() =
+    fun `a failed scoring-state read still submits the session`() = runTest(mainDispatcherRule.testDispatcher) {
+        scoringStateRepository.resultToReturn = Result.failure(IllegalStateException("firestore down"))
+        stubRoute(ratedRoute())
+
+        createViewModel()
+        advanceUntilIdle()
+
+        // Unlike the old client-write path, the preview's own local reads carry no gating power over
+        // whether the session actually gets submitted — the function needs nothing from them.
+        sessionSubmissionRepository.submittedSessionResults.size shouldBe 1
+    }
+
+    @Test
+    fun `a failed scoring-state read surfaces a non-blocking message without clearing results`() =
         runTest(mainDispatcherRule.testDispatcher) {
+            scoringStateRepository.resultToReturn = Result.failure(IllegalStateException("firestore down"))
             stubRoute(ratedRoute())
-            studySessionRepository.commitResultToReturn = Result.success(Unit)
-            studySessionRepository.rejectionToDeliver = IllegalStateException("permission denied")
             var receivedMessage: StudySessionSummaryMessage? = null
 
             val viewModel = createViewModel()

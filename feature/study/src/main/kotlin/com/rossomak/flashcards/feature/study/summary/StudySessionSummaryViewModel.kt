@@ -7,7 +7,7 @@ import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
 import com.rossomak.flashcards.core.domain.model.SessionResult
 import com.rossomak.flashcards.core.domain.model.SessionXpResult
 import com.rossomak.flashcards.core.domain.model.levelThreshold
-import com.rossomak.flashcards.core.domain.usecase.CommitStudySessionUseCase
+import com.rossomak.flashcards.core.domain.usecase.SubmitStudySessionUseCase
 import com.rossomak.flashcards.core.ui.navigation.decodeRoute
 import com.rossomak.flashcards.feature.study.StudySessionSummaryRoute
 import com.rossomak.flashcards.feature.study.toSessionResult
@@ -25,10 +25,10 @@ import kotlinx.coroutines.launch
 /**
  * Reads the terminated session's result straight from the route arguments — the only load path this
  * route ever carries (spec 03 ticket 02: fresh-session egress only, never a past session) — and
- * commits it once, on arrival (ADR-0014).
+ * submits it once, on arrival (ADR-0014, superseded for the write path by spec 08).
  *
- * The commit fires from `init`, which Hilt/Compose Navigation only run once per back-stack entry:
- * this ViewModel survives configuration change, so there is no separate "have I already committed"
+ * The submission fires from `init`, which Hilt/Compose Navigation only run once per back-stack entry:
+ * this ViewModel survives configuration change, so there is no separate "have I already submitted"
  * flag to maintain. There is likewise no branch to skip a past-session load: [StudySessionSummaryRoute]
  * has no sessionId-only shape today, only ever a complete [SessionResult][com.rossomak.flashcards.core.domain.model.SessionResult] —
  * a future past-session detail view is a separate screen and route (ADR-0014), not a branch of this one.
@@ -36,7 +36,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class StudySessionSummaryViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val commitStudySession: CommitStudySessionUseCase,
+    private val submitStudySession: SubmitStudySessionUseCase,
 ) : ViewModel() {
 
     private val result = savedStateHandle.decodeRoute<StudySessionSummaryRoute>().toSessionResult()
@@ -70,27 +70,25 @@ class StudySessionSummaryViewModel @Inject constructor(
     val messages: SharedFlow<StudySessionSummaryMessage> = _messages.asSharedFlow()
 
     init {
-        commitSession()
+        submitSession()
     }
 
     /**
-     * A rejected write — synchronous or reported later through [CommitStudySessionUseCase]'s
-     * `onRejected` — surfaces the same non-blocking message; a queued offline write reports neither
-     * and shows nothing. Either way the counts set at construction are untouched: the displayed
-     * results never depend on whether the commit has actually landed.
-     *
-     * The XP fields are different: computing them needs [CommitStudySessionUseCase]'s own reads
-     * (the account's prior scoring state, spec 05 ticket 02), so they can only ever be known once this
-     * call resolves. On a genuine failure here — a failed prior-progress or scoring-state read, or a
-     * synchronous write rejection — [state]'s XP fields simply stay at their zero defaults alongside
-     * the [StudySessionSummaryMessage.SaveFailed] snackbar; a later async rejection (queued-then-
-     * rejected) leaves an already-applied breakdown on screen exactly as it leaves the counts above.
+     * [SubmitStudySessionUseCase] hands back the optimistic preview immediately, decoupled from
+     * whatever its own submission to the server-authoritative `submitStudySession` Cloud Function
+     * (spec 08) returns — that call's own outcome carries no further authority here and is never
+     * inspected (see that use case's own KDoc). Only a failed local read behind the preview itself —
+     * this account's prior card progress or scoring state — surfaces [StudySessionSummaryMessage.SaveFailed]
+     * and leaves [state]'s XP fields at their zero defaults; the counts set at construction are
+     * untouched either way.
      */
-    private fun commitSession() {
+    private fun submitSession() {
         viewModelScope.launch {
-            commitStudySession(result) { onCommitRejected() }
-                .onSuccess { xpResult -> applyXpResult(xpResult) }
-                .onFailure { onCommitRejected() }
+            submitStudySession(result) { previewResult ->
+                previewResult
+                    .onSuccess { xpResult -> applyXpResult(xpResult) }
+                    .onFailure { onPreviewFailed() }
+            }
         }
     }
 
@@ -107,7 +105,7 @@ class StudySessionSummaryViewModel @Inject constructor(
         }
     }
 
-    private fun onCommitRejected() {
+    private fun onPreviewFailed() {
         _messages.tryEmit(StudySessionSummaryMessage.SaveFailed)
     }
 }
