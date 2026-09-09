@@ -13,9 +13,9 @@ import {
  * The sole writer of a session's XP, level and progress (spec 08). Everything this function decides
  * lands in one Firestore transaction, keyed for idempotency on the client-generated `sessionId`: a
  * retry of an already-processed session is a no-op that returns the same result again, never a
- * second award. See `reportStudySession`'s own doc comment for the transaction's shape.
+ * second award. See `submitStudySession`'s own doc comment for the transaction's shape.
  *
- * Deliberately kept out of `index.ts`: `validateReportStudySessionRequest` and `reportStudySession`
+ * Deliberately kept out of `index.ts`: `validateSubmitStudySessionRequest` and `submitStudySession`
  * are plain, directly-testable functions (mirroring `lib/entitlement.ts`'s `isPremiumUser`), so a
  * test can invoke them without going through the `onCall` wrapper or a running Functions emulator —
  * only a real Firestore (emulator or production) is ever needed to exercise this file.
@@ -100,7 +100,7 @@ const FIELD_XP_DAILY_GOAL_BONUS = "dailyGoalBonus";
 const FIELD_XP_STREAK_BONUS = "streakBonus";
 const FIELD_XP_TOTAL = "xpTotal";
 
-export interface ReportStudySessionCardResult {
+export interface SubmitStudySessionCardResult {
   cardId: string;
   subcategoryId: string;
   state: CardState;
@@ -108,7 +108,7 @@ export interface ReportStudySessionCardResult {
   wasPreviouslyMastered?: boolean;
 }
 
-export interface ValidatedReportStudySessionRequest {
+export interface ValidatedSubmitStudySessionRequest {
   sessionId: string;
   studyMode: StudyMode;
   startedAtEpochMillis: number;
@@ -118,10 +118,10 @@ export interface ValidatedReportStudySessionRequest {
   categoryName: string;
   subcategoryIds: string[];
   subcategoryNames: string[];
-  cardResults: ReportStudySessionCardResult[];
+  cardResults: SubmitStudySessionCardResult[];
 }
 
-export interface ReportStudySessionResult {
+export interface SubmitStudySessionResult {
   breakdown: XpBreakdown;
   level: number;
   xpIntoCurrentLevel: number;
@@ -172,7 +172,7 @@ function requireBoolean(value: unknown, field: string): boolean {
 
 const VALID_STATES: readonly CardState[] = ["Mastered", "Partial", "Failed", "Seen"];
 
-function validateCardResult(raw: unknown, studyMode: StudyMode, index: number): ReportStudySessionCardResult {
+function validateCardResult(raw: unknown, studyMode: StudyMode, index: number): SubmitStudySessionCardResult {
   if (typeof raw !== "object" || raw === null) fail(`cardResults[${index}] must be an object`);
   const entry = raw as Record<string, unknown>;
   const cardId = requireFirestoreSafeId(entry.cardId, `cardResults[${index}].cardId`);
@@ -195,7 +195,7 @@ function validateCardResult(raw: unknown, studyMode: StudyMode, index: number): 
 }
 
 /** Rejects a structurally invalid payload before any transaction opens (spec 08). */
-export function validateReportStudySessionRequest(data: unknown): ValidatedReportStudySessionRequest {
+export function validateSubmitStudySessionRequest(data: unknown): ValidatedSubmitStudySessionRequest {
   if (typeof data !== "object" || data === null) fail("request body must be an object");
   const body = data as Record<string, unknown>;
 
@@ -249,7 +249,7 @@ interface CardProgressUpdateFields {
 }
 
 /** Mirrors `CommitStudySessionUseCase.resolveMasteredDelta`. Fast's `state` is always `Seen`, hence always `0`. */
-function resolveMasteredDelta(entry: ReportStudySessionCardResult, wasMastered: boolean): number {
+function resolveMasteredDelta(entry: SubmitStudySessionCardResult, wasMastered: boolean): number {
   switch (entry.state) {
     case "Mastered":
       return wasMastered ? 0 : 1;
@@ -263,7 +263,7 @@ function resolveMasteredDelta(entry: ReportStudySessionCardResult, wasMastered: 
 /** Mirrors `CommitStudySessionUseCase.resolveUpdate`/`resolveFastUpdate`/`resolveRatedUpdate`. `null` means "write nothing". */
 function resolveUpdate(
   studyMode: StudyMode,
-  entry: ReportStudySessionCardResult,
+  entry: SubmitStudySessionCardResult,
   priorExists: boolean,
   wasMastered: boolean,
 ): CardProgressUpdateFields | null {
@@ -382,7 +382,7 @@ function readXpBreakdownFields(data: FirebaseFirestore.DocumentData): XpBreakdow
  *    documents — the session document, every touched Subcategory's progress, the progress summary's
  *    increments, and the full scoring-state overwrite — before returning the freshly computed result.
  */
-export async function reportStudySession(uid: string, request: ValidatedReportStudySessionRequest): Promise<ReportStudySessionResult> {
+export async function submitStudySession(uid: string, request: ValidatedSubmitStudySessionRequest): Promise<SubmitStudySessionResult> {
   const db = admin.firestore();
   const sessionRef = sessionDocRef(db, uid, request.sessionId);
 

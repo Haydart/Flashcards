@@ -4,7 +4,7 @@
 // Firestore emulator via `firebase emulators:exec` before this file runs.
 //
 // Deliberately does not go through a running Functions emulator or an `onCall` HTTP round trip:
-// `reportStudySession`/`validateReportStudySessionRequest` are called directly, the same seam
+// `submitStudySession`/`validateSubmitStudySessionRequest` are called directly, the same seam
 // `index.ts`'s thin `onCall` wrapper delegates to. This exercises every line this ticket is
 // responsible for — the auth check `index.ts` itself performs is a single `if (!uid) throw` guard,
 // trivial enough that a direct call with/without a uid covers it without needing a live Auth
@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, describe, it } from "node:test";
 import * as admin from "firebase-admin";
-import { reportStudySession, validateReportStudySessionRequest } from "./reportStudySession";
+import { submitStudySession, validateSubmitStudySessionRequest } from "./submitStudySession";
 
 const TEST_PROJECT_ID = "flashcards-functions-test";
 
@@ -41,43 +41,43 @@ function rawRatedRequest(overrides: Record<string, unknown> = {}): Record<string
   };
 }
 
-describe("validateReportStudySessionRequest", () => {
+describe("validateSubmitStudySessionRequest", () => {
   it("rejects a payload missing sessionId", () => {
     const { sessionId, ...withoutSessionId } = rawRatedRequest();
-    assert.throws(() => validateReportStudySessionRequest(withoutSessionId), /sessionId/);
+    assert.throws(() => validateSubmitStudySessionRequest(withoutSessionId), /sessionId/);
   });
 
   it("rejects a payload missing categoryId", () => {
     const { categoryId, ...withoutCategoryId } = rawRatedRequest();
-    assert.throws(() => validateReportStudySessionRequest(withoutCategoryId), /categoryId/);
+    assert.throws(() => validateSubmitStudySessionRequest(withoutCategoryId), /categoryId/);
   });
 
   it("rejects a non-finite durationSeconds", () => {
-    assert.throws(() => validateReportStudySessionRequest(rawRatedRequest({ durationSeconds: Number.NaN })), /durationSeconds/);
-    assert.throws(() => validateReportStudySessionRequest(rawRatedRequest({ durationSeconds: Number.POSITIVE_INFINITY })), /durationSeconds/);
+    assert.throws(() => validateSubmitStudySessionRequest(rawRatedRequest({ durationSeconds: Number.NaN })), /durationSeconds/);
+    assert.throws(() => validateSubmitStudySessionRequest(rawRatedRequest({ durationSeconds: Number.POSITIVE_INFINITY })), /durationSeconds/);
   });
 
   it("rejects mismatched subcategoryIds/subcategoryNames lengths", () => {
     const request = rawRatedRequest({ subcategoryIds: ["sub-1", "sub-2"], subcategoryNames: ["Subcategory One"] });
-    assert.throws(() => validateReportStudySessionRequest(request), /same length/);
+    assert.throws(() => validateSubmitStudySessionRequest(request), /same length/);
   });
 
   it("rejects an unknown studyMode", () => {
-    assert.throws(() => validateReportStudySessionRequest(rawRatedRequest({ studyMode: "Bogus" })), /studyMode/);
+    assert.throws(() => validateSubmitStudySessionRequest(rawRatedRequest({ studyMode: "Bogus" })), /studyMode/);
   });
 
   it("rejects a Rated cardResults entry with state Seen", () => {
     const request = rawRatedRequest({ cardResults: [{ cardId: "card-1", subcategoryId: "sub-1", state: "Seen" }] });
-    assert.throws(() => validateReportStudySessionRequest(request), /can never be Seen/);
+    assert.throws(() => validateSubmitStudySessionRequest(request), /can never be Seen/);
   });
 
   it("rejects a Fast cardResults entry with a non-Seen state", () => {
     const request = rawRatedRequest({ studyMode: "Fast", cardResults: [{ cardId: "card-1", subcategoryId: "sub-1", state: "Mastered" }] });
-    assert.throws(() => validateReportStudySessionRequest(request), /must be Seen/);
+    assert.throws(() => validateSubmitStudySessionRequest(request), /must be Seen/);
   });
 
   it("rejects an empty cardResults array", () => {
-    assert.throws(() => validateReportStudySessionRequest(rawRatedRequest({ cardResults: [] })), /non-empty array/);
+    assert.throws(() => validateSubmitStudySessionRequest(rawRatedRequest({ cardResults: [] })), /non-empty array/);
   });
 
   it("rejects a duplicate cardId within cardResults", () => {
@@ -88,12 +88,12 @@ describe("validateReportStudySessionRequest", () => {
         { cardId: duplicateCardId, subcategoryId: "sub-1", state: "Mastered", attemptsUsed: 1, wasPreviouslyMastered: false },
       ],
     });
-    assert.throws(() => validateReportStudySessionRequest(request), /duplicate cardId/);
+    assert.throws(() => validateSubmitStudySessionRequest(request), /duplicate cardId/);
   });
 
   it("rejects a cardResults entry whose subcategoryId isn't declared in subcategoryIds", () => {
     const request = rawRatedRequest({ cardResults: [{ cardId: "card-1", subcategoryId: "undeclared-sub", state: "Mastered", attemptsUsed: 1, wasPreviouslyMastered: false }] });
-    assert.throws(() => validateReportStudySessionRequest(request), /not present in subcategoryIds/);
+    assert.throws(() => validateSubmitStudySessionRequest(request), /not present in subcategoryIds/);
   });
 
   it("rejects a cardId matching Firestore's reserved __name__ pattern", () => {
@@ -101,27 +101,27 @@ describe("validateReportStudySessionRequest", () => {
     // segment) — reject it here, cleanly, rather than let it surface as a raw internal error from
     // deep inside the transaction.
     const request = rawRatedRequest({ cardResults: [{ cardId: "__proto__", subcategoryId: "sub-1", state: "Mastered", attemptsUsed: 1, wasPreviouslyMastered: false }] });
-    assert.throws(() => validateReportStudySessionRequest(request), /not a valid Firestore id/);
+    assert.throws(() => validateSubmitStudySessionRequest(request), /not a valid Firestore id/);
   });
 
   it("rejects a subcategoryId matching Firestore's reserved __name__ pattern", () => {
     const request = rawRatedRequest({ subcategoryIds: ["__proto__"], cardResults: [{ cardId: "card-1", subcategoryId: "__proto__", state: "Mastered", attemptsUsed: 1, wasPreviouslyMastered: false }] });
-    assert.throws(() => validateReportStudySessionRequest(request), /not a valid Firestore id/);
+    assert.throws(() => validateSubmitStudySessionRequest(request), /not a valid Firestore id/);
   });
 
   it("accepts a structurally valid Rated payload", () => {
-    const validated = validateReportStudySessionRequest(rawRatedRequest());
+    const validated = validateSubmitStudySessionRequest(rawRatedRequest());
     assert.equal(validated.studyMode, "Rated");
     assert.equal(validated.cardResults.length, 1);
   });
 });
 
-describe("reportStudySession", () => {
-  it("a first report writes the session, progress, summary and scoring-state documents and returns the correct breakdown", async () => {
+describe("submitStudySession", () => {
+  it("a first submission writes the session, progress, summary and scoring-state documents and returns the correct breakdown", async () => {
     const uid = randomUUID();
-    const request = validateReportStudySessionRequest(rawRatedRequest());
+    const request = validateSubmitStudySessionRequest(rawRatedRequest());
 
-    const result = await reportStudySession(uid, request);
+    const result = await submitStudySession(uid, request);
 
     assert.equal(result.breakdown.newCards, 10, "card-1 has no prior progress entry, so it counts as newly studied");
     assert.equal(result.breakdown.mastered, 100);
@@ -153,12 +153,12 @@ describe("reportStudySession", () => {
     assert.equal(scoringDoc.data()?.level, result.level);
   });
 
-  it("a retried report of an already-processed session is a no-op: same result, no double award", async () => {
+  it("a retried submission of an already-processed session is a no-op: same result, no double award", async () => {
     const uid = randomUUID();
-    const request = validateReportStudySessionRequest(rawRatedRequest());
+    const request = validateSubmitStudySessionRequest(rawRatedRequest());
 
-    const first = await reportStudySession(uid, request);
-    const second = await reportStudySession(uid, request);
+    const first = await submitStudySession(uid, request);
+    const second = await submitStudySession(uid, request);
 
     assert.deepEqual(second, first);
 
@@ -166,13 +166,13 @@ describe("reportStudySession", () => {
     assert.equal(scoringDoc.data()?.xp, first.breakdown.xpTotal, "xp must not be awarded twice");
   });
 
-  it("two concurrent reports of the same not-yet-processed session award exactly once (the actual race the idempotency check exists for)", async () => {
+  it("two concurrent submissions of the same not-yet-processed session award exactly once (the actual race the idempotency check exists for)", async () => {
     const uid = randomUUID();
-    const request = validateReportStudySessionRequest(rawRatedRequest());
+    const request = validateSubmitStudySessionRequest(rawRatedRequest());
 
     // Sequential calls (the test above) never race the "does sessionId already exist" check itself —
     // both transactions here start from a state where the session doc genuinely does not exist yet.
-    const [first, second] = await Promise.all([reportStudySession(uid, request), reportStudySession(uid, request)]);
+    const [first, second] = await Promise.all([submitStudySession(uid, request), submitStudySession(uid, request)]);
 
     assert.deepEqual(second, first, "one of the two concurrent calls must retry and observe the other's committed write");
 
@@ -183,17 +183,17 @@ describe("reportStudySession", () => {
     assert.equal(summaryDoc.data()?.subcategories?.["sub-1"]?.studiedCount, 1, "the card must not be counted studied twice");
   });
 
-  it("two different sessions reported in close succession both apply, neither lost", async () => {
+  it("two different sessions submitted in close succession both apply, neither lost", async () => {
     const uid = randomUUID();
     const subcategoryId = "sub-1";
-    const requestA = validateReportStudySessionRequest(
+    const requestA = validateSubmitStudySessionRequest(
       rawRatedRequest({ cardResults: [{ cardId: "card-a", subcategoryId, state: "Mastered", attemptsUsed: 1, wasPreviouslyMastered: false }] }),
     );
-    const requestB = validateReportStudySessionRequest(
+    const requestB = validateSubmitStudySessionRequest(
       rawRatedRequest({ cardResults: [{ cardId: "card-b", subcategoryId, state: "Mastered", attemptsUsed: 1, wasPreviouslyMastered: false }] }),
     );
 
-    const [resultA, resultB] = await Promise.all([reportStudySession(uid, requestA), reportStudySession(uid, requestB)]);
+    const [resultA, resultB] = await Promise.all([submitStudySession(uid, requestA), submitStudySession(uid, requestB)]);
 
     // Whichever transaction Firestore serializes first sees level 1 -> 1 (or crosses into a level
     // the other then starts from); either way, applied together they must sum, never clobber.
@@ -211,15 +211,15 @@ describe("reportStudySession", () => {
     const uid = randomUUID();
     const subcategoryId = "sub-1";
     const cardId = "card-1";
-    const first = validateReportStudySessionRequest(
+    const first = validateSubmitStudySessionRequest(
       rawRatedRequest({ cardResults: [{ cardId, subcategoryId, state: "Mastered", attemptsUsed: 1, wasPreviouslyMastered: false }] }),
     );
-    await reportStudySession(uid, first);
+    await submitStudySession(uid, first);
 
-    const second = validateReportStudySessionRequest(
+    const second = validateSubmitStudySessionRequest(
       rawRatedRequest({ cardResults: [{ cardId, subcategoryId, state: "Mastered", attemptsUsed: 1, wasPreviouslyMastered: true }] }),
     );
-    const result = await reportStudySession(uid, second);
+    const result = await submitStudySession(uid, second);
 
     assert.equal(result.breakdown.mastered, 0);
     assert.equal(result.breakdown.masteryDefenseBonus, 50);

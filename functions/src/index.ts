@@ -5,10 +5,10 @@ import { isPremiumUser } from "./lib/entitlement";
 import { transcribeWithElevenLabsScribe } from "./lib/elevenlabs";
 import { sanitizeTranscript, gradeSanitizedTranscript } from "./lib/grading";
 import {
-  ReportStudySessionResult,
-  reportStudySession as runReportStudySession,
-  validateReportStudySessionRequest,
-} from "./lib/reportStudySession";
+  SubmitStudySessionResult,
+  submitStudySession as runSubmitStudySession,
+  validateSubmitStudySessionRequest,
+} from "./lib/submitStudySession";
 
 admin.initializeApp();
 
@@ -132,15 +132,17 @@ export const transcribeAndGradeSpokenAnswer = onCall<
 
 /**
  * Server-authoritative session commit (spec 08). Replaces the client-side write path
- * (`CommitStudySessionUseCase` / `StudySessionRemoteDataSource`): the client reports what happened
+ * (`CommitStudySessionUseCase` / `StudySessionRemoteDataSource`): the client submits what happened
  * during a session, and this function is the sole place that computes and writes its XP, level and
- * progress. Auth check and payload validation stay here, thin, in `index.ts`; the transaction and
- * scoring logic live in `lib/reportStudySession.ts` and `lib/xpScoring.ts` where they can be tested
- * directly, without going through this `onCall` wrapper.
+ * progress. Named "submit", not "report" — this codebase's curation feature already owns "report" for
+ * a flagged-content signal, so a finished session is submitted, never reported. Auth check and payload
+ * validation stay here, thin, in `index.ts`; the transaction and scoring logic live in
+ * `lib/submitStudySession.ts` and `lib/xpScoring.ts` where they can be tested directly, without going
+ * through this `onCall` wrapper.
  */
-export const reportStudySession = onCall<unknown, Promise<ReportStudySessionResult>>(RUNTIME_OPTIONS, async (request) => {
+export const submitStudySession = onCall<unknown, Promise<SubmitStudySessionResult>>(RUNTIME_OPTIONS, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Missing Firebase ID token");
-  const validated = validateReportStudySessionRequest(request.data);
-  return runReportStudySession(uid, validated);
+  const validated = validateSubmitStudySessionRequest(request.data);
+  return runSubmitStudySession(uid, validated);
 });

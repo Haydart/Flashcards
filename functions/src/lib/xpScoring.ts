@@ -5,7 +5,7 @@
  * source, since the two are expected to agree in the overwhelming common case (spec 08's Further
  * Notes) even though there is no cross-language sharing mechanism in this codebase.
  *
- * Pure: no Firestore, no Admin SDK. [reportStudySession.ts](./reportStudySession.ts) is the only
+ * Pure: no Firestore, no Admin SDK. [submitStudySession.ts](./submitStudySession.ts) is the only
  * caller, and is where every read/write this calculation needs actually happens.
  */
 

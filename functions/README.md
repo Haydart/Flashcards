@@ -31,7 +31,7 @@ functions/
   src/lib/grading.ts                — Vertex AI Gemini sanitize + grade calls
   src/lib/httpError.ts              — HttpError(statusCode, message) thrown by elevenlabs/grading libs
   src/lib/xpScoring.ts              — pure XP/level calculation (spec 08), ported from CalculateSessionXpUseCase.kt
-  src/lib/reportStudySession.ts     — validation + the session-commit transaction (spec 08)
+  src/lib/submitStudySession.ts     — validation + the session-commit transaction (spec 08)
   src/lib/*.test.ts                 — emulator-backed tests for the above (see "Local iteration" below)
 ```
 
@@ -73,19 +73,21 @@ The Android client surfaces the two modes as two intent-revealing methods over t
 `transcribeAndSanitize(wav)` (debug, rides the same callable with no question/answer and reads only
 the first streamed chunk).
 
-### `reportStudySession`
+### `submitStudySession`
 
 Server-authoritative session commit (spec 08). Replaces the client-side write path
 (`CommitStudySessionUseCase` / `StudySessionRemoteDataSource`):
-the client reports what happened during a session, and this function alone computes and writes its
-XP, level and progress. `index.ts` only checks auth and delegates; the real logic lives in
-`src/lib/reportStudySession.ts` (the transaction) and `src/lib/xpScoring.ts` (the pure XP/level
-calculation, ported from `CalculateSessionXpUseCase.kt`).
+the client submits what happened during a session, and this function alone computes and writes its
+XP, level and progress. Named "submit", not "report" — this codebase's curation feature already owns
+"report" for a flagged-content signal, so a finished session is submitted, never reported. `index.ts`
+only checks auth and delegates; the real logic lives in `src/lib/submitStudySession.ts` (the
+transaction) and `src/lib/xpScoring.ts` (the pure XP/level calculation, ported from
+`CalculateSessionXpUseCase.kt`).
 
 Everything happens in one Firestore transaction, keyed for idempotency on the client-generated
 `sessionId`: if `sessions/{sessionId}` already exists, the call is a no-op that returns the same
 result again — safe for the client's own at-least-once retry queue (spec 08 ticket 03) to call
-freely. See `reportStudySession`'s own doc comment in that file for the full read/write shape.
+freely. See `submitStudySession`'s own doc comment in that file for the full read/write shape.
 
 ## One-time setup (from a clean checkout)
 
@@ -180,10 +182,10 @@ All commands below run from the repo root unless noted, via `npx firebase-tools`
   ADR-0029) — every test against them goes through the real deployed callables via the debug screen.
   The in-app fake/real toggles are gone — the fake now only exists as a unit-test double
   (`core/data/src/test`).
-- `reportStudySession` (spec 08) is the first function with a real local test suite: `npm test`
+- `submitStudySession` (spec 08) is the first function with a real local test suite: `npm test`
   starts a Firestore emulator (`firebase emulators:exec`, reusing `../firebase.json`) and runs every
   `src/lib/*.test.ts` file against it with Node's built-in test runner. It calls
-  `reportStudySession`/`validateReportStudySessionRequest` directly rather than going through a
+  `submitStudySession`/`validateSubmitStudySessionRequest` directly rather than going through a
   running Functions emulator or an `onCall` HTTP round trip — no Auth emulator or token minting
   needed, since the `onCall` wrapper's own auth check is a single trivial guard in `index.ts`.
   `npm run test:unit` runs the same suite against whatever Firestore emulator is already listening
