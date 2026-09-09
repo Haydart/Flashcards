@@ -126,6 +126,11 @@ describe("validateSubmitStudySessionRequest", () => {
     assert.throws(() => validateSubmitStudySessionRequest(rawRatedRequest({ studyDate: "09/01/2026" })), /studyDate/);
   });
 
+  it("rejects a studyDate matching the pattern but not a real calendar date", () => {
+    assert.throws(() => validateSubmitStudySessionRequest(rawRatedRequest({ studyDate: "2026-02-30" })), /studyDate/);
+    assert.throws(() => validateSubmitStudySessionRequest(rawRatedRequest({ studyDate: "2026-13-01" })), /studyDate/);
+  });
+
   it("rejects a missing dailyGoalMinutes", () => {
     const { dailyGoalMinutes, ...withoutDailyGoalMinutes } = rawRatedRequest();
     assert.throws(() => validateSubmitStudySessionRequest(withoutDailyGoalMinutes), /dailyGoalMinutes/);

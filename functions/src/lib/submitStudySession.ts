@@ -161,7 +161,16 @@ const MAX_CARD_RESULTS = 50;
 
 const SECONDS_PER_MINUTE = 60;
 
-const STUDY_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const STUDY_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** Rejects a syntactically-shaped but impossible date (e.g. "2026-02-30") that the pattern alone lets through. */
+function isRealCalendarDate(match: RegExpMatchArray): boolean {
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
 
 function requireFirestoreSafeId(value: unknown, field: string): string {
   const id = requireNonEmptyString(value, field);
@@ -235,7 +244,8 @@ export function validateSubmitStudySessionRequest(data: unknown): ValidatedSubmi
   const cardResults = (body.cardResults as unknown[]).map((raw, index) => validateCardResult(raw, studyMode, index));
 
   const studyDateRaw = requireNonEmptyString(body.studyDate, FIELD_STUDY_DATE);
-  if (!STUDY_DATE_PATTERN.test(studyDateRaw)) fail(`${FIELD_STUDY_DATE} must match yyyy-MM-dd`);
+  const studyDateMatch = studyDateRaw.match(STUDY_DATE_PATTERN);
+  if (!studyDateMatch || !isRealCalendarDate(studyDateMatch)) fail(`${FIELD_STUDY_DATE} must be a real calendar date in yyyy-MM-dd format`);
   const dailyGoalMinutes = requireFiniteNumber(body.dailyGoalMinutes, "dailyGoalMinutes", 1);
 
   const cardIds = new Set<string>();
