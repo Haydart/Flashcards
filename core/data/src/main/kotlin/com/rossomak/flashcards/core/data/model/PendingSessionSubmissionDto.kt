@@ -38,8 +38,16 @@ data class PendingSessionSubmissionDto(
     val subcategoryIds: List<String>,
     val subcategoryNames: List<String>,
     val cardResults: List<PendingFlashcardResultDto>,
-    val studyDate: String,
-    val dailyGoalMinutes: Int,
+    // Defaulted, not required: an entry queued by an app version before spec 05 ticket 03 has neither
+    // field in its persisted JSON. kotlinx.serialization only tolerates a *missing* field when it has
+    // a default, so without one, one stale entry throws on decode and takes the whole array with it
+    // (readAll() catches SerializationException by discarding every queued session, not just the bad
+    // one). A legacy entry decoded with these defaults still fails server-side validation on delivery
+    // (studyDate must be non-empty) and is dropped once SessionSubmissionDeliveryWorker exhausts its
+    // retry limit — the same fate as any other permanently-invalid entry, not silent data loss for the
+    // rest of the queue.
+    val studyDate: String = "",
+    val dailyGoalMinutes: Int = 0,
     val xpConfig: PendingXpConfigDto,
 )
 
