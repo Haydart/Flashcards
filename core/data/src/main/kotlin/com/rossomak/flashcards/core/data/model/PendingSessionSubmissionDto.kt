@@ -38,6 +38,8 @@ data class PendingSessionSubmissionDto(
     val subcategoryIds: List<String>,
     val subcategoryNames: List<String>,
     val cardResults: List<PendingFlashcardResultDto>,
+    val studyDate: String,
+    val dailyGoalMinutes: Int,
     val xpConfig: PendingXpConfigDto,
 )
 
