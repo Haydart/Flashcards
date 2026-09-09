@@ -46,8 +46,14 @@ fun SessionResult.toSummaryRoute(): StudySessionSummaryRoute = StudySessionSumma
     xpLevelCurveExponent = xpConfig.levelCurveExponent,
 )
 
-/** The inverse of [toSummaryRoute] — how the Summary ViewModel reads the route back into a [SessionResult]. */
-fun StudySessionSummaryRoute.toSessionResult(): SessionResult = when (mode) {
+/**
+ * The inverse of [toSummaryRoute] — how the Summary ViewModel reads the route back into a
+ * [SessionResult]. [studyDate]/[dailyGoalMinutes] are supplied by the caller rather than derived here
+ * (spec 05 ticket 03): [studyDate] is purely derived from [StudySessionSummaryRoute.startedAtEpochSecond],
+ * and [dailyGoalMinutes] is a fresh preferences read that has no business surviving process death via
+ * `SavedStateHandle` the way the route's other fields do — this mapping function stays pure either way.
+ */
+fun StudySessionSummaryRoute.toSessionResult(studyDate: String, dailyGoalMinutes: Int): SessionResult = when (mode) {
     StudyMode.Rated -> SessionResult.Rated(
         id = sessionId,
         startedAt = Instant.ofEpochSecond(startedAtEpochSecond),
@@ -68,6 +74,8 @@ fun StudySessionSummaryRoute.toSessionResult(): SessionResult = when (mode) {
                 }[index],
             )
         },
+        studyDate = studyDate,
+        dailyGoalMinutes = dailyGoalMinutes,
         xpConfig = xpConfig,
     )
     StudyMode.Fast -> SessionResult.Fast(
@@ -86,6 +94,8 @@ fun StudySessionSummaryRoute.toSessionResult(): SessionResult = when (mode) {
                 state = cardStates[index],
             )
         },
+        studyDate = studyDate,
+        dailyGoalMinutes = dailyGoalMinutes,
         xpConfig = xpConfig,
     )
 }

@@ -7,11 +7,14 @@ import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
 import com.rossomak.flashcards.core.domain.model.SessionResult
 import com.rossomak.flashcards.core.domain.model.SessionXpResult
 import com.rossomak.flashcards.core.domain.model.levelThreshold
+import com.rossomak.flashcards.core.domain.usecase.ObserveUserPreferencesUseCase
 import com.rossomak.flashcards.core.domain.usecase.SubmitStudySessionUseCase
 import com.rossomak.flashcards.core.ui.navigation.decodeRoute
 import com.rossomak.flashcards.feature.study.StudySessionSummaryRoute
 import com.rossomak.flashcards.feature.study.toSessionResult
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.Instant
+import java.time.ZoneId
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,6 +22,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -36,32 +40,13 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class StudySessionSummaryViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
+    private val observeUserPreferences: ObserveUserPreferencesUseCase,
     private val submitStudySession: SubmitStudySessionUseCase,
 ) : ViewModel() {
 
-    private val result = savedStateHandle.decodeRoute<StudySessionSummaryRoute>().toSessionResult()
+    private val route = savedStateHandle.decodeRoute<StudySessionSummaryRoute>()
 
-    /**
-     * 0/0/0 for a Fast result is a UI-state convention only (see [StudySessionSummaryScreenState]'s own
-     * KDoc) — the screen already chooses its layout off `mode`, never off these being zero. The domain
-     * [SessionResult] itself has no such fields on its Fast branch at all (sealed).
-     */
-    private val terminalStateCounts: Triple<Int, Int, Int> = when (result) {
-        is SessionResult.Rated -> Triple(result.masteredCount, result.partialCount, result.failedCount)
-        is SessionResult.Fast -> Triple(0, 0, 0)
-    }
-
-    private val _state = MutableStateFlow(
-        StudySessionSummaryScreenState(
-            mode = result.mode,
-            durationSeconds = result.durationSeconds,
-            studiedCount = result.studiedCount,
-            abandoned = result.abandoned,
-            masteredCount = terminalStateCounts.first,
-            partialCount = terminalStateCounts.second,
-            failedCount = terminalStateCounts.third,
-        ),
-    )
+    private val _state = MutableStateFlow(StudySessionSummaryScreenState())
     val state: StateFlow<StudySessionSummaryScreenState> = _state.asStateFlow()
 
     private val _messages = MutableSharedFlow<StudySessionSummaryMessage>(extraBufferCapacity = 1)
@@ -74,25 +59,60 @@ class StudySessionSummaryViewModel @Inject constructor(
     }
 
     /**
+     * Reconstructs the terminated session's [SessionResult] from the route arguments — the only load
+     * path this route ever carries (spec 03 ticket 02: fresh-session egress only, never a past
+     * session) — and submits it once, on arrival (ADR-0014, superseded for the write path by spec 08).
+     * `init` only runs once per back-stack entry (this ViewModel survives configuration change), so
+     * there is no separate "have I already submitted" flag to maintain.
+     *
+     * [studyDate] and [dailyGoalMinutes] (spec 05 ticket 03) are captured **here**, once, right before
+     * [toSessionResult] — not derived inside that now-still-pure mapping function, and not re-read at
+     * eventual delivery time if the session sits in the offline queue (ADR-0048): [studyDate] is pure,
+     * derived from the route's own [StudySessionSummaryRoute.startedAtEpochSecond]; [dailyGoalMinutes]
+     * is a fresh local preferences read, baked into the immutable [SessionResult] from this point on.
+     *
      * [SubmitStudySessionUseCase] hands back the optimistic preview immediately, decoupled from
      * whatever its own submission to the server-authoritative `submitStudySession` Cloud Function
      * (spec 08) returns — that call's own outcome carries no further authority here and is never
      * inspected (see that use case's own KDoc). Only a failed local read behind the preview itself —
      * this account's prior card progress or scoring state — surfaces [StudySessionSummaryMessage.SaveFailed]
-     * and leaves [state]'s XP fields at their zero defaults; the counts set at construction are
-     * untouched either way.
+     * and leaves [state]'s XP fields at their zero defaults; the counts derived from [SessionResult]
+     * itself are untouched either way.
      */
     private fun submitSession() {
         viewModelScope.launch {
+            val studyDate = Instant.ofEpochSecond(route.startedAtEpochSecond).atZone(ZoneId.systemDefault()).toLocalDate().toString()
+            val dailyGoalMinutes = observeUserPreferences().first().dailyGoalMinutes
+            val result = route.toSessionResult(studyDate = studyDate, dailyGoalMinutes = dailyGoalMinutes)
+
+            // 0/0/0 for a Fast result is a UI-state convention only (see StudySessionSummaryScreenState's
+            // own KDoc) — the screen already chooses its layout off `mode`, never off these being zero.
+            // The domain SessionResult itself has no such fields on its Fast branch at all (sealed).
+            val terminalStateCounts = when (result) {
+                is SessionResult.Rated -> Triple(result.masteredCount, result.partialCount, result.failedCount)
+                is SessionResult.Fast -> Triple(0, 0, 0)
+            }
+            _state.update {
+                it.copy(
+                    mode = result.mode,
+                    durationSeconds = result.durationSeconds,
+                    studiedCount = result.studiedCount,
+                    abandoned = result.abandoned,
+                    masteredCount = terminalStateCounts.first,
+                    partialCount = terminalStateCounts.second,
+                    failedCount = terminalStateCounts.third,
+                )
+            }
+
             submitStudySession(result) { previewResult ->
                 previewResult
-                    .onSuccess { xpResult -> applyXpResult(xpResult) }
+                    .onSuccess { xpResult -> applyXpResult(result, xpResult) }
                     .onFailure { onPreviewFailed() }
             }
         }
     }
 
-    private fun applyXpResult(xpResult: SessionXpResult) {
+    private fun applyXpResult(result: SessionResult, xpResult: SessionXpResult) {
         val config = result.xpConfig
         _state.update {
             it.copy(
