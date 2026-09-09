@@ -17,8 +17,10 @@ import javax.inject.Inject
  * ([ADR-0047](../../../../../../../docs/adr/0047-xp-values-behind-a-config-repository.md)); this use
  * case never touches [com.rossomak.flashcards.core.domain.repository.XpConfigRepository] itself, and
  * no scoring number is a literal here. [Params.newCardsStudied] and [Params.currentState] are the two
- * impure reads [CommitStudySessionUseCase] already performs for other reasons — this unit only ever
- * receives their resolved values, never fetches them itself.
+ * impure reads [SubmitStudySessionUseCase] performs for its optimistic preview — this unit only ever
+ * receives their resolved values, never fetches them itself. Spec 08's `submitStudySession` Cloud
+ * Function ports this same calculation to TypeScript for the authoritative, server-side award; this
+ * Kotlin copy survives purely as that preview's calculation.
  *
  * The streak and daily-goal awards ([XpBreakdown.streakBonus]/[XpBreakdown.dailyGoalBonus]) are not
  * computed here — spec 05 ticket 03 adds the further inputs (today's date, today's studied minutes)
@@ -30,9 +32,10 @@ class CalculateSessionXpUseCase @Inject constructor() : UseCase<CalculateSession
     /**
      * @param sessionResult the finished session, its own [SessionResult.xpConfig] snapshot included.
      * @param newCardsStudied cards this session touched with no prior progress entry at all, across
-     * every Subcategory in scope — [CommitStudySessionUseCase]'s own count, computed from the same
-     * prior-progress read that decides the persisted card-progress writes, reused here rather than
-     * re-derived from a second read.
+     * every Subcategory in scope — [SubmitStudySessionUseCase]'s own estimate, from the same
+     * per-Subcategory prior-progress read the old client write path used to also drive persisted
+     * card-progress writes; this preview's count can drift from the server's own recount in the rare
+     * concurrent-session case spec 08 exists to close (see [SubmitStudySessionUseCase]'s own KDoc).
      * @param currentState the account's [ScoringState] before this session's award is applied.
      */
     data class Params(
@@ -49,9 +52,10 @@ class CalculateSessionXpUseCase @Inject constructor() : UseCase<CalculateSession
     }
 
     /**
-     * [FlashcardResult.Rated.wasPreviouslyMastered] is trusted directly here, unlike
-     * [CommitStudySessionUseCase]'s own progress bookkeeping, which re-reads prior state fresh rather
-     * than trust it: that flag is real (stamped from the session-start progress read, ADR-0016), and
+     * [FlashcardResult.Rated.wasPreviouslyMastered] is trusted directly here, unlike the
+     * server-authoritative `submitStudySession` Cloud Function's own progress bookkeeping, which
+     * re-reads prior state fresh rather than trust it: that flag is real (stamped from the
+     * session-start progress read, ADR-0016), and
      * scoring — unlike a persisted mastery count — tolerates the same mild staleness ADR-0047 already
      * accepts for [XpConfig] itself. It is currently always `false` in practice: card selection never
      * re-draws an already-mastered card into a Rated session, so [XpBreakdown.masteryDefenseBonus] and

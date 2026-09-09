@@ -4,16 +4,18 @@ import com.rossomak.flashcards.core.domain.model.ScoringState
 
 /**
  * Reads the User's account-wide [ScoringState] singleton, `progress/user-stats` (spec 05 ticket 02).
- * Writing is not exposed here: the updated state must land in the same Firestore batch as the rest of
- * a session's commit, so [com.rossomak.flashcards.core.domain.repository.StudySessionRepository.commitSession]
- * is the only write path, same shape as [com.rossomak.flashcards.core.domain.model.ProgressSummaryWrite].
+ * Writing is not exposed here, nor anywhere else on the client: the server-authoritative
+ * `submitStudySession` Cloud Function (spec 08) is the sole writer of this document, computing and
+ * overwriting the whole next [ScoringState] itself inside its own Firestore transaction.
+ * [getScoringState] only ever feeds
+ * [com.rossomak.flashcards.core.domain.usecase.SubmitStudySessionUseCase]'s optimistic preview now.
  *
  * @return `Result.success(null)` for an account with no scoring state document yet — a genuinely new
  * user, not a failure — leaving it to the caller to start from [ScoringState]'s own defaults.
  * `Result.failure` for a real read failure, which
- * [com.rossomak.flashcards.core.domain.usecase.CommitStudySessionUseCase] must never paper over with
- * a default: guessing a low starting state and writing it back would silently overwrite a real
- * account's accumulated XP.
+ * [com.rossomak.flashcards.core.domain.usecase.SubmitStudySessionUseCase] must never paper over with
+ * a default for its preview: guessing a low starting state would show a misleadingly small number,
+ * even though — unlike the old client-write path — it can no longer corrupt any persisted state.
  */
 interface ScoringStateRepository {
 
