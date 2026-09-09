@@ -22,10 +22,14 @@ import javax.inject.Inject
  * Function ports this same calculation to TypeScript for the authoritative, server-side award; this
  * Kotlin copy survives purely as that preview's calculation.
  *
- * The streak and daily-goal awards ([XpBreakdown.streakBonus]/[XpBreakdown.dailyGoalBonus]) are not
- * computed here — spec 05 ticket 03 adds the further inputs (today's date, today's studied minutes)
- * this same use case will need for them. They read zero out of every [XpBreakdown] this ticket
- * produces, per its own declared scope.
+ * The streak and daily-goal awards ([XpBreakdown.streakBonus]/[XpBreakdown.dailyGoalBonus]) are
+ * **deliberately never computed here** — spec 05 ticket 03 moved that computation server-side only
+ * (`functions/src/lib/xpScoring.ts`'s `computeStreakAndGoalAwards`), so this use case's own preview
+ * stays at zero for both, permanently, by design: previewing them accurately would need a new
+ * client-side "sum today's sessions" read this codebase has no other reason to have, just to
+ * preview-match a line spec 05 ticket 04 (the Summary's animated presentation) hasn't been designed
+ * yet. See [ADR-0048](../../../../../../../docs/adr/0048-streak-and-daily-goal-ride-the-session-payload.md)
+ * for why a second client-side implementation of the real calculation wasn't built either.
  */
 class CalculateSessionXpUseCase @Inject constructor() : UseCase<CalculateSessionXpUseCase.Params, SessionXpResult> {
 

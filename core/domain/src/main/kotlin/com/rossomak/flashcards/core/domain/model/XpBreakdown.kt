@@ -10,8 +10,11 @@ package com.rossomak.flashcards.core.domain.model
  * [SessionResult.Fast] card: an award this session simply did not produce is honestly zero, whichever
  * mode ran, so a Fast session's document carries `mastered: 0` rather than omitting the field.
  *
- * [dailyGoalBonus] and [streakBonus] are always zero until spec 05 ticket 03 computes them for
- * real — declared here so this shape does not change once that ticket lands.
+ * [dailyGoalBonus] and [streakBonus] (spec 05 ticket 03) split by *where* an [XpBreakdown] came
+ * from: a **server-computed** one — what the `submitStudySession` Cloud Function actually persists —
+ * is non-zero once earned; a **client-computed** one — [CalculateSessionXpUseCase]'s optimistic
+ * preview — stays zero permanently, by design (that use case never computes either award; see its own
+ * KDoc). This type carries both shapes identically; only the source of the values differs.
  *
  * @param newCards [XpConfig.newCardStudied] × cards studied for the first time ever. Both modes.
  * @param mastered [XpConfig.cardMastered] × cards ending Mastered this session for the first time —
@@ -28,8 +31,9 @@ package com.rossomak.flashcards.core.domain.model
  * @param timeStudied [XpConfig.minuteStudied] × whole minutes studied. Both modes.
  * @param sessionCompletionBonus [XpConfig.sessionCompleted], flat, only for a session that finished
  * its deck rather than being abandoned. Both modes.
- * @param dailyGoalBonus spec 05 ticket 03.
- * @param streakBonus spec 05 ticket 03.
+ * @param dailyGoalBonus [XpConfig.dailyGoalMet] flat, at most once per calendar day. Both modes.
+ * @param streakBonus `currentStreak x XpConfig.streakPerDay`, capped at [XpConfig.streakMaxPerDay].
+ * Both modes.
  */
 data class XpBreakdown(
     val newCards: Int = 0,
