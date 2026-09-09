@@ -21,33 +21,10 @@ data class SubcategoryProgressSummary(
  * A Subcategory absent from [subcategories] has never been studied; a `null` [ProgressSummary] itself
  * means the User has never finished a session at all. Both render as an empty ring — spec 06's
  * concern, not this type's.
+ *
+ * Written only by the server-authoritative `submitStudySession` Cloud Function (spec 08) — this
+ * client only ever reads it, via [com.rossomak.flashcards.core.domain.repository.CardProgressRepository.getProgressSummary].
  */
 data class ProgressSummary(
     val subcategories: Map<String, SubcategoryProgressSummary>,
-)
-
-/**
- * One Subcategory's net change to the [ProgressSummary], decided by
- * [com.rossomak.flashcards.core.domain.usecase.CommitStudySessionUseCase] from the same walk over
- * `cardResults` that produces its [CardProgressUpdate]s. [masteredDelta] is `+1` for a newly mastered
- * card, `-1` for a de-mastered one, and `0` for a defended, Partial or otherwise unchanged card;
- * [studiedDelta] is `+1` for a card with no prior entry and `0` otherwise — it can never be negative,
- * since coverage is monotonic even though mastery is not.
- */
-data class SubcategoryProgressSummaryDelta(
-    val masteredDelta: Int,
-    val studiedDelta: Int,
-)
-
-/**
- * What one session commit adds to the User's [ProgressSummary] — nested-key atomic increments, keyed
- * by Subcategory id, applied in the same Firestore batch as the session document and every
- * [SubcategoryProgressWrite] (ADR-0016). Never a separate write, never a read-then-set: the summary
- * must not be able to drift from the progress it summarises within a single commit.
- *
- * A Subcategory whose deltas are both zero never appears in [subcategoryDeltas] — there is nothing to
- * write for it.
- */
-data class ProgressSummaryWrite(
-    val subcategoryDeltas: Map<String, SubcategoryProgressSummaryDelta>,
 )
