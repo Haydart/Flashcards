@@ -145,6 +145,11 @@ function requireNonEmptyString(value: unknown, field: string): string {
 // an opaque internal Firestore error from deep inside the transaction.
 const RESERVED_FIRESTORE_NAME = /^__.*__$/;
 
+// Mirrors StudySessionConfig.MAX_LENGTH (core/domain, client-enforced) — a session's card count is
+// already capped on the client; enforced again here so a crafted payload can't inflate this
+// transaction's reads or push a session document toward Firestore's 1 MiB limit.
+const MAX_CARD_RESULTS = 50;
+
 function requireFirestoreSafeId(value: unknown, field: string): string {
   const id = requireNonEmptyString(value, field);
   if (RESERVED_FIRESTORE_NAME.test(id) || id.includes("/")) fail(`${field} is not a valid Firestore id: "${id}"`);
@@ -213,6 +218,7 @@ export function validateSubmitStudySessionRequest(data: unknown): ValidatedSubmi
   subcategoryIds.forEach((id, index) => requireFirestoreSafeId(id, `subcategoryIds[${index}]`));
 
   if (!Array.isArray(body.cardResults) || body.cardResults.length === 0) fail("cardResults must be a non-empty array");
+  if (body.cardResults.length > MAX_CARD_RESULTS) fail(`cardResults must not exceed ${MAX_CARD_RESULTS} entries`);
   const cardResults = (body.cardResults as unknown[]).map((raw, index) => validateCardResult(raw, studyMode, index));
 
   const cardIds = new Set<string>();
@@ -450,6 +456,18 @@ export async function submitStudySession(uid: string, request: ValidatedSubmitSt
       if (masteredDelta !== 0 || studiedDelta !== 0) summaryDeltas.set(subcategoryId, { masteredDelta, studiedDelta });
     }
 
+    // wasPreviouslyMastered is authoritative here, not trusted from the client: this transaction
+    // already read every touched card's prior state above (priorCardsBySubcategory) to compute
+    // progressWrites/summaryDeltas, so scoring and the persisted defended/demastered counters reuse
+    // that same server-read state rather than request.cardResults' own copy of the flag.
+    // Fast entries carry no wasPreviouslyMastered at all (ADR-0014: Rated-only field) — left
+    // untouched here, not coerced into a stray `false`.
+    const authoritativeCardResults = request.cardResults.map((entry) =>
+      entry.wasPreviouslyMastered === undefined
+        ? entry
+        : { ...entry, wasPreviouslyMastered: priorCardsBySubcategory.get(entry.subcategoryId)?.get(entry.cardId) === "Mastered" },
+    );
+
     const currentScoringState = readScoringState(scoringSnapshot);
     const config = DEFAULT_XP_CONFIG;
     const { breakdown, newScoringState, levelsCrossed } = computeSessionXp(
@@ -457,7 +475,7 @@ export async function submitStudySession(uid: string, request: ValidatedSubmitSt
         studyMode: request.studyMode,
         durationSeconds: request.durationSeconds,
         abandoned: request.abandoned,
-        cardResults: request.cardResults,
+        cardResults: authoritativeCardResults,
       },
       newCardsStudied,
       currentScoringState,
@@ -478,7 +496,7 @@ export async function submitStudySession(uid: string, request: ValidatedSubmitSt
       [FIELD_CARD_COUNT]: request.cardResults.length,
       [FIELD_NEW_CARDS_STUDIED]: newCardsStudied,
       [FIELD_CARD_RESULTS]: Object.fromEntries(
-        request.cardResults.map((entry) => [
+        authoritativeCardResults.map((entry) => [
           entry.cardId,
           {
             [FIELD_CARD_SUBCATEGORY_ID]: entry.subcategoryId,
@@ -497,8 +515,8 @@ export async function submitStudySession(uid: string, request: ValidatedSubmitSt
     if (request.studyMode === "Rated") {
       sessionFields[FIELD_CARDS_MASTERED] = request.cardResults.filter((entry) => entry.state === "Mastered").length;
       sessionFields[FIELD_CARDS_PARTIAL] = request.cardResults.filter((entry) => entry.state === "Partial").length;
-      sessionFields[FIELD_CARDS_DEFENDED] = request.cardResults.filter((entry) => entry.state === "Mastered" && entry.wasPreviouslyMastered).length;
-      sessionFields[FIELD_CARDS_DEMASTERED] = request.cardResults.filter((entry) => entry.state === "Failed" && entry.wasPreviouslyMastered).length;
+      sessionFields[FIELD_CARDS_DEFENDED] = authoritativeCardResults.filter((entry) => entry.state === "Mastered" && entry.wasPreviouslyMastered).length;
+      sessionFields[FIELD_CARDS_DEMASTERED] = authoritativeCardResults.filter((entry) => entry.state === "Failed" && entry.wasPreviouslyMastered).length;
     }
     transaction.set(sessionRef, sessionFields);
 
