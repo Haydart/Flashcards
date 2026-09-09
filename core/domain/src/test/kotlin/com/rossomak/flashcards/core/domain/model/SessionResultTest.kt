@@ -29,6 +29,8 @@ class SessionResultTest {
         subcategoryIds = listOf("sub-1"),
         subcategoryNames = listOf("Subcategory"),
         cardResults = cardResults,
+        studyDate = "2026-09-06",
+        dailyGoalMinutes = 20,
     )
 
     private fun fastResult(cardResults: List<FlashcardResult.Fast>): SessionResult.Fast = SessionResult.Fast(
@@ -41,6 +43,8 @@ class SessionResultTest {
         subcategoryIds = listOf("sub-1"),
         subcategoryNames = listOf("Subcategory"),
         cardResults = cardResults,
+        studyDate = "2026-09-06",
+        dailyGoalMinutes = 20,
     )
 
     @Test

@@ -41,6 +41,8 @@ class SubmitStudySessionUseCaseTest {
         subcategoryIds = listOf(subcategoryId),
         subcategoryNames = listOf("Subcategory"),
         cardResults = cardResults,
+        studyDate = "2026-09-08",
+        dailyGoalMinutes = 20,
     )
 
     private fun fastSessionResult(
@@ -56,6 +58,8 @@ class SubmitStudySessionUseCaseTest {
         subcategoryIds = listOf(subcategoryId),
         subcategoryNames = listOf("Subcategory"),
         cardResults = cardResults,
+        studyDate = "2026-09-08",
+        dailyGoalMinutes = 20,
     )
 
     private fun ratedEntry(
@@ -120,6 +124,8 @@ class SubmitStudySessionUseCaseTest {
                 ratedEntry(cardId = "card-1", subcategoryId = "sub-1", state = FlashcardStudyProgressState.Mastered),
                 ratedEntry(cardId = "card-2", subcategoryId = "sub-2", state = FlashcardStudyProgressState.Failed),
             ),
+            studyDate = "2026-09-08",
+            dailyGoalMinutes = 20,
         )
 
         val preview = createUseCase().invokeAndCapturePreview(session)
