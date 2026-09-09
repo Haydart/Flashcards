@@ -27,6 +27,8 @@ class SessionTerminationTest {
             subcategoryIds = listOf("sub-1"),
             subcategoryNames = listOf("Subcategory"),
             cardResults = cardResults,
+            studyDate = "2026-09-06",
+            dailyGoalMinutes = 20,
         )
 
     @Test
