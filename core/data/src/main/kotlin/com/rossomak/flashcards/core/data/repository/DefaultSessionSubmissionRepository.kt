@@ -1,93 +1,58 @@
 package com.rossomak.flashcards.core.data.repository
 
-import com.google.firebase.functions.FirebaseFunctions
-import com.rossomak.flashcards.core.domain.model.FlashcardResult
+import android.util.Log
+import com.rossomak.flashcards.core.data.SessionSubmissionDrainScheduler
+import com.rossomak.flashcards.core.data.model.PendingSessionSubmissionMapper.toDto
+import com.rossomak.flashcards.core.data.source.PendingSessionSubmissionLocalDataSource
 import com.rossomak.flashcards.core.domain.model.SessionResult
 import com.rossomak.flashcards.core.domain.repository.SessionSubmissionRepository
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.withContext
 
 /**
- * Wraps `httpsCallable("submitStudySession")` (spec 08), following the existing
- * [com.rossomak.flashcards.core.data.network.RealVoiceGradingApi] pattern already in this codebase:
- * the endpoint resolves from the initialized `FirebaseApp` (`google-services.json`), not a base URL,
- * and the caller's Firebase ID token attaches automatically — no Retrofit, no `Authorization` header
- * to manage by hand.
+ * Durable decorator over [SessionSubmissionRepository] (ticket 03) — the class
+ * [com.rossomak.flashcards.core.data.di.RepositoryModule.bindSessionSubmissionRepository] now binds
+ * to that interface, a role [RemoteSessionSubmissionRepository] held alone before this ticket.
+ * [com.rossomak.flashcards.core.domain.usecase.SubmitStudySessionUseCase]'s call site is unaware of
+ * any of this: it still just calls `submitSession`. This is the queue's *write* side —
+ * [submitSession] appends the session to [localDataSource]'s local durable store and asks
+ * [drainScheduler] to schedule delivery, then returns success once the session is durably *queued*,
+ * not once it has actually been *delivered*. Delivery itself is
+ * [com.rossomak.flashcards.core.data.worker.SessionSubmissionDeliveryWorker]'s job, reading straight
+ * from [localDataSource] on its own schedule — see that class's doc for the drain loop, its FIFO
+ * ordering, and its retry policy; see
+ * [com.rossomak.flashcards.core.data.source.FilePendingSessionSubmissionLocalDataSource] for the
+ * local store's shape and concurrency guarantee.
  *
- * The wire payload's field names mirror `functions/src/lib/submitStudySession.ts`'s own
- * `ValidatedSubmitStudySessionRequest` shape 1:1 — this is the one seam where those names must agree
- * across languages with no compiler to enforce it.
- *
- * Deliberately carries no `newCardsStudied` count: unlike the old client-write path, the function
- * recomputes that itself from its own fresh Firestore reads and never trusts a client-reported count
- * for it.
+ * A local-write failure (e.g. disk full) is caught here rather than propagated — matching this app's
+ * existing fire-and-forget submission UX, where [SubmitStudySessionUseCase]'s caller never surfaces
+ * `submitSession`'s result to the UI either way — but is logged non-fatally rather than dropped with
+ * zero trace.
  */
 class DefaultSessionSubmissionRepository @Inject constructor(
-    private val functions: FirebaseFunctions,
+    private val localDataSource: PendingSessionSubmissionLocalDataSource,
+    private val drainScheduler: SessionSubmissionDrainScheduler,
 ) : SessionSubmissionRepository {
 
-    // Broad on purpose, matching every other repository wrapping an SDK call in this codebase
-    // (RealVoiceGradingApi, DefaultVoiceAnswerGradingRepository, DefaultCardProgressRepository, …,
-    // all baselined the same way in detekt-baseline.xml): a callable Task can fail with more than
-    // just FirebaseFunctionsException (a transport-layer error before the SDK wraps it, say), and
-    // this call site has no surrounding try/catch of its own — narrowing this would let an
-    // unanticipated exception type crash instead of surfacing as Result.failure.
+    // Broad on purpose, matching RemoteSessionSubmissionRepository's own suppression: a local file
+    // write can fail with more than one anticipated exception type, and this call site has no
+    // surrounding try/catch of its own — narrowing this would let an unanticipated exception type
+    // crash instead of surfacing as a logged, non-fatal Result.failure.
     @Suppress("TooGenericExceptionCaught")
-    override suspend fun submitSession(sessionResult: SessionResult): Result<Unit> = withContext(Dispatchers.IO) {
-        try {
-            functions.getHttpsCallable(SUBMIT_STUDY_SESSION_FUNCTION_NAME).call(sessionResult.toPayload()).await()
-            Result.success(Unit)
-        } catch (exception: CancellationException) {
-            throw exception
-        } catch (exception: Exception) {
-            Result.failure(exception)
-        }
-    }
-
-    private fun SessionResult.toPayload(): Map<String, Any> = mapOf(
-        FIELD_SESSION_ID to id,
-        FIELD_STUDY_MODE to mode.name,
-        FIELD_STARTED_AT_EPOCH_MILLIS to startedAt.toEpochMilli(),
-        FIELD_DURATION_SECONDS to durationSeconds,
-        FIELD_ABANDONED to abandoned,
-        FIELD_CATEGORY_ID to categoryId,
-        FIELD_CATEGORY_NAME to categoryName,
-        FIELD_SUBCATEGORY_IDS to subcategoryIds,
-        FIELD_SUBCATEGORY_NAMES to subcategoryNames,
-        FIELD_CARD_RESULTS to cardResults.map { entry -> entry.toPayload() },
-    )
-
-    private fun FlashcardResult.toPayload(): Map<String, Any> = buildMap {
-        put(FIELD_CARD_ID, cardId)
-        put(FIELD_CARD_SUBCATEGORY_ID, subcategoryId)
-        put(FIELD_STATE, state.name)
-        if (this@toPayload is FlashcardResult.Rated) {
-            put(FIELD_ATTEMPTS_USED, attemptsUsed)
-            put(FIELD_WAS_PREVIOUSLY_MASTERED, wasPreviouslyMastered)
-        }
+    override suspend fun submitSession(sessionResult: SessionResult): Result<Unit> = try {
+        Log.d(TAG, "Queuing session ${sessionResult.id} (mode=${sessionResult.mode}) for durable delivery")
+        localDataSource.append(sessionResult.toDto())
+        drainScheduler.scheduleDrain()
+        Log.d(TAG, "Session ${sessionResult.id} queued, drain scheduled")
+        Result.success(Unit)
+    } catch (exception: CancellationException) {
+        throw exception
+    } catch (exception: Exception) {
+        Log.e(TAG, "Failed to queue session ${sessionResult.id} for durable delivery", exception)
+        Result.failure(exception)
     }
 
     private companion object {
-        const val SUBMIT_STUDY_SESSION_FUNCTION_NAME = "submitStudySession"
-
-        // Mirrors ValidatedSubmitStudySessionRequest's field names in functions/src/lib/submitStudySession.ts.
-        const val FIELD_SESSION_ID = "sessionId"
-        const val FIELD_STUDY_MODE = "studyMode"
-        const val FIELD_STARTED_AT_EPOCH_MILLIS = "startedAtEpochMillis"
-        const val FIELD_DURATION_SECONDS = "durationSeconds"
-        const val FIELD_ABANDONED = "abandoned"
-        const val FIELD_CATEGORY_ID = "categoryId"
-        const val FIELD_CATEGORY_NAME = "categoryName"
-        const val FIELD_SUBCATEGORY_IDS = "subcategoryIds"
-        const val FIELD_SUBCATEGORY_NAMES = "subcategoryNames"
-        const val FIELD_CARD_RESULTS = "cardResults"
-        const val FIELD_CARD_ID = "cardId"
-        const val FIELD_CARD_SUBCATEGORY_ID = "subcategoryId"
-        const val FIELD_STATE = "state"
-        const val FIELD_ATTEMPTS_USED = "attemptsUsed"
-        const val FIELD_WAS_PREVIOUSLY_MASTERED = "wasPreviouslyMastered"
+        const val TAG = "SessionSubmissionQueue"
     }
 }

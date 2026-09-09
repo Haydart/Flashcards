@@ -8,7 +8,9 @@ import com.rossomak.flashcards.core.data.repository.DefaultScoringStateRepositor
 import com.rossomak.flashcards.core.data.repository.DefaultSessionSubmissionRepository
 import com.rossomak.flashcards.core.data.repository.DefaultXpConfigRepository
 import com.rossomak.flashcards.core.data.source.AuthRemoteDataSource
+import com.rossomak.flashcards.core.data.source.FilePendingSessionSubmissionLocalDataSource
 import com.rossomak.flashcards.core.data.source.FirebaseAuthRemoteDataSource
+import com.rossomak.flashcards.core.data.source.PendingSessionSubmissionLocalDataSource
 import com.rossomak.flashcards.core.domain.repository.AuthRepository
 import com.rossomak.flashcards.core.domain.repository.CardProgressRepository
 import com.rossomak.flashcards.core.domain.repository.CurationRepository
@@ -45,6 +47,12 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindSessionSubmissionRepository(defaultSessionSubmissionRepository: DefaultSessionSubmissionRepository): SessionSubmissionRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindPendingSessionSubmissionLocalDataSource(
+        filePendingSessionSubmissionLocalDataSource: FilePendingSessionSubmissionLocalDataSource,
+    ): PendingSessionSubmissionLocalDataSource
 
     @Binds
     @Singleton

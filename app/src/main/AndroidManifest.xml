@@ -29,5 +29,20 @@
             </intent-filter>
         </activity>
 
+        <!-- ticket 03: WorkManager's own androidx.startup auto-initializer is removed here because
+             FlashcardsApplication implements Configuration.Provider (Hilt-backed WorkerFactory) —
+             leaving both active throws "WorkManager is already initialized". Only WorkManager's own
+             meta-data child is removed; the provider itself is shared with emoji2,
+             ProcessLifecycleInitializer and profileinstaller, so it stays, merged. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
+
     </application>
 </manifest>

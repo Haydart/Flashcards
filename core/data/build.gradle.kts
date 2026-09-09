@@ -19,10 +19,22 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.hilt.android)
     ksp(libs.hilt.android.compiler)
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
+    implementation(libs.google.guava.listenablefuture)
 
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
     testImplementation(libs.turbine)
     testImplementation(libs.kotest.assertions.core)
     testImplementation(libs.kotlinx.coroutines.test)
+}
+
+// work-runtime's own module metadata strictly constrains com.google.guava:listenablefuture to an
+// empty artifact (it assumes full Guava supplies the real class elsewhere). This project has no
+// other Guava dependency, so Dagger/Hilt's generated Java stubs for the new @HiltWorker class
+// (ticket 03) fail `compileDebugJavaWithJavac` without the real, tiny stub forced back in.
+configurations.all {
+    resolutionStrategy.force(libs.google.guava.listenablefuture.get())
 }

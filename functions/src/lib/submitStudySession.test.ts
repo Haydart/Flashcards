@@ -228,4 +228,34 @@ describe("submitStudySession", () => {
     // Only the first session's mastery counted; the defended session's masteredDelta is 0.
     assert.equal(summaryDoc.data()?.subcategories?.[subcategoryId]?.masteredCount, 1);
   });
+
+  it("a card Failed on its first exposure still counts as studied, exactly like a Fast session's Seen card", async () => {
+    const uid = randomUUID();
+    const request = validateSubmitStudySessionRequest(
+      rawRatedRequest({ cardResults: [{ cardId: "card-1", subcategoryId: "sub-1", state: "Failed", attemptsUsed: 3, wasPreviouslyMastered: false }] }),
+    );
+
+    const result = await submitStudySession(uid, request);
+
+    // No mastery/demastery XP for a card that was never mastered to begin with — but the flat
+    // per-card newCards award still applies: the card was studied this session either way.
+    assert.equal(result.breakdown.mastered, 0);
+    assert.equal(result.breakdown.demastered, 0);
+    assert.equal(result.breakdown.newCards, 10);
+
+    const progressDoc = await admin.firestore().doc(`users/${uid}/progress/details/subcategories/sub-1`).get();
+    const card = progressDoc.data()?.cards?.["card-1"];
+    assert.equal(card.state, "Failed", "the terminal state itself is preserved, not collapsed into Seen");
+    assert.ok(card.firstStudiedAt, "first exposure to a card must stamp firstStudiedAt regardless of outcome");
+    assert.equal(card.masteredAt, undefined, "a Failed card must never stamp masteredAt");
+
+    const summaryDoc = await admin.firestore().doc(`users/${uid}/progress/summary`).get();
+    assert.equal(
+      summaryDoc.data()?.subcategories?.["sub-1"]?.studiedCount,
+      1,
+      "the subcategory's studied-card progress must increase even though the terminal state was Failed — " +
+        "the user still saw and studied that card",
+    );
+    assert.equal(summaryDoc.data()?.subcategories?.["sub-1"]?.masteredCount, 0);
+  });
 });

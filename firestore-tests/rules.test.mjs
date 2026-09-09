@@ -1,8 +1,8 @@
-// Firestore Security Rules tests (spec 04 ticket 01). Small and standalone on purpose — this is a
-// guard against a specific class of production-only failure (there is no other way to verify a
-// rule without deploying it), not a second test framework for the project. Run via `npm test` in
-// this directory, which starts the Firestore emulator (see ../firebase.json) and runs this file
-// under Node's built-in test runner.
+// Firestore Security Rules tests (spec 04 ticket 01, locked down further by spec 08 ticket 04). Small
+// and standalone on purpose — this is a guard against a specific class of production-only failure
+// (there is no other way to verify a rule without deploying it), not a second test framework for the
+// project. Run via `npm test` in this directory, which starts the Firestore emulator (see
+// ../firebase.json) and runs this file under Node's built-in test runner.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -49,28 +49,37 @@ afterEach(async () => {
   await testEnv.clearFirestore();
 });
 
-describe('users/{uid}/sessions/{sessionId}', () => {
-  it('the owning user can create and read their own session', async () => {
-    const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
-    const ownRef = doc(ownerDb, `users/${OWNER_UID}/sessions/session-1`);
+/**
+ * Seeds a document straight past security rules, the way `submitStudySession`'s Admin SDK context
+ * would — spec 08 ticket 04 made every document below client-read-only, so a client `setDoc` can no
+ * longer be used to arrange fixtures for the read/foreign-user/unauthenticated assertions.
+ */
+async function seedAsAdmin(path, data) {
+  await testEnv.withSecurityRulesDisabled(async (adminContext) => {
+    await setDoc(doc(adminContext.firestore(), path), data);
+  });
+}
 
-    await assertSucceeds(setDoc(ownRef, sessionDoc));
-    await assertSucceeds(getDoc(ownRef));
+describe('users/{uid}/sessions/{sessionId} (spec 08 ticket 04: client-read-only)', () => {
+  it('the owning user can read their own session', async () => {
+    await seedAsAdmin(`users/${OWNER_UID}/sessions/session-1`, sessionDoc);
+    const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+
+    await assertSucceeds(getDoc(doc(ownerDb, `users/${OWNER_UID}/sessions/session-1`)));
   });
 
-  it('the owning user cannot update or delete their own session once created (CR-69 #3)', async () => {
+  it('the owning user cannot create, update or delete their own session', async () => {
+    await seedAsAdmin(`users/${OWNER_UID}/sessions/session-1`, sessionDoc);
     const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
     const ownRef = doc(ownerDb, `users/${OWNER_UID}/sessions/session-1`);
-    await setDoc(ownRef, sessionDoc);
 
+    await assertFails(setDoc(doc(ownerDb, `users/${OWNER_UID}/sessions/session-2`), sessionDoc));
     await assertFails(setDoc(ownRef, { ...sessionDoc, studyMode: 'Fast' }));
     await assertFails(deleteDoc(ownRef));
   });
 
   it('a different authenticated user cannot read or write it', async () => {
-    const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
-    await setDoc(doc(ownerDb, `users/${OWNER_UID}/sessions/session-1`), sessionDoc);
-
+    await seedAsAdmin(`users/${OWNER_UID}/sessions/session-1`, sessionDoc);
     const otherDb = testEnv.authenticatedContext(OTHER_UID).firestore();
     const foreignRef = doc(otherDb, `users/${OWNER_UID}/sessions/session-1`);
 
@@ -79,9 +88,7 @@ describe('users/{uid}/sessions/{sessionId}', () => {
   });
 
   it('an unauthenticated request cannot read or write it', async () => {
-    const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
-    await setDoc(doc(ownerDb, `users/${OWNER_UID}/sessions/session-1`), sessionDoc);
-
+    await seedAsAdmin(`users/${OWNER_UID}/sessions/session-1`, sessionDoc);
     const anonDb = testEnv.unauthenticatedContext().firestore();
     const anonRef = doc(anonDb, `users/${OWNER_UID}/sessions/session-1`);
 
@@ -90,19 +97,24 @@ describe('users/{uid}/sessions/{sessionId}', () => {
   });
 });
 
-describe('users/{uid}/progress/details/subcategories/{subcategoryId}', () => {
-  it('the owning user can read and write their own progress document', async () => {
+describe('users/{uid}/progress/details/subcategories/{subcategoryId} (spec 08 ticket 04: client-read-only)', () => {
+  it('the owning user can read their own progress document', async () => {
+    await seedAsAdmin(`users/${OWNER_UID}/progress/details/subcategories/sub-1`, progressDoc);
+    const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+
+    await assertSucceeds(getDoc(doc(ownerDb, `users/${OWNER_UID}/progress/details/subcategories/sub-1`)));
+  });
+
+  it('the owning user cannot write their own progress document', async () => {
+    await seedAsAdmin(`users/${OWNER_UID}/progress/details/subcategories/sub-1`, progressDoc);
     const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
     const ownRef = doc(ownerDb, `users/${OWNER_UID}/progress/details/subcategories/sub-1`);
 
-    await assertSucceeds(setDoc(ownRef, progressDoc));
-    await assertSucceeds(getDoc(ownRef));
+    await assertFails(setDoc(ownRef, progressDoc));
   });
 
   it('a different authenticated user cannot read or write it', async () => {
-    const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
-    await setDoc(doc(ownerDb, `users/${OWNER_UID}/progress/details/subcategories/sub-1`), progressDoc);
-
+    await seedAsAdmin(`users/${OWNER_UID}/progress/details/subcategories/sub-1`, progressDoc);
     const otherDb = testEnv.authenticatedContext(OTHER_UID).firestore();
     const foreignRef = doc(otherDb, `users/${OWNER_UID}/progress/details/subcategories/sub-1`);
 
@@ -111,9 +123,7 @@ describe('users/{uid}/progress/details/subcategories/{subcategoryId}', () => {
   });
 
   it('an unauthenticated request cannot read or write it', async () => {
-    const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
-    await setDoc(doc(ownerDb, `users/${OWNER_UID}/progress/details/subcategories/sub-1`), progressDoc);
-
+    await seedAsAdmin(`users/${OWNER_UID}/progress/details/subcategories/sub-1`, progressDoc);
     const anonDb = testEnv.unauthenticatedContext().firestore();
     const anonRef = doc(anonDb, `users/${OWNER_UID}/progress/details/subcategories/sub-1`);
 
@@ -122,19 +132,24 @@ describe('users/{uid}/progress/details/subcategories/{subcategoryId}', () => {
   });
 });
 
-describe('users/{uid}/progress/{docId}', () => {
-  it('the owning user can read and write their own progress-summary document', async () => {
+describe('users/{uid}/progress/{docId} (spec 08 ticket 04: client-read-only)', () => {
+  it('the owning user can read their own progress-summary document', async () => {
+    await seedAsAdmin(`users/${OWNER_UID}/progress/summary`, progressSummaryDoc);
+    const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+
+    await assertSucceeds(getDoc(doc(ownerDb, `users/${OWNER_UID}/progress/summary`)));
+  });
+
+  it('the owning user cannot write their own progress-summary document', async () => {
+    await seedAsAdmin(`users/${OWNER_UID}/progress/summary`, progressSummaryDoc);
     const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
     const ownRef = doc(ownerDb, `users/${OWNER_UID}/progress/summary`);
 
-    await assertSucceeds(setDoc(ownRef, progressSummaryDoc));
-    await assertSucceeds(getDoc(ownRef));
+    await assertFails(setDoc(ownRef, progressSummaryDoc));
   });
 
   it('a different authenticated user cannot read or write it', async () => {
-    const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
-    await setDoc(doc(ownerDb, `users/${OWNER_UID}/progress/summary`), progressSummaryDoc);
-
+    await seedAsAdmin(`users/${OWNER_UID}/progress/summary`, progressSummaryDoc);
     const otherDb = testEnv.authenticatedContext(OTHER_UID).firestore();
     const foreignRef = doc(otherDb, `users/${OWNER_UID}/progress/summary`);
 
@@ -143,9 +158,7 @@ describe('users/{uid}/progress/{docId}', () => {
   });
 
   it('an unauthenticated request cannot read or write it', async () => {
-    const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
-    await setDoc(doc(ownerDb, `users/${OWNER_UID}/progress/summary`), progressSummaryDoc);
-
+    await seedAsAdmin(`users/${OWNER_UID}/progress/summary`, progressSummaryDoc);
     const anonDb = testEnv.unauthenticatedContext().firestore();
     const anonRef = doc(anonDb, `users/${OWNER_UID}/progress/summary`);
 
@@ -154,19 +167,24 @@ describe('users/{uid}/progress/{docId}', () => {
   });
 });
 
-describe('users/{uid}/progress/user-stats (spec 05 ticket 02)', () => {
-  it('the owning user can read and write their own scoring-state document', async () => {
+describe('users/{uid}/progress/user-stats (spec 05 ticket 02, spec 08 ticket 04: client-read-only)', () => {
+  it('the owning user can read their own scoring-state document', async () => {
+    await seedAsAdmin(`users/${OWNER_UID}/progress/user-stats`, scoringStateDoc);
+    const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+
+    await assertSucceeds(getDoc(doc(ownerDb, `users/${OWNER_UID}/progress/user-stats`)));
+  });
+
+  it('the owning user cannot write their own scoring-state document', async () => {
+    await seedAsAdmin(`users/${OWNER_UID}/progress/user-stats`, scoringStateDoc);
     const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
     const ownRef = doc(ownerDb, `users/${OWNER_UID}/progress/user-stats`);
 
-    await assertSucceeds(setDoc(ownRef, scoringStateDoc));
-    await assertSucceeds(getDoc(ownRef));
+    await assertFails(setDoc(ownRef, scoringStateDoc));
   });
 
   it('a different authenticated user cannot read or write it', async () => {
-    const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
-    await setDoc(doc(ownerDb, `users/${OWNER_UID}/progress/user-stats`), scoringStateDoc);
-
+    await seedAsAdmin(`users/${OWNER_UID}/progress/user-stats`, scoringStateDoc);
     const otherDb = testEnv.authenticatedContext(OTHER_UID).firestore();
     const foreignRef = doc(otherDb, `users/${OWNER_UID}/progress/user-stats`);
 
@@ -175,38 +193,11 @@ describe('users/{uid}/progress/user-stats (spec 05 ticket 02)', () => {
   });
 
   it('an unauthenticated request cannot read or write it', async () => {
-    const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
-    await setDoc(doc(ownerDb, `users/${OWNER_UID}/progress/user-stats`), scoringStateDoc);
-
+    await seedAsAdmin(`users/${OWNER_UID}/progress/user-stats`, scoringStateDoc);
     const anonDb = testEnv.unauthenticatedContext().firestore();
     const anonRef = doc(anonDb, `users/${OWNER_UID}/progress/user-stats`);
 
     await assertFails(getDoc(anonRef));
     await assertFails(setDoc(anonRef, scoringStateDoc));
-  });
-});
-
-describe('users/{uid}/progress/details/subcategories/{subcategoryId} nested-key merge (ADR-0016)', () => {
-  it('a merge write touching one card leaves an existing untouched card byte-for-byte intact', async () => {
-    const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
-    const progressRef = doc(ownerDb, `users/${OWNER_UID}/progress/details/subcategories/sub-1`);
-    await setDoc(progressRef, {
-      categoryId: 'cat-1',
-      cards: { 'card-1': { state: 'Mastered', firstStudiedAt: new Date(0), masteredAt: new Date(0) } },
-    });
-
-    // The same shape a session commit writes for a second card studied in this Subcategory: only
-    // card-2's key, via set(merge) — never a wholesale rewrite of the `cards` map.
-    await setDoc(
-      progressRef,
-      { categoryId: 'cat-1', cards: { 'card-2': { state: 'Seen', firstStudiedAt: new Date(1) } } },
-      { merge: true },
-    );
-
-    const cards = (await getDoc(progressRef)).data().cards;
-    assert.equal(cards['card-1'].state, 'Mastered');
-    assert.ok(cards['card-1'].masteredAt, 'card-1 must keep its masteredAt untouched');
-    assert.equal(cards['card-1'].firstStudiedAt.toMillis(), 0, 'card-1 must keep its original firstStudiedAt untouched');
-    assert.equal(cards['card-2'].state, 'Seen');
   });
 });
