@@ -35,10 +35,9 @@ import kotlinx.serialization.json.Json
  * A whole-file read failure (the file itself cannot be opened or read at all, e.g. an [IOException] off
  * the raw file access) is a different failure from one bad line — nothing can be salvaged line-by-line
  * if the file can't be read in the first place. [readAll] still treats a *missing* file as an empty
- * queue, but lets a genuine [IOException] propagate rather than swallowing it: [listAll] catches it and
- * reports an empty queue anyway (a local cache that can't be read is not worth crashing a launch over,
- * mirroring [DataStoreStudySessionPreferencesLocalDataSource]'s own `IOException` fallback), but [remove]
- * deliberately does not catch it — see [remove]'s own doc for why.
+ * queue, but lets a genuine [IOException] propagate rather than swallowing it: neither [listAll] nor
+ * [remove] catches it — see each one's own doc for why an unreadable file must never look like an
+ * empty queue to either caller.
  *
  * **Concurrency**: [append] (called from [com.rossomak.flashcards.core.data.repository.DefaultSessionSubmissionRepository],
  * potentially from two sessions finishing seconds apart) and [listAll]/[remove] (called from
@@ -81,19 +80,23 @@ class FilePendingSessionSubmissionLocalDataSource @Inject constructor(
         }
     }
 
+    /**
+     * A whole-file [IOException] out of [readAll] is deliberately **not** caught here (unlike this
+     * class's earlier revision): swallowing it into `emptyList()` made
+     * [com.rossomak.flashcards.core.data.worker.SessionSubmissionDeliveryWorker.doWork] see an empty
+     * queue and return `Result.success()` for a run that never actually looked at the real queue —
+     * WorkManager never retries a "successful" run, so a transiently-unreadable file could stall
+     * delivery indefinitely. Letting it propagate lets that worker's own top-level catch turn it into
+     * `Result.retry()` instead, same as [remove]'s failure already does.
+     */
     override suspend fun listAll(): List<PendingSessionSubmissionDto> = withContext(Dispatchers.IO) {
         mutex.withLock {
-            try {
-                readAll().also { Log.d(TAG, "Read queue file: ${it.size} entries") }
-            } catch (exception: IOException) {
-                Log.e(TAG, "Pending session submission queue file could not be read, reporting it as empty", exception)
-                emptyList()
-            }
+            readAll().also { Log.d(TAG, "Read queue file: ${it.size} entries") }
         }
     }
 
     /**
-     * A whole-file [IOException] out of [readAll] is deliberately **not** caught here, unlike in
+     * A whole-file [IOException] out of [readAll] is deliberately **not** caught here, same as
      * [listAll]: catching it and proceeding would fall through to [writeAll] with whatever [readAll]
      * returned on failure, silently replacing a real, transiently-unreadable queue with an empty one —
      * the exact data loss this queue exists to prevent. Letting it propagate leaves [file] untouched;

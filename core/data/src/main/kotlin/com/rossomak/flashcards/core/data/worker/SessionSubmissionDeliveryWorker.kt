@@ -6,6 +6,7 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.ListenableWorker.Result
 import androidx.work.WorkerParameters
+import com.rossomak.flashcards.core.data.model.PendingSessionSubmissionDto
 import com.rossomak.flashcards.core.data.model.PendingSessionSubmissionMapper.toDomain
 import com.rossomak.flashcards.core.data.repository.RemoteSessionSubmissionRepository
 import com.rossomak.flashcards.core.data.source.PendingSessionSubmissionLocalDataSource
@@ -71,12 +72,13 @@ import java.io.IOException
  * entry, removes it from the queue, and continues to the next entry rather than stalling every entry
  * behind it or retrying something that can never succeed.
  *
- * [localDataSource]'s [PendingSessionSubmissionLocalDataSource.remove] can itself throw an
- * [IOException] if the queue file exists but genuinely can't be read (see its implementation's own
- * doc for why that's deliberately not swallowed there). [doWork] catches that around each entry's
- * submit-then-remove step and returns [Result.retry] — the entry that was just successfully delivered
- * (or dropped) simply gets processed again next run rather than the queue file being silently
- * overwritten with a stale or empty read.
+ * [localDataSource]'s [PendingSessionSubmissionLocalDataSource.listAll] and
+ * [PendingSessionSubmissionLocalDataSource.remove] can each throw an [IOException] if the queue file
+ * exists but genuinely can't be read (see each one's own doc for why that's deliberately not swallowed
+ * there). [doWork] catches that around the initial read and around each entry's submit-then-remove
+ * step alike, returning [Result.retry] either way — an unreadable file must never look like a drained,
+ * empty queue to WorkManager, which would otherwise report [Result.success] for a run that never
+ * actually looked at the real queue and never gets rescheduled to try again.
  *
  * Recovery after the app (or the process WorkManager was running in) is killed mid-drain needs no
  * separate code path: [com.rossomak.flashcards.FlashcardsApplication] unconditionally calls
@@ -93,7 +95,13 @@ class SessionSubmissionDeliveryWorker @AssistedInject constructor(
 ) : CoroutineWorker(context, workerParameters) {
 
     override suspend fun doWork(): Result {
-        val pendingEntries = localDataSource.listAll().sortedBy { it.startedAtEpochMillis }
+        val pendingEntries: List<PendingSessionSubmissionDto>
+        try {
+            pendingEntries = localDataSource.listAll().sortedBy { it.startedAtEpochMillis }
+        } catch (exception: IOException) {
+            Log.e(TAG, "Pending session submission queue file could not be read, retrying the drain", exception)
+            return Result.retry()
+        }
         Log.d(TAG, "Drain started: ${pendingEntries.size} pending entr${if (pendingEntries.size == 1) "y" else "ies"} (attempt ${runAttemptCount + 1})")
         try {
             pendingEntries.forEachIndexed { index, entry ->
