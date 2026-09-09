@@ -31,9 +31,10 @@ class DefaultSessionSubmissionRepositoryTest {
 
     @Before
     fun setUp() {
-        // A local-write failure logs via android.util.Log, unavailable outside instrumented/
-        // Robolectric tests — stub it rather than pull in either just for this one call.
+        // Debug logging and a local-write failure both go through android.util.Log, unavailable
+        // outside instrumented/Robolectric tests — stub it rather than pull in either just for this.
         mockkStatic(Log::class)
+        every { Log.d(any(), any()) } returns 0
         every { Log.e(any(), any(), any()) } returns 0
     }
 

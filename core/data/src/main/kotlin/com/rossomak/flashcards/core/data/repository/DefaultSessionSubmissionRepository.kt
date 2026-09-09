@@ -40,8 +40,10 @@ class DefaultSessionSubmissionRepository @Inject constructor(
     // crash instead of surfacing as a logged, non-fatal Result.failure.
     @Suppress("TooGenericExceptionCaught")
     override suspend fun submitSession(sessionResult: SessionResult): Result<Unit> = try {
+        Log.d(TAG, "Queuing session ${sessionResult.id} (mode=${sessionResult.mode}) for durable delivery")
         localDataSource.append(sessionResult.toDto())
         drainScheduler.scheduleDrain()
+        Log.d(TAG, "Session ${sessionResult.id} queued, drain scheduled")
         Result.success(Unit)
     } catch (exception: CancellationException) {
         throw exception
