@@ -9,7 +9,7 @@ sealed interface StudySessionSummaryMessage {
 
     /**
      * The optimistic XP preview could not be computed — a failed read of this account's prior card
-     * progress or scoring state (spec 08: [com.rossomak.flashcards.core.domain.usecase.SubmitStudySessionUseCase]'s
+     * progress or scoring state ([com.rossomak.flashcards.core.domain.usecase.SubmitStudySessionUseCase]'s
      * own local reads, not the server-authoritative `submitStudySession` Cloud Function call, which
      * this message says nothing about — see that use case's own KDoc for why the two are decoupled).
      * The screen's counts stay populated regardless; only the XP fields fall back to their zero

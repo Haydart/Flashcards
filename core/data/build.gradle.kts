@@ -33,8 +33,8 @@ dependencies {
 
 // work-runtime's own module metadata strictly constrains com.google.guava:listenablefuture to an
 // empty artifact (it assumes full Guava supplies the real class elsewhere). This project has no
-// other Guava dependency, so Dagger/Hilt's generated Java stubs for the new @HiltWorker class
-// (ticket 03) fail `compileDebugJavaWithJavac` without the real, tiny stub forced back in.
+// other Guava dependency, so Dagger/Hilt's generated Java stubs for the @HiltWorker class in this
+// module fail `compileDebugJavaWithJavac` without the real, tiny stub forced back in.
 configurations.all {
     resolutionStrategy.force(libs.google.guava.listenablefuture.get())
 }

@@ -17,7 +17,7 @@ import org.junit.Test
 /**
  * [GetSessionStartDataUseCase] is a pure fan-out/merge composition of [GetFlashcardsUseCase] and
  * [GetSubcategoryProgressUseCase] — every rule about *what* each one returns is pinned on their own
- * tests; this file only covers the composing itself (ticket 04 of spec 04 session persistence).
+ * tests; this file only covers the composing itself.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class GetSessionStartDataUseCaseTest {

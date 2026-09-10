@@ -9,6 +9,7 @@ import com.rossomak.flashcards.core.data.model.PendingSessionSubmissionDto
 import com.rossomak.flashcards.core.data.model.PendingXpConfigDto
 import com.rossomak.flashcards.core.data.repository.RemoteSessionSubmissionRepository
 import com.rossomak.flashcards.core.data.source.FakePendingSessionSubmissionLocalDataSource
+import com.rossomak.flashcards.core.data.source.PendingSessionSubmissionLocalDataSource
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -17,6 +18,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
+import java.io.IOException
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Before
@@ -76,6 +78,9 @@ class SessionSubmissionDeliveryWorkerTest {
         cardResults = listOf(
             PendingFlashcardResultDto(cardId = "card-1", subcategoryId = "sub-1", state = "Mastered", attemptsUsed = 1, wasPreviouslyMastered = false),
         ),
+        studyDate = "2026-09-08",
+        dailyGoalMinutes = 20,
+        studyDateUtcOffsetMinutes = 0,
         xpConfig = PendingXpConfigDto(
             newCardStudied = 10,
             cardMastered = 100,
@@ -223,6 +228,52 @@ class SessionSubmissionDeliveryWorkerTest {
         localDataSource.listAll().map { it.id } shouldBe listOf("session-2", "session-3")
         coVerify(exactly = 1) { remoteSessionSubmissionRepository.submitSession(match { it.id == "session-2" }) }
         coVerify(exactly = 0) { remoteSessionSubmissionRepository.submitSession(match { it.id == "session-3" }) }
+    }
+
+    @Test
+    fun `a remove() that throws IOException retries the drain instead of losing track of the queue`() = runTest {
+        // remove() propagates an IOException rather than silently rewriting the queue file as empty
+        // (see FilePendingSessionSubmissionLocalDataSource's own doc) — doWork() must retry, not crash
+        // the run as Result.failure() and stop being rescheduled by WorkManager's own backoff.
+        val unreliableLocalDataSource: PendingSessionSubmissionLocalDataSource = mockk()
+        val entry = pendingSubmission("session-1", startedAtEpochMillis = 1_000L)
+        coEvery { unreliableLocalDataSource.listAll() } returns listOf(entry)
+        coEvery { unreliableLocalDataSource.remove(any()) } throws IOException("queue file unreadable")
+        coEvery { remoteSessionSubmissionRepository.submitSession(any()) } returns kotlin.Result.success(Unit)
+        val workerParameters: WorkerParameters = mockk()
+        every { workerParameters.runAttemptCount } returns 0
+        val worker = SessionSubmissionDeliveryWorker(
+            mockk<Context>(),
+            workerParameters,
+            remoteSessionSubmissionRepository,
+            unreliableLocalDataSource,
+        )
+
+        val result = worker.doWork()
+
+        result shouldBe Result.retry()
+    }
+
+    @Test
+    fun `an initial listAll() that throws IOException retries the drain instead of reporting a false success`() = runTest {
+        // listAll() now propagates a whole-file IOException (see FilePendingSessionSubmissionLocalDataSource's
+        // own doc) instead of swallowing it into emptyList() — doWork() must see this and retry, rather
+        // than mistake the failure for a genuinely empty, already-drained queue.
+        val unreliableLocalDataSource: PendingSessionSubmissionLocalDataSource = mockk()
+        coEvery { unreliableLocalDataSource.listAll() } throws IOException("queue file unreadable")
+        val workerParameters: WorkerParameters = mockk()
+        every { workerParameters.runAttemptCount } returns 0
+        val worker = SessionSubmissionDeliveryWorker(
+            mockk<Context>(),
+            workerParameters,
+            remoteSessionSubmissionRepository,
+            unreliableLocalDataSource,
+        )
+
+        val result = worker.doWork()
+
+        result shouldBe Result.retry()
+        coVerify(exactly = 0) { remoteSessionSubmissionRepository.submitSession(any()) }
     }
 
     @Test

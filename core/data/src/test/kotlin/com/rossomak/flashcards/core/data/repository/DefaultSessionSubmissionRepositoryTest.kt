@@ -9,6 +9,7 @@ import com.rossomak.flashcards.core.data.source.PendingSessionSubmissionLocalDat
 import com.rossomak.flashcards.core.domain.model.FlashcardResult
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
 import com.rossomak.flashcards.core.domain.model.SessionResult
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
@@ -16,6 +17,7 @@ import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import io.mockk.verify
 import java.time.Instant
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Before
@@ -61,6 +63,9 @@ class DefaultSessionSubmissionRepositoryTest {
                 wasPreviouslyMastered = false,
             ),
         ),
+        studyDate = "2026-09-08",
+        dailyGoalMinutes = 20,
+        studyDateUtcOffsetMinutes = 0,
     )
 
     @Test
@@ -94,6 +99,15 @@ class DefaultSessionSubmissionRepositoryTest {
         result.exceptionOrNull() shouldBe failingLocalDataSource.thrownException
         verify(exactly = 0) { drainScheduler.scheduleDrain() }
     }
+
+    @Test
+    fun `a cancellation during local append is rethrown, never caught as a failure Result`() = runTest {
+        val cancellingLocalDataSource = CancellingPendingSessionSubmissionLocalDataSource()
+        val repository = DefaultSessionSubmissionRepository(cancellingLocalDataSource, drainScheduler)
+
+        shouldThrow<CancellationException> { repository.submitSession(sessionResult()) }
+        verify(exactly = 0) { drainScheduler.scheduleDrain() }
+    }
 }
 
 private class ThrowingPendingSessionSubmissionLocalDataSource : PendingSessionSubmissionLocalDataSource {
@@ -101,6 +115,16 @@ private class ThrowingPendingSessionSubmissionLocalDataSource : PendingSessionSu
     val thrownException = IllegalStateException("disk full")
 
     override suspend fun append(pendingSessionSubmission: PendingSessionSubmissionDto): Unit = throw thrownException
+
+    override suspend fun listAll(): List<PendingSessionSubmissionDto> = emptyList()
+
+    override suspend fun remove(sessionId: String) = Unit
+}
+
+private class CancellingPendingSessionSubmissionLocalDataSource : PendingSessionSubmissionLocalDataSource {
+
+    override suspend fun append(pendingSessionSubmission: PendingSessionSubmissionDto): Unit =
+        throw CancellationException("session scope cancelled")
 
     override suspend fun listAll(): List<PendingSessionSubmissionDto> = emptyList()
 

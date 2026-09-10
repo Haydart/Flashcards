@@ -34,8 +34,8 @@ data class PreviewStudySessionRoute(
 }
 
 /**
- * Everything a Fast Study Session consumes, and nothing else (ticket 02 of
- * [ADR-0045](../../../docs/adr/0045-separate-fast-and-rated-session-screens.md)). Rated concepts —
+ * Everything a Fast Study Session consumes, and nothing else
+ * ([ADR-0045](../../../docs/adr/0045-separate-fast-and-rated-session-screens.md)). Rated concepts —
  * attempts, voice answering — do not appear; Fast has no path to either.
  *
  * @param readAloudEnabled the Preview screen's confirmed choice. Auto-start is conditional on this
@@ -47,7 +47,7 @@ data class PreviewStudySessionRoute(
  * @param voiceId the Preview screen's confirmed `VoiceSettings.voiceId`, flattened for the same
  * reason as [speechRate].
  * @param categoryName and [subcategoryNames]: not used inside the session itself, only carried so
- * termination can build a complete `SessionResult` (spec 03 ticket 01) without a second lookup —
+ * termination can build a complete `SessionResult` without a second lookup —
  * the same denormalize-alongside-the-id idiom `Subcategory`/`Category` already use
  * ([ADR-0014](../../../docs/adr/0014-session-stats-written-at-summary-screen.md)), and the same
  * reason [RatedStudySessionRoute] carries them.
@@ -69,8 +69,8 @@ data class FastStudySessionRoute(
 }
 
 /**
- * Everything a Rated Study Session consumes, and nothing else (ticket 03 of
- * [ADR-0045](../../../docs/adr/0045-separate-fast-and-rated-session-screens.md)). Read-aloud does
+ * Everything a Rated Study Session consumes, and nothing else
+ * ([ADR-0045](../../../docs/adr/0045-separate-fast-and-rated-session-screens.md)). Read-aloud does
  * not appear — it is a Fast concept.
  *
  * @param voiceAnsweringEnabled the Preview screen's choice (ADR-0030). Honoured on entry, reading
@@ -78,7 +78,7 @@ data class FastStudySessionRoute(
  * the time the cards land.
  * @param ratedAttempts the Preview screen's confirmed choice. Bounds `RatedSessionState`'s Attempts
  * limit — how many times a card may be rated before it resolves to a Terminal State on Attempts
- * exhausted (ticket 02 of the Rated session state machine sequence).
+ * exhausted.
  * @param partialRatingCardRequeueingEnabled the Preview screen's confirmed choice, read by
  * `RatedSessionState`. `true` (the default) means a Partial rating re-queues the card; `false`
  * means it finishes the card on the spot, recording Terminal Partial rather than Mastered
@@ -90,7 +90,7 @@ data class FastStudySessionRoute(
  * @param voiceId the Preview screen's confirmed `VoiceSettings.voiceId`, flattened for the same
  * reason as [speechRate].
  * @param categoryName and [subcategoryNames]: not used inside the session itself, only carried so
- * termination can build a complete `SessionResult` (spec 03 ticket 01) without a second lookup —
+ * termination can build a complete `SessionResult` without a second lookup —
  * the same denormalize-alongside-the-id idiom `Subcategory`/`Category` already use
  * ([ADR-0014](../../../docs/adr/0014-session-stats-written-at-summary-screen.md)).
  */
@@ -113,7 +113,7 @@ data class RatedStudySessionRoute(
 }
 
 /**
- * The whole `SessionResult` (spec 03 ticket 01), flattened into primitives and parallel lists — the
+ * The whole `SessionResult`, flattened into primitives and parallel lists — the
  * same convention [RatedStudySessionRoute]/[FastStudySessionRoute] already use for [VoiceSettings]
  * and `IntRange`. `androidx.navigation`'s typesafe routes only derive a `NavType` for primitives,
  * enums and lists of those, so `SessionResult.cardResults` becomes one parallel list per field, all
@@ -131,10 +131,16 @@ data class RatedStudySessionRoute(
  * [startedAtEpochSecond] flattens `SessionResult.startedAt` (a `java.time.Instant`, not itself a
  * primitive `androidx.navigation` can carry) to the one `Long` that reconstructs it.
  *
- * `SessionResult.xpConfig` (ADR-0047's snapshot rule, ticket 01 of spec 05) is flattened the same
+ * [studyDateUtcOffsetMinutes] is captured once, at session start (`startStudyClock()` in
+ * `FastStudySessionViewModel`/`RatedStudySessionViewModel`) — carrying it on the route, rather than
+ * having the Summary ViewModel call `ZoneId.systemDefault()` fresh at submission time, keeps the
+ * derived study date tied to the zone the session actually ran in even if the device's zone changes
+ * before the user reaches this screen.
+ *
+ * `SessionResult.xpConfig` (ADR-0047's snapshot rule) is flattened the same
  * way, one `xp`-prefixed field per [XpConfig] property — [xpConfig] reassembles them. Each field
- * defaults to [XpConfig]'s own default so a call site with no scoring stake in the route (this
- * ticket adds no new one, but existing tests construct this route directly) does not need to spell
+ * defaults to [XpConfig]'s own default so a call site with no scoring stake in the route
+ * (existing tests construct this route directly) does not need to spell
  * every value out.
  *
  * This route is fresh-session egress only
@@ -148,6 +154,7 @@ data class StudySessionSummaryRoute(
     val sessionId: String,
     val mode: StudyMode,
     val startedAtEpochSecond: Long,
+    val studyDateUtcOffsetMinutes: Int,
     val durationSeconds: Int,
     val abandoned: Boolean,
     val categoryId: String,

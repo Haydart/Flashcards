@@ -92,6 +92,9 @@ Use sealed classes for finite UI states (e.g. loading / content / error variants
 
 For fallible operations, return `kotlin.Result<T>` and consume with `.onSuccess { ... }` / `.onFailure { ... }`. Do not define a project-local `Result` type — it would shadow the stdlib one.
 
+### No ephemeral planning references in persistent text
+Never cite a `spec NN`/`ticket NN`/`docs/temp`/scratch-plan label in KDoc, code comments, commit messages, or any file that isn't itself the ephemeral plan doc. Those numbers/paths are session-local planning scaffolding — meaningless (or actively confusing) to a future reader, since the plan doc they point to is gitignored or long gone. Persistent docs (KDoc, ADRs, `CONTEXT.md`, `SYSTEMDESIGN.md`, README files) describe the *current, standalone* design — reference another persistent doc (an ADR, a class, a file) instead, or drop the citation and just explain the reasoning inline.
+
 ## Argument Order
 
 Every signature type below has one fixed parameter order — rationale in [ADR-0020](./docs/adr/0020-argument-order-conventions.md).

@@ -8,7 +8,9 @@ import com.rossomak.flashcards.core.domain.model.levelThreshold
 import com.rossomak.flashcards.core.domain.repository.FakeCardProgressRepository
 import com.rossomak.flashcards.core.domain.repository.FakeScoringStateRepository
 import com.rossomak.flashcards.core.domain.repository.FakeSessionSubmissionRepository
+import com.rossomak.flashcards.core.domain.repository.FakeUserPreferencesRepository
 import com.rossomak.flashcards.core.domain.usecase.CalculateSessionXpUseCase
+import com.rossomak.flashcards.core.domain.usecase.ObserveUserPreferencesUseCase
 import com.rossomak.flashcards.core.domain.usecase.SubmitStudySessionUseCase
 import com.rossomak.flashcards.core.ui.navigation.RouteDecoder
 import com.rossomak.flashcards.feature.study.StudySessionSummaryRoute
@@ -19,6 +21,8 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
+import java.time.Instant
+import java.time.ZoneOffset
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -30,7 +34,7 @@ import org.junit.Test
 
 /**
  * There is no past-session fallback path to test here — this route only ever carries a fresh
- * result (spec 03 ticket 02), so every case below is the same single load path.
+ * result, so every case below is the same single load path.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class StudySessionSummaryViewModelTest {
@@ -42,9 +46,11 @@ class StudySessionSummaryViewModelTest {
     private val sessionSubmissionRepository = FakeSessionSubmissionRepository()
     private val cardProgressRepository = FakeCardProgressRepository()
     private val scoringStateRepository = FakeScoringStateRepository()
+    private val userPreferencesRepository = FakeUserPreferencesRepository()
 
     private fun createViewModel(): StudySessionSummaryViewModel = StudySessionSummaryViewModel(
         savedStateHandle,
+        ObserveUserPreferencesUseCase(userPreferencesRepository),
         SubmitStudySessionUseCase(cardProgressRepository, scoringStateRepository, CalculateSessionXpUseCase(), sessionSubmissionRepository),
     )
 
@@ -65,6 +71,7 @@ class StudySessionSummaryViewModelTest {
     private fun ratedRoute(
         sessionId: String = "session-1",
         abandoned: Boolean = false,
+        studyDateUtcOffsetMinutes: Int = -300,
         cardStates: List<FlashcardStudyProgressState> = listOf(
             FlashcardStudyProgressState.Mastered,
             FlashcardStudyProgressState.Mastered,
@@ -77,6 +84,7 @@ class StudySessionSummaryViewModelTest {
             sessionId = sessionId,
             mode = StudyMode.Rated,
             startedAtEpochSecond = 0L,
+            studyDateUtcOffsetMinutes = studyDateUtcOffsetMinutes,
             durationSeconds = 120,
             abandoned = abandoned,
             categoryId = "cat-1",
@@ -129,6 +137,7 @@ class StudySessionSummaryViewModelTest {
                     sessionId = "session-2",
                     mode = StudyMode.Fast,
                     startedAtEpochSecond = 0L,
+                    studyDateUtcOffsetMinutes = -300,
                     durationSeconds = 60,
                     abandoned = false,
                     categoryId = "cat-1",
@@ -173,6 +182,30 @@ class StudySessionSummaryViewModelTest {
     }
 
     @Test
+    fun `the submitted session carries studyDate derived from the route's own captured offset, not the device's current zone, and dailyGoalMinutes read fresh from preferences`() =
+        runTest(mainDispatcherRule.testDispatcher) {
+            userPreferencesRepository.preferences.value = userPreferencesRepository.preferences.value.copy(dailyGoalMinutes = 45)
+            // A route-carried offset deliberately different from ZoneId.systemDefault()'s own offset
+            // for whatever machine runs this test — if submitSession() ever went back to re-deriving
+            // the offset from the device's current zone instead of trusting the route, this would fail.
+            val route = ratedRoute(studyDateUtcOffsetMinutes = -300)
+            stubRoute(route)
+
+            createViewModel()
+            advanceUntilIdle()
+
+            val submitted = sessionSubmissionRepository.submittedSessionResults.single()
+            val expectedStudyDate = Instant.ofEpochSecond(route.startedAtEpochSecond)
+                .plusSeconds(route.studyDateUtcOffsetMinutes * 60L)
+                .atZone(ZoneOffset.UTC)
+                .toLocalDate()
+                .toString()
+            submitted.dailyGoalMinutes shouldBe 45
+            submitted.studyDate shouldBe expectedStudyDate
+            submitted.studyDateUtcOffsetMinutes shouldBe route.studyDateUtcOffsetMinutes
+        }
+
+    @Test
     fun `a failed session submission leaves the displayed preview intact and emits no message`() =
         runTest(mainDispatcherRule.testDispatcher) {
             stubRoute(ratedRoute())
@@ -183,9 +216,9 @@ class StudySessionSummaryViewModelTest {
             val collectJob = launch { viewModel.messages.collect { messageReceived = true } }
             advanceUntilIdle()
 
-            // Spec 08: submission to the server carries no further authority here and is never
-            // reconciled against — a failed submission is not surfaced to the user at all (ticket 03
-            // is what makes delivery durable against exactly this kind of failure).
+            // Submission to the server carries no further authority here and is never
+            // reconciled against — a failed submission is not surfaced to the user at all (the
+            // delivery queue is what makes delivery durable against exactly this kind of failure).
             messageReceived shouldBe false
             viewModel.state.value.studiedCount shouldBe 4
             viewModel.state.value.xpTotal shouldBe 785

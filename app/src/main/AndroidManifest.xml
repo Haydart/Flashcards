@@ -29,7 +29,7 @@
             </intent-filter>
         </activity>
 
-        <!-- ticket 03: WorkManager's own androidx.startup auto-initializer is removed here because
+        <!-- WorkManager's own androidx.startup auto-initializer is removed here because
              FlashcardsApplication implements Configuration.Provider (Hilt-backed WorkerFactory) —
              leaving both active throws "WorkManager is already initialized". Only WorkManager's own
              meta-data child is removed; the provider itself is shared with emoji2,

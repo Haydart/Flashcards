@@ -5,12 +5,14 @@ import android.util.Log
 import com.rossomak.flashcards.core.data.model.PendingFlashcardResultDto
 import com.rossomak.flashcards.core.data.model.PendingSessionSubmissionDto
 import com.rossomak.flashcards.core.data.model.PendingXpConfigDto
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import java.io.File
+import java.io.IOException
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -58,6 +60,9 @@ class FilePendingSessionSubmissionLocalDataSourceTest {
         cardResults = listOf(
             PendingFlashcardResultDto(cardId = "card-1", subcategoryId = "sub-1", state = "Mastered", attemptsUsed = 1, wasPreviouslyMastered = false),
         ),
+        studyDate = "2026-09-08",
+        dailyGoalMinutes = 20,
+        studyDateUtcOffsetMinutes = 0,
         xpConfig = PendingXpConfigDto(
             newCardStudied = 10,
             cardMastered = 100,
@@ -152,13 +157,14 @@ class FilePendingSessionSubmissionLocalDataSourceTest {
     }
 
     @Test
-    fun `a corrupted line disappears from disk once the queue is next mutated`() = runTest {
+    fun `remove compacts a previously skipped corrupted line off disk during its rewrite`() = runTest {
         val dataSource = createDataSource()
         val first = pendingSubmission("session-1")
         dataSource.append(first)
         File(temporaryFolder.root, "pending_session_submissions.jsonl").appendText("{ not valid json ][\n")
 
-        // remove() rewrites the file from whatever listAll() (which already dropped the bad line) returns.
+        // remove() rewrites the file from whatever listAll() (which already dropped the bad line) returns —
+        // append() alone would not have compacted it; only remove()'s read-filter-rewrite does.
         dataSource.remove("session-does-not-exist")
 
         File(temporaryFolder.root, "pending_session_submissions.jsonl").readText() shouldBe
@@ -166,7 +172,7 @@ class FilePendingSessionSubmissionLocalDataSourceTest {
     }
 
     @Test
-    fun `a queue file that fails to read with an IOException is treated as empty rather than crashing`() = runTest {
+    fun `listAll propagates an IOException instead of reporting an unreadable queue as empty`() = runTest {
         val context: Context = mockk()
         every { context.filesDir } returns temporaryFolder.root
         // A directory at the expected path exists (so file.exists() is true) but readLines() throws
@@ -175,7 +181,22 @@ class FilePendingSessionSubmissionLocalDataSourceTest {
 
         val dataSource = FilePendingSessionSubmissionLocalDataSource(context)
 
-        dataSource.listAll() shouldBe emptyList()
+        // Swallowing this into emptyList() would make SessionSubmissionDeliveryWorker.doWork() see a
+        // drained queue and return Result.success() for a run that never actually read it.
+        shouldThrow<IOException> { dataSource.listAll() }
+    }
+
+    @Test
+    fun `remove propagates an IOException instead of overwriting an unreadable queue with an empty one`() = runTest {
+        val context: Context = mockk()
+        every { context.filesDir } returns temporaryFolder.root
+        File(temporaryFolder.root, "pending_session_submissions.jsonl").mkdir()
+        val dataSource = FilePendingSessionSubmissionLocalDataSource(context)
+
+        shouldThrow<IOException> { dataSource.remove("session-1") }
+
+        // The "file" is still the directory it was before — remove() never got to writeAll().
+        File(temporaryFolder.root, "pending_session_submissions.jsonl").isDirectory shouldBe true
     }
 
     @Test

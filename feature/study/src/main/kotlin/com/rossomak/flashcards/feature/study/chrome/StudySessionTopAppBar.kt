@@ -18,8 +18,8 @@ import com.rossomak.flashcards.core.domain.model.Flashcard
 import com.rossomak.flashcards.feature.study.R
 
 /**
- * The top app bar shared by every Study Session screen (ticket 01 of
- * [ADR-0045](../../../../../../../../docs/adr/0045-separate-fast-and-rated-session-screens.md)):
+ * The top app bar shared by every Study Session screen
+ * ([ADR-0045](../../../../../../../../docs/adr/0045-separate-fast-and-rated-session-screens.md)):
  * a close action that opens the exit-confirmation dialog, a flag action shown only while a card is
  * on screen that opens Report a problem for that card, and a trailing counter shown whenever
  * [counterText] is non-null.
@@ -27,7 +27,7 @@ import com.rossomak.flashcards.feature.study.R
  * Takes the current card and the already-formatted counter text as plain values rather than the
  * screen state that owns them — the two Study Modes are about to diverge into two different state
  * types, and this bar must not force either of them into a shared supertype just to be fed. The
- * counter's meaning itself diverges too (ticket 03 of the Rated session state machine sequence):
+ * counter's meaning itself diverges too:
  * Fast shows deck position, Rated shows distinct cards mastered — so this bar renders [counterText]
  * verbatim rather than deriving it from a position/total pair, and takes no Study Mode flag to
  * choose between them.

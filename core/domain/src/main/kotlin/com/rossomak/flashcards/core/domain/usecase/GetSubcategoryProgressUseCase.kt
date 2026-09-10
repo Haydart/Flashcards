@@ -8,7 +8,7 @@ import javax.inject.Inject
 /**
  * Thin wrapper around [CardProgressRepository.getProgress], mirroring [GetFlashcardsUseCase]'s shape:
  * one Subcategory id in, its packed progress document out. Both Study Session ViewModels fan this out
- * once per Subcategory in scope at session start (ticket 04 of spec 04 session persistence) to learn
+ * once per Subcategory in scope at session start to learn
  * which cards are new and which were previously Mastered — never chunked or batched, since packing
  * already removed the old `whereIn` thirty-id cap this read used to be subject to.
  */

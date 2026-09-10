@@ -10,9 +10,9 @@ import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 
 /**
- * Durable decorator over [SessionSubmissionRepository] (ticket 03) — the class
+ * Durable decorator over [SessionSubmissionRepository] — the class
  * [com.rossomak.flashcards.core.data.di.RepositoryModule.bindSessionSubmissionRepository] now binds
- * to that interface, a role [RemoteSessionSubmissionRepository] held alone before this ticket.
+ * to that interface, a role [RemoteSessionSubmissionRepository] held alone before.
  * [com.rossomak.flashcards.core.domain.usecase.SubmitStudySessionUseCase]'s call site is unaware of
  * any of this: it still just calls `submitSession`. This is the queue's *write* side —
  * [submitSession] appends the session to [localDataSource]'s local durable store and asks

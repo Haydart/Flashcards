@@ -30,8 +30,8 @@ functions/
   src/lib/elevenlabs.ts             — ElevenLabs Scribe STT call
   src/lib/grading.ts                — Vertex AI Gemini sanitize + grade calls
   src/lib/httpError.ts              — HttpError(statusCode, message) thrown by elevenlabs/grading libs
-  src/lib/xpScoring.ts              — pure XP/level calculation (spec 08), ported from CalculateSessionXpUseCase.kt
-  src/lib/submitStudySession.ts     — validation + the session-commit transaction (spec 08)
+  src/lib/xpScoring.ts              — pure XP/level calculation, ported from CalculateSessionXpUseCase.kt
+  src/lib/submitStudySession.ts     — validation + the session-commit transaction
   src/lib/*.test.ts                 — emulator-backed tests for the above (see "Local iteration" below)
 ```
 
@@ -75,7 +75,7 @@ the first streamed chunk).
 
 ### `submitStudySession`
 
-Server-authoritative session commit (spec 08). Replaces the client-side write path
+Server-authoritative session commit. Replaces the client-side write path
 (`CommitStudySessionUseCase` / `StudySessionRemoteDataSource`):
 the client submits what happened during a session, and this function alone computes and writes its
 XP, level and progress. Named "submit", not "report" — this codebase's curation feature already owns
@@ -86,7 +86,7 @@ transaction) and `src/lib/xpScoring.ts` (the pure XP/level calculation, ported f
 
 Everything happens in one Firestore transaction, keyed for idempotency on the client-generated
 `sessionId`: if `sessions/{sessionId}` already exists, the call is a no-op that returns the same
-result again — safe for the client's own at-least-once retry queue (spec 08 ticket 03) to call
+result again — safe for the client's own at-least-once retry queue to call
 freely. See `submitStudySession`'s own doc comment in that file for the full read/write shape.
 
 ## One-time setup (from a clean checkout)
@@ -182,7 +182,7 @@ All commands below run from the repo root unless noted, via `npx firebase-tools`
   ADR-0029) — every test against them goes through the real deployed callables via the debug screen.
   The in-app fake/real toggles are gone — the fake now only exists as a unit-test double
   (`core/data/src/test`).
-- `submitStudySession` (spec 08) is the first function with a real local test suite: `npm test`
+- `submitStudySession` is the first function with a real local test suite: `npm test`
   starts a Firestore emulator (`firebase emulators:exec`, reusing `../firebase.json`) and runs every
   `src/lib/*.test.ts` file against it with Node's built-in test runner. It calls
   `submitStudySession`/`validateSubmitStudySessionRequest` directly rather than going through a

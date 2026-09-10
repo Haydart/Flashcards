@@ -131,7 +131,7 @@ export const transcribeAndGradeSpokenAnswer = onCall<
 );
 
 /**
- * Server-authoritative session commit (spec 08). Replaces the client-side write path
+ * Server-authoritative session commit. Replaces the client-side write path
  * (`CommitStudySessionUseCase` / `StudySessionRemoteDataSource`): the client submits what happened
  * during a session, and this function is the sole place that computes and writes its XP, level and
  * progress. Named "submit", not "report" — this codebase's curation feature already owns "report" for

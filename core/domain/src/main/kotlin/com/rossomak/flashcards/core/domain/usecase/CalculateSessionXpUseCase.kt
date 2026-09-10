@@ -12,20 +12,24 @@ import com.rossomak.flashcards.core.domain.usecase.base.UseCase
 import javax.inject.Inject
 
 /**
- * Spec 05 ticket 02's scoring calculation — pure: no reads, no writes, no dispatchers, no Android.
+ * The scoring calculation — pure: no reads, no writes, no dispatchers, no Android.
  * Every rate is read from [SessionResult.xpConfig], the snapshot captured at session start
  * ([ADR-0047](../../../../../../../docs/adr/0047-xp-values-behind-a-config-repository.md)); this use
  * case never touches [com.rossomak.flashcards.core.domain.repository.XpConfigRepository] itself, and
  * no scoring number is a literal here. [Params.newCardsStudied] and [Params.currentState] are the two
  * impure reads [SubmitStudySessionUseCase] performs for its optimistic preview — this unit only ever
- * receives their resolved values, never fetches them itself. Spec 08's `submitStudySession` Cloud
+ * receives their resolved values, never fetches them itself. The server-authoritative `submitStudySession` Cloud
  * Function ports this same calculation to TypeScript for the authoritative, server-side award; this
  * Kotlin copy survives purely as that preview's calculation.
  *
- * The streak and daily-goal awards ([XpBreakdown.streakBonus]/[XpBreakdown.dailyGoalBonus]) are not
- * computed here — spec 05 ticket 03 adds the further inputs (today's date, today's studied minutes)
- * this same use case will need for them. They read zero out of every [XpBreakdown] this ticket
- * produces, per its own declared scope.
+ * The streak and daily-goal awards ([XpBreakdown.streakBonus]/[XpBreakdown.dailyGoalBonus]) are
+ * **deliberately never computed here** — that computation moved server-side only
+ * (`functions/src/lib/xpScoring.ts`'s `computeStreakAndGoalAwards`), so this use case's own preview
+ * stays at zero for both, permanently, by design: previewing them accurately would need a new
+ * client-side "sum today's sessions" read this codebase has no other reason to have, just to
+ * preview-match a line whose animated presentation on the Summary screen hasn't been designed
+ * yet. See [ADR-0048](../../../../../../../docs/adr/0048-streak-and-daily-goal-ride-the-session-payload.md)
+ * for why a second client-side implementation of the real calculation wasn't built either.
  */
 class CalculateSessionXpUseCase @Inject constructor() : UseCase<CalculateSessionXpUseCase.Params, SessionXpResult> {
 
@@ -35,7 +39,7 @@ class CalculateSessionXpUseCase @Inject constructor() : UseCase<CalculateSession
      * every Subcategory in scope — [SubmitStudySessionUseCase]'s own estimate, from the same
      * per-Subcategory prior-progress read the old client write path used to also drive persisted
      * card-progress writes; this preview's count can drift from the server's own recount in the rare
-     * concurrent-session case spec 08 exists to close (see [SubmitStudySessionUseCase]'s own KDoc).
+     * concurrent-session case the server-authoritative function exists to close (see [SubmitStudySessionUseCase]'s own KDoc).
      * @param currentState the account's [ScoringState] before this session's award is applied.
      */
     data class Params(
@@ -59,7 +63,7 @@ class CalculateSessionXpUseCase @Inject constructor() : UseCase<CalculateSession
      * scoring — unlike a persisted mastery count — tolerates the same mild staleness ADR-0047 already
      * accepts for [XpConfig] itself. It is currently always `false` in practice: card selection never
      * re-draws an already-mastered card into a Rated session, so [XpBreakdown.masteryDefenseBonus] and
-     * [XpBreakdown.demastered] compute to zero until spec 07's Mastery Defense gives it a source.
+     * [XpBreakdown.demastered] compute to zero until Mastery Defense gives it a source.
      *
      * A card ending Mastered that was already Mastered earns [XpConfig.masteryDefended] **instead
      * of** [XpConfig.cardMastered], not both: defending is its own, smaller reward, distinct from a

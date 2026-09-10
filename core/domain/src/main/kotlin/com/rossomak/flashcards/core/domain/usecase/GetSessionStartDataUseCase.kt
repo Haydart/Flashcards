@@ -10,8 +10,7 @@ import kotlinx.coroutines.coroutineScope
 
 /**
  * Composes [GetFlashcardsUseCase], [GetSubcategoryProgressUseCase] and [GetXpConfigUseCase] into the
- * one fan-out both Study Session ViewModels need at load time (ticket 04 of spec 04 session
- * persistence; the XP configuration fetch is ticket 01 of spec 05): one read of each kind per
+ * one fan-out both Study Session ViewModels need at load time: one read of each kind per
  * Subcategory in [params], plus one XP configuration read, all fired in parallel, merged into
  * [SessionStartData]. Replaces what used to be a near-identical fan-out/merge block duplicated
  * across the two ViewModels.
@@ -19,7 +18,7 @@ import kotlinx.coroutines.coroutineScope
  * [SessionStartData.flashcardsResult] fails as a whole the moment any one Subcategory's flashcard
  * read fails — a session cannot run without its cards. [SessionStartData.priorProgressByCardId] never
  * fails this call: a failed or never-studied Subcategory's progress read is folded into "no entries"
- * (`getOrNull`), never surfaced as an error and never blocking the session, per ticket 04.
+ * (`getOrNull`), never surfaced as an error and never blocking the session.
  * [SessionStartData.xpConfig] never fails this call either — [GetXpConfigUseCase] already resolves a
  * failed fetch to defaults, so what lands in [SessionStartData] is always a plain, ready-to-carry
  * value: what the calling ViewModel state, and eventually the session result, is scored against

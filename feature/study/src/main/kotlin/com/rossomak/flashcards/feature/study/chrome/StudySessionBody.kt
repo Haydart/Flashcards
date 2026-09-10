@@ -40,8 +40,8 @@ import com.rossomak.flashcards.core.ui.composables.withInlineCode
 import com.rossomak.flashcards.feature.study.R
 
 /**
- * The non-sheet body shared by every Study Session screen (ticket 01 of
- * [ADR-0045](../../../../../../../../docs/adr/0045-separate-fast-and-rated-session-screens.md)):
+ * The non-sheet body shared by every Study Session screen
+ * ([ADR-0045](../../../../../../../../docs/adr/0045-separate-fast-and-rated-session-screens.md)):
  * the loading spinner, the load-error text, the empty-deck message, and — once cards exist — the
  * card surface itself (tag row, question, and the animated reveal of the answer).
  *

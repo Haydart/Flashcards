@@ -35,7 +35,7 @@ service cloud.firestore {
         allow read, write: if request.auth != null && request.auth.uid == uid;
       }
 
-      // sessions/{sessionId} (ADR-0014, spec 08 ticket 04): one document per finished Study
+      // sessions/{sessionId} (ADR-0014, ADR-0049): one document per finished Study
       // Session. Client-read-only — the server-authoritative `submitStudySession` Cloud Function
       // (Admin SDK, bypasses these rules) is now the sole writer, so no client write of any kind
       // (create, update or delete) is allowed here anymore, closing CR-69 #6 (duplicate-sessionId
@@ -44,8 +44,8 @@ service cloud.firestore {
         allow read: if request.auth != null && request.auth.uid == uid;
       }
 
-      // progress/{docId} (ADR-0016, spec 08 ticket 04): per-user singleton documents — the
-      // progress summary (progress/summary) and spec 05's scoring state (progress/user-stats) both
+      // progress/{docId} (ADR-0016, ADR-0049): per-user singleton documents — the
+      // progress summary (progress/summary) and the scoring state (progress/user-stats) both
       // live in this collection, so this one rule covers both without a further change.
       // progress/details is a fixed anchor document with no fields of its own; its rule below
       // covers the real subcollection it hosts. Client-read-only, same reasoning as
@@ -55,7 +55,7 @@ service cloud.firestore {
         allow read: if request.auth != null && request.auth.uid == uid;
       }
 
-      // progress/details/subcategories/{subcategoryId} (ADR-0016, spec 08 ticket 04): one packed
+      // progress/details/subcategories/{subcategoryId} (ADR-0016, ADR-0049): one packed
       // document per Subcategory, holding every card the User has studied in it. Written as part
       // of the same session-commit the `submitStudySession` function performs server-side.
       // Client-read-only, same reasoning as sessions/{sessionId} above.

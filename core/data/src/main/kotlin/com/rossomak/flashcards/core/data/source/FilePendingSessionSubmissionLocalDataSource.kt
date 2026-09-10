@@ -7,6 +7,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.RandomAccessFile
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -27,14 +28,17 @@ import kotlinx.serialization.json.Json
  * **Why one entry per line, not a single JSON array**: a single malformed entry — hand-edited, or
  * corrupted by a future format change — must never take the rest of the queue down with it. With
  * line-per-entry, [readAll] parses each line independently: a line that fails to decode is logged and
- * skipped, every other line's entry survives untouched, and the bad line disappears from disk on the
- * very next mutation (since [append]/[remove] both persist exactly what [readAll] returned, minus/plus
- * one entry — a skipped line was never in that result to begin with). A whole-file read failure (the
- * file itself cannot be opened or read at all, e.g. an [IOException] off the raw file access) is a
- * different failure — nothing can be salvaged line-by-line if the file can't be read in the first
- * place — and is still treated as an empty queue rather than a crash: a local cache that can't be read
- * is not worth crashing a launch over, mirroring [DataStoreStudySessionPreferencesLocalDataSource]'s
- * own `IOException` fallback.
+ * skipped, every other line's entry survives untouched. A skipped line is gone from disk only once
+ * [remove] next rewrites the file with whatever [readAll] returned — [append] writes incrementally and
+ * never rewrites the existing file, so a corrupted line left behind by a previous run stays on disk,
+ * still skipped on every read, until the next [remove] compacts it away.
+ *
+ * A whole-file read failure (the file itself cannot be opened or read at all, e.g. an [IOException] off
+ * the raw file access) is a different failure from one bad line — nothing can be salvaged line-by-line
+ * if the file can't be read in the first place. [readAll] still treats a *missing* file as an empty
+ * queue, but lets a genuine [IOException] propagate rather than swallowing it: neither [listAll] nor
+ * [remove] catches it — see each one's own doc for why an unreadable file must never look like an
+ * empty queue to either caller.
  *
  * **Concurrency**: [append] (called from [com.rossomak.flashcards.core.data.repository.DefaultSessionSubmissionRepository],
  * potentially from two sessions finishing seconds apart) and [listAll]/[remove] (called from
@@ -68,6 +72,13 @@ class FilePendingSessionSubmissionLocalDataSource @Inject constructor(
 
     override suspend fun append(pendingSessionSubmission: PendingSessionSubmissionDto) = withContext(Dispatchers.IO) {
         mutex.withLock {
+            // A prior append() can have died mid-write, leaving the file's last byte something other
+            // than '\n' (a torn trailing line). Appending straight onto that would concatenate this
+            // entry's JSON onto the torn one, corrupting both instead of just the one already lost —
+            // so a missing trailing newline gets a separator written first.
+            if (needsLeadingNewline()) {
+                FileOutputStream(file, true).bufferedWriter().use { it.newLine() }
+            }
             FileOutputStream(file, true).bufferedWriter().use { writer ->
                 writer.write(Json.encodeToString(pendingSessionSubmission))
                 writer.newLine()
@@ -77,12 +88,40 @@ class FilePendingSessionSubmissionLocalDataSource @Inject constructor(
         }
     }
 
+    /** Must only be called while holding [mutex]. False for a missing or empty file — nothing to separate from. */
+    private fun needsLeadingNewline(): Boolean {
+        if (!file.exists() || file.length() == 0L) return false
+        RandomAccessFile(file, "r").use { randomAccessFile ->
+            randomAccessFile.seek(file.length() - 1)
+            return randomAccessFile.read().toChar() != '\n'
+        }
+    }
+
+    /**
+     * A whole-file [IOException] out of [readAll] is deliberately **not** caught here (unlike this
+     * class's earlier revision): swallowing it into `emptyList()` made
+     * [com.rossomak.flashcards.core.data.worker.SessionSubmissionDeliveryWorker.doWork] see an empty
+     * queue and return `Result.success()` for a run that never actually looked at the real queue —
+     * WorkManager never retries a "successful" run, so a transiently-unreadable file could stall
+     * delivery indefinitely. Letting it propagate lets that worker's own top-level catch turn it into
+     * `Result.retry()` instead, same as [remove]'s failure already does.
+     */
     override suspend fun listAll(): List<PendingSessionSubmissionDto> = withContext(Dispatchers.IO) {
         mutex.withLock {
             readAll().also { Log.d(TAG, "Read queue file: ${it.size} entries") }
         }
     }
 
+    /**
+     * A whole-file [IOException] out of [readAll] is deliberately **not** caught here, same as
+     * [listAll]: catching it and proceeding would fall through to [writeAll] with whatever [readAll]
+     * returned on failure, silently replacing a real, transiently-unreadable queue with an empty one —
+     * the exact data loss this queue exists to prevent. Letting it propagate leaves [file] untouched;
+     * [com.rossomak.flashcards.core.data.worker.SessionSubmissionDeliveryWorker] catches it around this
+     * call and returns [androidx.work.ListenableWorker.Result.retry] instead, so the entry that was
+     * just (successfully) delivered simply gets resubmitted next run — harmless, since
+     * `submitStudySession` is idempotent per session id.
+     */
     override suspend fun remove(sessionId: String) = withContext(Dispatchers.IO) {
         mutex.withLock {
             val updated = readAll().filterNot { it.id == sessionId }
@@ -94,18 +133,15 @@ class FilePendingSessionSubmissionLocalDataSource @Inject constructor(
 
     /**
      * Must only be called while holding [mutex]. A line that fails to decode is logged and dropped —
-     * it never reaches the returned list, so it is gone from disk too as soon as [append] or [remove]
-     * next persists the result. A whole-file [IOException] (the file can't be read at all) is treated
-     * as an empty queue instead, since nothing can be recovered line-by-line in that case.
+     * it never reaches the returned list, so it is gone from disk too as soon as [remove] next rewrites
+     * the file. A missing file is reported as an empty queue directly; a whole-file [IOException] (the
+     * file exists but can't be read at all) is instead thrown to the caller — see [listAll] and [remove]
+     * for why each of them treats that differently.
      */
+    @Throws(IOException::class)
     private fun readAll(): List<PendingSessionSubmissionDto> {
         if (!file.exists()) return emptyList()
-        val lines = try {
-            file.readLines()
-        } catch (exception: IOException) {
-            Log.e(TAG, "Pending session submission queue file could not be read, treating it as empty", exception)
-            return emptyList()
-        }
+        val lines = file.readLines()
         return lines
             .filter { it.isNotBlank() }
             .mapNotNull { line ->

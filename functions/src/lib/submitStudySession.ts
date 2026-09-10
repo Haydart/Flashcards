@@ -4,13 +4,14 @@ import {
   DEFAULT_SCORING_STATE,
   DEFAULT_XP_CONFIG,
   ScoringState,
+  StreakAndGoalInput,
   XpBreakdown,
   computeSessionXp,
   levelThreshold,
 } from "./xpScoring";
 
 /**
- * The sole writer of a session's XP, level and progress (spec 08). Everything this function decides
+ * The sole writer of a session's XP, level and progress. Everything this function decides
  * lands in one Firestore transaction, keyed for idempotency on the client-generated `sessionId`: a
  * retry of an already-processed session is a no-op that returns the same result again, never a
  * second award. See `submitStudySession`'s own doc comment for the transaction's shape.
@@ -58,7 +59,12 @@ const FIELD_CARD_SUBCATEGORY_ID = "subcategoryId";
 const FIELD_ATTEMPTS_USED = "attemptsUsed";
 const FIELD_WAS_PREVIOUSLY_MASTERED = "wasPreviouslyMastered";
 
-// Additive fields spec 08 adds to the session document, beyond what StudySessionRemoteDataSource.kt
+// A `sessions/{sessionId}` document field only, no longer a trusted request-body field: the
+// "today's total minutes" query below filters the session collection on this same name, but the
+// value written here is always server-derived — see `deriveLocalStudyDate`.
+const FIELD_STUDY_DATE = "studyDate";
+
+// Additive fields written to the session document, beyond what StudySessionRemoteDataSource.kt
 // ever wrote — needed so a retried (idempotent) call can answer from the session document alone,
 // without depending on any other document's current, possibly-since-moved-on state.
 const FIELD_LEVELS_CROSSED = "levelsCrossed";
@@ -119,6 +125,15 @@ export interface ValidatedSubmitStudySessionRequest {
   subcategoryIds: string[];
   subcategoryNames: string[];
   cardResults: SubmitStudySessionCardResult[];
+  /**
+   * Minutes east of UTC for the device's timezone offset at `startedAtEpochMillis` — the
+   * server derives the session's local calendar day from this and `startedAtEpochMillis` itself
+   * (`deriveLocalStudyDate`), rather than trusting a client-supplied date string for streak/Daily-Goal
+   * scoring.
+   */
+  studyDateUtcOffsetMinutes: number;
+  /** the Daily Goal (minutes/day) in effect when this session ended — never persisted, see ADR-0048. */
+  dailyGoalMinutes: number;
 }
 
 export interface SubmitStudySessionResult {
@@ -149,6 +164,46 @@ const RESERVED_FIRESTORE_NAME = /^__.*__$/;
 // already capped on the client; enforced again here so a crafted payload can't inflate this
 // transaction's reads or push a session document toward Firestore's 1 MiB limit.
 const MAX_CARD_RESULTS = 50;
+
+const SECONDS_PER_MINUTE = 60;
+const MILLIS_PER_MINUTE = 60_000;
+
+// The real-world extremes of a UTC offset (Baker Island UTC-12:00 to Kiritimati/Line Islands
+// UTC+14:00) — a request outside this range cannot be a genuine device timezone, whatever
+// startedAtEpochMillis claims.
+const MAX_UTC_OFFSET_MINUTES = 14 * 60;
+
+/**
+ * Derives `startedAtEpochMillis`'s local calendar day (`yyyy-MM-dd`) from the client-reported UTC
+ * offset, instead of trusting a client-supplied date string directly (CWE-20): shifting the
+ * instant by the offset and reading its UTC-anchored date fields is the standard offset-only idiom for
+ * "what date is it on the wall clock at this instant" without a timezone database. A forged offset can
+ * only move the derived day by as much as [MAX_UTC_OFFSET_MINUTES] ever allows, never further —
+ * unlike an arbitrary date string, which had no relationship to the timestamp at all.
+ *
+ * **Known residual risk (accepted, not fixed)**: both `startedAtEpochMillis` and `utcOffsetMinutes`
+ * are still client-supplied — nothing here attests that a session actually started when the client
+ * claims. An authenticated caller could submit forged values across distinct session ids to farm
+ * streak/Daily-Goal XP for days not actually studied. This is accepted rather than fixed with a
+ * server-recorded session start because the exposure is confined to the submitter's own account
+ * stats (no cross-user harm, no financial/security stake) — a server-attested start would need a new
+ * session-start endpoint plus offline-start handling, disproportionate to that stake. The
+ * [MAX_UTC_OFFSET_MINUTES] bound above remains the only mitigation in place.
+ */
+function deriveLocalStudyDate(startedAtEpochMillis: number, utcOffsetMinutes: number): string {
+  const shifted = new Date(startedAtEpochMillis + utcOffsetMinutes * MILLIS_PER_MINUTE);
+  const year = shifted.getUTCFullYear();
+  const month = String(shifted.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(shifted.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function requireFiniteNumberInRange(value: unknown, field: string, minimum: number, maximum: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < minimum || value > maximum) {
+    fail(`${field} must be a number between ${minimum} and ${maximum}`);
+  }
+  return value as number;
+}
 
 function requireFirestoreSafeId(value: unknown, field: string): string {
   const id = requireNonEmptyString(value, field);
@@ -199,7 +254,7 @@ function validateCardResult(raw: unknown, studyMode: StudyMode, index: number): 
   return { cardId, subcategoryId, state: state as CardState, attemptsUsed, wasPreviouslyMastered };
 }
 
-/** Rejects a structurally invalid payload before any transaction opens (spec 08). */
+/** Rejects a structurally invalid payload before any transaction opens. */
 export function validateSubmitStudySessionRequest(data: unknown): ValidatedSubmitStudySessionRequest {
   if (typeof data !== "object" || data === null) fail("request body must be an object");
   const body = data as Record<string, unknown>;
@@ -220,6 +275,14 @@ export function validateSubmitStudySessionRequest(data: unknown): ValidatedSubmi
   if (!Array.isArray(body.cardResults) || body.cardResults.length === 0) fail("cardResults must be a non-empty array");
   if (body.cardResults.length > MAX_CARD_RESULTS) fail(`cardResults must not exceed ${MAX_CARD_RESULTS} entries`);
   const cardResults = (body.cardResults as unknown[]).map((raw, index) => validateCardResult(raw, studyMode, index));
+
+  const studyDateUtcOffsetMinutes = requireFiniteNumberInRange(
+    body.studyDateUtcOffsetMinutes,
+    "studyDateUtcOffsetMinutes",
+    -MAX_UTC_OFFSET_MINUTES,
+    MAX_UTC_OFFSET_MINUTES,
+  );
+  const dailyGoalMinutes = requireFiniteNumber(body.dailyGoalMinutes, "dailyGoalMinutes", 1);
 
   const cardIds = new Set<string>();
   for (const entry of cardResults) {
@@ -245,6 +308,8 @@ export function validateSubmitStudySessionRequest(data: unknown): ValidatedSubmi
     subcategoryIds,
     subcategoryNames,
     cardResults,
+    studyDateUtcOffsetMinutes,
+    dailyGoalMinutes,
   };
 }
 
@@ -405,10 +470,15 @@ export async function submitStudySession(uid: string, request: ValidatedSubmitSt
       };
     }
 
+    const derivedStudyDate = deriveLocalStudyDate(request.startedAtEpochMillis, request.studyDateUtcOffsetMinutes);
+
     const touchedSubcategoryIds = [...new Set(request.cardResults.map((entry) => entry.subcategoryId))];
     const subcategorySnapshots = await Promise.all(touchedSubcategoryIds.map((id) => transaction.get(subcategoryProgressDocRef(db, uid, id))));
     const scoringRef = scoringStateDocRef(db, uid);
     const scoringSnapshot = await transaction.get(scoringRef);
+    const todaySessionsSnapshot = await transaction.get(
+      usersDoc(db, uid).collection(SESSIONS_COLLECTION).where(FIELD_STUDY_DATE, "==", derivedStudyDate),
+    );
 
     const priorCardsBySubcategory = new Map<string, Map<string, CardState>>();
     touchedSubcategoryIds.forEach((subcategoryId, index) => {
@@ -468,8 +538,19 @@ export async function submitStudySession(uid: string, request: ValidatedSubmitSt
         : { ...entry, wasPreviouslyMastered: priorCardsBySubcategory.get(entry.subcategoryId)?.get(entry.cardId) === "Mastered" },
     );
 
+    // This session isn't in todaySessionsSnapshot's results yet — it doesn't exist until this
+    // transaction commits — so its own durationSeconds is added on top of the query's sum.
+    const todaySeconds =
+      todaySessionsSnapshot.docs.reduce((sum, doc) => sum + ((doc.data()[FIELD_DURATION_SECONDS] as number) ?? 0), 0) + request.durationSeconds;
+    const todayTotalMinutes = Math.floor(todaySeconds / SECONDS_PER_MINUTE);
+
     const currentScoringState = readScoringState(scoringSnapshot);
     const config = DEFAULT_XP_CONFIG;
+    const streakAndGoalInput: StreakAndGoalInput = {
+      studyDate: derivedStudyDate,
+      dailyGoalMinutes: request.dailyGoalMinutes,
+      todayTotalMinutes,
+    };
     const { breakdown, newScoringState, levelsCrossed } = computeSessionXp(
       {
         studyMode: request.studyMode,
@@ -480,6 +561,7 @@ export async function submitStudySession(uid: string, request: ValidatedSubmitSt
       newCardsStudied,
       currentScoringState,
       config,
+      streakAndGoalInput,
     );
     const xpForNextLevel = levelThreshold(config, newScoringState.level);
 
@@ -493,6 +575,7 @@ export async function submitStudySession(uid: string, request: ValidatedSubmitSt
       [FIELD_CATEGORY_NAME]: request.categoryName,
       [FIELD_SUBCATEGORY_IDS]: request.subcategoryIds,
       [FIELD_SUBCATEGORY_NAMES]: request.subcategoryNames,
+      [FIELD_STUDY_DATE]: derivedStudyDate,
       [FIELD_CARD_COUNT]: request.cardResults.length,
       [FIELD_NEW_CARDS_STUDIED]: newCardsStudied,
       [FIELD_CARD_RESULTS]: Object.fromEntries(

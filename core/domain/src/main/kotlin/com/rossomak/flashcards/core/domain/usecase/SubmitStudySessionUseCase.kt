@@ -10,7 +10,7 @@ import com.rossomak.flashcards.core.domain.repository.SessionSubmissionRepositor
 import javax.inject.Inject
 
 /**
- * Replaces `CommitStudySessionUseCase`'s write responsibility (spec 08): the server-authoritative
+ * Replaces `CommitStudySessionUseCase`'s write responsibility: the server-authoritative
  * `submitStudySession` Cloud Function is now the sole writer of a session's card progress, progress
  * summary and scoring state, so this use case never writes any of them itself. It only does two
  * independent things, called once, on arrival at the Session Summary screen:
@@ -26,8 +26,8 @@ import javax.inject.Inject
  * write path, a failure reading either one no longer blocks submitting the session at all — the
  * function needs nothing from this client's own reads to compute its own authoritative answer.
  * [onPreviewReady] therefore receives its own [Result] independently of whatever
- * [SessionSubmissionRepository.submitSession] returns; per spec 08's "Reconciliation" section, that
- * outcome carries no further authority here; ticket 03 is what makes delivery durable against being
+ * [SessionSubmissionRepository.submitSession] returns; by design, that
+ * outcome carries no further authority here; the delivery queue is what makes delivery durable against being
  * offline or the app being killed.
  */
 class SubmitStudySessionUseCase @Inject constructor(

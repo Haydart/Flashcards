@@ -1,4 +1,4 @@
-// Transaction integration tests (spec 08, ticket 01) — run against a real Firestore emulator, not a
+// Transaction integration tests — run against a real Firestore emulator, not a
 // mock, since the whole point of this function is atomic, idempotent multi-document writes that a
 // mocked Firestore could not meaningfully exercise. `npm test` (see package.json) starts the
 // Firestore emulator via `firebase emulators:exec` before this file runs.
@@ -25,11 +25,28 @@ after(async () => {
   await Promise.all(admin.apps.map((app) => app?.delete()));
 });
 
+// Every uid in this file starts with an empty ScoringState (currentStreak: 0, lastStudyDate: "").
+// A default studyDate later than "" therefore always advances the streak on a fresh uid's first
+// submission (see computeStreakAndGoalAwards's "first-ever submission" rule) — DEFAULT_STREAK_BONUS
+// below is that award, added into every xpTotal assertion a first submission's test still makes.
+// dailyGoalMinutes defaults far out of reach so no test here accidentally also earns dailyGoalBonus;
+// the streak-and-goal describe block below exercises that award on its own, deliberately.
+//
+// studyDate is no longer a request field: the server derives it from startedAtEpochMillis
+// and studyDateUtcOffsetMinutes (deriveLocalStudyDate). DEFAULT_STARTED_AT_EPOCH_MILLIS is fixed —
+// not Date.now() — precisely so it derives to the fixed DEFAULT_STUDY_DATE below at offset 0,
+// regardless of which real-world date the test suite happens to run on.
+const DEFAULT_STARTED_AT_EPOCH_MILLIS = Date.UTC(2026, 8, 1, 12, 0, 0); // noon UTC, 2026-09-01
+const DEFAULT_STUDY_DATE = "2026-09-01";
+const DEFAULT_DAILY_GOAL_MINUTES = 999999;
+const DEFAULT_STREAK_BONUS = 250; // 1 * DEFAULT_XP_CONFIG.streakPerDay
+const MAX_UTC_OFFSET_MINUTES = 14 * 60;
+
 function rawRatedRequest(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     sessionId: randomUUID(),
     studyMode: "Rated",
-    startedAtEpochMillis: Date.now(),
+    startedAtEpochMillis: DEFAULT_STARTED_AT_EPOCH_MILLIS,
     durationSeconds: 60,
     abandoned: false,
     categoryId: "cat-1",
@@ -37,6 +54,8 @@ function rawRatedRequest(overrides: Record<string, unknown> = {}): Record<string
     subcategoryIds: ["sub-1"],
     subcategoryNames: ["Subcategory One"],
     cardResults: [{ cardId: "card-1", subcategoryId: "sub-1", state: "Mastered", attemptsUsed: 1, wasPreviouslyMastered: false }],
+    studyDateUtcOffsetMinutes: 0,
+    dailyGoalMinutes: DEFAULT_DAILY_GOAL_MINUTES,
     ...overrides,
   };
 }
@@ -109,10 +128,49 @@ describe("validateSubmitStudySessionRequest", () => {
     assert.throws(() => validateSubmitStudySessionRequest(request), /not a valid Firestore id/);
   });
 
+  it("rejects a missing studyDateUtcOffsetMinutes", () => {
+    const { studyDateUtcOffsetMinutes, ...withoutOffset } = rawRatedRequest();
+    assert.throws(() => validateSubmitStudySessionRequest(withoutOffset), /studyDateUtcOffsetMinutes/);
+  });
+
+  it("rejects a studyDateUtcOffsetMinutes outside the real-world UTC offset range", () => {
+    assert.throws(
+      () => validateSubmitStudySessionRequest(rawRatedRequest({ studyDateUtcOffsetMinutes: MAX_UTC_OFFSET_MINUTES + 1 })),
+      /studyDateUtcOffsetMinutes/,
+    );
+    assert.throws(
+      () => validateSubmitStudySessionRequest(rawRatedRequest({ studyDateUtcOffsetMinutes: -MAX_UTC_OFFSET_MINUTES - 1 })),
+      /studyDateUtcOffsetMinutes/,
+    );
+  });
+
+  it("accepts a studyDateUtcOffsetMinutes at either real-world extreme", () => {
+    assert.equal(
+      validateSubmitStudySessionRequest(rawRatedRequest({ studyDateUtcOffsetMinutes: MAX_UTC_OFFSET_MINUTES })).studyDateUtcOffsetMinutes,
+      MAX_UTC_OFFSET_MINUTES,
+    );
+    assert.equal(
+      validateSubmitStudySessionRequest(rawRatedRequest({ studyDateUtcOffsetMinutes: -MAX_UTC_OFFSET_MINUTES })).studyDateUtcOffsetMinutes,
+      -MAX_UTC_OFFSET_MINUTES,
+    );
+  });
+
+  it("rejects a missing dailyGoalMinutes", () => {
+    const { dailyGoalMinutes, ...withoutDailyGoalMinutes } = rawRatedRequest();
+    assert.throws(() => validateSubmitStudySessionRequest(withoutDailyGoalMinutes), /dailyGoalMinutes/);
+  });
+
+  it("rejects a non-positive dailyGoalMinutes", () => {
+    assert.throws(() => validateSubmitStudySessionRequest(rawRatedRequest({ dailyGoalMinutes: 0 })), /dailyGoalMinutes/);
+    assert.throws(() => validateSubmitStudySessionRequest(rawRatedRequest({ dailyGoalMinutes: -5 })), /dailyGoalMinutes/);
+  });
+
   it("accepts a structurally valid Rated payload", () => {
     const validated = validateSubmitStudySessionRequest(rawRatedRequest());
     assert.equal(validated.studyMode, "Rated");
     assert.equal(validated.cardResults.length, 1);
+    assert.equal(validated.studyDateUtcOffsetMinutes, 0);
+    assert.equal(validated.dailyGoalMinutes, DEFAULT_DAILY_GOAL_MINUTES);
   });
 });
 
@@ -127,7 +185,12 @@ describe("submitStudySession", () => {
     assert.equal(result.breakdown.mastered, 100);
     assert.equal(result.breakdown.timeStudied, 10);
     assert.equal(result.breakdown.sessionCompletionBonus, 500);
-    assert.equal(result.breakdown.xpTotal, 10 + 100 + 10 + 500);
+    // A fresh uid's ScoringState starts with lastStudyDate "" — this first submission's studyDate
+    // is necessarily later, so the streak also advances to 1 (DEFAULT_STREAK_BONUS). dailyGoalMinutes
+    // is deliberately far out of reach (DEFAULT_DAILY_GOAL_MINUTES), so no dailyGoalBonus here.
+    assert.equal(result.breakdown.streakBonus, DEFAULT_STREAK_BONUS);
+    assert.equal(result.breakdown.dailyGoalBonus, 0);
+    assert.equal(result.breakdown.xpTotal, 10 + 100 + 10 + 500 + DEFAULT_STREAK_BONUS);
     assert.equal(result.level, 1);
     assert.equal(result.xpIntoCurrentLevel, result.breakdown.xpTotal);
     assert.deepEqual(result.levelsCrossed, []);
@@ -137,6 +200,7 @@ describe("submitStudySession", () => {
     assert.ok(sessionDoc.exists);
     assert.equal(sessionDoc.data()?.xpTotal, result.breakdown.xpTotal);
     assert.equal(sessionDoc.data()?.cardsMastered, 1);
+    assert.equal(sessionDoc.data()?.studyDate, DEFAULT_STUDY_DATE);
 
     const progressDoc = await db.doc(`users/${uid}/progress/details/subcategories/sub-1`).get();
     const cards = progressDoc.data()?.cards ?? {};
@@ -186,6 +250,16 @@ describe("submitStudySession", () => {
   it("two different sessions submitted in close succession both apply, neither lost", async () => {
     const uid = randomUUID();
     const subcategoryId = "sub-1";
+    // A warm-up submission on the same studyDate first, awaited (not concurrent), so both A and B
+    // below race from a ScoringState whose lastStudyDate already equals studyDate — same-day, no
+    // further streak advance for either — rather than one of them winning the "first submission ever"
+    // streak award and the other not, which would make their award shapes genuinely asymmetric.
+    const warmup = await submitStudySession(
+      uid,
+      validateSubmitStudySessionRequest(
+        rawRatedRequest({ cardResults: [{ cardId: "card-warmup", subcategoryId, state: "Mastered", attemptsUsed: 1, wasPreviouslyMastered: false }] }),
+      ),
+    );
     const requestA = validateSubmitStudySessionRequest(
       rawRatedRequest({ cardResults: [{ cardId: "card-a", subcategoryId, state: "Mastered", attemptsUsed: 1, wasPreviouslyMastered: false }] }),
     );
@@ -200,11 +274,11 @@ describe("submitStudySession", () => {
     assert.equal(resultA.breakdown.xpTotal, resultB.breakdown.xpTotal, "both sessions earn the identical award shape");
 
     const scoringDoc = await admin.firestore().doc(`users/${uid}/progress/user-stats`).get();
-    assert.equal(scoringDoc.data()?.xp, resultA.breakdown.xpTotal + resultB.breakdown.xpTotal);
+    assert.equal(scoringDoc.data()?.xp, warmup.breakdown.xpTotal + resultA.breakdown.xpTotal + resultB.breakdown.xpTotal);
 
     const summaryDoc = await admin.firestore().doc(`users/${uid}/progress/summary`).get();
-    assert.equal(summaryDoc.data()?.subcategories?.[subcategoryId]?.masteredCount, 2);
-    assert.equal(summaryDoc.data()?.subcategories?.[subcategoryId]?.studiedCount, 2);
+    assert.equal(summaryDoc.data()?.subcategories?.[subcategoryId]?.masteredCount, 3);
+    assert.equal(summaryDoc.data()?.subcategories?.[subcategoryId]?.studiedCount, 3);
   });
 
   it("a defended card (already Mastered) produces no progress write and earns the defense bonus, not a fresh mastery", async () => {
@@ -257,5 +331,81 @@ describe("submitStudySession", () => {
         "the user still saw and studied that card",
     );
     assert.equal(summaryDoc.data()?.subcategories?.["sub-1"]?.masteredCount, 0);
+  });
+
+  it("derives the persisted studyDate from startedAtEpochMillis and studyDateUtcOffsetMinutes, not a client-claimed date string (CWE-20 regression)", async () => {
+    const uid = randomUUID();
+    // Noon UTC on 2026-09-01 shifted by a -14h offset lands on 2026-08-31 local — an offset at the
+    // real-world extreme, deliberately chosen so the derived day differs from the UTC-instant day.
+    const request = validateSubmitStudySessionRequest(
+      rawRatedRequest({ startedAtEpochMillis: DEFAULT_STARTED_AT_EPOCH_MILLIS, studyDateUtcOffsetMinutes: -MAX_UTC_OFFSET_MINUTES }),
+    );
+
+    const result = await submitStudySession(uid, request);
+
+    const sessionDoc = await admin.firestore().doc(`users/${uid}/sessions/${request.sessionId}`).get();
+    assert.equal(sessionDoc.data()?.studyDate, "2026-08-31", "the offset must shift the derived day, not just be stored inertly");
+    // ValidatedSubmitStudySessionRequest itself carries no client-claimed date string any more — the
+    // type, not just this assertion, is what closes the original finding.
+    assert.equal("studyDate" in request, false);
+    assert.equal(result.breakdown.streakBonus, DEFAULT_STREAK_BONUS, "still a fresh account's first-ever submission");
+  });
+});
+
+describe("submitStudySession — streak and daily goal", () => {
+  it("a second same-day submission does not re-fire the streak or goal award", async () => {
+    const uid = randomUUID();
+    const first = validateSubmitStudySessionRequest(
+      rawRatedRequest({
+        cardResults: [{ cardId: "card-1", subcategoryId: "sub-1", state: "Mastered", attemptsUsed: 1, wasPreviouslyMastered: false }],
+        durationSeconds: 60,
+        dailyGoalMinutes: 1,
+      }),
+    );
+    const firstResult = await submitStudySession(uid, first);
+    assert.equal(firstResult.breakdown.streakBonus, DEFAULT_STREAK_BONUS, "the account's first-ever submission");
+    assert.equal(firstResult.breakdown.dailyGoalBonus, 1000, "1 minute studied meets a 1-minute goal");
+
+    const second = validateSubmitStudySessionRequest(
+      rawRatedRequest({
+        cardResults: [{ cardId: "card-2", subcategoryId: "sub-1", state: "Mastered", attemptsUsed: 1, wasPreviouslyMastered: false }],
+        durationSeconds: 60,
+        dailyGoalMinutes: 1,
+      }),
+    );
+    const secondResult = await submitStudySession(uid, second);
+    assert.equal(secondResult.breakdown.streakBonus, 0, "same studyDate as the stored lastStudyDate — no second advance");
+    assert.equal(secondResult.breakdown.dailyGoalBonus, 0, "goalMetDate already stamped for this studyDate — no second award");
+
+    const scoringDoc = await admin.firestore().doc(`users/${uid}/progress/user-stats`).get();
+    assert.equal(scoringDoc.data()?.currentStreak, 1);
+    assert.equal(scoringDoc.data()?.goalMetDate, DEFAULT_STUDY_DATE);
+  });
+
+  it(`the "today's minutes" query sums multiple same-day sessions before this one, including an abandoned session`, async () => {
+    const uid = randomUUID();
+    const sessionA = validateSubmitStudySessionRequest(
+      rawRatedRequest({
+        cardResults: [{ cardId: "card-a", subcategoryId: "sub-1", state: "Failed", attemptsUsed: 1, wasPreviouslyMastered: false }],
+        durationSeconds: 300, // 5 minutes
+        abandoned: true,
+        dailyGoalMinutes: 10,
+      }),
+    );
+    const resultA = await submitStudySession(uid, sessionA);
+    assert.equal(resultA.breakdown.dailyGoalBonus, 0, "5 minutes alone does not meet a 10-minute goal");
+
+    const sessionB = validateSubmitStudySessionRequest(
+      rawRatedRequest({
+        cardResults: [{ cardId: "card-b", subcategoryId: "sub-1", state: "Mastered", attemptsUsed: 1, wasPreviouslyMastered: false }],
+        durationSeconds: 300, // 5 more minutes — 10 total with sessionA's, abandoned or not
+        dailyGoalMinutes: 10,
+      }),
+    );
+    const resultB = await submitStudySession(uid, sessionB);
+    assert.equal(resultB.breakdown.dailyGoalBonus, 1000, "sessionA's 5 abandoned minutes plus this session's own 5 reach the 10-minute goal");
+
+    const sessionBDoc = await admin.firestore().doc(`users/${uid}/sessions/${sessionB.sessionId}`).get();
+    assert.equal(sessionBDoc.data()?.studyDate, DEFAULT_STUDY_DATE);
   });
 });

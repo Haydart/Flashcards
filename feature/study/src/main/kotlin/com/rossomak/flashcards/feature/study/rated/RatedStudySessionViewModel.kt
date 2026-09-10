@@ -46,6 +46,7 @@ import com.rossomak.flashcards.feature.study.voice.VoicePhase
 import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
+import java.time.ZoneId
 import java.util.UUID
 import javax.inject.Inject
 import kotlin.random.Random
@@ -63,8 +64,8 @@ import kotlinx.coroutines.launch
 
 /**
  * Runs a Rated Study Session end to end — reveal, the Failed/Partial/Correct row, and the
- * in-session voice-answering toggle with its consent and microphone flow (ticket 03 of
- * [ADR-0045](../../../../../../../../docs/adr/0045-separate-fast-and-rated-session-screens.md)).
+ * in-session voice-answering toggle with its consent and microphone flow
+ * ([ADR-0045](../../../../../../../../docs/adr/0045-separate-fast-and-rated-session-screens.md)).
  * Knows nothing about Read-aloud or auto-start playback — those are Fast concepts.
  *
  * The user-preferences use cases live here and only here: their sole current purpose is the
@@ -73,10 +74,9 @@ import kotlinx.coroutines.launch
  * The rating callback drives a [RatedSessionState]: a Correct rating finishes a card as Mastered,
  * Failed/Partial re-insert it further down the queue (or finish it, per
  * [RatedStudySessionRoute.partialRatingCardRequeueingEnabled] and the Attempts limit), and the
- * session's terminal navigation event fires once the queue empties (ticket 02 of the Rated session
- * state machine sequence). A voice grade drives the exact same [onAttemptRating] path as a manual tap; a
+ * session's terminal navigation event fires once the queue empties. A voice grade drives the exact same [onAttemptRating] path as a manual tap; a
  * silence timeout instead consumes no Attempt, and three in a row pause the session rather than
- * finishing it (ticket 04).
+ * finishing it.
  */
 @HiltViewModel
 class RatedStudySessionViewModel @Inject constructor(
@@ -112,7 +112,7 @@ class RatedStudySessionViewModel @Inject constructor(
 
     // Generated once per session and carried on the ViewModel rather than SavedStateHandle — the
     // ViewModel instance itself already survives rotation, and there is nothing to restore it from
-    // after an app kill (spec 03 ticket 02: no in-progress persistence, by design).
+    // after an app kill (no in-progress persistence, by design).
     private val sessionId: String = UUID.randomUUID().toString()
 
     // Started once, at first card shown, and never paused — v1 is deliberately simplistic: wall
@@ -124,10 +124,15 @@ class RatedStudySessionViewModel @Inject constructor(
     // never starts it at all, and SessionResult.startedAt needs that distinction.
     private var sessionStartedAt: Instant? = null
 
+    // The device's UTC offset at that same instant, captured once alongside sessionStartedAt rather
+    // than re-read from ZoneId.systemDefault() at submission time — a device timezone change mid-session
+    // must not shift the streak/daily-goal study date the server derives from this value.
+    private var sessionStartUtcOffsetMinutes: Int = 0
+
     // Guards terminate() against firing twice — natural end (onAttemptRating) and a confirmed "Exit
     // session?" can otherwise both fire if the dialog is already open the instant the last card
     // resolves, sending a second Summary navigation event. Mirrors FastStudySessionViewModel's
-    // identical guard (spec 03 ticket 03).
+    // identical guard.
     private var terminated = false
 
     private var rewindJob: Job? = null
@@ -140,20 +145,20 @@ class RatedStudySessionViewModel @Inject constructor(
     // Seeded once the routed cards resolve (loadFlashcards); null only during that initial load.
     private var ratedSessionState: RatedSessionState? = null
 
-    // Session-start-only signal (ticket 04 of spec 04 session persistence): one packed progress
+    // Session-start-only signal: one packed progress
     // document read per Subcategory in the route's scope, merged into cardId -> CardProgressEntry.
     // Its scope is the session's scope, decided before anything is studied — it can end up strictly
     // larger than what SubmitStudySessionUseCase's own prior-state read later touches (an abandoned
     // session, or a drawn Subcategory never reached), and that is not a bug to reconcile, just waste.
     // A failed read (offline, permissions, ...) leaves this empty rather than blocking the session;
     // every card is then simply not-previously-mastered / new — the server-authoritative
-    // `submitStudySession` Cloud Function (spec 08) never trusts this signal either, re-reading prior
+    // `submitStudySession` Cloud Function never trusts this signal either, re-reading prior
     // progress itself before deciding what actually gets written.
-    // Exposed internally only for test assertions — nothing in the UI reads it (not in this ticket).
+    // Exposed internally only for test assertions — nothing in the UI reads it.
     internal var priorProgressByCardId: Map<String, CardProgressEntry> = emptyMap()
         private set
 
-    // The XP configuration as of this session's start (ticket 01 of spec 05), fetched alongside
+    // The XP configuration as of this session's start, fetched alongside
     // sessionStartData and never re-read — ADR-0047's snapshot rule. Defaults to XpConfig()'s own
     // defaults for the brief window before loadFlashcards' fetch resolves; abandoning before then
     // seals a placeholderResult scored against that same default, same as an empty cardResults list.
@@ -186,7 +191,7 @@ class RatedStudySessionViewModel @Inject constructor(
     // reason (notice finished naturally, or voice answering was torn down mid-notice).
     private var pendingSessionSync: (() -> Unit)? = null
 
-    // Session-scoped, not per-card (ticket 04): counts consecutive silence timeouts, reset by any
+    // Session-scoped, not per-card: counts consecutive silence timeouts, reset by any
     // graded answer, and pauses the session on reaching CONSECUTIVE_SILENCE_PAUSE_THRESHOLD.
     private var consecutiveSilenceCount = 0
 
@@ -214,7 +219,7 @@ class RatedStudySessionViewModel @Inject constructor(
             }
             // A failed Subcategory progress read and a never-studied one are already folded into
             // "no entries" by GetSessionStartDataUseCase — never fatal, never surfaced, exactly the
-            // graceful degradation ticket 04 asks for.
+            // graceful degradation this design calls for.
             priorProgressByCardId = sessionStartData.priorProgressByCardId
             sessionXpConfig = sessionStartData.xpConfig
 
@@ -233,7 +238,7 @@ class RatedStudySessionViewModel @Inject constructor(
             _state.update { it.copy(isLoading = false) }
             syncStateFromRatedSession()
             // The clock starts here, once a card is actually on screen — never at route entry, so
-            // a session whose card load fails never banks time (spec 03 ticket 02).
+            // a session whose card load fails never banks time.
             if (sessionCards.isNotEmpty()) startStudyClock()
             honourRoutedVoiceAnswering(hasCards = sessionCards.isNotEmpty())
         }
@@ -242,6 +247,7 @@ class RatedStudySessionViewModel @Inject constructor(
     private fun startStudyClock() {
         val instant = now()
         sessionStartedAt = instant
+        sessionStartUtcOffsetMinutes = ZoneId.systemDefault().rules.getOffset(instant).totalSeconds / SECONDS_PER_MINUTE
         clock = startClock(clock, instant)
     }
 
@@ -388,8 +394,7 @@ class RatedStudySessionViewModel @Inject constructor(
 
     /**
      * The one path a voice grade applies a Rating through — [onAttemptRating] itself, exactly like a
-     * manual tap, using the fixed grade-band mapping (ticket 04 of the Rated session state machine
-     * sequence). An actual graded utterance is the only proof someone is there, so this is also the
+     * manual tap, using the fixed grade-band mapping. An actual graded utterance is the only proof someone is there, so this is also the
      * one place [consecutiveSilenceCount] resets.
      *
      * [gradedCardId] guards against grading a card the reducer head has already moved past — the
@@ -789,7 +794,7 @@ class RatedStudySessionViewModel @Inject constructor(
 
     /**
      * Both terminal paths — the last card resolving and a confirmed "Exit session?" — run this,
-     * [abandoned] the only thing differing (spec 03 ticket 02). Seals cardResults from whatever the
+     * [abandoned] the only thing differing. Seals cardResults from whatever the
      * state machine has resolved so far, stamps the duration off [clock], and emits the one-time
      * navigation event (ADR-0019) exactly once — [terminated] guards a stray second call, e.g. the
      * exit dialog being confirmed the instant after the last card's rating already completed the
@@ -812,6 +817,13 @@ class RatedStudySessionViewModel @Inject constructor(
             subcategoryIds = route.subcategoryIds,
             subcategoryNames = route.subcategoryNames,
             cardResults = cardResults,
+            // studyDate/dailyGoalMinutes are never read: toSummaryRoute() (below) doesn't carry
+            // either — the Summary ViewModel computes real values when it reconstructs its own
+            // SessionResult from the route. studyDateUtcOffsetMinutes is different: it's the real
+            // value captured at session start, and toSummaryRoute() does carry it through.
+            studyDate = "",
+            studyDateUtcOffsetMinutes = sessionStartUtcOffsetMinutes,
+            dailyGoalMinutes = 0,
             xpConfig = sessionXpConfig,
         )
         val result = sealSessionResult(result = placeholderResult, clock = clock, at = at)
@@ -832,5 +844,6 @@ class RatedStudySessionViewModel @Inject constructor(
     private companion object {
         const val EXTENDED_CONTEXT_ADVANCE_DELAY_MS = 500L
         const val CONSECUTIVE_SILENCE_PAUSE_THRESHOLD = 3
+        const val SECONDS_PER_MINUTE = 60
     }
 }

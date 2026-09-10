@@ -12,7 +12,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
 /**
- * Spec 05 ticket 02's primary seam: pure, no dispatchers, no repositories. Every expected value below
+ * The primary seam: pure, no dispatchers, no repositories. Every expected value below
  * is composed from [CONFIG]'s own rates rather than a repeated literal, so a tuning change only ever
  * touches [CONFIG].
  */
@@ -35,6 +35,9 @@ class CalculateSessionXpUseCaseTest {
         subcategoryIds = listOf("sub-1"),
         subcategoryNames = listOf("Subcategory"),
         cardResults = cardResults,
+        studyDate = "2026-09-06",
+        dailyGoalMinutes = 20,
+        studyDateUtcOffsetMinutes = 0,
         xpConfig = config,
     )
 
@@ -53,6 +56,9 @@ class CalculateSessionXpUseCaseTest {
         subcategoryIds = listOf("sub-1"),
         subcategoryNames = listOf("Subcategory"),
         cardResults = cardResults,
+        studyDate = "2026-09-06",
+        dailyGoalMinutes = 20,
+        studyDateUtcOffsetMinutes = 0,
         xpConfig = config,
     )
 

@@ -11,7 +11,7 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 
 /**
- * Wraps `httpsCallable("submitStudySession")` (spec 08), following the existing
+ * Wraps `httpsCallable("submitStudySession")`, following the existing
  * [com.rossomak.flashcards.core.data.network.RealVoiceGradingApi] pattern already in this codebase:
  * the endpoint resolves from the initialized `FirebaseApp` (`google-services.json`), not a base URL,
  * and the caller's Firebase ID token attaches automatically — no Retrofit, no `Authorization` header
@@ -25,7 +25,7 @@ import kotlinx.coroutines.withContext
  * recomputes that itself from its own fresh Firestore reads and never trusts a client-reported count
  * for it.
  *
- * The raw network caller only (ticket 03) — no longer bound to [SessionSubmissionRepository] itself.
+ * The raw network caller only — no longer bound to [SessionSubmissionRepository] itself.
  * [com.rossomak.flashcards.core.data.repository.DefaultSessionSubmissionRepository] now holds that
  * binding as a durable decorator; this class is injected by concrete type, directly, into
  * [com.rossomak.flashcards.core.data.worker.SessionSubmissionDeliveryWorker] alone — nothing else in
@@ -70,6 +70,9 @@ class RemoteSessionSubmissionRepository @Inject constructor(
         FIELD_SUBCATEGORY_IDS to subcategoryIds,
         FIELD_SUBCATEGORY_NAMES to subcategoryNames,
         FIELD_CARD_RESULTS to cardResults.map { entry -> entry.toPayload() },
+        FIELD_STUDY_DATE to studyDate,
+        FIELD_STUDY_DATE_UTC_OFFSET_MINUTES to studyDateUtcOffsetMinutes,
+        FIELD_DAILY_GOAL_MINUTES to dailyGoalMinutes,
     )
 
     private fun FlashcardResult.toPayload(): Map<String, Any> = buildMap {
@@ -101,5 +104,8 @@ class RemoteSessionSubmissionRepository @Inject constructor(
         const val FIELD_STATE = "state"
         const val FIELD_ATTEMPTS_USED = "attemptsUsed"
         const val FIELD_WAS_PREVIOUSLY_MASTERED = "wasPreviouslyMastered"
+        const val FIELD_STUDY_DATE = "studyDate"
+        const val FIELD_STUDY_DATE_UTC_OFFSET_MINUTES = "studyDateUtcOffsetMinutes"
+        const val FIELD_DAILY_GOAL_MINUTES = "dailyGoalMinutes"
     }
 }
