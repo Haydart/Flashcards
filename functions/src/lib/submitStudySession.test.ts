@@ -1,4 +1,4 @@
-// Transaction integration tests (spec 08, ticket 01) — run against a real Firestore emulator, not a
+// Transaction integration tests — run against a real Firestore emulator, not a
 // mock, since the whole point of this function is atomic, idempotent multi-document writes that a
 // mocked Firestore could not meaningfully exercise. `npm test` (see package.json) starts the
 // Firestore emulator via `firebase emulators:exec` before this file runs.
@@ -32,7 +32,7 @@ after(async () => {
 // dailyGoalMinutes defaults far out of reach so no test here accidentally also earns dailyGoalBonus;
 // the streak-and-goal describe block below exercises that award on its own, deliberately.
 //
-// studyDate is no longer a request field (spec 09): the server derives it from startedAtEpochMillis
+// studyDate is no longer a request field: the server derives it from startedAtEpochMillis
 // and studyDateUtcOffsetMinutes (deriveLocalStudyDate). DEFAULT_STARTED_AT_EPOCH_MILLIS is fixed —
 // not Date.now() — precisely so it derives to the fixed DEFAULT_STUDY_DATE below at offset 0,
 // regardless of which real-world date the test suite happens to run on.
@@ -333,7 +333,7 @@ describe("submitStudySession", () => {
     assert.equal(summaryDoc.data()?.subcategories?.["sub-1"]?.masteredCount, 0);
   });
 
-  it("derives the persisted studyDate from startedAtEpochMillis and studyDateUtcOffsetMinutes, not a client-claimed date string (CWE-20 regression, spec 09)", async () => {
+  it("derives the persisted studyDate from startedAtEpochMillis and studyDateUtcOffsetMinutes, not a client-claimed date string (CWE-20 regression)", async () => {
     const uid = randomUUID();
     // Noon UTC on 2026-09-01 shifted by a -14h offset lands on 2026-08-31 local — an offset at the
     // real-world extreme, deliberately chosen so the derived day differs from the UTC-instant day.

@@ -1,6 +1,6 @@
-// Pure calculation tests (spec 08, ticket 01) — mirrors the cases already covered by
+// Pure calculation tests — mirrors the cases already covered by
 // `CalculateSessionXpUseCaseTest.kt` on the Kotlin side, using the same fixture values, so the two
-// independent implementations (spec 08's Further Notes) can be checked against the same expectations.
+// independent implementations can be checked against the same expectations.
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { ScoringState, ScoredSession, StreakAndGoalInput, XpConfig, computeSessionXp, computeStreakAndGoalAwards, levelThreshold } from "./xpScoring";
@@ -46,7 +46,7 @@ const UNUSUAL_CONFIG: XpConfig = {
 
 // A streakAndGoalInput that never advances the streak or fires the goal bonus against STARTING_STATE
 // (or any state whose lastStudyDate/goalMetDate is itself "") — lets every pre-existing test below
-// keep asserting only the awards it was written to check, undisturbed by ticket 03's two new ones.
+// keep asserting only the awards it was written to check.
 const NEUTRAL_STREAK_AND_GOAL_INPUT: StreakAndGoalInput = { studyDate: "", dailyGoalMinutes: 0, todayTotalMinutes: 0 };
 
 function computeXp(session: ScoredSession, newCardsStudied: number, state: ScoringState, config: XpConfig) {
@@ -229,7 +229,7 @@ function streakState(overrides: Partial<ScoringState> = {}): ScoringState {
   return { ...STARTING_STATE, ...overrides };
 }
 
-// Spec 05 ticket 03's primary seam: computeStreakAndGoalAwards, pure — state/input/config are all
+// computeStreakAndGoalAwards — pure function, state/input/config are all
 // plain parameters, no Firestore, no clock.
 describe("computeStreakAndGoalAwards — streak", () => {
   it("advances when studyDate is exactly one day after lastStudyDate", () => {

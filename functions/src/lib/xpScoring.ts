@@ -1,9 +1,9 @@
 /**
- * Server-authoritative XP and level scoring (spec 08, ticket 01). A TypeScript port of
+ * Server-authoritative XP and level scoring. A TypeScript port of
  * `core/domain/.../model/XpConfig.kt`, `ScoringState.kt`, `XpBreakdown.kt` and
  * `CalculateSessionXpUseCase.kt` — kept field-for-field and rule-for-rule identical to that Kotlin
- * source, since the two are expected to agree in the overwhelming common case (spec 08's Further
- * Notes) even though there is no cross-language sharing mechanism in this codebase.
+ * source, since the two are expected to agree even though there is no cross-language sharing mechanism
+ * in this codebase.
  *
  * Pure: no Firestore, no Admin SDK. [submitStudySession.ts](./submitStudySession.ts) is the only
  * caller, and is where every read/write this calculation needs actually happens.
@@ -26,11 +26,10 @@ export interface XpConfig {
 }
 
 /**
- * The server's own authoritative configuration — spec 08's "Out of Scope" keeps a remote `XpConfig`
- * source out of this ticket, so this is simply `XpConfig.kt`'s documented defaults, hardcoded here.
+ * The server's own authoritative configuration, hardcoded here as `XpConfig.kt`'s documented defaults.
  * A session payload's own `xpConfig` snapshot (if the client sends one) is never read for scoring:
- * per spec 08's Implementation Decisions, "scoring inputs are validated against the server's own
- * stored configuration" — today that configuration has exactly one source, this constant.
+ * scoring inputs are validated against the server's own stored configuration — today that configuration
+ * has exactly one source, this constant.
  */
 export const DEFAULT_XP_CONFIG: XpConfig = {
   newCardStudied: 10,
@@ -197,7 +196,7 @@ function calculateBreakdown(
  */
 export interface StreakAndGoalInput {
   /**
-   * This submission's local calendar day, `yyyy-MM-dd` — server-derived (spec 09) from the session's
+   * This submission's local calendar day, `yyyy-MM-dd` — server-derived from the session's
    * `startedAtEpochMillis` and the client-reported UTC offset, not trusted directly from the client.
    */
   studyDate: string;

@@ -108,7 +108,7 @@
     <string name="preview_session_ready_title">Ready to start?</string>
     <string name="preview_session_reshuffle_button">Reshuffle topics</string>
     <string name="preview_session_estimated_minutes_badge_label">~ %1$d min</string>
-    <!-- The settings badge row (ticket 09): a behaviour is always named, never its absence. -->
+    <!-- The settings badge row: a behaviour is always named, never its absence. -->
     <string name="preview_session_interaction_manual_label">Manual</string>
     <string name="preview_session_interaction_voice_label">Voice</string>
     <string name="preview_session_interaction_auto_label">Auto</string>

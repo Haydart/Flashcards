@@ -11,7 +11,7 @@ import {
 } from "./xpScoring";
 
 /**
- * The sole writer of a session's XP, level and progress (spec 08). Everything this function decides
+ * The sole writer of a session's XP, level and progress. Everything this function decides
  * lands in one Firestore transaction, keyed for idempotency on the client-generated `sessionId`: a
  * retry of an already-processed session is a no-op that returns the same result again, never a
  * second award. See `submitStudySession`'s own doc comment for the transaction's shape.
@@ -59,12 +59,12 @@ const FIELD_CARD_SUBCATEGORY_ID = "subcategoryId";
 const FIELD_ATTEMPTS_USED = "attemptsUsed";
 const FIELD_WAS_PREVIOUSLY_MASTERED = "wasPreviouslyMastered";
 
-// A `sessions/{sessionId}` document field only, no longer a trusted request-body field (spec 09):
-// the "today's total minutes" query below filters the session collection on this same name, but the
+// A `sessions/{sessionId}` document field only, no longer a trusted request-body field: the
+// "today's total minutes" query below filters the session collection on this same name, but the
 // value written here is always server-derived — see `deriveLocalStudyDate`.
 const FIELD_STUDY_DATE = "studyDate";
 
-// Additive fields spec 08 adds to the session document, beyond what StudySessionRemoteDataSource.kt
+// Additive fields written to the session document, beyond what StudySessionRemoteDataSource.kt
 // ever wrote — needed so a retried (idempotent) call can answer from the session document alone,
 // without depending on any other document's current, possibly-since-moved-on state.
 const FIELD_LEVELS_CROSSED = "levelsCrossed";
@@ -126,7 +126,7 @@ export interface ValidatedSubmitStudySessionRequest {
   subcategoryNames: string[];
   cardResults: SubmitStudySessionCardResult[];
   /**
-   * Minutes east of UTC for the device's timezone offset at `startedAtEpochMillis` (spec 09) — the
+   * Minutes east of UTC for the device's timezone offset at `startedAtEpochMillis` — the
    * server derives the session's local calendar day from this and `startedAtEpochMillis` itself
    * (`deriveLocalStudyDate`), rather than trusting a client-supplied date string for streak/Daily-Goal
    * scoring.
@@ -175,11 +175,20 @@ const MAX_UTC_OFFSET_MINUTES = 14 * 60;
 
 /**
  * Derives `startedAtEpochMillis`'s local calendar day (`yyyy-MM-dd`) from the client-reported UTC
- * offset, instead of trusting a client-supplied date string directly (CWE-20, spec 09): shifting the
+ * offset, instead of trusting a client-supplied date string directly (CWE-20): shifting the
  * instant by the offset and reading its UTC-anchored date fields is the standard offset-only idiom for
  * "what date is it on the wall clock at this instant" without a timezone database. A forged offset can
  * only move the derived day by as much as [MAX_UTC_OFFSET_MINUTES] ever allows, never further —
  * unlike an arbitrary date string, which had no relationship to the timestamp at all.
+ *
+ * **Known residual risk (accepted, not fixed)**: both `startedAtEpochMillis` and `utcOffsetMinutes`
+ * are still client-supplied — nothing here attests that a session actually started when the client
+ * claims. An authenticated caller could submit forged values across distinct session ids to farm
+ * streak/Daily-Goal XP for days not actually studied. This is accepted rather than fixed with a
+ * server-recorded session start because the exposure is confined to the submitter's own account
+ * stats (no cross-user harm, no financial/security stake) — a server-attested start would need a new
+ * session-start endpoint plus offline-start handling, disproportionate to that stake. The
+ * [MAX_UTC_OFFSET_MINUTES] bound above remains the only mitigation in place.
  */
 function deriveLocalStudyDate(startedAtEpochMillis: number, utcOffsetMinutes: number): string {
   const shifted = new Date(startedAtEpochMillis + utcOffsetMinutes * MILLIS_PER_MINUTE);
@@ -245,7 +254,7 @@ function validateCardResult(raw: unknown, studyMode: StudyMode, index: number): 
   return { cardId, subcategoryId, state: state as CardState, attemptsUsed, wasPreviouslyMastered };
 }
 
-/** Rejects a structurally invalid payload before any transaction opens (spec 08). */
+/** Rejects a structurally invalid payload before any transaction opens. */
 export function validateSubmitStudySessionRequest(data: unknown): ValidatedSubmitStudySessionRequest {
   if (typeof data !== "object" || data === null) fail("request body must be an object");
   const body = data as Record<string, unknown>;
