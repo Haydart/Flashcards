@@ -38,6 +38,7 @@ import com.rossomak.flashcards.feature.study.voice.VoicePhase
 import com.rossomak.flashcards.feature.study.voice.VoicePlaybackState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
+import java.time.ZoneId
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.Job
@@ -115,6 +116,11 @@ class FastStudySessionViewModel @Inject constructor(
     // never starts it at all, and SessionResult.startedAt needs that distinction.
     private var sessionStartedAt: Instant? = null
 
+    // The device's UTC offset at that same instant, captured once alongside sessionStartedAt rather
+    // than re-read from ZoneId.systemDefault() at submission time — a device timezone change mid-session
+    // must not shift the streak/daily-goal study date the server derives from this value.
+    private var sessionStartUtcOffsetMinutes: Int = 0
+
     // Test-only seam mirroring RatedStudySessionViewModel.now — production leaves this as
     // Instant::now and never overrides it.
     internal var now: () -> Instant = Instant::now
@@ -189,6 +195,7 @@ class FastStudySessionViewModel @Inject constructor(
     private fun startStudyClock() {
         val instant = now()
         sessionStartedAt = instant
+        sessionStartUtcOffsetMinutes = ZoneId.systemDefault().rules.getOffset(instant).totalSeconds / SECONDS_PER_MINUTE
         clock = startClock(clock, instant)
     }
 
@@ -568,11 +575,12 @@ class FastStudySessionViewModel @Inject constructor(
             subcategoryIds = route.subcategoryIds,
             subcategoryNames = route.subcategoryNames,
             cardResults = sealFastCardResults(),
-            // Never read: toSummaryRoute() (below) deliberately does not carry any of these three
-            // fields — the Summary ViewModel computes real values when it reconstructs its own
-            // SessionResult from the route.
+            // studyDate/dailyGoalMinutes are never read: toSummaryRoute() (below) doesn't carry
+            // either — the Summary ViewModel computes real values when it reconstructs its own
+            // SessionResult from the route. studyDateUtcOffsetMinutes is different: it's the real
+            // value captured at session start, and toSummaryRoute() does carry it through.
             studyDate = "",
-            studyDateUtcOffsetMinutes = 0,
+            studyDateUtcOffsetMinutes = sessionStartUtcOffsetMinutes,
             dailyGoalMinutes = 0,
             xpConfig = sessionXpConfig,
         )
@@ -610,5 +618,6 @@ class FastStudySessionViewModel @Inject constructor(
 
     private companion object {
         const val EXTENDED_CONTEXT_ADVANCE_DELAY_MS = 500L
+        const val SECONDS_PER_MINUTE = 60
     }
 }

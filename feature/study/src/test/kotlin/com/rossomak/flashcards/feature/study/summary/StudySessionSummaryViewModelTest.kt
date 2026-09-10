@@ -22,7 +22,7 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import java.time.Instant
-import java.time.ZoneId
+import java.time.ZoneOffset
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -71,6 +71,7 @@ class StudySessionSummaryViewModelTest {
     private fun ratedRoute(
         sessionId: String = "session-1",
         abandoned: Boolean = false,
+        studyDateUtcOffsetMinutes: Int = -300,
         cardStates: List<FlashcardStudyProgressState> = listOf(
             FlashcardStudyProgressState.Mastered,
             FlashcardStudyProgressState.Mastered,
@@ -83,6 +84,7 @@ class StudySessionSummaryViewModelTest {
             sessionId = sessionId,
             mode = StudyMode.Rated,
             startedAtEpochSecond = 0L,
+            studyDateUtcOffsetMinutes = studyDateUtcOffsetMinutes,
             durationSeconds = 120,
             abandoned = abandoned,
             categoryId = "cat-1",
@@ -135,6 +137,7 @@ class StudySessionSummaryViewModelTest {
                     sessionId = "session-2",
                     mode = StudyMode.Fast,
                     startedAtEpochSecond = 0L,
+                    studyDateUtcOffsetMinutes = -300,
                     durationSeconds = 60,
                     abandoned = false,
                     categoryId = "cat-1",
@@ -179,21 +182,27 @@ class StudySessionSummaryViewModelTest {
     }
 
     @Test
-    fun `the submitted session carries studyDate and studyDateUtcOffsetMinutes derived from the route's startedAt, and dailyGoalMinutes read fresh from preferences`() =
+    fun `the submitted session carries studyDate derived from the route's own captured offset, not the device's current zone, and dailyGoalMinutes read fresh from preferences`() =
         runTest(mainDispatcherRule.testDispatcher) {
             userPreferencesRepository.preferences.value = userPreferencesRepository.preferences.value.copy(dailyGoalMinutes = 45)
-            val route = ratedRoute()
+            // A route-carried offset deliberately different from ZoneId.systemDefault()'s own offset
+            // for whatever machine runs this test — if submitSession() ever went back to re-deriving
+            // the offset from the device's current zone instead of trusting the route, this would fail.
+            val route = ratedRoute(studyDateUtcOffsetMinutes = -300)
             stubRoute(route)
 
             createViewModel()
             advanceUntilIdle()
 
             val submitted = sessionSubmissionRepository.submittedSessionResults.single()
-            val startedAtInstant = Instant.ofEpochSecond(route.startedAtEpochSecond)
-            val zone = ZoneId.systemDefault()
+            val expectedStudyDate = Instant.ofEpochSecond(route.startedAtEpochSecond)
+                .plusSeconds(route.studyDateUtcOffsetMinutes * 60L)
+                .atZone(ZoneOffset.UTC)
+                .toLocalDate()
+                .toString()
             submitted.dailyGoalMinutes shouldBe 45
-            submitted.studyDate shouldBe startedAtInstant.atZone(zone).toLocalDate().toString()
-            submitted.studyDateUtcOffsetMinutes shouldBe zone.rules.getOffset(startedAtInstant).totalSeconds / 60
+            submitted.studyDate shouldBe expectedStudyDate
+            submitted.studyDateUtcOffsetMinutes shouldBe route.studyDateUtcOffsetMinutes
         }
 
     @Test

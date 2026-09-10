@@ -131,6 +131,12 @@ data class RatedStudySessionRoute(
  * [startedAtEpochSecond] flattens `SessionResult.startedAt` (a `java.time.Instant`, not itself a
  * primitive `androidx.navigation` can carry) to the one `Long` that reconstructs it.
  *
+ * [studyDateUtcOffsetMinutes] is captured once, at session start (`startStudyClock()` in
+ * `FastStudySessionViewModel`/`RatedStudySessionViewModel`) — carrying it on the route, rather than
+ * having the Summary ViewModel call `ZoneId.systemDefault()` fresh at submission time, keeps the
+ * derived study date tied to the zone the session actually ran in even if the device's zone changes
+ * before the user reaches this screen.
+ *
  * `SessionResult.xpConfig` (ADR-0047's snapshot rule) is flattened the same
  * way, one `xp`-prefixed field per [XpConfig] property — [xpConfig] reassembles them. Each field
  * defaults to [XpConfig]'s own default so a call site with no scoring stake in the route
@@ -148,6 +154,7 @@ data class StudySessionSummaryRoute(
     val sessionId: String,
     val mode: StudyMode,
     val startedAtEpochSecond: Long,
+    val studyDateUtcOffsetMinutes: Int,
     val durationSeconds: Int,
     val abandoned: Boolean,
     val categoryId: String,

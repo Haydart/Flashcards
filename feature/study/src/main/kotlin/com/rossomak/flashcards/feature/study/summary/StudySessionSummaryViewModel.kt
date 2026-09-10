@@ -13,8 +13,6 @@ import com.rossomak.flashcards.core.ui.navigation.decodeRoute
 import com.rossomak.flashcards.feature.study.StudySessionSummaryRoute
 import com.rossomak.flashcards.feature.study.toSessionResult
 import dagger.hilt.android.lifecycle.HiltViewModel
-import java.time.Instant
-import java.time.ZoneId
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -65,12 +63,11 @@ class StudySessionSummaryViewModel @Inject constructor(
      * `init` only runs once per back-stack entry (this ViewModel survives configuration change), so
      * there is no separate "have I already submitted" flag to maintain.
      *
-     * [studyDate], [studyDateUtcOffsetMinutes] and [dailyGoalMinutes] are captured **here**, once,
-     * right before [toSessionResult] — not derived inside that now-still-pure mapping function, and not
-     * re-read at eventual delivery time if the session sits in the offline queue (ADR-0048): the first
-     * two are pure, derived from the route's own [StudySessionSummaryRoute.startedAtEpochSecond] and
-     * the device's current default zone; [dailyGoalMinutes] is a fresh local preferences read, baked
-     * into the immutable [SessionResult] from this point on.
+     * [studyDate] and [studyDateUtcOffsetMinutes] are [toSessionResult]'s own concern now — both
+     * derived purely from the route (the offset was captured at session start, not here). Only
+     * [dailyGoalMinutes] is captured **here**, once, right before [toSessionResult]: a fresh local
+     * preferences read, not re-read at eventual delivery time if the session sits in the offline queue
+     * (ADR-0048), baked into the immutable [SessionResult] from this point on.
      *
      * [SubmitStudySessionUseCase] hands back the optimistic preview immediately, decoupled from
      * whatever its own submission to the server-authoritative `submitStudySession` Cloud Function
@@ -82,16 +79,8 @@ class StudySessionSummaryViewModel @Inject constructor(
      */
     private fun submitSession() {
         viewModelScope.launch {
-            val startedAtInstant = Instant.ofEpochSecond(route.startedAtEpochSecond)
-            val zone = ZoneId.systemDefault()
-            val studyDate = startedAtInstant.atZone(zone).toLocalDate().toString()
-            val studyDateUtcOffsetMinutes = zone.rules.getOffset(startedAtInstant).totalSeconds / SECONDS_PER_MINUTE
             val dailyGoalMinutes = observeUserPreferences().first().dailyGoalMinutes
-            val result = route.toSessionResult(
-                studyDate = studyDate,
-                studyDateUtcOffsetMinutes = studyDateUtcOffsetMinutes,
-                dailyGoalMinutes = dailyGoalMinutes,
-            )
+            val result = route.toSessionResult(dailyGoalMinutes = dailyGoalMinutes)
 
             // 0/0/0 for a Fast result is a UI-state convention only (see StudySessionSummaryScreenState's
             // own KDoc) — the screen already chooses its layout off `mode`, never off these being zero.
