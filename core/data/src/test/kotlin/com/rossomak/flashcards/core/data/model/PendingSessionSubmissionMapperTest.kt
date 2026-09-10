@@ -7,6 +7,7 @@ import com.rossomak.flashcards.core.domain.model.FlashcardResult
 import com.rossomak.flashcards.core.domain.model.FlashcardStudyProgressState
 import com.rossomak.flashcards.core.domain.model.SessionResult
 import com.rossomak.flashcards.core.domain.model.XpConfig
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import java.time.Instant
 import java.time.ZoneId
@@ -106,5 +107,39 @@ class PendingSessionSubmissionMapperTest {
 
         migrated.studyDate shouldBe dto.studyDate
         migrated.dailyGoalMinutes shouldBe dto.dailyGoalMinutes
+    }
+
+    @Test
+    fun `toDomain throws for an unknown mode`() {
+        val malformedDto = fastSessionResult().toDto().copy(mode = "Unknown")
+
+        shouldThrow<IllegalArgumentException> { malformedDto.toDomain() }
+    }
+
+    @Test
+    fun `toDomain throws for an unknown card result state`() {
+        val malformedDto = fastSessionResult().toDto().let { dto ->
+            dto.copy(cardResults = dto.cardResults.map { it.copy(state = "Unknown") })
+        }
+
+        shouldThrow<IllegalArgumentException> { malformedDto.toDomain() }
+    }
+
+    @Test
+    fun `toDomain throws for a Rated entry missing attemptsUsed`() {
+        val malformedDto = ratedSessionResult().toDto().let { dto ->
+            dto.copy(cardResults = dto.cardResults.map { it.copy(attemptsUsed = null) })
+        }
+
+        shouldThrow<IllegalArgumentException> { malformedDto.toDomain() }
+    }
+
+    @Test
+    fun `toDomain throws for a Rated entry missing wasPreviouslyMastered`() {
+        val malformedDto = ratedSessionResult().toDto().let { dto ->
+            dto.copy(cardResults = dto.cardResults.map { it.copy(wasPreviouslyMastered = null) })
+        }
+
+        shouldThrow<IllegalArgumentException> { malformedDto.toDomain() }
     }
 }
