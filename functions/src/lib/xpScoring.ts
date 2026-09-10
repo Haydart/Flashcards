@@ -190,8 +190,8 @@ function calculateBreakdown(
 }
 
 /**
- * The two new-in-spec-05-ticket-03 awards: a growing streak bonus for consecutive study days, and a
- * flat once-per-day bonus for meeting the Daily Goal. Pure — no Firestore, no clock; `state`/`input`/
+ * The two streak/goal awards: a growing streak bonus for consecutive study days, and a flat
+ * once-per-day bonus for meeting the Daily Goal. Pure — no Firestore, no clock; `state`/`input`/
  * `config` are all plain parameters, mirroring [computeSessionXp]'s own purity.
  */
 export interface StreakAndGoalInput {
@@ -219,7 +219,7 @@ export interface StreakAndGoalResult {
  * Both awards are forward-only: a submission whose `studyDate` is not strictly later than the stored
  * date never advances the streak and never regresses `lastStudyDate`/`goalMetDate` — covers same-day
  * resubmission (no double-count) and out-of-order offline delivery (an old session arriving after a
- * later one already committed) alike. See this ticket's spec file for the full rules.
+ * later one already committed) alike.
  */
 export function computeStreakAndGoalAwards(state: ScoringState, input: StreakAndGoalInput, config: XpConfig): StreakAndGoalResult {
   let currentStreak = state.currentStreak;

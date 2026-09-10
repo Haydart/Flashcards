@@ -1,5 +1,5 @@
-// Firestore Security Rules tests (spec 04 ticket 01, locked down further by spec 08 ticket 04). Small
-// and standalone on purpose — this is a guard against a specific class of production-only failure
+// Firestore Security Rules tests, covering the server-authoritative client-read-only rules (ADR-0049).
+// Small and standalone on purpose — this is a guard against a specific class of production-only failure
 // (there is no other way to verify a rule without deploying it), not a second test framework for the
 // project. Run via `npm test` in this directory, which starts the Firestore emulator (see
 // ../firebase.json) and runs this file under Node's built-in test runner.
@@ -25,7 +25,7 @@ const progressDoc = { categoryId: 'cat-1', cards: {} };
 /** A minimal, syntactically valid progress-summary document (ADR-0016) — rules don't inspect its shape. */
 const progressSummaryDoc = { subcategories: {} };
 
-/** A minimal, syntactically valid scoring-state document (spec 05 ticket 02) — rules don't inspect its shape. */
+/** A minimal, syntactically valid scoring-state document — rules don't inspect its shape. */
 const scoringStateDoc = { xp: 0, level: 1, xpIntoCurrentLevel: 0, currentStreak: 0, bestStreak: 0, lastStudyDate: '', goalMetDate: '' };
 
 let testEnv;
@@ -51,8 +51,8 @@ afterEach(async () => {
 
 /**
  * Seeds a document straight past security rules, the way `submitStudySession`'s Admin SDK context
- * would — spec 08 ticket 04 made every document below client-read-only, so a client `setDoc` can no
- * longer be used to arrange fixtures for the read/foreign-user/unauthenticated assertions.
+ * would — every document below is client-read-only (ADR-0049), so a client `setDoc` can no longer be
+ * used to arrange fixtures for the read/foreign-user/unauthenticated assertions.
  */
 async function seedAsAdmin(path, data) {
   await testEnv.withSecurityRulesDisabled(async (adminContext) => {
@@ -60,7 +60,7 @@ async function seedAsAdmin(path, data) {
   });
 }
 
-describe('users/{uid}/sessions/{sessionId} (spec 08 ticket 04: client-read-only)', () => {
+describe('users/{uid}/sessions/{sessionId} (client-read-only, ADR-0049)', () => {
   it('the owning user can read their own session', async () => {
     await seedAsAdmin(`users/${OWNER_UID}/sessions/session-1`, sessionDoc);
     const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
@@ -97,7 +97,7 @@ describe('users/{uid}/sessions/{sessionId} (spec 08 ticket 04: client-read-only)
   });
 });
 
-describe('users/{uid}/progress/details/subcategories/{subcategoryId} (spec 08 ticket 04: client-read-only)', () => {
+describe('users/{uid}/progress/details/subcategories/{subcategoryId} (client-read-only, ADR-0049)', () => {
   it('the owning user can read their own progress document', async () => {
     await seedAsAdmin(`users/${OWNER_UID}/progress/details/subcategories/sub-1`, progressDoc);
     const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
@@ -132,7 +132,7 @@ describe('users/{uid}/progress/details/subcategories/{subcategoryId} (spec 08 ti
   });
 });
 
-describe('users/{uid}/progress/{docId} (spec 08 ticket 04: client-read-only)', () => {
+describe('users/{uid}/progress/{docId} (client-read-only, ADR-0049)', () => {
   it('the owning user can read their own progress-summary document', async () => {
     await seedAsAdmin(`users/${OWNER_UID}/progress/summary`, progressSummaryDoc);
     const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
@@ -167,7 +167,7 @@ describe('users/{uid}/progress/{docId} (spec 08 ticket 04: client-read-only)', (
   });
 });
 
-describe('users/{uid}/progress/user-stats (spec 05 ticket 02, spec 08 ticket 04: client-read-only)', () => {
+describe('users/{uid}/progress/user-stats (scoring state, client-read-only, ADR-0049)', () => {
   it('the owning user can read their own scoring-state document', async () => {
     await seedAsAdmin(`users/${OWNER_UID}/progress/user-stats`, scoringStateDoc);
     const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
