@@ -7,6 +7,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.RandomAccessFile
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -71,12 +72,28 @@ class FilePendingSessionSubmissionLocalDataSource @Inject constructor(
 
     override suspend fun append(pendingSessionSubmission: PendingSessionSubmissionDto) = withContext(Dispatchers.IO) {
         mutex.withLock {
+            // A prior append() can have died mid-write, leaving the file's last byte something other
+            // than '\n' (a torn trailing line). Appending straight onto that would concatenate this
+            // entry's JSON onto the torn one, corrupting both instead of just the one already lost —
+            // so a missing trailing newline gets a separator written first.
+            if (needsLeadingNewline()) {
+                FileOutputStream(file, true).bufferedWriter().use { it.newLine() }
+            }
             FileOutputStream(file, true).bufferedWriter().use { writer ->
                 writer.write(Json.encodeToString(pendingSessionSubmission))
                 writer.newLine()
             }
             Log.d(TAG, "Appended session ${pendingSessionSubmission.id} to queue file")
             Unit
+        }
+    }
+
+    /** Must only be called while holding [mutex]. False for a missing or empty file — nothing to separate from. */
+    private fun needsLeadingNewline(): Boolean {
+        if (!file.exists() || file.length() == 0L) return false
+        RandomAccessFile(file, "r").use { randomAccessFile ->
+            randomAccessFile.seek(file.length() - 1)
+            return randomAccessFile.read().toChar() != '\n'
         }
     }
 

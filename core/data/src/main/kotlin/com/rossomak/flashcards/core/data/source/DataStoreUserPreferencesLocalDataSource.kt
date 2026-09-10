@@ -14,8 +14,8 @@ import com.rossomak.flashcards.core.domain.model.UserPreference.DailyGoalMinutes
 import com.rossomak.flashcards.core.domain.model.UserPreference.HasSeenOnboarding
 import com.rossomak.flashcards.core.domain.model.UserPreference.VoiceAnswerConsent
 import com.rossomak.flashcards.core.domain.model.UserPreferences
-import java.io.IOException
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -24,9 +24,14 @@ class DataStoreUserPreferencesLocalDataSource @Inject constructor(
     @UserPreferencesDataStore private val dataStore: DataStore<Preferences>,
 ) : UserPreferencesLocalDataSource {
 
+    // Any read failure — not just IOException — falls back to defaults rather than propagating: a
+    // corrupted or unreadable preferences file must never crash a caller that only wants "give me
+    // *some* value" (e.g. StudySessionSummaryViewModel reading dailyGoalMinutes before XP submission).
+    // CancellationException is rethrown, never swallowed, so structured concurrency still works.
     override fun userPreferences(): Flow<UserPreferences> = dataStore.data
         .catch { error ->
-            if (error is IOException) emit(emptyPreferences()) else throw error
+            if (error is CancellationException) throw error
+            emit(emptyPreferences())
         }
         .map { prefs ->
             UserPreferences(
